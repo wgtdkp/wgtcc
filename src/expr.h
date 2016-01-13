@@ -199,6 +199,69 @@ private:
 	bool _isAdd;
 };
 
+class ShiftOp : public BinaryOp
+{
+	friend class TranslationUnit;
+public:
+	virtual ~ShiftOp(void) {}
+protected:
+	ShiftOp(Expr* lhs, Expr* rhs, bool isLeft)
+		: BinaryOp(lhs, rhs), _isLeft(isLeft) {}
+	virtual ShiftOp* TypeChecking(void);
+private:
+	bool _isLeft;
+};
+
+
+// including euqality operators: '==', '!=' 
+class RelationalOp : public BinaryOp
+{
+	friend class TranslationUnit;
+public:
+	virtual ~RelationalOp(void) {}
+protected:
+	RelationalOp(Expr* lhs, Expr* rhs, int op) 
+		: BinaryOp(lhs, rhs), _op(op) {
+		assert('<' == op || '>' == op 
+			|| Token::LE_OP == op || Token::GE_OP == op
+			|| Token::EQ_OP == op || Token::NE_OP == op);
+	}
+	virtual RelationalOp* TypeChecking(void);
+private:
+	int _op;
+};
+
+class BinaryBitwiseOp : public BinaryOp
+{
+	friend class TranslationUnit;
+public:
+	virtual ~BinaryBitwiseOp(void) {}
+protected:
+	BinaryBitwiseOp(Expr* lhs, Expr* rhs, int op)
+		: BinaryOp(lhs, rhs), _op(op) {
+		assert('&' == op || '|' == op || '^' == op);
+	}
+	virtual BinaryBitwiseOp* TypeChecking(void);
+private:
+	int _op;
+};
+
+class BinaryLogicalOp : public BinaryOp
+{
+	friend class TranslationUnit;
+public:
+	virtual ~BinaryLogicalOp(void) {}
+protected:
+	BinaryLogicalOp(Expr* lhs, Expr* rhs, bool isAnd)
+		: BinaryOp(lhs, rhs), _isAnd(isAnd) {}
+	virtual BinaryLogicalOp* TypeChecking(void);
+private:
+	bool _isAnd;
+};
+
+
+/************* Unary Operator ****************/
+
 class UnaryOp : public Expr
 {
 	friend class TranslationUnit;

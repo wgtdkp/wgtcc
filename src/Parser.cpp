@@ -255,3 +255,123 @@ Expr* Parser::ParseAdditiveExpr(void)
 	return PutBack(), lhs;
 }
 
+Expr* Parser::ParseShiftExpr(void)
+{
+	auto lhs = ParseAdditiveExpr();
+	auto tag = Next()->Tag();
+	while (Token::LEFT_OP == tag || Token::RIGHT_OP == tag) {
+		auto rhs = ParseAdditiveExpr();
+		tag = Next()->Tag();
+	}
+	return PutBack(), lhs;
+}
+
+Expr* Parser::ParseRelationalExpr(void)
+{
+	auto lhs = ParseShiftExpr();
+	auto tag = Next()->Tag();
+	while (Token::LE_OP == tag || Token::GE_OP == tag 
+		|| '<' == tag || '>' == tag) {
+		auto rhs = ParseShiftExpr();
+		lhs = TranslationUnit::NewRelationalOp(lhs, rhs, tag);
+		tag = Next()->Tag();
+	}
+	return PutBack(), lhs;
+}
+
+Expr* Parser::ParseEqualityExpr(void)
+{
+	auto lhs = ParseRelationalExpr();
+	auto tag = Next()->Tag();
+	while (Token::EQ_OP == tag || Token::NE_OP == tag) {
+		auto rhs = ParseRelationalExpr();
+		lhs = TranslationUnit::NewEqualityOp(lhs, rhs, Token::EQ_OP == tag);
+		tag = Next()->Tag();
+	}
+	return PutBack(), lhs;
+}
+
+Expr* Parser::ParseBitiwiseAndExpr(void)
+{
+	auto lhs = ParseEqualityExpr();
+	while (Try('&')) {
+		auto rhs = ParseEqualityExpr();
+		lhs = TranslationUnit::NewBitwiseAndOp(lhs, rhs);
+	}
+	return lhs;
+}
+
+Expr* Parser::ParseBitwiseXorExpr(void)
+{
+	auto lhs = ParseBitiwiseAndExpr();
+	while (Try('^')) {
+		auto rhs = ParseBitiwiseAndExpr();
+		lhs = TranslationUnit::NewBitwiseXorOp(lhs, rhs);
+	}
+	return lhs;
+}
+
+Expr* Parser::ParseBitwiseOrExpr(void)
+{
+	auto lhs = ParseBitwiseXorExpr();
+	while (Try('|')) {
+		auto rhs = ParseBitwiseXorExpr();
+		lhs = TranslationUnit::NewBitwiseOrOp(lhs, rhs);
+	}
+	return lhs;
+}
+
+Expr* Parser::ParseLogicalAndExpr(void)
+{
+	auto lhs = ParseBitwiseOrExpr();
+	while (Try(Token::AND_OP)) {
+		auto rhs = ParseBitwiseOrExpr();
+		lhs = TranslationUnit::NewLogicalAndOp(lhs, rhs);
+	}
+	return lhs;
+}
+
+Expr* Parser::ParseLogicalOrExpr(void)
+{
+	auto lhs = ParseLogicalAndExpr();
+	while (Try(Token::OR_OP)) {
+		auto rhs = ParseLogicalAndExpr();
+		lhs = TranslationUnit::NewLogicalAndOp(lhs, rhs);
+	}
+	return lhs;
+}
+
+Expr* Parser::ParseConditionalExpr(void)
+{
+	auto cond = ParseLogicalOrExpr();
+	if (Try('?')) {
+		auto exprTrue = ParseExpr();
+		Expect(':');
+		auto exprFalse = ParseConditionalExpr();
+		return TranslationUnit::NewConditionalOp(cond, exprTrue, exprFalse);
+	}
+	return cond;
+}
+
+Expr* Parser::ParseAssignExpr(void)
+{
+	//yes i know the lhs should be unary expression, let it handled by type checking
+	Expr* lhs = ParseConditionalExpr();
+	Expr* rhs;
+	switch (Next()->Tag()) {
+	case Token::MUL_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, '*'); goto RETURN;
+	case Token::DIV_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, '/'); goto RETURN;
+	case Token::MOD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, '%'); goto RETURN;
+	case Token::ADD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewAdditiveOp(lhs, rhs, true); goto RETURN;
+	case Token::SUB_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewAdditiveOp(lhs, rhs, false); goto RETURN;
+	case Token::LEFT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewShiftOp(lhs, rhs, false); goto RETURN;
+	case Token::RIGHT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewShiftOp(lhs, rhs, true); goto RETURN;
+	case Token::AND_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBitwiseAndOp(lhs, rhs); goto RETURN;
+	case Token::XOR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBitwiseXorOp(lhs, rhs); goto RETURN;
+	case Token::OR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBitwiseOrOp(lhs, rhs); goto RETURN;
+	case '=': rhs = ParseAssignExpr(); goto RETURN;
+	default: return lhs;
+	}
+RETURN:
+	return TranslationUnit::NewAssignOp(lhs, rhs);
+}

@@ -32,6 +32,26 @@ AdditiveOp* TranslationUnit::NewAdditiveOp(Expr* lhs, Expr* rhs, bool isAdd)
 	return (new AdditiveOp(lhs, rhs, isAdd))->TypeChecking();
 }
 
+ShiftOp* TranslationUnit::NewShiftOp(Expr* lhs, Expr* rhs, bool isLeft)
+{
+	return (new ShiftOp(lhs, rhs, isLeft))->TypeChecking();
+}
+
+BitwiseAndOp* TranslationUnit::NewBitwiseAndOp(Expr* lhs, Expr* rhs)
+{
+	return (new BitwiseAndOp(lhs, rhs))->TypeChecking();
+}
+
+BitwiseOrOp* TranslationUnit::NewBitwiseOrOp(Expr* lhs, Expr* rhs)
+{
+	return (new BitwiseOrOp(lhs, rhs))->TypeChecking();
+}
+
+BitwiseXorOp* TranslationUnit::NewBitwiseXorOp(Expr* lhs, Expr* rhs)
+{
+	return (new BitwiseXorOp(lhs, rhs))->TypeChecking();
+}
+
 /*
 UnaryOp* TranslationUnit::NewUnaryOp(Type* type, int op, Expr* expr) {
 	return new UnaryOp(type, op, expr);

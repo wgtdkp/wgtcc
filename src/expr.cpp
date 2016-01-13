@@ -64,9 +64,63 @@ AdditiveOp* AdditiveOp::TypeChecking(void)
 	
 
 	//TODO: type promotion
+
 	_ty = _lhs->Ty();
 	return this;
 }
+
+ShiftOp* ShiftOp::TypeChecking(void)
+{
+	//TODO: type checking
+
+	_ty = _lhs->Ty();
+	return this;
+}
+
+RelationalOp* RelationalOp::TypeChecking(void)
+{
+	//TODO: type checking
+
+	_ty = Type::NewArithmType(ArithmType::TBOOL);
+	return this;
+}
+
+EqualityOp* EqualityOp::TypeChecking(void)
+{
+	//TODO: type checking
+
+	_ty = Type::NewArithmType(ArithmType::TBOOL);
+	return this;
+}
+
+BitwiseAndOp* BitwiseAndOp::TypeChecking(void)
+{
+	if (_lhs->Ty()->IsInteger() || _rhs->Ty()->IsInteger())
+		Error("operands of '&' should be integer");
+	//TODO: type promotion
+	_ty = Type::NewArithmType(ArithmType::TINT);
+	return this;
+}
+
+BitwiseOrOp* BitwiseOrOp::TypeChecking(void)
+{
+	if (_lhs->Ty()->IsInteger() || _rhs->Ty()->IsInteger())
+		Error("operands of '|' should be integer");
+	//TODO: type promotion
+	_ty = Type::NewArithmType(ArithmType::TINT);
+	return this;
+}
+
+BitwiseXorOp* BitwiseXorOp::TypeChecking(void)
+{
+	if (_lhs->Ty()->IsInteger() || _rhs->Ty()->IsInteger())
+		Error("operands of '^' should be integer");
+	//TODO: type promotion
+	_ty = Type::NewArithmType(ArithmType::TINT);
+	return this;
+}
+
+
 
 FuncCall* FuncCall::TypeChecking(void)
 {

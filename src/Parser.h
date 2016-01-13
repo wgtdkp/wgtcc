@@ -71,9 +71,20 @@ public:
 	Expr* ParseCastExpr(void);
 	Expr* ParseMultiplicativeExpr(void);
 	Expr* ParseAdditiveExpr(void);
+	Expr* ParseShiftExpr(void);
+	Expr* ParseRelationalExpr(void);
+	Expr* ParseEqualityExpr(void);
+	Expr* ParseBitiwiseAndExpr(void);
+	Expr* ParseBitwiseXorExpr(void);
+	Expr* ParseBitwiseOrExpr(void);
+	Expr* ParseLogicalAndExpr(void);
+	Expr* ParseLogicalOrExpr(void);
+	Expr* ParseConditionalExpr(void);
+
+
 	Expr* ParseCommaExpr(void);
 
-	BinaryOp* ParseAssignExpr(void);
+	Expr* ParseAssignExpr(void);
 
     /*
     AssignmentExpression* ParseAssignmentExpression(void);

@@ -16,6 +16,11 @@ class SubScriptingOp;
 class MemberRefOp;
 class MultiplicativeOp;
 class AdditiveOp;
+class ShiftOp;
+class BitwiseAndOp;
+class BitwiseOrOp;
+class BitwiseXorOp;
+
 
 class UnaryOp;
 class PostfixIncDecOp;
@@ -27,8 +32,6 @@ class FuncCall;
 class Variable;
 class Constant;
 class AssignExpr;
-
-
 
 /************ AST Node *************/
 
@@ -82,6 +85,12 @@ public:
 	static MemberRefOp* NewMemberRefOp(Expr* lhs, const char* memberName, bool isPtrOp);
 	static MultiplicativeOp* NewMultiplicativeOp(Expr* lhs, Expr* rhs, int op);
 	static AdditiveOp* NewAdditiveOp(Expr* lhs, Expr* rhs, bool isAdd);
+	static ShiftOp* NewShiftOp(Expr* lhs, Expr* rhs, bool isLeft);
+
+	static BitwiseAndOp* NewBitwiseAndOp(Expr* lhs, Expr* rhs);
+	static BitwiseOrOp* NewBitwiseOrOp(Expr* lhs, Expr* rhs);
+	static BitwiseXorOp* NewBitwiseXorOp(Expr* lhs, Expr* rhs);
+
 
 	static FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
 	static Variable* NewVariable(Type* type, int offset = 0);
