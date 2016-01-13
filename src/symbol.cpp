@@ -1,10 +1,24 @@
 #include "symbol.h"
 #include "ast.h"
+#include "expr.h"
 #include "error.h"
 
 using namespace std;
 
 /***************** Type *********************/
+
+bool Type::IsInteger(void) const {
+	auto arithmType = ToArithmType();
+	if (nullptr == arithmType) return false;
+	return arithmType->IsInteger();
+}
+
+bool Type::IsReal(void) const {
+	auto arithmType = ToArithmType();
+	if (nullptr == arithmType) return false;
+	return arithmType->IsReal();
+}
+
 
 ArithmType* _arithmTypes[ArithmType::SIZE] = { 0 };
 

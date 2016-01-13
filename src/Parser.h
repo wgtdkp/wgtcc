@@ -56,8 +56,8 @@ public:
 
 	Expr* ParsePostfixExpr(void);
 	Expr* ParsePostfixExprTail(Expr* primExpr);
-	BinaryOp* ParseSubScripting(Expr* pointer);
-	BinaryOp* ParseMemberRef(Expr* objExpr);
+	SubScriptingOp* ParseSubScripting(Expr* pointer);
+	MemberRefOp* ParseMemberRef(int tag, Expr* lhs);
 	UnaryOp* ParsePostfixIncDec(int tag, Expr* expr);
 	FuncCall* ParseFuncCall(Expr* caller);
 
@@ -68,10 +68,10 @@ public:
 	UnaryOp* ParseAddrOperand(void);
 
 	Type* ParseTypeName(void);
-
 	Expr* ParseCastExpr(void);
-
-	BinaryOp* ParseCommaExpr(void);
+	Expr* ParseMultiplicativeExpr(void);
+	Expr* ParseAdditiveExpr(void);
+	Expr* ParseCommaExpr(void);
 
 	BinaryOp* ParseAssignExpr(void);
 

@@ -130,6 +130,7 @@ public:
 		DEREF,
 		PLUS,
 		MINUS,
+		CAST,
 			
 
 		IGNORE,

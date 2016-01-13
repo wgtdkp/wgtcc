@@ -1,3 +1,4 @@
+#include "expr.h"
 #include "parser.h"
 #include "error.h"
 
@@ -28,16 +29,14 @@ Expr* Parser::ParseExpr(void)
 	return ParseCommaExpr();
 }
 
-BinaryOp* Parser::ParseCommaExpr(void)
+Expr* Parser::ParseCommaExpr(void)
 {
-	auto commaExpr = ParseAssignExpr();
+	auto lhs = ParseAssignExpr();
 	while (Try(',')) {
 		auto rhs = ParseAssignExpr();
-		//the type of comma expression is 
-		//the type of the last assignment expression
-		commaExpr = TranslationUnit::NewBinaryOp(rhs->Ty(), ',', commaExpr, rhs);
+		lhs = TranslationUnit::NewCommaOp(lhs, rhs);
 	}
-	return commaExpr;
+	return lhs;
 }
 
 BinaryOp* Parser::ParseAssignExpr(void)
@@ -111,85 +110,50 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 	for (; ;) {
 		auto tag = Next()->Tag();
 		switch (tag) {
-		case '[': 
-			lhs = ParseSubScripting(lhs);
-			break;
-		case '(': 
-			lhs = ParseFuncCall(lhs);
-			break;
-		case '.':
-		case Token::PTR_OP: 
-			lhs = ParseMemberRef(lhs);
-			break;
-		case Token::INC_OP: 
-		case Token::DEC_OP:
-			lhs = ParsePostfixIncDec(tag, lhs);
-			break;
+		case '[': lhs = ParseSubScripting(lhs); break;
+		case '(': lhs = ParseFuncCall(lhs); break;
+		case '.': case Token::PTR_OP: lhs = ParseMemberRef(tag, lhs); break;
+		case Token::INC_OP: case Token::DEC_OP: lhs = ParsePostfixIncDec(tag, lhs); break;
 		default: return PutBack(), lhs;
 		}
 	}
 }
 
-BinaryOp* Parser::ParseSubScripting(Expr* pointer)
+SubScriptingOp* Parser::ParseSubScripting(Expr* pointer)
 {
-	auto pointerType = pointer->Ty()->ToPointerType();
-	if (nullptr == pointerType) {
-		//TODO: error
-		Error("an pointer expected");
-	}
 	auto indexExpr = ParseExpr();
-	auto intType = indexExpr->Ty()->ToArithmType();
-	if (nullptr == intType && intType->IsInteger()) {
-		//TODO:error ensure int type
-		Error("the operand of [] should be intger");
-	}
-
 	Expect(']');
-	//the type of operator '[' is the type pointer points to
-	return TranslationUnit::NewBinaryOp(pointerType->Derived(), '[', pointer, indexExpr);
+	return TranslationUnit::NewSubScriptingOp(pointer, indexExpr);
 }
 
 
-BinaryOp* Parser::ParseMemberRef(Expr* objExpr)
+MemberRefOp* Parser::ParseMemberRef(int tag, Expr* lhs)
 {
-	auto objType = objExpr->Ty()->ToStructUnionType();
-	if (nullptr == objType) {
-		Error("an struct/union expected");
-	}
 	Expect(Token::IDENTIFIER);
 	auto memberName = Peek()->Val();
-	auto member = objType->Find(memberName);
-	if (nullptr == member) {
-		//TODO: how to print type info ?
-		Error("'%s' is not a member of '%s'", memberName, "[obj]");
-	}
-	return TranslationUnit::NewBinaryOp(member->Ty(), '.', objExpr, member);
+	return TranslationUnit::NewMemberRefOp(lhs, memberName, Token::PTR_OP == tag);
 }
 
-UnaryOp* Parser::ParsePostfixIncDec(int tag, Expr* expr)
+UnaryOp* Parser::ParsePostfixIncDec(int tag, Expr* operand)
 {
-	EnsureModifiable(expr);
-	int op = tag == Token::INC_OP ? Token::POSTFIX_INC : Token::POSTFIX_DEC;
-	return TranslationUnit::NewUnaryOp(expr->Ty(), op, expr);
+	return TranslationUnit::NewPostfixIncDecOp(operand, tag == Token::INC_OP);
 }
 
-FuncCall* Parser::ParseFuncCall(Expr* func)
+FuncCall* Parser::ParseFuncCall(Expr* designator)
 {
-	auto funcType = func->Ty()->ToFuncType();
-	if (nullptr == funcType) {
-		Error("not a function type");
-	}
-
-	list<Expr*> args;
-	args.push_back(ParseAssignExpr());
+	//TODO: ParseArgs
+	list<Expr*> args;// = ParseFuncArgs(designator);
+	Expect(')');
+	/*
+		args.push_back(ParseAssignExpr());
 	while (Try(',')) {
 		args.push_back(ParseAssignExpr());
 		//TODO: args type checking
 
 	}
-
-	Expect(')');
-	return TranslationUnit::NewFuncCall(funcType->Derived(), func, args);
+	*/
+	
+	return TranslationUnit::NewFuncCall(designator, args);
 }
 
 Expr* Parser::ParseUnaryExpr(void)
@@ -215,7 +179,6 @@ Constant* Parser::ParseSizeofOperand(void)
 	if (tok->Tag() == '(' && IsType(Peek())) {
 		type = ParseTypeName();
 		Expect(')');
-		
 	} else {
 		PutBack();
 		auto unaryExpr = ParseUnaryExpr();
@@ -241,26 +204,15 @@ Constant* Parser::ParseAlignofOperand(void)
 UnaryOp* Parser::ParsePrefixIncDec(int tag)
 {
 	assert(Token::INC_OP == tag || Token::DEC_OP == tag);
-	auto unaryExpr = ParseUnaryExpr();
-	EnsureModifiable(unaryExpr);
-	auto op = tag == Token::INC_OP ? Token::PREFIX_INC : Token::PREFIX_DEC;
-	return TranslationUnit::NewUnaryOp(unaryExpr->Ty(), op, unaryExpr);
+	auto operand = ParseUnaryExpr();
+	return TranslationUnit::NewPrefixIncDecOp(operand, Token::INC_OP == tag);
 }
 
 UnaryOp* Parser::ParseAddrOperand(void)
 {
-	auto castExpr = ParseCastExpr();
-	PointerType* pointerType;
-	if (nullptr != castExpr->Ty()->ToFuncType()) {
-		pointerType = Type::NewPointerType(castExpr->Ty());
-		return TranslationUnit::NewUnaryOp(pointerType, '&', castExpr);
-	}
-
-	EnsureLVal(castExpr);
-	pointerType = Type::NewPointerType(castExpr->Ty());
-	return TranslationUnit::NewUnaryOp(pointerType, '&', castExpr);
+	auto operand = ParseCastExpr();
+	return TranslationUnit::NewAddrOp(operand);
 }
-
 
 Type* Parser::ParseTypeName(void)
 {
@@ -269,7 +221,37 @@ Type* Parser::ParseTypeName(void)
 
 Expr* Parser::ParseCastExpr(void)
 {
-	return nullptr;
+	auto tok = Next();
+	if (tok->Tag() == '(' && IsType(Peek())) {
+		auto desType = ParseTypeName();
+		Expect(')');
+		auto operand = ParseCastExpr();
+		return TranslationUnit::NewCastOp(operand, desType);
+	} 
+	return PutBack(), ParseUnaryExpr();
 }
 
+Expr* Parser::ParseMultiplicativeExpr(void)
+{
+	auto lhs = ParseCastExpr();
+	auto tag = Next()->Tag();
+	while ('*' == tag || '/' == tag || '%' == tag) {
+		auto rhs = ParseCastExpr();
+		lhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, tag);
+		tag = Next()->Tag();
+	}
+	return PutBack(), lhs;
+}
+
+Expr* Parser::ParseAdditiveExpr(void)
+{
+	auto lhs = ParseMultiplicativeExpr();
+	auto tag = Next()->Tag();
+	while ('+' == tag || '-' == tag) {
+		auto rhs = ParseMultiplicativeExpr();
+		lhs = TranslationUnit::NewAdditiveOp(lhs, rhs, '+' == tag);
+		tag = Next()->Tag();
+	}
+	return PutBack(), lhs;
+}
 

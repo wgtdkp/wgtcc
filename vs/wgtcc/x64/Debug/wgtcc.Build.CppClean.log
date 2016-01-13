@@ -1,10 +1,13 @@
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\vc140.pdb
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\vc140.idb
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\ast.obj
+g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\decl.obj
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\error.obj
+g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\expr.obj
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\lexer.obj
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\main.obj
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\parser.obj
+g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\stmt.obj
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\symbol.obj
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\token.obj
 g:\onedrive\github\wgtcc\vs\wgtcc\x64\debug\wgtcc.ilk

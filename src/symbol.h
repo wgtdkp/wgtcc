@@ -60,6 +60,14 @@ public:
 		return _qual & CONST;
 	}
 
+	bool IsScalar(void) const {
+		return (nullptr != ToArithmType() 
+			|| nullptr != ToPointerType());
+	}
+
+	bool IsInteger(void) const;
+	bool IsReal(void) const;
+
 	virtual ArithmType* ToArithmType(void) {
 		return nullptr;
 	}

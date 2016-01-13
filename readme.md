@@ -1,1 +1,2 @@
-a C compiler implemented in C++
+# wgtcc
+a tiny C compiler in C++
