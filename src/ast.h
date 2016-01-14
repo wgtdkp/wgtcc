@@ -11,23 +11,8 @@ class ASTNode;
 typedef ASTNode ExtDecl;
 class Expr;
 class BinaryOp;
-class CommaOp;
-class SubScriptingOp;
-class MemberRefOp;
-class MultiplicativeOp;
-class AdditiveOp;
-class ShiftOp;
-class BitwiseAndOp;
-class BitwiseOrOp;
-class BitwiseXorOp;
-
-
+class ConditionalOp;
 class UnaryOp;
-class PostfixIncDecOp;
-class PrefixIncDecOp;
-class AddrOp;
-class CastOp;
-
 class FuncCall;
 class Variable;
 class Constant;
@@ -79,28 +64,17 @@ public:
 		return new TranslationUnit();
 	}
 	/************** Binary Operator ****************/
-	//static BinaryOp* NewBinaryOp(Type* type, int op, Expr* lhs, Expr* rhs);
-	static CommaOp* NewCommaOp(Expr* lhs, Expr* rhs);
-	static SubScriptingOp* NewSubScriptingOp(Expr* lhs, Expr* rhs);
-	static MemberRefOp* NewMemberRefOp(Expr* lhs, const char* memberName, bool isPtrOp);
-	static MultiplicativeOp* NewMultiplicativeOp(Expr* lhs, Expr* rhs, int op);
-	static AdditiveOp* NewAdditiveOp(Expr* lhs, Expr* rhs, bool isAdd);
-	static ShiftOp* NewShiftOp(Expr* lhs, Expr* rhs, bool isLeft);
-
-	static BitwiseAndOp* NewBitwiseAndOp(Expr* lhs, Expr* rhs);
-	static BitwiseOrOp* NewBitwiseOrOp(Expr* lhs, Expr* rhs);
-	static BitwiseXorOp* NewBitwiseXorOp(Expr* lhs, Expr* rhs);
+	static BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
+	static BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);
 
 
+	static ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
 	static FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
 	static Variable* NewVariable(Type* type, int offset = 0);
 	static Constant* NewConstant(ArithmType* type, size_t val);
 	static Constant* NewConstant(PointerType* type);
 
-	static PostfixIncDecOp* NewPostfixIncDecOp(Expr* operand, bool isInc);
-	static PrefixIncDecOp* NewPrefixIncDecOp(Expr* operand, bool isInc);
-	static AddrOp* NewAddrOp(Expr* operand);
-	static CastOp* NewCastOp(Expr* operand, Type* desType);
+	static UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
 private:
 	TranslationUnit(void) {}
 

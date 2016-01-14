@@ -1,55 +1,28 @@
 #include "ast.h"
 #include "expr.h"
 
-/*
-BinaryOp* TranslationUnit::NewBinaryOp(Type* type, int op, Expr* lhs, Expr* rhs) {
-	return new BinaryOp(type, op, lhs, rhs);
-}
-*/
-
-CommaOp* TranslationUnit::NewCommaOp(Expr* lhs, Expr* rhs)
+ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
 {
-	return (new CommaOp(lhs, rhs))->TypeChecking();
+	return (new ConditionalOp(cond, exprTrue, exprFalse))->TypeChecking();
 }
 
-SubScriptingOp* TranslationUnit::NewSubScriptingOp(Expr* lhs, Expr* rhs)
+BinaryOp* TranslationUnit::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
 {
-	return (new SubScriptingOp(lhs, rhs))->TypeChecking();
+	switch (op) {
+	case '[': case '*': case '/': case '%': case '+': case '-': 
+	case Token::LEFT_OP: case Token::RIGHT_OP: case '<': case '>': 
+	case Token::LE_OP: case Token::GE_OP: case Token::EQ_OP: case Token::NE_OP: 
+	case '&': case '^': case '|': case Token::AND_OP: case Token::OR_OP: break;
+	default: assert(0);
+	}
+	return (new BinaryOp(op, lhs, rhs))->TypeChecking();
 }
 
-MemberRefOp* TranslationUnit::NewMemberRefOp(Expr* lhs, const char* memberName, bool isPtrOp)
+BinaryOp* TranslationUnit::NewMemberRefOp(int op, Expr* lhs, const char* rhsName)
 {
-	return (new MemberRefOp(lhs, memberName, isPtrOp))->TypeChecking();
-}
-
-MultiplicativeOp* TranslationUnit::NewMultiplicativeOp(Expr* lhs, Expr* rhs, int op)
-{
-	return (new MultiplicativeOp(lhs, rhs, op))->TypeChecking();
-}
-
-AdditiveOp* TranslationUnit::NewAdditiveOp(Expr* lhs, Expr* rhs, bool isAdd)
-{
-	return (new AdditiveOp(lhs, rhs, isAdd))->TypeChecking();
-}
-
-ShiftOp* TranslationUnit::NewShiftOp(Expr* lhs, Expr* rhs, bool isLeft)
-{
-	return (new ShiftOp(lhs, rhs, isLeft))->TypeChecking();
-}
-
-BitwiseAndOp* TranslationUnit::NewBitwiseAndOp(Expr* lhs, Expr* rhs)
-{
-	return (new BitwiseAndOp(lhs, rhs))->TypeChecking();
-}
-
-BitwiseOrOp* TranslationUnit::NewBitwiseOrOp(Expr* lhs, Expr* rhs)
-{
-	return (new BitwiseOrOp(lhs, rhs))->TypeChecking();
-}
-
-BitwiseXorOp* TranslationUnit::NewBitwiseXorOp(Expr* lhs, Expr* rhs)
-{
-	return (new BitwiseXorOp(lhs, rhs))->TypeChecking();
+	assert('.' == op || Token::PTR_OP == op);
+	//the initiation of rhs is lefted in type checking
+	return (NewBinaryOp(op, lhs, nullptr))->MemberRefOpTypeChecking(rhsName);
 }
 
 /*
@@ -75,22 +48,9 @@ Constant* TranslationUnit::NewConstant(PointerType* type) {
 	return new Constant(type);
 }
 
-PostfixIncDecOp* TranslationUnit::NewPostfixIncDecOp(Expr* operand, bool isInc)
+
+UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
 {
-	return (new PostfixIncDecOp(operand, isInc))->TypeChecking();
+	return (new UnaryOp(op, operand, type))->TypeChecking();
 }
 
-PrefixIncDecOp* TranslationUnit::NewPrefixIncDecOp(Expr* operand, bool isInc)
-{
-	return (new PrefixIncDecOp(operand, isInc))->TypeChecking();
-}
-
-AddrOp* TranslationUnit::NewAddrOp(Expr* operand)
-{
-	return (new AddrOp(operand))->TypeChecking();
-}
-
-CastOp* TranslationUnit::NewCastOp(Expr* operand, Type* desType)
-{
-	return (new CastOp(operand, desType))->TypeChecking();
-}

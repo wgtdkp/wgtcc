@@ -103,6 +103,21 @@ public:
 	~AssignExpr(void) {}
 };
 
+class ConditionalOp : public Expr
+{
+	friend class TranslationUnit;
+public:
+	virtual ~ConditionalOp(void) {}
+	virtual bool IsLVal(void) const { return false; }
+protected:
+	ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
+		: Expr(nullptr), _cond(cond), _exprTrue(exprTrue), _exprFalse(exprFalse) {}
+	virtual ConditionalOp* TypeChecking(void);
+private:
+	Expr* _cond;
+	Expr* _exprTrue;
+	Expr* _exprFalse;
+};
 
 class BinaryOp : public Expr
 {
@@ -110,155 +125,30 @@ class BinaryOp : public Expr
 public:
 	virtual ~BinaryOp(void) {}
 
+	//like member ref operator is a lvalue
 	virtual bool IsLVal(void) const { return false; }
 
 protected:
-	BinaryOp(Expr* lhs, Expr* rhs, Type* type=nullptr)
-		: Expr(type), _lhs(lhs), _rhs(rhs) {}
+	BinaryOp(int op, Expr* lhs, Expr* rhs)
+		:Expr(nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
 
 	//TODO: 1.type checking; 2. evalute the type;
-	virtual BinaryOp* TypeChecking(void) { return this; }
+	virtual BinaryOp* TypeChecking(void);// { return this; }
+	BinaryOp* SubScriptingOpTypeChecking(void);
+	BinaryOp* MemberRefOpTypeChecking(const char* rhsName);
+	BinaryOp* MultiOpTypeChecking(void);
+	BinaryOp* AdditiveOpTypeChecking(void);
+	BinaryOp* ShiftOpTypeChecking(void);
+	BinaryOp* RelationalOpTypeChecking(void);
+	BinaryOp* EqualityOpTypeChecking(void);
+	BinaryOp* BitwiseOpTypeChecking(void);
+	BinaryOp* LogicalOpTypeChecking(void);
+	BinaryOp* AssignOpTypeChecking(void);
 
+	int _op;
 	Expr* _lhs;
 	Expr* _rhs;
 };
-
-class CommaOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~CommaOp(void) {}
-
-	//default IsLVal() return false
-
-protected:
-	CommaOp(Expr* lhs, Expr* rhs)
-		: BinaryOp(lhs, rhs) {}
-
-	virtual CommaOp* TypeChecking(void) { 
-		//the type of comma expr is the type of rhs
-		_ty = _rhs->Ty();
-		return this;
-	}
-};
-
-class SubScriptingOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~SubScriptingOp(void) {}
-	virtual bool IsLVal(void) const { return true; }
-protected:
-	SubScriptingOp(Expr* lhs, Expr* rhs)
-		: BinaryOp(lhs, rhs) {}
-
-	virtual SubScriptingOp* TypeChecking(void);
-};
-
-class MemberRefOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~MemberRefOp(void) {}
-	virtual bool IsLVal(void) const { return true; }
-protected:
-	MemberRefOp(Expr* lhs, const char* memberName, bool isPtrOp)
-		: BinaryOp(lhs, nullptr), _memberName(_memberName), _isPtrOp(isPtrOp) {}
-	virtual MemberRefOp* TypeChecking(void);
-private:
-	
-	const char* _memberName;
-	bool _isPtrOp;
-};
-
-class MultiplicativeOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~MultiplicativeOp(void) {}
-	//virtual bool IsLVal(void) const { return false; }
-protected:
-	MultiplicativeOp(Expr* lhs, Expr* rhs, int op)
-		: BinaryOp(lhs, rhs), _op(op) {}
-	virtual MultiplicativeOp* TypeChecking(void);
-private:
-	int _op;
-};
-
-class AdditiveOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~AdditiveOp(void) {}
-	//virtual bool IsLVal(void) const { return false; }
-protected:
-	AdditiveOp(Expr* lhs, Expr* rhs, bool isAdd)
-		: BinaryOp(lhs, rhs), _isAdd(isAdd) {}
-	virtual AdditiveOp* TypeChecking(void);
-private:
-	bool _isAdd;
-};
-
-class ShiftOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~ShiftOp(void) {}
-protected:
-	ShiftOp(Expr* lhs, Expr* rhs, bool isLeft)
-		: BinaryOp(lhs, rhs), _isLeft(isLeft) {}
-	virtual ShiftOp* TypeChecking(void);
-private:
-	bool _isLeft;
-};
-
-
-// including euqality operators: '==', '!=' 
-class RelationalOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~RelationalOp(void) {}
-protected:
-	RelationalOp(Expr* lhs, Expr* rhs, int op) 
-		: BinaryOp(lhs, rhs), _op(op) {
-		assert('<' == op || '>' == op 
-			|| Token::LE_OP == op || Token::GE_OP == op
-			|| Token::EQ_OP == op || Token::NE_OP == op);
-	}
-	virtual RelationalOp* TypeChecking(void);
-private:
-	int _op;
-};
-
-class BinaryBitwiseOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~BinaryBitwiseOp(void) {}
-protected:
-	BinaryBitwiseOp(Expr* lhs, Expr* rhs, int op)
-		: BinaryOp(lhs, rhs), _op(op) {
-		assert('&' == op || '|' == op || '^' == op);
-	}
-	virtual BinaryBitwiseOp* TypeChecking(void);
-private:
-	int _op;
-};
-
-class BinaryLogicalOp : public BinaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~BinaryLogicalOp(void) {}
-protected:
-	BinaryLogicalOp(Expr* lhs, Expr* rhs, bool isAnd)
-		: BinaryOp(lhs, rhs), _isAnd(isAnd) {}
-	virtual BinaryLogicalOp* TypeChecking(void);
-private:
-	bool _isAnd;
-};
-
 
 /************* Unary Operator ****************/
 
@@ -268,22 +158,29 @@ class UnaryOp : public Expr
 public:
 	virtual ~UnaryOp(void) {}
 
-	//TODO: like '++i' is lvalue, but '~i' is not lvalue
+	//TODO: like '*p' is lvalue, but '~i' is not lvalue
 	virtual bool IsLVal(void) const {
 		/*only deref('*') op is lvalue;
 		  so it's only deref with override this func*/
-		return false;
+		return (Token::DEREF == _op);
 	}
 
 protected:
-	UnaryOp(Expr* operand, Type* type)
-		: _operand(operand), Expr(type) {}
+	UnaryOp(int op, Expr* operand, Type* type=nullptr)
+		: Expr(type), _op(op), _operand(operand) {}
 
-	virtual UnaryOp* TypeChecking(void) { return this; }
+	virtual UnaryOp* TypeChecking(void);
+	UnaryOp* IncDecOpTypeChecking(void);
+	UnaryOp* AddrOpTypeChecking(void);
+	UnaryOp* DerefOpTypeChecking(void);
+	UnaryOp* UnaryArithmOpTypeChecking(void);
+	UnaryOp* CastOpTypeChecking(void);
 
+	int _op;
 	Expr* _operand;
 };
 
+/*
 class PostfixIncDecOp : public UnaryOp
 {
 	friend class TranslationUnit;
@@ -334,6 +231,7 @@ protected:
 		: UnaryOp(operand, desType) {}
 	virtual CastOp* TypeChecking(void);
 };
+*/
 
 class FuncCall : public Expr
 {

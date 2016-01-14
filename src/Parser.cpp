@@ -34,14 +34,9 @@ Expr* Parser::ParseCommaExpr(void)
 	auto lhs = ParseAssignExpr();
 	while (Try(',')) {
 		auto rhs = ParseAssignExpr();
-		lhs = TranslationUnit::NewCommaOp(lhs, rhs);
+		lhs = TranslationUnit::NewBinaryOp(',', lhs, rhs);
 	}
 	return lhs;
-}
-
-BinaryOp* Parser::ParseAssignExpr(void)
-{
-	return nullptr;
 }
 
 Expr* Parser::ParsePrimaryExpr(void)
@@ -119,24 +114,24 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 	}
 }
 
-SubScriptingOp* Parser::ParseSubScripting(Expr* pointer)
+Expr* Parser::ParseSubScripting(Expr* pointer)
 {
 	auto indexExpr = ParseExpr();
 	Expect(']');
-	return TranslationUnit::NewSubScriptingOp(pointer, indexExpr);
+	return TranslationUnit::NewBinaryOp('[', pointer, indexExpr);
 }
 
 
-MemberRefOp* Parser::ParseMemberRef(int tag, Expr* lhs)
+Expr* Parser::ParseMemberRef(int tag, Expr* lhs)
 {
-	Expect(Token::IDENTIFIER);
 	auto memberName = Peek()->Val();
-	return TranslationUnit::NewMemberRefOp(lhs, memberName, Token::PTR_OP == tag);
+	Expect(Token::IDENTIFIER);
+	return TranslationUnit::NewMemberRefOp(tag, lhs, memberName);
 }
 
 UnaryOp* Parser::ParsePostfixIncDec(int tag, Expr* operand)
 {
-	return TranslationUnit::NewPostfixIncDecOp(operand, tag == Token::INC_OP);
+	return TranslationUnit::NewUnaryOp(tag, operand);
 }
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
@@ -158,21 +153,23 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
 
 Expr* Parser::ParseUnaryExpr(void)
 {
-	auto tok = Next();
-	switch (tok->Tag()) {
-	case Token::ALIGNOF: return ParseAlignofOperand();
-	case Token::SIZEOF: return ParseSizeofOperand();
-	case Token::INC_OP: case Token::DEC_OP: return ParsePrefixIncDec(tok->Tag());
-		
-	case '&': case '*': case '+': 
-	case '-': case '~': case '!': 
-		//return ParseUnaryOp(tok->Tag());
-	default:
-		return PutBack(), ParsePostfixExpr();
+	auto tag = Next()->Tag();
+	switch (tag) {
+	case Token::ALIGNOF: return ParseAlignof();
+	case Token::SIZEOF: return ParseSizeof();
+	case Token::INC_OP: return ParsePrefixIncDec(Token::INC_OP);
+	case Token::DEC_OP: return ParsePrefixIncDec(Token::DEC_OP);
+	case '&': return ParseUnaryOp(Token::ADDR);
+	case '*': return ParseUnaryOp(Token::DEREF); 
+	case '+': return ParseUnaryOp(Token::PLUS);
+	case '-': return ParseUnaryOp(Token::MINUS); 
+	case '~': return ParseUnaryOp('~');
+	case '!': return ParseUnaryOp('!');
+	default: return PutBack(), ParsePostfixExpr();
 	}
 }
 
-Constant* Parser::ParseSizeofOperand(void)
+Constant* Parser::ParseSizeof(void)
 {
 	Type* type;
 	auto tok = Next();
@@ -192,27 +189,29 @@ Constant* Parser::ParseSizeofOperand(void)
 	return TranslationUnit::NewConstant(intType, type->Width());
 }
 
-Constant* Parser::ParseAlignofOperand(void)
+Constant* Parser::ParseAlignof(void)
 {
 	Expect('(');
-	auto type = nullptr;// ParseTypeName();
+	auto type = ParseTypeName();
 	Expect(')');
 	auto intType = Type::NewArithmType(ArithmType::TULONG);
 	return TranslationUnit::NewConstant(intType, intType->Align());
 }
 
-UnaryOp* Parser::ParsePrefixIncDec(int tag)
+UnaryOp* Parser::ParsePrefixIncDec(int op)
 {
-	assert(Token::INC_OP == tag || Token::DEC_OP == tag);
+	assert(Token::INC_OP == op || Token::DEC_OP == op);
 	auto operand = ParseUnaryExpr();
-	return TranslationUnit::NewPrefixIncDecOp(operand, Token::INC_OP == tag);
+	return TranslationUnit::NewUnaryOp(op, operand);
 }
 
-UnaryOp* Parser::ParseAddrOperand(void)
+UnaryOp* Parser::ParseUnaryOp(int op)
 {
 	auto operand = ParseCastExpr();
-	return TranslationUnit::NewAddrOp(operand);
+	return TranslationUnit::NewUnaryOp(op, operand);
 }
+
+
 
 Type* Parser::ParseTypeName(void)
 {
@@ -226,7 +225,7 @@ Expr* Parser::ParseCastExpr(void)
 		auto desType = ParseTypeName();
 		Expect(')');
 		auto operand = ParseCastExpr();
-		return TranslationUnit::NewCastOp(operand, desType);
+		return TranslationUnit::NewUnaryOp(Token::CAST, operand, desType);
 	} 
 	return PutBack(), ParseUnaryExpr();
 }
@@ -237,7 +236,7 @@ Expr* Parser::ParseMultiplicativeExpr(void)
 	auto tag = Next()->Tag();
 	while ('*' == tag || '/' == tag || '%' == tag) {
 		auto rhs = ParseCastExpr();
-		lhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, tag);
+		lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
 		tag = Next()->Tag();
 	}
 	return PutBack(), lhs;
@@ -249,7 +248,7 @@ Expr* Parser::ParseAdditiveExpr(void)
 	auto tag = Next()->Tag();
 	while ('+' == tag || '-' == tag) {
 		auto rhs = ParseMultiplicativeExpr();
-		lhs = TranslationUnit::NewAdditiveOp(lhs, rhs, '+' == tag);
+		lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
 		tag = Next()->Tag();
 	}
 	return PutBack(), lhs;
@@ -273,7 +272,7 @@ Expr* Parser::ParseRelationalExpr(void)
 	while (Token::LE_OP == tag || Token::GE_OP == tag 
 		|| '<' == tag || '>' == tag) {
 		auto rhs = ParseShiftExpr();
-		lhs = TranslationUnit::NewRelationalOp(lhs, rhs, tag);
+		lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
 		tag = Next()->Tag();
 	}
 	return PutBack(), lhs;
@@ -285,7 +284,7 @@ Expr* Parser::ParseEqualityExpr(void)
 	auto tag = Next()->Tag();
 	while (Token::EQ_OP == tag || Token::NE_OP == tag) {
 		auto rhs = ParseRelationalExpr();
-		lhs = TranslationUnit::NewEqualityOp(lhs, rhs, Token::EQ_OP == tag);
+		lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
 		tag = Next()->Tag();
 	}
 	return PutBack(), lhs;
@@ -296,7 +295,7 @@ Expr* Parser::ParseBitiwiseAndExpr(void)
 	auto lhs = ParseEqualityExpr();
 	while (Try('&')) {
 		auto rhs = ParseEqualityExpr();
-		lhs = TranslationUnit::NewBitwiseAndOp(lhs, rhs);
+		lhs = TranslationUnit::NewBinaryOp('&', lhs, rhs);
 	}
 	return lhs;
 }
@@ -306,7 +305,7 @@ Expr* Parser::ParseBitwiseXorExpr(void)
 	auto lhs = ParseBitiwiseAndExpr();
 	while (Try('^')) {
 		auto rhs = ParseBitiwiseAndExpr();
-		lhs = TranslationUnit::NewBitwiseXorOp(lhs, rhs);
+		lhs = TranslationUnit::NewBinaryOp('^', lhs, rhs);
 	}
 	return lhs;
 }
@@ -316,7 +315,7 @@ Expr* Parser::ParseBitwiseOrExpr(void)
 	auto lhs = ParseBitwiseXorExpr();
 	while (Try('|')) {
 		auto rhs = ParseBitwiseXorExpr();
-		lhs = TranslationUnit::NewBitwiseOrOp(lhs, rhs);
+		lhs = TranslationUnit::NewBinaryOp('|', lhs, rhs);
 	}
 	return lhs;
 }
@@ -326,7 +325,7 @@ Expr* Parser::ParseLogicalAndExpr(void)
 	auto lhs = ParseBitwiseOrExpr();
 	while (Try(Token::AND_OP)) {
 		auto rhs = ParseBitwiseOrExpr();
-		lhs = TranslationUnit::NewLogicalAndOp(lhs, rhs);
+		lhs = TranslationUnit::NewBinaryOp(Token::AND_OP, lhs, rhs);
 	}
 	return lhs;
 }
@@ -336,7 +335,7 @@ Expr* Parser::ParseLogicalOrExpr(void)
 	auto lhs = ParseLogicalAndExpr();
 	while (Try(Token::OR_OP)) {
 		auto rhs = ParseLogicalAndExpr();
-		lhs = TranslationUnit::NewLogicalAndOp(lhs, rhs);
+		lhs = TranslationUnit::NewBinaryOp(Token::OR_OP, lhs, rhs);
 	}
 	return lhs;
 }
@@ -359,19 +358,19 @@ Expr* Parser::ParseAssignExpr(void)
 	Expr* lhs = ParseConditionalExpr();
 	Expr* rhs;
 	switch (Next()->Tag()) {
-	case Token::MUL_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, '*'); goto RETURN;
-	case Token::DIV_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, '/'); goto RETURN;
-	case Token::MOD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewMultiplicativeOp(lhs, rhs, '%'); goto RETURN;
-	case Token::ADD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewAdditiveOp(lhs, rhs, true); goto RETURN;
-	case Token::SUB_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewAdditiveOp(lhs, rhs, false); goto RETURN;
-	case Token::LEFT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewShiftOp(lhs, rhs, false); goto RETURN;
-	case Token::RIGHT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewShiftOp(lhs, rhs, true); goto RETURN;
-	case Token::AND_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBitwiseAndOp(lhs, rhs); goto RETURN;
-	case Token::XOR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBitwiseXorOp(lhs, rhs); goto RETURN;
-	case Token::OR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBitwiseOrOp(lhs, rhs); goto RETURN;
+	case Token::MUL_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('*', lhs, rhs); goto RETURN;
+	case Token::DIV_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('/', lhs, rhs); goto RETURN;
+	case Token::MOD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('%', lhs, rhs); goto RETURN;
+	case Token::ADD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('+', lhs, rhs); goto RETURN;
+	case Token::SUB_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('-', lhs, rhs); goto RETURN;
+	case Token::LEFT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp(Token::LEFT_OP, lhs, rhs); goto RETURN;
+	case Token::RIGHT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp(Token::RIGHT_OP, lhs, rhs); goto RETURN;
+	case Token::AND_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('&', lhs, rhs); goto RETURN;
+	case Token::XOR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('^', lhs, rhs); goto RETURN;
+	case Token::OR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('|', lhs, rhs); goto RETURN;
 	case '=': rhs = ParseAssignExpr(); goto RETURN;
 	default: return lhs;
 	}
 RETURN:
-	return TranslationUnit::NewAssignOp(lhs, rhs);
+	return TranslationUnit::NewBinaryOp('=', lhs, rhs);
 }

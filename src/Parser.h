@@ -56,16 +56,17 @@ public:
 
 	Expr* ParsePostfixExpr(void);
 	Expr* ParsePostfixExprTail(Expr* primExpr);
-	SubScriptingOp* ParseSubScripting(Expr* pointer);
-	MemberRefOp* ParseMemberRef(int tag, Expr* lhs);
+	Expr* ParseSubScripting(Expr* pointer);
+	Expr* ParseMemberRef(int tag, Expr* lhs);
 	UnaryOp* ParsePostfixIncDec(int tag, Expr* expr);
 	FuncCall* ParseFuncCall(Expr* caller);
 
 	Expr* ParseUnaryExpr(void);
-	Constant* ParseSizeofOperand(void);
-	Constant* ParseAlignofOperand(void);
+	Constant* ParseSizeof(void);
+	Constant* ParseAlignof(void);
 	UnaryOp* ParsePrefixIncDec(int tag);
-	UnaryOp* ParseAddrOperand(void);
+	UnaryOp* ParseUnaryOp(int op);
+	//UnaryOp* ParseDerefOperand(void);
 
 	Type* ParseTypeName(void);
 	Expr* ParseCastExpr(void);

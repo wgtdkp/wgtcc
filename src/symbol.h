@@ -67,6 +67,9 @@ public:
 
 	bool IsInteger(void) const;
 	bool IsReal(void) const;
+	bool IsArithm(void) const {
+		return (nullptr != ToArithmType());
+	}
 
 	virtual ArithmType* ToArithmType(void) {
 		return nullptr;
