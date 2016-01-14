@@ -1,2 +1,2 @@
 # wgtcc
-a tiny C compiler in C++
+a tiny C11 compiler in C++
