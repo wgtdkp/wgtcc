@@ -24,12 +24,121 @@ public:
 	static const int _machineWord = 4;
 
 	enum QUAL{
-		NONE = 0x00,
-		CONST = 0x01,
-		RESTRICT = 0x02,
-		VOLATILE = 0x04,
-		ATOMIC = 0x08,
+		QNONE = 0x00,
+		QCONST = 0x01,
+		QRESTRICT = 0x02,
+		QVOLATILE = 0x04,
+		QATOMIC = 0x08,
 	};
+
+	enum STORAGE {
+		SNONE = 0x00,
+		STYPEDEF = 0x01,
+		SEXTERN = 0x02,
+		SSTATIC = 0x04,
+		STHREAD_LOCAL = 0x08,
+		SAUTO = 0x10,
+		SREGISTER = 0x20,
+	};
+
+	enum FUNC_SPEC {
+		FNONE = 0x00,
+		FINLINE = 0x01,
+		FONRETURN = 0x02,
+	};
+
+	enum TYPE_SPEC {
+		SIGNED = 0x00,
+		VOID = 0x01,
+		CHAR = 0x02,
+		SHORT = 0x04,
+		INT = 0x08,
+		LONG = 0x10,
+		FLOAT = 0x20,
+		DOUBLE = 0x40,
+		UNSIGNED = 0x100,
+		BOOL = 0x200,
+		COMPLEX = 0x400,
+		ATOM = 0x800,
+		STRUCT = 0x1000,
+		UNION = 0x2000,
+		ENUM = 0x4000,
+		TYPEDEF = 0x8000,
+	};
+
+	enum TYPE {
+		TVOID = TYPE_SPEC::VOID, 
+		TBOOL = TYPE_SPEC::BOOL, 
+		TCHAR = TYPE_SPEC::SIGNED, 
+		TUCHAR = TYPE_SPEC::CHAR | TYPE_SPEC::UNSIGNED,
+		TSHORT = TYPE_SPEC::SHORT, 
+		TUSHORT = TYPE_SPEC::SHORT | TYPE_SPEC::UNSIGNED, 
+		TINT = TYPE_SPEC::INT, 
+		TUINT = TYPE_SPEC::INT | TYPE_SPEC::UNSIGNED,
+		TLONG = TYPE_SPEC::LONG, 
+		TULONG = TYPE_SPEC::LONG | TYPE_SPEC::UNSIGNED, 
+		TLLONG = TLONG | (1 << 32),
+		TULLONG = TULONG | (1 << 32),
+		TFLOAT = TYPE_SPEC::FLOAT,
+		TDOUBLE = TYPE_SPEC::DOUBLE,
+		TLDOUBLE = TYPE_SPEC::LONG | TYPE_SPEC::DOUBLE,
+		TFCOMPLEX = TYPE_SPEC::FLOAT | TYPE_SPEC::COMPLEX, 
+		TDCOMPLEX = TYPE_SPEC::DOUBLE | TYPE_SPEC::COMPLEX, 
+		TLDCOMPLEX = TYPE_SPEC::LONG | TYPE_SPEC::DOUBLE | TYPE_SPEC::COMPLEX,
+		SIZE = 18,
+	};
+
+	static int QualOfToken(int tokTag) {
+		switch (tokTag) {
+		case Token::CONST: return QUAL::QCONST;
+		case Token::RESTRICT: return QUAL::QRESTRICT;
+		case Token::VOLATILE: return QUAL::QVOLATILE;
+		case Token::ATOMIC: return QUAL::QATOMIC;
+		default: return QUAL::QNONE;
+		}
+	}
+
+	static int StorageOfToken(int tokTag) {
+		switch (tokTag) {
+		case Token::TYPEDEF: return STORAGE::STYPEDEF;
+		case Token::EXTERN: return STORAGE::SEXTERN;
+		case Token::STATIC: return STORAGE::SSTATIC;
+		case Token::THREAD_LOCAL: return STORAGE::STHREAD_LOCAL;
+		case Token::AUTO: return STORAGE::SAUTO;
+		case Token::REGISTER: return STORAGE::SREGISTER;
+		default: return STORAGE::SNONE;
+		}
+	}
+
+	static int FuncSpecOfToken(int tokTag) {
+		switch (tokTag) {
+		case Token::INLINE: return FUNC_SPEC::FINLINE;
+		case Token::NORETURN: return FUNC_SPEC::FONRETURN;
+		default: return FUNC_SPEC::FNONE;
+		}
+	}
+
+	static int TypeSpecOfToken(int tokTag) {
+		switch (tokTag) {
+		case Token::VOID: return TYPE::TVOID;
+			SIGNED = 0x00,
+				VOID = 0x01,
+				CHAR = 0x02,
+				SHORT = 0x04,
+				INT = 0x08,
+				LONG = 0x10,
+				FLOAT = 0x20,
+				DOUBLE = 0x40,
+				UNSIGNED = 0x100,
+				BOOL = 0x200,
+				COMPLEX = 0x400,
+				ATOM = 0x800,
+				STRUCT = 0x1000,
+				UNION = 0x2000,
+				ENUM = 0x4000,
+				TYPEDEF = 0x8000,
+		}
+	}
 
 	bool operator!=(const Type& other) const {
 		return !(*this == other);
@@ -45,19 +154,19 @@ public:
 
 	int Align(void) const {
 		//TODO: return the aligned width
-		return _width;
+		return _align;
 	}
 
 	int Qual(void) const {
 		return _qual;
 	}
 
-	int SetQual(unsigned char qual) {
+	int SetQual(int qual) {
 		_qual = qual;
 	}
 
 	bool IsConst(void) const {
-		return _qual & CONST;
+		return _qual & QCONST;
 	}
 
 	bool IsScalar(void) const {
@@ -128,11 +237,13 @@ public:
 	static ArithmType* NewArithmType(int tag);
 
 protected:
-	Type(int width) : _width(width) {}
+	explicit Type(int width) : _width(width) {}
 
 	//the bytes to store object of that type
 	int _width;
-	unsigned char _qual;
+	int _align;
+	int _storage;
+	int _qual;
 };
 
 
@@ -140,14 +251,6 @@ class ArithmType : public Type
 {
 	friend class Type;
 public:
-	enum {
-		TBOOL = 0, TCHAR, TUCHAR,
-		TSHORT, TUSHORT, TINT, TUINT,
-		TLONG, TULONG, TLLONG, TULLONG,
-		TFLOAT, TDOUBLE, TLDOUBLE,
-		TFCOMPLEX, TDCOMPLEX, TLDCOMPLEX, SIZE
-	};
-
 	virtual ~ArithmType(void) {}
 
 	virtual ArithmType* ToArithmType(void) {
@@ -313,6 +416,8 @@ protected:
 		: DerivedType(_derived, -1), _params(params) {}
 
 private:
+	bool _isInline;
+	bool _isNoReturn;
 	std::list<Type*> _params;
 };
 

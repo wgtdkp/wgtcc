@@ -132,7 +132,8 @@ BinaryOp* BinaryOp::BitwiseOpTypeChecking(void)
 BinaryOp* BinaryOp::LogicalOpTypeChecking(void)
 {
 	//TODO: type checking
-
+	if (!_lhs->Ty()->IsScalar() || !_rhs->Ty()->IsScalar())
+		Error("the operand should be arithmetic type or pointer");
 	_ty = Type::NewArithmType(ArithmType::TBOOL);
 	return this;
 }
@@ -140,6 +141,12 @@ BinaryOp* BinaryOp::LogicalOpTypeChecking(void)
 BinaryOp* BinaryOp::AssignOpTypeChecking(void)
 {
 	//TODO: type checking
+	if (!_lhs->IsLVal()) {
+		//TODO: error
+		Error("lvalue expression expected");
+	} else if (_lhs->Ty()->IsConst()) {
+		Error("can't modifiy 'const' qualified expression");
+	}
 
 	_ty = _lhs->Ty();
 	return this;

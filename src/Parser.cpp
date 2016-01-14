@@ -89,7 +89,7 @@ Expr* Parser::ParsePostfixExpr(void)
 	auto tok = Next();
 	if (tok->IsEOF()) return nullptr;
 
-	if ('(' == tok->Tag() && IsType(Peek())) {
+	if ('(' == tok->Tag() && IsTypeName(Peek())) {
 		//compound literals
 		Error("compound literals not supported yet");
 		//return ParseCompLiteral();
@@ -173,7 +173,7 @@ Constant* Parser::ParseSizeof(void)
 {
 	Type* type;
 	auto tok = Next();
-	if (tok->Tag() == '(' && IsType(Peek())) {
+	if (tok->Tag() == '(' && IsTypeName(Peek())) {
 		type = ParseTypeName();
 		Expect(')');
 	} else {
@@ -221,7 +221,7 @@ Type* Parser::ParseTypeName(void)
 Expr* Parser::ParseCastExpr(void)
 {
 	auto tok = Next();
-	if (tok->Tag() == '(' && IsType(Peek())) {
+	if (tok->Tag() == '(' && IsTypeName(Peek())) {
 		auto desType = ParseTypeName();
 		Expect(')');
 		auto operand = ParseCastExpr();
@@ -374,3 +374,74 @@ Expr* Parser::ParseAssignExpr(void)
 RETURN:
 	return TranslationUnit::NewBinaryOp('=', lhs, rhs);
 }
+
+
+
+/**************** Declarations ********************/
+
+/* if there is an initializer, then return the initializer expression,
+   else, return null.*/
+Expr* Parser::ParseDecl(void)
+{
+
+}
+
+Type* Parser::ParseDeclSpec(void)
+{
+	int storage = 0;
+	int align = 0;
+	int funcSpec = 0;
+	int qual = 0;
+	int typeSpec = 0;
+	for (; ;) {
+		auto tok = Next();
+		if (tok->IsStorageClassSpec())
+			storage |= Type::StorageOfToken(tok->Tag());
+		else if (tok->IsTypeQual())
+			qual |= Type::QualOfToken(tok->Tag());
+		else if (tok->IsFuncSpec())
+			funcSpec |= 0;
+		else if (IsTypeName(tok)) {
+			typeSpec |= 
+		}
+
+
+
+
+	}
+}
+
+int Parser::ParseStorageClassSpec(int tag, int storage)
+{
+	int curStorage = Type::StorageOfToken(tag);
+	if (Type::STORAGE::STHREAD_LOCAL & curStorage) {
+		auto tmp = ~(Type::STORAGE::SSTATIC | Type::STORAGE::SEXTERN);
+		if (0 == (storage & tmp))
+			return storage | curStorage;
+		Error("can't specific '_thread_local'");
+	} else if (Type::STORAGE::SEXTERN & curStorage || Type::STORAGE::SSTATIC & curStorage) {
+		auto tmp = ~Type::STORAGE::STHREAD_LOCAL;
+		if (0 == (storage & tmp))
+			return storage | curStorage;
+		Error("can't specific 'extern'/'static'");
+	} else {
+		if (0 != storage)
+			Error("too many sorage class specifier");
+	}
+	return storage;
+}
+
+int Parser::ParseQualSpec(int tag, int qual)
+{
+	//do no constraints checking 
+	auto curQual = Type::QualOfToken(tag);
+	return curQual | qual;
+}
+
+int Parser::ParseFuncSpec(int tag, int funcSpec)
+{
+	auto curFuncSpec = Type::FuncSpecOfToken(tag);
+	return curFuncSpec | funcSpec;
+}
+
+

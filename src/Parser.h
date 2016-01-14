@@ -5,6 +5,8 @@
 #include <stack>
 #include <memory>
 #include "ast.h"
+#include "expr.h"
+#include "decl.h"
 #include "lexer.h"
 #include "symbol.h"
 #include "error.h"
@@ -48,7 +50,7 @@ public:
 
     JumpStatement* ParseJumpStatement(void);
 	*/
-    /****** Expression ******/
+    /************ Expressions ************/
 	
 	Expr* ParseExpr(void);
 
@@ -87,6 +89,14 @@ public:
 
 	Expr* ParseAssignExpr(void);
 
+
+	/************* Declarations **************/
+	Expr* ParseDecl(void);
+	Type* ParseDeclSpec(void);
+	int ParseStorageClassSpec(int tag, int storage);
+	int ParseQualSpec(int tag, int qual);
+	int ParseFuncSpec(int tag, int funcSpec);
+	Type* ParseTypeSpec(void);
     /*
     AssignmentExpression* ParseAssignmentExpression(void);
 
@@ -162,7 +172,7 @@ private:
 		return Peek();
 	}
 
-	bool IsType(const Token* tok) {
+	bool IsTypeName(const Token* tok) {
 		if (tok->IsTypeQual() || tok->IsTypeSpec())
 			return true;
 		return (tok->IsIdentifier() 

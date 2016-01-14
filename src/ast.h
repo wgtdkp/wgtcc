@@ -8,7 +8,6 @@
 
 class ASTVisitor;
 class ASTNode;
-typedef ASTNode ExtDecl;
 class Expr;
 class BinaryOp;
 class ConditionalOp;
@@ -34,18 +33,7 @@ private:
     //Coordinate _coord;
 };
 
-
-/********** Declaration ***********/
-
-class FuncDef : public ExtDecl
-{
-
-};
-
-class Decl : public ExtDecl
-{
-
-};
+typedef ASTNode ExtDecl;
 
 class TranslationUnit : public ASTNode
 {

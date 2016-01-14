@@ -221,6 +221,25 @@ public:
 		}
 	}
 
+	bool IsFuncSpec(void) const {
+		return (INLINE == _tag || NORETURN == _tag);
+	}
+
+	bool IsAlignSpec(void) const {
+		return ALIGNAS == _tag;
+	}
+
+	bool IsStorageClassSpec(void) const {
+		switch (_tag) {
+		case TYPEDEF: case EXTERN: case STATIC: 
+		case THREAD_LOCAL: case AUTO: case REGISTER:
+			return true;
+		default: return false;
+		}
+	}
+
+
+
 	static const char* Lexeme(int tag) {
 		return _TagLexemeMap.at(tag);
 	}
