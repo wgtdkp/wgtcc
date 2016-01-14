@@ -386,29 +386,109 @@ Expr* Parser::ParseDecl(void)
 
 }
 
+enum StorageTypeQualBit {
+	/*****storage-class-specifiers*****/
+	S_TYPEDEF = 0x01,
+	S_EXTERN = 0x02,
+	S_STATIC = 0x04,
+	S_THREAD_LOCAL = 0x08,
+	S_AUTO = 0x10,
+	S_REGISTER = 0x20,
+
+	/*****type-specifier*****/
+	T_SIGNED = 0x40,
+	T_UNSIGNED = 0x80,
+	T_CHAR = 0x100,
+	T_SHORT = 0x200,
+	T_INT = 0x400,
+	T_LONG = 0x800,
+	T_VOID = 0x1000,
+	T_FLOAT = 0x2000,
+	T_DOUBLE = 0x4000,
+	T_BOOL = 0x8000,
+	T_COMPLEX = 0x10000,
+	T_ATOMIC = 0x20000,
+	T_STRUCT_UNION = 0x40000,
+	T_ENUM = 0x80000,
+	T_TYPEDEF_NAME = 0x100000,
+
+	/*****type-qualifier*****/
+	Q_CONST = 0x200000,
+	Q_RESTRICT = 0x400000,
+	Q_VOLATILE = 0x800000,
+	Q_ATOMIC = 0x1000000,
+
+	T_LONG_LONG = 0x2000000,
+};
+
+static inline void TypeLL(int& typeSpec)
+{
+	if (typeSpec & T_LONG) {
+		typeSpec &= ~T_LONG;
+		typeSpec |= T_LONG_LONG;
+	} else
+		typeSpec |= T_LONG;
+}
+
+static inline void TypeDouble(int& typeSpec)
+{
+
+}
+
+
 Type* Parser::ParseDeclSpec(void)
 {
-	int storage = 0;
+	Type* type = nullptr;
+	int storageSpec = 0;
 	int align = 0;
 	int funcSpec = 0;
 	int qual = 0;
 	int typeSpec = 0;
+	int status = 0;
 	for (; ;) {
 		auto tok = Next();
-		if (tok->IsStorageClassSpec())
-			storage |= Type::StorageOfToken(tok->Tag());
-		else if (tok->IsTypeQual())
-			qual |= Type::QualOfToken(tok->Tag());
-		else if (tok->IsFuncSpec())
-			funcSpec |= 0;
-		else if (IsTypeName(tok)) {
-			typeSpec |= 
+		switch (tok->Tag()) {
+		//storage specifier
+		case Token::TYPEDEF: if (storageSpec != 0) goto error; storageSpec |= S_TYPEDEF; break;
+		case Token::EXTERN: if (storageSpec & ~S_THREAD_LOCAL) goto error; storageSpec |= S_EXTERN; break;
+		case Token::STATIC: if (storageSpec & ~S_THREAD_LOCAL) goto error; storageSpec |= S_STATIC; break;
+		case Token::THREAD_LOCAL: if (storageSpec & ~(S_EXTERN | S_STATIC)) goto error; storageSpec |= S_THREAD_LOCAL; break;
+		case Token::AUTO: if (storageSpec != 0) goto error; storageSpec |= S_AUTO; break;
+		case Token::REGISTER: if (storageSpec != 0) goto error; storageSpec |= S_REGISTER; break;
+		
+		//type qualifier
+		case Token::CONST: storageSpec |= Q_CONST; break;
+		case Token::RESTRICT: storageSpec |= Q_RESTRICT; break;
+		case Token::VOLATILE: storageSpec |= Q_VOLATILE; break;
+		atomic_qual: storageSpec |= Q_ATOMIC; break;
+
+		//type specifier
+		case Token::SIGNED: if (typeSpec & ~(T_SHORT | T_INT | T_LONG | T_LONG_LONG)) goto error; typeSpec |= T_SIGNED; break;
+		case Token::UNSIGNED: if (typeSpec & ~(T_SHORT | T_INT | T_LONG | T_LONG_LONG)) goto error; typeSpec |= T_UNSIGNED; break;
+		case Token::VOID: if (0 != typeSpec) goto error; typeSpec |= T_VOID; break;
+		case Token::CHAR: if (typeSpec & ~(T_SIGNED | T_UNSIGNED)) goto error; typeSpec |= T_CHAR; break;
+		case Token::SHORT: if (typeSpec & ~(T_SIGNED | T_UNSIGNED | T_INT)) goto error; typeSpec |= T_SHORT; break;
+		case Token::INT: if (typeSpec & ~(T_SIGNED | T_UNSIGNED | T_LONG | T_SHORT | T_LONG_LONG)) goto error; typeSpec |= T_INT; break;
+		case Token::LONG: if (typeSpec & ~(T_SIGNED | T_UNSIGNED | T_LONG | T_INT)) goto error; TypeLL(typeSpec); break;
+		case Token::FLOAT: if (typeSpec & ~T_COMPLEX) goto error; typeSpec |= T_FLOAT; break;
+		case Token::DOUBLE: if (typeSpec & ~(T_LONG | T_COMPLEX)) goto error; typeSpec |= T_DOUBLE; break;
+		case Token::BOOL: if (typeSpec != 0) goto error; typeSpec |= T_BOOL; break;
+		case Token::COMPLEX: if (typeSpec &~(T_FLOAT | T_DOUBLE | T_LONG)) goto error; typeSpec |= T_COMPLEX; break;
+		case Token::ATOMIC: if (Peek()->Tag() != '(') goto atomic_qual; if (typeSpec != 0) goto error; type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
+		case Token::STRUCT: if (typeSpec != 0) goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
+		case Token::UNION: if (typeSpec != 0) goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
+		case Token::ENUM: if (typeSpec != 0) goto error; type = ParseEnumSpec(); typeSpec |= T_ENUM; break;
+		default: 
+			if (IsTypeName(tok)) {
+				type = _topEnv->FindType(tok->Val());
+				typeSpec |= T_TYPEDEF_NAME;
+			} else
+				return PutBack(), type;
 		}
-
-
-
-
 	}
+
+error:
+	Error("type speficier/qualifier/storage error");
 }
 
 int Parser::ParseStorageClassSpec(int tag, int storage)
