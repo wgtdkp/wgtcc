@@ -111,7 +111,7 @@ public:
 		IMAGINARY, //_Imaginary
 		NORETURN, //_Noreturn
 		STATIC_ASSERT, //_Static_assert
-		THREAD_LOCAL, //_Thread_local
+		THREAD, //_Thread_local
 		/**key words end**/
 	
 		IDENTIFIER,
@@ -173,7 +173,7 @@ public:
 	}
 
 	static bool IsKeyWord(int tag) {
-		return AUTO <= tag && tag <= THREAD_LOCAL;
+		return AUTO <= tag && tag <= THREAD;
 	}
 
 	bool IsKeyWord(void) const {
@@ -232,7 +232,7 @@ public:
 	bool IsStorageClassSpec(void) const {
 		switch (_tag) {
 		case TYPEDEF: case EXTERN: case STATIC: 
-		case THREAD_LOCAL: case AUTO: case REGISTER:
+		case THREAD: case AUTO: case REGISTER:
 			return true;
 		default: return false;
 		}

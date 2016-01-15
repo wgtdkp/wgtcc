@@ -45,7 +45,7 @@ const unordered_map<string, int> Token::_kwTypeMap = {
 	{ "_Imaginary", IMAGINARY },
 	{ "_Noreturn", NORETURN },
 	{ "_Static_assert", STATIC_ASSERT },
-	{ "_Thread_local", THREAD_LOCAL },
+	{ "_Thread_local", THREAD },
 	//{ "__func__", FUNC_NAME },
 };
 
@@ -142,7 +142,7 @@ const unordered_map<int, const char*> Token::_TagLexemeMap = {
 	{ Token::IMAGINARY, "_Imaginary" },
 	{ Token::NORETURN, "_Noreturn" },
 	{ Token::STATIC_ASSERT, "_Static_assert" },
-	{ Token::THREAD_LOCAL, "_Thread_local" },
+	{ Token::THREAD, "_Thread_local" },
 	//{ FUNC_NAME, "__func__" },
 
 	{ Token::END, "(eof)" },

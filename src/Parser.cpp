@@ -211,8 +211,6 @@ UnaryOp* Parser::ParseUnaryOp(int op)
 	return TranslationUnit::NewUnaryOp(op, operand);
 }
 
-
-
 Type* Parser::ParseTypeName(void)
 {
 	return nullptr;
@@ -386,12 +384,12 @@ Expr* Parser::ParseDecl(void)
 
 }
 
-enum StorageTypeQualBit {
+enum {
 	/*****storage-class-specifiers*****/
 	S_TYPEDEF = 0x01,
 	S_EXTERN = 0x02,
 	S_STATIC = 0x04,
-	S_THREAD_LOCAL = 0x08,
+	S_THREAD = 0x08,
 	S_AUTO = 0x10,
 	S_REGISTER = 0x20,
 
@@ -419,6 +417,23 @@ enum StorageTypeQualBit {
 	Q_ATOMIC = 0x1000000,
 
 	T_LONG_LONG = 0x2000000,
+
+	/*****function specifier*****/
+	F_INLINE = 0x4000000,
+	F_NORETURN = 0x8000000,
+
+	/******** for state machine ***************/
+	//compatibility for these key words
+	COMP_SIGNED = T_SHORT | T_INT | T_LONG | T_LONG_LONG,
+	COMP_UNSIGNED = T_SHORT | T_INT | T_LONG | T_LONG_LONG,
+	COMP_CHAR = T_SIGNED | T_UNSIGNED,
+	COMP_SHORT = T_SIGNED | T_UNSIGNED | T_INT,
+	COMP_INT = T_SIGNED | T_UNSIGNED | T_LONG | T_SHORT | T_LONG_LONG,
+	COMP_LONG = T_SIGNED | T_UNSIGNED | T_LONG | T_INT,
+	COMP_DOUBLE = T_LONG | T_COMPLEX,
+	COMP_COMPLEX = T_FLOAT | T_DOUBLE | T_LONG,
+
+	COMP_THREAD = S_EXTERN | S_STATIC,
 };
 
 static inline void TypeLL(int& typeSpec)
@@ -430,98 +445,72 @@ static inline void TypeLL(int& typeSpec)
 		typeSpec |= T_LONG;
 }
 
-static inline void TypeDouble(int& typeSpec)
-{
-
-}
-
-
 Type* Parser::ParseDeclSpec(void)
 {
 	Type* type = nullptr;
 	int storageSpec = 0;
 	int align = 0;
 	int funcSpec = 0;
-	int qual = 0;
+	int qualSpec = 0;
 	int typeSpec = 0;
-	int status = 0;
 	for (; ;) {
 		auto tok = Next();
 		switch (tok->Tag()) {
+		//function specifier
+		case Token::INLINE:		funcSpec |= F_INLINE; break;
+		case Token::NORETURN:	funcSpec |= F_NORETURN; break;
+
+		//alignment specifier
+		case Token::ALIGNAS:    align = ParseAlignas(); break;
+
 		//storage specifier
-		case Token::TYPEDEF: if (storageSpec != 0) goto error; storageSpec |= S_TYPEDEF; break;
-		case Token::EXTERN: if (storageSpec & ~S_THREAD_LOCAL) goto error; storageSpec |= S_EXTERN; break;
-		case Token::STATIC: if (storageSpec & ~S_THREAD_LOCAL) goto error; storageSpec |= S_STATIC; break;
-		case Token::THREAD_LOCAL: if (storageSpec & ~(S_EXTERN | S_STATIC)) goto error; storageSpec |= S_THREAD_LOCAL; break;
-		case Token::AUTO: if (storageSpec != 0) goto error; storageSpec |= S_AUTO; break;
-		case Token::REGISTER: if (storageSpec != 0) goto error; storageSpec |= S_REGISTER; break;
+		case Token::TYPEDEF:	if (storageSpec != 0)			goto error; storageSpec |= S_TYPEDEF; break;
+		case Token::EXTERN:		if (storageSpec & ~S_THREAD)	goto error; storageSpec |= S_EXTERN; break;
+		case Token::STATIC:		if (storageSpec & ~S_THREAD)	goto error; storageSpec |= S_STATIC; break;
+		case Token::THREAD:		if (storageSpec & ~COMP_THREAD)	goto error; storageSpec |= S_THREAD; break;
+		case Token::AUTO:		if (storageSpec != 0)			goto error; storageSpec |= S_AUTO; break;
+		case Token::REGISTER:	if (storageSpec != 0)			goto error; storageSpec |= S_REGISTER; break;
 		
 		//type qualifier
-		case Token::CONST: storageSpec |= Q_CONST; break;
-		case Token::RESTRICT: storageSpec |= Q_RESTRICT; break;
-		case Token::VOLATILE: storageSpec |= Q_VOLATILE; break;
-		atomic_qual: storageSpec |= Q_ATOMIC; break;
+		case Token::CONST:		qualSpec |= Q_CONST; break;
+		case Token::RESTRICT:	qualSpec |= Q_RESTRICT; break;
+		case Token::VOLATILE:	qualSpec |= Q_VOLATILE; break;
+		atomic_qual:			qualSpec |= Q_ATOMIC; break;
 
 		//type specifier
-		case Token::SIGNED: if (typeSpec & ~(T_SHORT | T_INT | T_LONG | T_LONG_LONG)) goto error; typeSpec |= T_SIGNED; break;
-		case Token::UNSIGNED: if (typeSpec & ~(T_SHORT | T_INT | T_LONG | T_LONG_LONG)) goto error; typeSpec |= T_UNSIGNED; break;
-		case Token::VOID: if (0 != typeSpec) goto error; typeSpec |= T_VOID; break;
-		case Token::CHAR: if (typeSpec & ~(T_SIGNED | T_UNSIGNED)) goto error; typeSpec |= T_CHAR; break;
-		case Token::SHORT: if (typeSpec & ~(T_SIGNED | T_UNSIGNED | T_INT)) goto error; typeSpec |= T_SHORT; break;
-		case Token::INT: if (typeSpec & ~(T_SIGNED | T_UNSIGNED | T_LONG | T_SHORT | T_LONG_LONG)) goto error; typeSpec |= T_INT; break;
-		case Token::LONG: if (typeSpec & ~(T_SIGNED | T_UNSIGNED | T_LONG | T_INT)) goto error; TypeLL(typeSpec); break;
-		case Token::FLOAT: if (typeSpec & ~T_COMPLEX) goto error; typeSpec |= T_FLOAT; break;
-		case Token::DOUBLE: if (typeSpec & ~(T_LONG | T_COMPLEX)) goto error; typeSpec |= T_DOUBLE; break;
-		case Token::BOOL: if (typeSpec != 0) goto error; typeSpec |= T_BOOL; break;
-		case Token::COMPLEX: if (typeSpec &~(T_FLOAT | T_DOUBLE | T_LONG)) goto error; typeSpec |= T_COMPLEX; break;
-		case Token::ATOMIC: if (Peek()->Tag() != '(') goto atomic_qual; if (typeSpec != 0) goto error; type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
-		case Token::STRUCT: if (typeSpec != 0) goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
-		case Token::UNION: if (typeSpec != 0) goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
-		case Token::ENUM: if (typeSpec != 0) goto error; type = ParseEnumSpec(); typeSpec |= T_ENUM; break;
-		default: 
+		case Token::SIGNED:		if (typeSpec & ~COMP_SIGNED)	goto error; typeSpec |= T_SIGNED; break;
+		case Token::UNSIGNED:	if (typeSpec & ~COMP_UNSIGNED)	goto error; typeSpec |= T_UNSIGNED; break;
+		case Token::VOID:		if (0 != typeSpec)				goto error; typeSpec |= T_VOID; break;
+		case Token::CHAR:		if (typeSpec & ~COMP_CHAR)		goto error; typeSpec |= T_CHAR; break;
+		case Token::SHORT:		if (typeSpec & ~COMP_SHORT)		goto error; typeSpec |= T_SHORT; break;
+		case Token::INT:		if (typeSpec & ~COMP_INT)		goto error; typeSpec |= T_INT; break;
+		case Token::LONG:		if (typeSpec & ~COMP_LONG)		goto error; TypeLL(typeSpec); break;
+		case Token::FLOAT:		if (typeSpec & ~T_COMPLEX)		goto error; typeSpec |= T_FLOAT; break;
+		case Token::DOUBLE:		if (typeSpec & ~COMP_DOUBLE)	goto error; typeSpec |= T_DOUBLE; break;
+		case Token::BOOL:		if (typeSpec != 0)				goto error; typeSpec |= T_BOOL; break;
+		case Token::COMPLEX:	if (typeSpec & ~COMP_COMPLEX)	goto error; typeSpec |= T_COMPLEX; break;
+		case Token::STRUCT:		if (typeSpec != 0)				goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
+		case Token::UNION:		if (typeSpec != 0)				goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
+		case Token::ENUM:		if (typeSpec != 0)				goto error; type = ParseEnumSpec(); typeSpec |= T_ENUM; break;
+		case Token::ATOMIC:		if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
+									type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
+		default:
 			if (IsTypeName(tok)) {
 				type = _topEnv->FindType(tok->Val());
 				typeSpec |= T_TYPEDEF_NAME;
-			} else
-				return PutBack(), type;
+			} else goto end_of_loop;
 		}
 	}
-
+end_of_loop:
+	PutBack();
+	switch (typeSpec) {
+	case T_VOID: type = Type::NewVoidType(); break;
+	case T_ATOMIC: case T_STRUCT_UNION: case T_ENUM: case T_TYPEDEF_NAME: break;
+	default: type = ArithmType::NewArithmType(typeSpec); break;
+	}
+	
+	return type;
 error:
 	Error("type speficier/qualifier/storage error");
 }
-
-int Parser::ParseStorageClassSpec(int tag, int storage)
-{
-	int curStorage = Type::StorageOfToken(tag);
-	if (Type::STORAGE::STHREAD_LOCAL & curStorage) {
-		auto tmp = ~(Type::STORAGE::SSTATIC | Type::STORAGE::SEXTERN);
-		if (0 == (storage & tmp))
-			return storage | curStorage;
-		Error("can't specific '_thread_local'");
-	} else if (Type::STORAGE::SEXTERN & curStorage || Type::STORAGE::SSTATIC & curStorage) {
-		auto tmp = ~Type::STORAGE::STHREAD_LOCAL;
-		if (0 == (storage & tmp))
-			return storage | curStorage;
-		Error("can't specific 'extern'/'static'");
-	} else {
-		if (0 != storage)
-			Error("too many sorage class specifier");
-	}
-	return storage;
-}
-
-int Parser::ParseQualSpec(int tag, int qual)
-{
-	//do no constraints checking 
-	auto curQual = Type::QualOfToken(tag);
-	return curQual | qual;
-}
-
-int Parser::ParseFuncSpec(int tag, int funcSpec)
-{
-	auto curFuncSpec = Type::FuncSpecOfToken(tag);
-	return curFuncSpec | funcSpec;
-}
-
 
