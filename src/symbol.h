@@ -69,15 +69,15 @@ public:
 	virtual ~Type(void) {}
 
 	int Width(void) const {return _width;}
-
+	void SetWidth(int width) { _width = width; }
 	int Align(void) const {return _align;}
-
+	void SetAlign(int align) { _align = align; }
 	int Qual(void) const {return _qual;}
-
 	int SetQual(int qual) {_qual = qual;}
+	bool IsComplete(void) const { return _complete; }
+	void SetComplete(bool complete) { _complete = complete; }
 
 	bool IsConst(void) const {return _qual & Q_CONST;}
-
 	bool IsScalar(void) const {
 		return (nullptr != ToArithmType() 
 			|| nullptr != ToPointerType());
@@ -117,12 +117,14 @@ public:
 	static ArithmType* NewArithmType(int tag);
 
 protected:
-	explicit Type(int width) : _width(width) {}
+	explicit Type(int width, bool complete) 
+		: _width(width), _complete(complete) {}
 
 	//the bytes to store object of that type
 	int _width;
 	int _align;
 	int _qual;
+	bool _complete;
 };
 
 class VoidType : public Type
@@ -133,7 +135,7 @@ public:
 	virtual bool operator==(const Type& other) const;
 	virtual bool Compatible(const Type& other) const;
 protected:
-	VoidType(void) : Type(0) {}
+	VoidType(void) : Type(0, true) {}
 };
 
 class ArithmType : public Type
@@ -177,7 +179,7 @@ public:
 	}
 
 protected:
-	ArithmType(int tag) : _tag(tag), Type(CalcWidth(tag)) {
+	ArithmType(int tag) : _tag(tag), Type(CalcWidth(tag), true) {
 		assert(TBOOL <= tag && tag <= TLDCOMPLEX);
 	}
 
@@ -201,7 +203,7 @@ public:
 
 protected:
 	DerivedType(Type* derived, int width)
-		: _derived(derived), Type(width) {}
+		: _derived(derived), Type(width, true) {}
 
 	Type* _derived;
 };
@@ -317,8 +319,9 @@ public:
 	const Variable* Find(const char* name) const;
 
 protected:
+	//default is incomplete
 	explicit StructUnionType(Env* env)
-		: _env(env), Type(CalcWidth(env)) {}
+		: _env(env), Type(CalcWidth(env), false) {}
 
 private:
 	static int CalcWidth(const Env* env);
@@ -330,8 +333,9 @@ private:
 
 class EnumType : public Type
 {
+	friend class Type;
 private:
-	//member map
+	
 };
 
 

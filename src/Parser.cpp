@@ -413,7 +413,10 @@ static inline void TypeLL(int& typeSpec)
 		typeSpec |= T_LONG;
 }
 
-Type* Parser::ParseDeclSpec(int& storage)
+/*
+param: storage: null, only type specifier and qualifier accepted;
+*/
+Type* Parser::ParseDeclSpec(int* storage)
 {
 	Type* type = nullptr;
 	int align = 0;
@@ -477,7 +480,10 @@ end_of_loop:
 	case T_ATOMIC: case T_STRUCT_UNION: case T_ENUM: case T_TYPEDEF_NAME: break;
 	default: type = ArithmType::NewArithmType(typeSpec); break;
 	}
-	
+
+	if (nullptr == storage && 0 != funcSpec && 0 != storageSpec && 0 != align)
+		Error("type specifier/qualifier only");
+	*storage = storageSpec;
 	if (0 != funcSpec)
 		return Type::NewFuncType(type, funcSpec);	//the params is lefted unspecified
 	return type;
@@ -517,9 +523,15 @@ static inline string MakeStructUnionName(const char* name)
 	return ret + name;
 }
 
+
+/*
+following declaration is allowed:
+struct Foo;
+union Bar;
+*/
 Type* Parser::ParseStructUnionSpec(void)
 {
-	Type* type;
+	
 	string name("");
 	auto tok = Next();
 	if (tok->IsIdentifier()) {
@@ -530,25 +542,26 @@ Type* Parser::ParseStructUnionSpec(void)
 				Error("'%s': struct type redefinition", tok->Val());
 			else goto struct_block;
 		} else {
-			type = _topEnv->FindType(name.c_str());
-			if (nullptr == type)
-				Error("'%s': undefined struct type", tok->Val());
+			//TODO: should add this name into current env
+			auto type = _topEnv->FindType(name.c_str());
+			if (nullptr != type) return type;
+			type = Type::NewStructUnionType(nullptr); //incomplete struct type
+			_topEnv->InsertType(name.c_str(), type);
 			return type;
 		}
 	}
 	Expect('{');
 struct_block:
+	auto structType = Type::NewStructUnionType(nullptr);
+	if (name.size()) _topEnv->InsertType(name.c_str(), structType);
 	EnterBlock();
+	//auto structType = Type::NewStructUnionType(_topEnv);
+	//if (name.size()) oldEnv->InsertType(name.c_str(), structType);
 	while (!Try('}')) {
-			
+		auto fieldType = ParseDeclSpec(nullptr);
+		//TODO: parse declarator
 	}
-	//make new struct type
-	type = Type::NewStructUnionType(_topEnv);
 	ExitBlock();
-		
-	/*if the name is specified, then make it visiable;
-		note that, this must be done after ExitBlock();*/
-	if (name.size())	
-		_topEnv->InsertType(name.c_str(), type);
+	return structType;
 }
 

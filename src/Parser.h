@@ -92,7 +92,7 @@ public:
 
 	/************* Declarations **************/
 	Expr* ParseDecl(void);
-	Type* ParseDeclSpec(int& storage);
+	Type* ParseDeclSpec(int* storage);
 	int ParseAlignas(void);
 	Type* ParseStructUnionSpec(void);
 
