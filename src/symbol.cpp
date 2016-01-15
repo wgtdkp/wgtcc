@@ -22,6 +22,13 @@ bool Type::IsReal(void) const {
 
 ArithmType* _arithmTypes[ArithmType::SIZE] = { 0 };
 
+
+
+VoidType* Type::NewVoidType(void)
+{
+	return new VoidType();
+}
+
 ArithmType* Type::NewArithmType(int tag) {
 	if (nullptr == _arithmTypes[tag]) {
 		_arithmTypes[tag] = new ArithmType(tag);
@@ -30,8 +37,8 @@ ArithmType* Type::NewArithmType(int tag) {
 }
 
 //static IntType* NewIntType();
-FuncType* Type::NewFuncType(Type* derived, const std::list<Type*>& params) {
-	return new FuncType(derived, params);
+FuncType* Type::NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params) {
+	return new FuncType(derived, funcSpec, params);
 }
 
 PointerType* Type::NewPointerType(Type* derived) {
@@ -178,6 +185,33 @@ const Symbol* Env::Find(const char* name) const
 	return const_cast<const Symbol*>(thi->Find(name));
 }
 
+Type* Env::FindTypeInCurScope(const char* name)
+{
+	auto type = _mapSymb.find(name);
+	if (_mapSymb.end() == type)
+		return nullptr;
+	return type->second->IsVar() ? nullptr : type->second->Ty();
+}
+
+const Type* Env::FindTypeInCurScope(const char* name) const
+{
+	auto thi = const_cast<Env*>(this);
+	return const_cast<const Type*>(thi->FindTypeInCurScope(name));
+}
+
+Variable* Env::FindVarInCurScope(const char* name)
+{
+	auto var = _mapSymb.find(name);
+	if (_mapSymb.end() == var)
+		return nullptr;
+	return var->second->IsVar() ? var->second : nullptr;
+}
+
+const Variable* Env::FindVarInCurScope(const char* name) const
+{
+	auto thi = const_cast<Env*>(this);
+	return const_cast<const Variable*>(thi->FindVarInCurScope(name));
+}
 
 
 Type* Env::FindType(const char* name)

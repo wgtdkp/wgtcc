@@ -14,8 +14,47 @@ class ArrayType;
 class FuncType;
 class PointerType;
 class StructUnionType;
-class UnionType;
 class EnumType;
+
+
+enum {
+	/*****storage-class-specifiers*****/
+	S_TYPEDEF = 0x01,
+	S_EXTERN = 0x02,
+	S_STATIC = 0x04,
+	S_THREAD = 0x08,
+	S_AUTO = 0x10,
+	S_REGISTER = 0x20,
+
+	/*****type-specifier*****/
+	T_SIGNED = 0x40,
+	T_UNSIGNED = 0x80,
+	T_CHAR = 0x100,
+	T_SHORT = 0x200,
+	T_INT = 0x400,
+	T_LONG = 0x800,
+	T_VOID = 0x1000,
+	T_FLOAT = 0x2000,
+	T_DOUBLE = 0x4000,
+	T_BOOL = 0x8000,
+	T_COMPLEX = 0x10000,
+	T_ATOMIC = 0x20000,
+	T_STRUCT_UNION = 0x40000,
+	T_ENUM = 0x80000,
+	T_TYPEDEF_NAME = 0x100000,
+
+	/*****type-qualifier*****/
+	Q_CONST = 0x200000,
+	Q_RESTRICT = 0x400000,
+	Q_VOLATILE = 0x800000,
+	Q_ATOMIC = 0x1000000,
+
+	T_LONG_LONG = 0x2000000,
+
+	/*****function specifier*****/
+	F_INLINE = 0x4000000,
+	F_NORETURN = 0x8000000,
+};
 
 
 class Type
@@ -23,34 +62,21 @@ class Type
 public:
 	static const int _machineWord = 4;
 
-	bool operator!=(const Type& other) const {
-		return !(*this == other);
-	}
+	bool operator!=(const Type& other) const { return !(*this == other); }
 
 	virtual bool operator==(const Type& other) const = 0;
 	virtual bool Compatible(const Type& ohter) const = 0;
 	virtual ~Type(void) {}
 
-	int Width(void) const {
-		return _width;
-	}
+	int Width(void) const {return _width;}
 
-	int Align(void) const {
-		//TODO: return the aligned width
-		return _align;
-	}
+	int Align(void) const {return _align;}
 
-	int Qual(void) const {
-		return _qual;
-	}
+	int Qual(void) const {return _qual;}
 
-	int SetQual(int qual) {
-		_qual = qual;
-	}
+	int SetQual(int qual) {_qual = qual;}
 
-	bool IsConst(void) const {
-		return _qual & QCONST;
-	}
+	bool IsConst(void) const {return _qual & Q_CONST;}
 
 	bool IsScalar(void) const {
 		return (nullptr != ToArithmType() 
@@ -59,49 +85,20 @@ public:
 
 	bool IsInteger(void) const;
 	bool IsReal(void) const;
-	bool IsArithm(void) const {
-		return (nullptr != ToArithmType());
-	}
+	bool IsArithm(void) const { return (nullptr != ToArithmType()); }
 
-	virtual ArithmType* ToArithmType(void) {
-		return nullptr;
-	}
 
-	virtual const ArithmType* ToArithmType(void) const {
-		return nullptr;
-	}
+	virtual ArithmType* ToArithmType(void) { return nullptr; }
+	virtual const ArithmType* ToArithmType(void) const { return nullptr; }
+	virtual ArrayType* ToArrayType(void) {return nullptr;}
+	virtual const ArrayType* ToArrayType(void) const {return nullptr;}
+	virtual FuncType* ToFuncType(void) {return nullptr;}
+	virtual const FuncType* ToFuncType(void) const {return nullptr;}
+	virtual PointerType* ToPointerType(void) {return nullptr;}
+	virtual const PointerType* ToPointerType(void) const {return nullptr;}
+	virtual StructUnionType* ToStructUnionType(void) {return nullptr;}
+	virtual const StructUnionType* ToStructUnionType(void) const {return nullptr;}
 
-	virtual ArrayType* ToArrayType(void) {
-		return nullptr;
-	}
-
-	virtual const ArrayType* ToArrayType(void) const {
-		return nullptr;
-	}
-
-	virtual FuncType* ToFuncType(void) {
-		return nullptr;
-	}
-
-	virtual const FuncType* ToFuncType(void) const {
-		return nullptr;
-	}
-
-	virtual PointerType* ToPointerType(void) {
-		return nullptr;
-	}
-
-	virtual const PointerType* ToPointerType(void) const {
-		return nullptr;
-	}
-
-	virtual StructUnionType* ToStructUnionType(void) {
-		return nullptr;
-	}
-
-	virtual const StructUnionType* ToStructUnionType(void) const {
-		return nullptr;
-	}
 
 	virtual EnumType* ToEnumType(void) {
 		return nullptr;
@@ -112,11 +109,11 @@ public:
 	}
 
 	//static IntType* NewIntType();
-	static FuncType* NewFuncType(Type* derived, const std::list<Type*>& params);
+	static VoidType* NewVoidType(void);
+	static FuncType* NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params = std::list<Type*>());
 	static PointerType* NewPointerType(Type* derived);
 	static StructUnionType* NewStructUnionType(Env* env);
 	static EnumType* NewEnumType();
-	
 	static ArithmType* NewArithmType(int tag);
 
 protected:
@@ -125,10 +122,19 @@ protected:
 	//the bytes to store object of that type
 	int _width;
 	int _align;
-	int _storage;
 	int _qual;
 };
 
+class VoidType : public Type
+{
+	friend class Type;
+public:
+	virtual ~VoidType(void) {}
+	virtual bool operator==(const Type& other) const;
+	virtual bool Compatible(const Type& other) const;
+protected:
+	VoidType(void) : Type(0) {}
+};
 
 class ArithmType : public Type
 {
@@ -281,26 +287,19 @@ class FuncType : public DerivedType
 	friend class Type;
 public:
 	~FuncType(void) {}
-
-	virtual FuncType* ToFuncType(void) {
-		return this;
-	}
-
-	virtual const FuncType* ToFuncType(void) const {
-		return this;
-	}
-
+	virtual FuncType* ToFuncType(void) { return this; }
+	virtual const FuncType* ToFuncType(void) const { return this; }
 	virtual bool operator==(const Type& other) const;
 	virtual bool Compatible(const Type& other) const;
-
+	bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
+	bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 protected:
 	//a function does not has the width property
-	FuncType(Type* derived, const std::list<Type*>& params)
-		: DerivedType(_derived, -1), _params(params) {}
+	FuncType(Type* derived, int inlineReturn, const std::list<Type*>& params = std::list<Type*>())
+		: DerivedType(_derived, -1), _inlineNoReturn(inlineReturn), _params(params) {}
 
 private:
-	bool _isInline;
-	bool _isNoReturn;
+	int _inlineNoReturn;
 	std::list<Type*> _params;
 };
 
@@ -309,21 +308,11 @@ class StructUnionType : public Type
 {
 	friend class Type;
 public:
-	~StructUnionType(void) {
-		//TODO: delete _env ?
-	}
-
-	virtual StructUnionType* ToStructUnionType(void) {
-		return this;
-	}
-
-	virtual const StructUnionType* ToStructUnionType(void) const {
-		return this;
-	}
-
+	~StructUnionType(void) {/*TODO: delete _env ?*/}
+	virtual StructUnionType* ToStructUnionType(void) { return this; }
+	virtual const StructUnionType* ToStructUnionType(void) const { return this; }
 	virtual bool operator==(const Type& other) const;
 	virtual bool Compatible(const Type& other) const;
-
 	Variable* Find(const char* name);
 	const Variable* Find(const char* name) const;
 
@@ -346,8 +335,6 @@ private:
 };
 
 
-
-
 typedef Variable Symbol;
 
 struct StrCmp
@@ -368,6 +355,12 @@ public:
 	Symbol* Find(const char* name);
 	const Symbol* Find(const char* name) const;
 
+	Type* FindTypeInCurScope(const char* name);
+	const Type* FindTypeInCurScope(const char* name) const;
+
+	Variable* FindVarInCurScope(const char* name);
+	const Variable* FindVarInCurScope(const char* name) const;
+		 
 	Type* FindType(const char* name);
 	const Type* FindType(const char* name) const;
 
@@ -378,7 +371,8 @@ public:
 	void InsertVar(const char* name, Type* type);
 
 	bool operator==(const Env& other) const;
-
+	Env* Parent(void) { return _parent; }
+	const Env* Parent(void) const { return _parent; }
 private:
 	Env* _parent;
 	int _offset;

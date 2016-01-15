@@ -84,19 +84,19 @@ public:
 	Expr* ParseLogicalOrExpr(void);
 	Expr* ParseConditionalExpr(void);
 
-
 	Expr* ParseCommaExpr(void);
 
 	Expr* ParseAssignExpr(void);
 
+	Constant* ParseConstantExpr(void);
 
 	/************* Declarations **************/
 	Expr* ParseDecl(void);
-	Type* ParseDeclSpec(void);
-	int ParseStorageClassSpec(int tag, int storage);
-	int ParseQualSpec(int tag, int qual);
-	int ParseFuncSpec(int tag, int funcSpec);
-	Type* ParseTypeSpec(void);
+	Type* ParseDeclSpec(int& storage);
+	int ParseAlignas(void);
+	Type* ParseStructUnionSpec(void);
+
+
     /*
     AssignmentExpression* ParseAssignmentExpression(void);
 
@@ -203,8 +203,12 @@ private:
 		}
 	}
 
-	void EnterBlock(void);
-	void ExitBlock(void);
+	void EnterBlock(void) {
+		_topEnv = new Env(_topEnv);
+	}
+	void ExitBlock(void) {
+		_topEnv = _topEnv->Parent();
+	}
 
 private:
     Lexer* _lexer;

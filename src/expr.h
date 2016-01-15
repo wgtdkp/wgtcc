@@ -71,6 +71,7 @@ private:
 
 	//the relative address
 	int _offset;
+	int _storage;
 };
 
 

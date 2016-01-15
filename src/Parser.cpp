@@ -1,6 +1,7 @@
 #include "expr.h"
 #include "parser.h"
 #include "error.h"
+#include <string>
 
 using namespace std;
 
@@ -373,6 +374,10 @@ RETURN:
 	return TranslationUnit::NewBinaryOp('=', lhs, rhs);
 }
 
+Constant* Parser::ParseConstantExpr(void)
+{
+	return nullptr;
+}
 
 
 /**************** Declarations ********************/
@@ -384,45 +389,8 @@ Expr* Parser::ParseDecl(void)
 
 }
 
+//for state machine
 enum {
-	/*****storage-class-specifiers*****/
-	S_TYPEDEF = 0x01,
-	S_EXTERN = 0x02,
-	S_STATIC = 0x04,
-	S_THREAD = 0x08,
-	S_AUTO = 0x10,
-	S_REGISTER = 0x20,
-
-	/*****type-specifier*****/
-	T_SIGNED = 0x40,
-	T_UNSIGNED = 0x80,
-	T_CHAR = 0x100,
-	T_SHORT = 0x200,
-	T_INT = 0x400,
-	T_LONG = 0x800,
-	T_VOID = 0x1000,
-	T_FLOAT = 0x2000,
-	T_DOUBLE = 0x4000,
-	T_BOOL = 0x8000,
-	T_COMPLEX = 0x10000,
-	T_ATOMIC = 0x20000,
-	T_STRUCT_UNION = 0x40000,
-	T_ENUM = 0x80000,
-	T_TYPEDEF_NAME = 0x100000,
-
-	/*****type-qualifier*****/
-	Q_CONST = 0x200000,
-	Q_RESTRICT = 0x400000,
-	Q_VOLATILE = 0x800000,
-	Q_ATOMIC = 0x1000000,
-
-	T_LONG_LONG = 0x2000000,
-
-	/*****function specifier*****/
-	F_INLINE = 0x4000000,
-	F_NORETURN = 0x8000000,
-
-	/******** for state machine ***************/
 	//compatibility for these key words
 	COMP_SIGNED = T_SHORT | T_INT | T_LONG | T_LONG_LONG,
 	COMP_UNSIGNED = T_SHORT | T_INT | T_LONG | T_LONG_LONG,
@@ -445,11 +413,11 @@ static inline void TypeLL(int& typeSpec)
 		typeSpec |= T_LONG;
 }
 
-Type* Parser::ParseDeclSpec(void)
+Type* Parser::ParseDeclSpec(int& storage)
 {
 	Type* type = nullptr;
-	int storageSpec = 0;
 	int align = 0;
+	int storageSpec = 0;
 	int funcSpec = 0;
 	int qualSpec = 0;
 	int typeSpec = 0;
@@ -464,6 +432,7 @@ Type* Parser::ParseDeclSpec(void)
 		case Token::ALIGNAS:    align = ParseAlignas(); break;
 
 		//storage specifier
+			//TODO: typedef needs more constraints
 		case Token::TYPEDEF:	if (storageSpec != 0)			goto error; storageSpec |= S_TYPEDEF; break;
 		case Token::EXTERN:		if (storageSpec & ~S_THREAD)	goto error; storageSpec |= S_EXTERN; break;
 		case Token::STATIC:		if (storageSpec & ~S_THREAD)	goto error; storageSpec |= S_STATIC; break;
@@ -489,11 +458,11 @@ Type* Parser::ParseDeclSpec(void)
 		case Token::DOUBLE:		if (typeSpec & ~COMP_DOUBLE)	goto error; typeSpec |= T_DOUBLE; break;
 		case Token::BOOL:		if (typeSpec != 0)				goto error; typeSpec |= T_BOOL; break;
 		case Token::COMPLEX:	if (typeSpec & ~COMP_COMPLEX)	goto error; typeSpec |= T_COMPLEX; break;
-		case Token::STRUCT:		if (typeSpec != 0)				goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
-		case Token::UNION:		if (typeSpec != 0)				goto error; type = ParseStructSpec(); typeSpec |= T_STRUCT_UNION; break;
+		case Token::STRUCT: 
+		case Token::UNION:		if (typeSpec != 0)				goto error; type = ParseStructUnionSpec(); typeSpec |= T_STRUCT_UNION; break;
 		case Token::ENUM:		if (typeSpec != 0)				goto error; type = ParseEnumSpec(); typeSpec |= T_ENUM; break;
-		case Token::ATOMIC:		if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
-									type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
+		case Token::ATOMIC:		assert(false);// if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
+									//type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
 		default:
 			if (IsTypeName(tok)) {
 				type = _topEnv->FindType(tok->Val());
@@ -509,8 +478,77 @@ end_of_loop:
 	default: type = ArithmType::NewArithmType(typeSpec); break;
 	}
 	
+	if (0 != funcSpec)
+		return Type::NewFuncType(type, funcSpec);	//the params is lefted unspecified
 	return type;
 error:
 	Error("type speficier/qualifier/storage error");
+}
+
+int Parser::ParseAlignas(void)
+{
+	int align;
+	Expect('(');
+	if (IsTypeName(Peek())) {
+		auto type = ParseTypeName();
+		Expect(')');
+		align = type->Align();
+	} else {
+		auto constantExpr = ParseConstantExpr();
+		Expect(')');
+		align = EvalIntegerExpr(constantExpr);
+	}
+	return align;
+}
+
+static inline string MakeStructUnionName(const char* name)
+{
+	/*why i use this prefix ?
+	  considering this code:
+	  struct A A;
+	  struct A B;
+	  this is allowed, we can see that the local var 'A' does not override the struct A;
+	  thus, them have different name in the symbol table;
+	  to make the struct type's name unique, i use characters that are not allowed for identifier;
+	  that is why we see '/' and '@' in the prefix;
+	  and, the typedef type would not has this prefix;
+	*/
+	string ret = "struct/union@";
+	return ret + name;
+}
+
+Type* Parser::ParseStructUnionSpec(void)
+{
+	Type* type;
+	string name("");
+	auto tok = Next();
+	if (tok->IsIdentifier()) {
+		name = MakeStructUnionName(tok->Val());
+		auto curScopeType = _topEnv->FindTypeInCurScope(name.c_str());
+		if (Try('{')) {
+			if (nullptr != curScopeType)
+				Error("'%s': struct type redefinition", tok->Val());
+			else goto struct_block;
+		} else {
+			type = _topEnv->FindType(name.c_str());
+			if (nullptr == type)
+				Error("'%s': undefined struct type", tok->Val());
+			return type;
+		}
+	}
+	Expect('{');
+struct_block:
+	EnterBlock();
+	while (!Try('}')) {
+			
+	}
+	//make new struct type
+	type = Type::NewStructUnionType(_topEnv);
+	ExitBlock();
+		
+	/*if the name is specified, then make it visiable;
+		note that, this must be done after ExitBlock();*/
+	if (name.size())	
+		_topEnv->InsertType(name.c_str(), type);
 }
 
