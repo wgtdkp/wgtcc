@@ -462,7 +462,8 @@ Type* Parser::ParseDeclSpec(int* storage)
 		case Token::BOOL:		if (typeSpec != 0)				goto error; typeSpec |= T_BOOL; break;
 		case Token::COMPLEX:	if (typeSpec & ~COMP_COMPLEX)	goto error; typeSpec |= T_COMPLEX; break;
 		case Token::STRUCT: 
-		case Token::UNION:		if (typeSpec != 0)				goto error; type = ParseStructUnionSpec(); typeSpec |= T_STRUCT_UNION; break;
+		case Token::UNION:		if (typeSpec != 0)				goto error; type = ParseStructUnionSpec(Token::STRUCT == tok->Tag()); 
+																			typeSpec |= T_STRUCT_UNION; break;
 		case Token::ENUM:		if (typeSpec != 0)				goto error; type = ParseEnumSpec(); typeSpec |= T_ENUM; break;
 		case Token::ATOMIC:		assert(false);// if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
 									//type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
@@ -529,39 +530,70 @@ following declaration is allowed:
 struct Foo;
 union Bar;
 */
-Type* Parser::ParseStructUnionSpec(void)
+Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
-	
 	string name("");
 	auto tok = Next();
 	if (tok->IsIdentifier()) {
 		name = MakeStructUnionName(tok->Val());
-		auto curScopeType = _topEnv->FindTypeInCurScope(name.c_str());
+		StructUnionType* curScopeType = 
+			_topEnv->FindTypeInCurScope(name.c_str())->ToStructUnionType();
 		if (Try('{')) {
-			if (nullptr != curScopeType)
-				Error("'%s': struct type redefinition", tok->Val());
-			else goto struct_block;
-		} else {
-			//TODO: should add this name into current env
+			//看见大括号，表明现在将定义该struct/union类型
+			if (nullptr != curScopeType) {	
+				/*
+				  在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
+				  1.如果声明在定义的外层scope,那么即使在内层scope定义了完整的类型，此声明仍然是无效的；
+				    因为如论如何，编译器都不会在内部scope里面去找定义，所以声明的类型仍然是不完整的；
+				  2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
+				    因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
+				*/
+				if (!curScopeType->IsComplete()) {}//如果找到的是声明; 先不用管它，应为现在定义还没有完成，也无法更新声明的类型；
+				else Error("'%s': struct type redefinition", tok->Val()); //在当前作用于找到了完整的定义，并且现在正在定义同名的类型，所以报错；
+			} 
+			else goto struct_block; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
+		} else {	
+			/*
+				没有大括号，表明不是定义一个struct/union;那么现在只可能是在：
+				1.声明；
+				2.声明的同时，定义指针(指针允许指向不完整类型) (struct Foo* p; 是合法的) 或者其他合法的类型；
+				如果现在索引符号表，那么：
+				1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
+				2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
+			*/
 			auto type = _topEnv->FindType(name.c_str());
 			if (nullptr != type) return type;
-			type = Type::NewStructUnionType(nullptr); //incomplete struct type
+			type = Type::NewStructUnionType(nullptr, isStruct); //创建不完整的类型
 			_topEnv->InsertType(name.c_str(), type);
 			return type;
 		}
 	}
+	//没见到identifier，那就必须有struct/union的定义，这叫做匿名struct/union;
 	Expect('{');
 struct_block:
-	auto structType = Type::NewStructUnionType(nullptr);
+	/**********************************************************************************************************
+	处理匿名的struct/union的定义；
+	如果仅仅是在普通的scope里面(如：文件，函数)，那么匿名仅仅是不向符号表里面插入此name而已,毕竟本来就没有name;
+	但是如果现在是在一个struct/union定义匿名的struct/union，那就麻烦一些了：
+	1.如果现在正在定义未命名的成员，那么 此struct/union的成员将在外部struct/union直接可见；也就是要将匿名struct/union
+	  的成员符号表添加到外部struct/union的符号表，如：
+									  union Foo {
+										struct {
+										   int i;
+										   int j;
+										};
+										int k;
+									  };
+									  union Foo foo;
+									  foo.i = 0;   //合法
+	  但是同时我们又需要将匿名struct/union定义的未命名的成员看成一个整体(将 i, j 看成一个整体)，所以 sizeof(foo) 的结果是 8，不是4；
+	***********************************************************************************************************/
+	auto structType = Type::NewStructUnionType(nullptr, isStruct);
 	if (name.size()) _topEnv->InsertType(name.c_str(), structType);
-	EnterBlock();
-	//auto structType = Type::NewStructUnionType(_topEnv);
-	//if (name.size()) oldEnv->InsertType(name.c_str(), structType);
 	while (!Try('}')) {
 		auto fieldType = ParseDeclSpec(nullptr);
 		//TODO: parse declarator
 	}
-	ExitBlock();
 	return structType;
 }
 

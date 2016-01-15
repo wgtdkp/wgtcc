@@ -45,8 +45,8 @@ PointerType* Type::NewPointerType(Type* derived) {
 	return new PointerType(derived);
 }
 
-StructUnionType* Type::NewStructUnionType(Env* env) {
-	return new StructUnionType(env);
+StructUnionType* Type::NewStructUnionType(Env* env, bool isStruct) {
+	return new StructUnionType(env, isStruct);
 }
 
 static EnumType* NewEnumType() {
@@ -244,34 +244,25 @@ const Variable* Env::FindVar(const char* name) const
 	return const_cast<const Variable*>(thi->FindVar(name));
 }
 
+/*
+如果名字不在符号表内，那么在当前作用域插入名字；
+如果名字已经在符号表内，那么更新其类型；（这显然会造成内存泄露，旧的不完整类型可能被引用也可能没有被引用）
+插入冲突应该由调用方检查；
+*/
 void Env::InsertType(const char* name, Type* type)
 {
-	//find in current scope
-	auto symb = _mapSymb.find(name);
-	if (_mapSymb.end() != symb) {
-		//if (symb->second->IsVar())
-		//	_mapSymb.erase(symb);
-		//else {
-			//TODO: error redefine
-			Error("redefine of symbol '%s'", name);
-		//}
-	}
-	_mapSymb[name] =  TranslationUnit::NewVariable(type, Variable::TYPE);
+	auto iter = _mapSymb.find(name);
+	//不允许覆盖完整的类型，这应该由调用方检查
+	assert(!iter->second->Ty()->IsComplete());
+	_mapSymb[name] = TranslationUnit::NewVariable(type, Variable::TYPE);
 }
 
 void Env::InsertVar(const char* name, Type* type)
 {
-	auto symb = _mapSymb.find(name);
-	if (_mapSymb.end() != symb) {
-		//if (!symb->second->IsVar())
-		//	_mapSymb.erase(symb);
-		//else {
-			//TODO: error redefine
-			Error("redefine of symbol '%s'", name);
-		//}
-	}
+	//不允许重复定义，这应该由调用方检查
+	assert(_mapSymb.end() == _mapSymb.find(name));
 	_mapSymb[name] = TranslationUnit::NewVariable(type, _offset);
-	_offset += type->Width();
+	_offset += type->Align();
 }
 
 bool Env::operator==(const Env& other) const

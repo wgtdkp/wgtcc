@@ -94,7 +94,7 @@ public:
 	Expr* ParseDecl(void);
 	Type* ParseDeclSpec(int* storage);
 	int ParseAlignas(void);
-	Type* ParseStructUnionSpec(void);
+	Type* ParseStructUnionSpec(bool isStruct);
 
 
     /*

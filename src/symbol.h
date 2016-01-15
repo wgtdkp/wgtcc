@@ -112,7 +112,7 @@ public:
 	static VoidType* NewVoidType(void);
 	static FuncType* NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params = std::list<Type*>());
 	static PointerType* NewPointerType(Type* derived);
-	static StructUnionType* NewStructUnionType(Env* env);
+	static StructUnionType* NewStructUnionType(Env* env, bool isStruct);
 	static EnumType* NewEnumType();
 	static ArithmType* NewArithmType(int tag);
 
@@ -320,13 +320,14 @@ public:
 
 protected:
 	//default is incomplete
-	explicit StructUnionType(Env* env)
-		: _env(env), Type(CalcWidth(env), false) {}
+	explicit StructUnionType(Env* env, bool isStruct)
+		: _env(env), _isStruct(isStruct), Type(CalcWidth(env), false) {}
 
 private:
 	static int CalcWidth(const Env* env);
 
 	Env* _env;
+	bool _isStruct;
 	//member map
 };
 
