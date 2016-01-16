@@ -10,6 +10,7 @@ class Env;
 class Type;
 class Variable;
 class ArithmType;
+class DerivedType;
 class ArrayType;
 class FuncType;
 class PointerType;
@@ -96,6 +97,8 @@ public:
 	virtual const FuncType* ToFuncType(void) const {return nullptr;}
 	virtual PointerType* ToPointerType(void) {return nullptr;}
 	virtual const PointerType* ToPointerType(void) const {return nullptr;}
+	virtual DerivedType* ToDerivedType(void) { return nullptr; }
+	virtual const DerivedType* ToDerivedType(void) const { return nullptr; }
 	virtual StructUnionType* ToStructUnionType(void) {return nullptr;}
 	virtual const StructUnionType* ToStructUnionType(void) const {return nullptr;}
 
@@ -193,13 +196,11 @@ class DerivedType : public Type
 {
 	//friend class Type;
 public:
-	Type* Derived(void) {
-		return _derived;
-	}
-
-	const Type* Derived(void) const {
-		return _derived;
-	}
+	Type* Derived(void) { return _derived; }
+	const Type* Derived(void) const { return _derived;}
+	void SetDerived(Type* derived) { _derived = derived; }
+	virtual DerivedType* ToDerivedType(void) { return this; }
+	virtual const DerivedType* ToDerivedType(void) const { return this; }
 
 protected:
 	DerivedType(Type* derived, int width)

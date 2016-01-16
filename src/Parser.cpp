@@ -419,7 +419,7 @@ param: storage: null, only type specifier and qualifier accepted;
 Type* Parser::ParseDeclSpec(int* storage)
 {
 	Type* type = nullptr;
-	int align = 0;
+	int align = -1;
 	int storageSpec = 0;
 	int funcSpec = 0;
 	int qualSpec = 0;
@@ -468,21 +468,23 @@ Type* Parser::ParseDeclSpec(int* storage)
 		case Token::ATOMIC:		assert(false);// if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
 									//type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
 		default:
-			if (IsTypeName(tok)) {
+			if (0 == typeSpec && IsTypeName(tok)) {
 				type = _topEnv->FindType(tok->Val());
 				typeSpec |= T_TYPEDEF_NAME;
 			} else goto end_of_loop;
 		}
 	}
+	//TODO: 语义部分
 end_of_loop:
 	PutBack();
 	switch (typeSpec) {
+	case 0: Error("no type specifier");
 	case T_VOID: type = Type::NewVoidType(); break;
 	case T_ATOMIC: case T_STRUCT_UNION: case T_ENUM: case T_TYPEDEF_NAME: break;
 	default: type = ArithmType::NewArithmType(typeSpec); break;
 	}
 
-	if (nullptr == storage && 0 != funcSpec && 0 != storageSpec && 0 != align)
+	if (nullptr == storage && 0 != funcSpec && 0 != storageSpec && -1 != align)
 		Error("type specifier/qualifier only");
 	*storage = storageSpec;
 	if (0 != funcSpec)
@@ -580,14 +582,94 @@ StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 {
 	//既然是定义，那输入肯定是不完整类型，不然就是重定义了
 	assert(!type->IsComplete());
-	while (Try('}')) {
+	while (!Try('}')) {
+		if (Peek()->IsEOF())
+			Error("premature end of input");
+
 		//解析type specifier/qualifier, 不接受storage等
 		auto fieldType = ParseDeclSpec(nullptr);
 		//TODO: 解析declarator
+
 	}
 
 	//struct/union定义结束，设置其为完整类型
 	type->SetComplete(true);
 	return type;
 }
+
+int Parser::ParseQual(void)
+{
+	int qualSpec = 0;
+	for (; ;) {
+		switch (Next()->Tag()) {
+		case Token::CONST:		qualSpec |= Q_CONST; break;
+		case Token::RESTRICT:	qualSpec |= Q_RESTRICT; break;
+		case Token::VOLATILE:	qualSpec |= Q_VOLATILE; break;
+		case Token::ATOMIC:		qualSpec |= Q_ATOMIC; break;
+		default: PutBack(); return qualSpec;
+		}
+	}
+}
+
+PointerType* Parser::ParsePointer(Type* typePointedTo)
+{
+	PointerType* retType = nullptr;
+	while (Try('*')) {
+		retType = Type::NewPointerType(typePointedTo);
+		retType->SetQual(ParseQual());
+		typePointedTo = retType;
+	}
+	return retType;
+}
+
+static Type* ModifyBase(Type* type, Type* base, Type* newBase)
+{
+	if (type == base)
+		return newBase;
+	auto ty = type->ToDerivedType();
+	ty->SetDerived(ModifyBase(ty->Derived(), base, newBase));
+	return ty;
+}
+
+Type* Parser::ParseDeclarator(Type* base, int storage)
+{
+	Type* pointerType = base;
+	if (Peek()->Tag() == '*')
+		pointerType = ParsePointer(base);
+	if (Try('(')) {
+		//现在的 pointerType 并不是正确的 base type
+		auto ret = ParseDeclarator(pointerType, storage);
+		Expect(')');
+		auto newBase = ParseArrayFuncDeclarator(pointerType);
+		//修正 base type
+		return ModifyBase(ret, pointerType, newBase);
+	} else if (Peek()->IsIdentifier()) {
+		auto retType = ParseArrayFuncDeclarator(pointerType);
+		auto ident = Peek()->Val();
+		auto var = _topEnv->InsertVar(ident, retType);
+		var->SetStorage(storage);
+		return retType;
+	}
+	Error("expect identifier or '(' but get '%s'", Peek()->Val());
+	return nullptr; //make compiler happy
+}
+
+Type* Parser::ParseArrayFuncDeclarator(Type* base)
+{
+	if (Try('[')) {
+		//TODO: parse array length expression
+		Expect(']');
+		base = ParseArrayFuncDeclarator(base);
+		return Type::NewArrayType():
+	}
+	else if (Try('(')) {
+		//TODO: parse arguments
+		std::list<Type*> params;
+		Expect(')');
+		base = ParseArrayFuncDeclarator(base);
+		return Type::NewFuncType(base, 0, params);
+	}
+	return base;
+}
+
 

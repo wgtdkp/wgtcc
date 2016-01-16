@@ -34,22 +34,6 @@ public:
 
 	Expr* ParseDecl(void);
 
-    /****** Statement ******/
-	/*
-    Statement* ParseStatment(void);
-
-    LabeledStatement* ParseLabeledStatement(void);
-
-    CompoundStatement* ParseCompoundStatement(void);
-
-    ExpressionStatement* ParseExpressionStatement(void);
-
-    SelectionStatement* ParseSelectionStatement(void);
-
-    IterationStatement* ParseIterationStatement(void);
-
-    JumpStatement* ParseJumpStatement(void);
-	*/
     /************ Expressions ************/
 	
 	Expr* ParseExpr(void);
@@ -90,46 +74,20 @@ public:
 
 	Constant* ParseConstantExpr(void);
 
+
 	/************* Declarations **************/
 	Expr* ParseDecl(void);
 	Type* ParseDeclSpec(int* storage);
 	int ParseAlignas(void);
 	Type* ParseStructUnionSpec(bool isStruct);
 	StructUnionType* ParseStructDecl(StructUnionType* type);
+	
+	//declarator
+	int ParseQual(void);
+	PointerType* ParsePointer(Type* typePointedTo);
+	Type* ParseDeclarator(Type* type, int storage);
+	Type* ParseArrayFuncDeclarator(Type* base);
 
-    /*
-    AssignmentExpression* ParseAssignmentExpression(void);
-
-    ConditionalExpression* ParseConditionalExpression(void);
-
-    LogicalOrExpression* ParseLogicalOrExpression(void);
-
-    LogicalAndExpression* ParseLogicalAndExpression(void);
-
-    InclusiveOrExpression* ParseInclusiveOrExpression(void);
-
-    ExclusiveOrExpression* ParseExclusiveOrExpression(void);
-
-    AndExpression* ParseAndExpression(void);
-
-    EqualityExpression* ParseEqualityExpression(void);
-
-    RelationalExpression* ParseRelationalExpression(void);
-
-    ShiftPexression* ParseShiftExpression(void);
-
-    AdditiveExpression* ParseAdditiveExpression(void);
-
-    MultiplicativeExpression* ParseMultiplicativeExpression(void);
-
-    CastExpression* ParseCastExpression(void);
-
-    UnaryExpression* ParseUnaryExpression(void);
-
-    PostfixExpression* ParsePostfixExpression(void);
-
-    PrimaryExpression* ParsePrimaryExpression(void);
-	*/
 
 private:
 	//如果当前token符合参数，返回true,并consume一个token
