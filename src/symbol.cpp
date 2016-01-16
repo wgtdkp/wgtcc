@@ -36,6 +36,11 @@ ArithmType* Type::NewArithmType(int tag) {
 	return _arithmTypes[tag];
 }
 
+ArrayType* Type::NewArrayType(long long len, Type* eleType)
+{
+	return new ArrayType(len, eleType);
+}
+
 //static IntType* NewIntType();
 FuncType* Type::NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params) {
 	return new FuncType(derived, funcSpec, params);

@@ -87,7 +87,7 @@ public:
 	PointerType* ParsePointer(Type* typePointedTo);
 	Type* ParseDeclarator(Type* type, int storage);
 	Type* ParseArrayFuncDeclarator(Type* base);
-
+	int ParseArrayLength(void);
 
 private:
 	//如果当前token符合参数，返回true,并consume一个token

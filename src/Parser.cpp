@@ -657,12 +657,22 @@ Type* Parser::ParseDeclarator(Type* base, int storage)
 Type* Parser::ParseArrayFuncDeclarator(Type* base)
 {
 	if (Try('[')) {
+		if (nullptr != base->ToFuncType())
+			Error("the element of array can't be a function");
 		//TODO: parse array length expression
+		auto len = ParseArrayLength();
+		if (0 == len)
+			Error("can't declare an array of length 0");
 		Expect(']');
 		base = ParseArrayFuncDeclarator(base);
-		return Type::NewArrayType():
+		return Type::NewArrayType(len, base);
 	}
 	else if (Try('(')) {
+		if (nullptr != base->ToFuncType())
+			Error("the return value of a function can't be a function");
+		else if (nullptr != base->ToArrayType())
+			Error("the return value of afunction can't be a array");
+
 		//TODO: parse arguments
 		std::list<Type*> params;
 		Expect(')');
@@ -670,6 +680,39 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
 		return Type::NewFuncType(base, 0, params);
 	}
 	return base;
+}
+
+/*
+return: -1, 没有指定长度；其它，长度；
+*/
+int Parser::ParseArrayLength(void)
+{
+	auto hasStatic = Try(Token::STATIC);
+	auto qual = ParseQual();
+	if (0 != qual)
+		hasStatic = Try(Token::STATIC);
+	/*
+	if (!hasStatic) {
+		if (Try('*'))
+			return Expect(']'), -1;
+		if (Try(']'))
+			return -1;
+		else {
+			auto expr = ParseAssignExpr();
+			auto len = Evaluate(expr);
+			Expect(']');
+			return len;
+		}
+	}*/
+	//不支持变长数组
+	if (!hasStatic && Try(']'))
+		return -1;
+	else {
+		auto expr = ParseAssignExpr();
+		auto len = Evaluate(expr);
+		Expect(']');
+		return len;
+	}
 }
 
 

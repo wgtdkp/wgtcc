@@ -113,6 +113,7 @@ public:
 
 	//static IntType* NewIntType();
 	static VoidType* NewVoidType(void);
+	static ArrayType* NewArrayType(long long len, Type* eleType);
 	static FuncType* NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params = std::list<Type*>());
 	static PointerType* NewPointerType(Type* derived);
 	static StructUnionType* NewStructUnionType(bool isStruct);
@@ -275,13 +276,14 @@ public:
 	}
 
 protected:
-	ArrayType(size_t len, Type* derived)
-		: _len(len), PointerType(derived) {
-		//TODO: calc the _width
+	ArrayType(long long len, Type* derived)
+		: PointerType(derived) {
+		SetComplete(len > 0);	//如果len < 0,那么此类型不完整
+		SetWidth(len > 0 ? len * derived->Width() : 0);
+		SetQual(Q_CONST);
+		
 	}
 
-private:
-	size_t _len;
 };
 
 
