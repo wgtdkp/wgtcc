@@ -510,34 +510,24 @@ int Parser::ParseAlignas(void)
 
 static inline string MakeStructUnionName(const char* name)
 {
-	/*why i use this prefix ?
-	  considering this code:
-	  struct A A;
-	  struct A B;
-	  this is allowed, we can see that the local var 'A' does not override the struct A;
-	  thus, them have different name in the symbol table;
-	  to make the struct type's name unique, i use characters that are not allowed for identifier;
-	  that is why we see '/' and '@' in the prefix;
-	  and, the typedef type would not has this prefix;
-	*/
-	string ret = "struct/union@";
+	static string ret = "struct/union@";
 	return ret + name;
 }
 
 
-/*
-following declaration is allowed:
-struct Foo;
-union Bar;
-*/
+/***
+四种 name space：
+1.label, 如 goto end; 它有函数作用域
+2.struct/union/enum 的 tag
+3.struct/union 的成员
+4.其它的普通的变量
+***/
 Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
-	string name("");
+	const char* structUnionTag = nullptr; //
 	auto tok = Next();
 	if (tok->IsIdentifier()) {
-		name = MakeStructUnionName(tok->Val());
-		StructUnionType* curScopeType = 
-			_topEnv->FindTypeInCurScope(name.c_str())->ToStructUnionType();
+		structUnionTag = tok->Val();
 		if (Try('{')) {
 			//看见大括号，表明现在将定义该struct/union类型
 			if (nullptr != curScopeType) {	
@@ -548,10 +538,14 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 				  2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
 				    因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
 				*/
-				if (!curScopeType->IsComplete()) {}//如果找到的是声明; 先不用管它，应为现在定义还没有完成，也无法更新声明的类型；
-				else Error("'%s': struct type redefinition", tok->Val()); //在当前作用于找到了完整的定义，并且现在正在定义同名的类型，所以报错；
+				if (!curScopeType->IsComplete()) {
+					//找到了此tag的前向声明，并更新其符号表，最后设置为complete type
+					return ParseStructDecl(curScopeType);
+				}
+				else Error("'%s': struct type redefinition", tok->Val()); //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
 			} 
-			else goto struct_block; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
+			else //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
+				goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
 		} else {	
 			/*
 				没有大括号，表明不是定义一个struct/union;那么现在只可能是在：
@@ -561,39 +555,39 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 				1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
 				2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
 			*/
-			auto type = _topEnv->FindType(name.c_str());
+			auto type = _topEnv->FindStructUnionType(structUnionTag);
+			//如果tag已经定义或声明，那么直接返回此定义或者声明
 			if (nullptr != type) return type;
-			type = Type::NewStructUnionType(nullptr, isStruct); //创建不完整的类型
-			_topEnv->InsertType(name.c_str(), type);
+			//如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
+			type = Type::NewStructUnionType(isStruct); //创建不完整的类型
+			//因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
+			_topEnv->InsertStructUnionType(structUnionTag, type);
 			return type;
 		}
 	}
 	//没见到identifier，那就必须有struct/union的定义，这叫做匿名struct/union;
 	Expect('{');
-struct_block:
-	/**********************************************************************************************************
-	处理匿名的struct/union的定义；
-	如果仅仅是在普通的scope里面(如：文件，函数)，那么匿名仅仅是不向符号表里面插入此name而已,毕竟本来就没有name;
-	但是如果现在是在一个struct/union定义匿名的struct/union，那就麻烦一些了：
-	1.如果现在正在定义未命名的成员，那么 此struct/union的成员将在外部struct/union直接可见；也就是要将匿名struct/union
-	  的成员符号表添加到外部struct/union的符号表，如：
-									  union Foo {
-										struct {
-										   int i;
-										   int j;
-										};
-										int k;
-									  };
-									  union Foo foo;
-									  foo.i = 0;   //合法
-	  但是同时我们又需要将匿名struct/union定义的未命名的成员看成一个整体(将 i, j 看成一个整体)，所以 sizeof(foo) 的结果是 8，不是4；
-	***********************************************************************************************************/
-	auto structType = Type::NewStructUnionType(nullptr, isStruct);
-	if (name.size()) _topEnv->InsertType(name.c_str(), structType);
-	while (!Try('}')) {
+struct_decl:
+	//现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
+	//所以现在是第一次开始定义一个完整的struct/union类型
+	auto type = Type::NewStructUnionType(isStruct);
+	if (nullptr != structUnionTag) 
+		_topEnv->InsertType(structUnionTag, type);
+	return ParseStructDecl(type);
+}
+
+StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
+{
+	//既然是定义，那输入肯定是不完整类型，不然就是重定义了
+	assert(!type->IsComplete());
+	while (Try('}')) {
+		//解析type specifier/qualifier, 不接受storage等
 		auto fieldType = ParseDeclSpec(nullptr);
-		//TODO: parse declarator
+		//TODO: 解析declarator
 	}
-	return structType;
+
+	//struct/union定义结束，设置其为完整类型
+	type->SetComplete(true);
+	return type;
 }
 

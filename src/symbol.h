@@ -112,7 +112,7 @@ public:
 	static VoidType* NewVoidType(void);
 	static FuncType* NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params = std::list<Type*>());
 	static PointerType* NewPointerType(Type* derived);
-	static StructUnionType* NewStructUnionType(Env* env, bool isStruct);
+	static StructUnionType* NewStructUnionType(bool isStruct);
 	static EnumType* NewEnumType();
 	static ArithmType* NewArithmType(int tag);
 
@@ -317,18 +317,21 @@ public:
 	virtual bool Compatible(const Type& other) const;
 	Variable* Find(const char* name);
 	const Variable* Find(const char* name) const;
-
+	
+	//向struct/union添加成员
+	void AddMember(const char* name, Type* type);
+	bool IsStruct(void) const { return _isStruct; }
 protected:
 	//default is incomplete
-	explicit StructUnionType(Env* env, bool isStruct)
-		: _env(env), _isStruct(isStruct), Type(CalcWidth(env), false) {}
+	explicit StructUnionType(bool isStruct)
+		: _mapMember(new Env()), _isStruct(isStruct), Type(0, false) {}
+	StructUnionType(const StructUnionType& other);
 
 private:
 	static int CalcWidth(const Env* env);
 
-	Env* _env;
+	Env* _mapMember;
 	bool _isStruct;
-	//member map
 };
 
 
@@ -372,8 +375,8 @@ public:
 	Variable* FindVar(const char* name);
 	const Variable* FindVar(const char* name) const;
 
-	void InsertType(const char* name, Type* type);
-	void InsertVar(const char* name, Type* type);
+	Type* InsertType(const char* name, Type* type);
+	Variable* InsertVar(const char* name, Type* type);
 
 	bool operator==(const Env& other) const;
 	Env* Parent(void) { return _parent; }

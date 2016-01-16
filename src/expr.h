@@ -48,6 +48,11 @@ public:
 		return _offset >= 0;
 	}
 
+	int Offset(void) const { return _offset; }
+	int Storage(void) const { return _storage; }
+	void SetOffset(int offset) { _offset = offset; }
+	void SetStorage(int storage) { _storage = storage; }
+
 	//of course a variable is a lvalue expression
 	virtual bool IsLVal(void) const { return true; }
 
@@ -62,7 +67,7 @@ public:
 
 protected:
 	Variable(Type* type, int offset = VAR)
-		: Expr(type), _offset(offset) {}
+		: Expr(type), _offset(offset), _storage(0) {}
 	
 	//do nothing
 	virtual Variable* TypeChecking(void) { return this; }

@@ -45,8 +45,8 @@ PointerType* Type::NewPointerType(Type* derived) {
 	return new PointerType(derived);
 }
 
-StructUnionType* Type::NewStructUnionType(Env* env, bool isStruct) {
-	return new StructUnionType(env, isStruct);
+StructUnionType* Type::NewStructUnionType(bool isStruct) {
+	return new StructUnionType(isStruct);
 }
 
 static EnumType* NewEnumType() {
@@ -135,11 +135,11 @@ bool FuncType::Compatible(const Type& other) const
 /********* StructUnionType ***********/
 
 Variable* StructUnionType::Find(const char* name) {
-	return _env->FindVar(name);
+	return _mapMember->FindVar(name);
 }
 
 const Variable* StructUnionType::Find(const char* name) const {
-	return _env->FindVar(name);
+	return _mapMember->FindVar(name);
 }
 
 int StructUnionType::CalcWidth(const Env* env)
@@ -155,7 +155,7 @@ bool StructUnionType::operator==(const Type& other) const
 {
 	auto structUnionType = other.ToStructUnionType();
 	if (nullptr == structUnionType) return false;
-	return *_env == *structUnionType->_env;
+	return *_mapMember == *structUnionType->_mapMember;
 }
 
 bool StructUnionType::Compatible(const Type& other) const {
@@ -163,6 +163,12 @@ bool StructUnionType::Compatible(const Type& other) const {
 	return *this == other;
 }
 
+void StructUnionType::AddMember(const char* name, Type* type)
+{
+	auto newMember = _mapMember->InsertVar(name, type);
+	if (!IsStruct())
+		newMember->SetOffset(0);
+}
 
 
 /************** Env ******************/
@@ -249,20 +255,24 @@ const Variable* Env::FindVar(const char* name) const
 如果名字已经在符号表内，那么更新其类型；（这显然会造成内存泄露，旧的不完整类型可能被引用也可能没有被引用）
 插入冲突应该由调用方检查；
 */
-void Env::InsertType(const char* name, Type* type)
+Type* Env::InsertType(const char* name, Type* type)
 {
 	auto iter = _mapSymb.find(name);
-	//不允许覆盖完整的类型，这应该由调用方检查
+	//不允许覆盖完整的类型，也不允许覆盖不完整的类型，而应该修改此不完整的类型为完整的
 	assert(!iter->second->Ty()->IsComplete());
-	_mapSymb[name] = TranslationUnit::NewVariable(type, Variable::TYPE);
+	auto var = TranslationUnit::NewVariable(type, Variable::TYPE);
+	_mapSymb[name] = var;
+	return var->Ty();
 }
 
-void Env::InsertVar(const char* name, Type* type)
+Variable* Env::InsertVar(const char* name, Type* type)
 {
 	//不允许重复定义，这应该由调用方检查
 	assert(_mapSymb.end() == _mapSymb.find(name));
-	_mapSymb[name] = TranslationUnit::NewVariable(type, _offset);
+	auto var = TranslationUnit::NewVariable(type, _offset);
+	_mapSymb[name] = var;
 	_offset += type->Align();
+	return var;
 }
 
 bool Env::operator==(const Env& other) const
