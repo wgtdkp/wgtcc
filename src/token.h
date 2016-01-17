@@ -67,51 +67,61 @@ public:
 		/**punctuators end**/
 
 		/**key words**/
+		//type qualifier
+		CONST,
+		RESTRICT,
+		VOLATILE,
+		ATOMIC, //_Atomic
+
+		//type specifier
+		VOID,
+		CHAR,
+		SHORT,
+		INT,
+		LONG,
+		FLOAT,
+		DOUBLE,
+		SIGNED,
+		UNSIGNED,
+		BOOL,		//_Bool
+		COMPLEX,	//_Complex
+		STRUCT,
+		UNION,
+		ENUM,
+		TYPEDEF_NAME, //not used
+
+		//function specifier
+		INLINE,
+		NORETURN,	//_Noreturn
+
+		//alignment specifier
+		ALIGNAS, //_Alignas
+
+		//storage class specifier
+		TYPEDEF,
+		EXTERN,
+		STATIC,
+		THREAD,	//_Thread_local
 		AUTO,
+		REGISTER,
+
 		BREAK,
 		CASE,
-		CHAR,
-		CONST,
 		CONTINUE,
 		DEFAULT,
 		DO,
-		DOUBLE,
 		ELSE,
-		ENUM,
-		EXTERN,
-		FLOAT,
 		FOR,
 		GOTO,
-		//FUNC_NAME,
 		IF,		
-		INLINE,
-		INT,
-		LONG,		
-		REGISTER,
-		RESTRICT,
 		RETURN,
-		SHORT,
-		SIGNED,
 		SIZEOF,
-		STATIC,		
-		STRUCT,
 		SWITCH,		
-		TYPEDEF,
-		UNION,
-		UNSIGNED,
-		VOID,
-		VOLATILE,
 		WHILE,
-		ALIGNAS, //_Alignas
 		ALIGNOF, //_Alignof
-		ATOMIC, //_Atomic
-		BOOL, //_Bool
-		COMPLEX, //_Complex
 		GENERIC, //_Generic
 		IMAGINARY, //_Imaginary
-		NORETURN, //_Noreturn
 		STATIC_ASSERT, //_Static_assert
-		THREAD, //_Thread_local
 		/**key words end**/
 	
 		IDENTIFIER,
@@ -121,7 +131,7 @@ public:
 		STRING_LITERAL,
 
 		//for the parser, a identifier is a typedef name or user defined type
-		TYPE_NAME,
+		
 		POSTFIX_INC,
 		POSTFIX_DEC,
 		PREFIX_INC,
@@ -200,45 +210,8 @@ public:
 		return _tag == Token::END;
 	}
 
-	bool IsTypeQual(void) const {
-		switch (_tag) {
-		case CONST: case RESTRICT:
-		case VOLATILE: case ATOMIC:
-			return true;
-		default: return false;
-		}
-	}
-
-	bool IsTypeSpec(void) const {
-		switch (_tag) {
-		case VOID: case CHAR: case SHORT: 
-		case INT: case LONG: case FLOAT:
-		case DOUBLE: case SIGNED: case UNSIGNED:
-		case BOOL: case COMPLEX: case IMAGINARY:
-		case STRUCT: case UNION: case ENUM: case ATOMIC:
-			return true;
-		default: return false;
-		}
-	}
-
-	bool IsFuncSpec(void) const {
-		return (INLINE == _tag || NORETURN == _tag);
-	}
-
-	bool IsAlignSpec(void) const {
-		return ALIGNAS == _tag;
-	}
-
-	bool IsStorageClassSpec(void) const {
-		switch (_tag) {
-		case TYPEDEF: case EXTERN: case STATIC: 
-		case THREAD: case AUTO: case REGISTER:
-			return true;
-		default: return false;
-		}
-	}
-
-
+	bool IsTypeSpecQual(void) const { return CONST <= _tag && _tag <= ENUM; }
+	bool IsDecl(void) const { return CONST <= _tag && _tag <= REGISTER; }
 
 	static const char* Lexeme(int tag) {
 		return _TagLexemeMap.at(tag);
@@ -278,46 +251,5 @@ private:
 	Token(const Token& other);
 	const Token& operator=(const Token& other);
 };
-
-
-/*
-class TokenConstant: public Token
-{
-
-private:
-	TokenConstant(const TokenConstant& other);
-	const TokenConstant& operator=(const TokenConstant& other);
-};
-
-class TokenIdentifier : public Token
-{
-public:
-	TokenIdentifier(const char* begin, const char* end):
-		_lexeme(nullptr), Token(IDENTIFIER) {
-		if (end - begin > INIT_SIZE) {
-			auto lexeme = new char[end - begin + 1];
-			strncpy(lexeme, begin, end - begin);
-			lexeme[end - begin] = 0;
-			_lexeme = lexeme; 
-		} else {
-			strncpy(_init, begin, end - begin);
-			_init[end - begin] = 0;
-		}
-	}
-
-	virtual ~TokenIdentifier(void) {
-		if (nullptr != _lexeme)
-			delete[] _lexeme;
-	}
-
-	const char* Lexeme(void) const {
-		return _lexeme;
-	}
-
-private:
-	enum { INIT_SIZE = 8 };
-	char _init[INIT_SIZE + 1];
-};
-*/
 
 #endif

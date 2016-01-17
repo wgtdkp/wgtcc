@@ -22,7 +22,7 @@ TranslationUnit* Parser::ParseTranslationUnit(void)
 {
 	auto program = TranslationUnit::NewTranslationUnit();
     for (; ;) {
-		
+		//TODO: 
     }
 	return program;
 }
@@ -389,7 +389,7 @@ Constant* Parser::ParseConstantExpr(void)
 
 /* if there is an initializer, then return the initializer expression,
    else, return null.*/
-void Parser::ParseDecl(std::list<Expr*>& initializers)
+void Parser::ParseDecl(std::list<Stmt*>& initializers)
 {
 	if (Try(Token::STATIC_ASSERT)) {
 
@@ -803,3 +803,105 @@ Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 
 /************** Statements ****************/
 
+Stmt* Parser::ParseStmt(void)
+{
+	auto tok = Next();
+	if (tok->IsEOF())
+		Error("premature end of input");
+	switch (tok->Tag()) {
+	case '{': return ParseCompoundStmt();
+	case Token::IF: return ParseIfStmt();
+	case Token::SWITCH: return ParseSwitchStmt();
+	case Token::WHILE: return ParseWhileStmt();
+	case Token::DO: return ParseDoStmt();
+	case Token::FOR: return ParseForStmt();
+	case Token::GOTO: return ParseGotoStmt();
+	case Token::CONTINUE: return ParseContinueStmt();
+	case Token::BREAK: return ParseBreakStmt();
+	case Token::RETURN: return ParseReturnStmt();
+	case Token::CASE: return ParseCaseStmt();
+	case Token::DEFAULT: return ParseDefaultStmt();
+	}
+	if (tok->IsIdentifier() && Try(':'))
+		return ParseLabel(tok->Val());
+	if (Try(';')) return TranslationUnit::NewEmptyStmt();
+	auto expr = ParseExpr();
+	return Expect(';'), expr;
+}
+
+CompoundStmt* Parser::ParseCompoundStmt(void)
+{
+	EnterBlock();
+	std::list<Stmt*> stmts;
+	while (!Try('}')) {
+		if (Peek()->IsEOF())
+			Error("premature end of input");
+		if (IsType(Peek()))
+			ParseDecl(stmts);
+		else
+			stmts.push_back(ParseStmt());
+	}
+	ExitBlock();
+	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+IfStmt* Parser::ParseIfStmt(void)
+{
+	Expect('(');
+	auto cond = ParseExpr();
+	EnsureScalarExpr(cond);
+	Expect(')');
+
+	auto then = ParseStmt();
+	Stmt* els = nullptr;
+	if (Try(Token::ELSE))
+		els = ParseStmt();
+	return TranslationUnit::NewIfStmt(cond, then, els);
+}
+
+/*
+for 循环结构：
+    for (declaration; expression1; expression2) statement
+
+展开后的结构：
+		declaration
+cond:	if (expression1) goto body
+		goto next
+body:	statement
+		expression2
+		goto 
+next:
+*/
+
+CompoundStmt* Parser::ParseForStmt(void)
+{
+	EnterBlock();
+	Expect('(');
+	std::list<Stmt*> stmts;
+	if (IsType(Peek()))
+		ParseDecl(stmts);
+	else if (!Try(';')) {
+		stmts.push_back(ParseExpr());
+		Expect(';');
+	}
+
+	Expr* cond = nullptr;
+	if (!Try(';')) {
+		cond = ParseExpr();
+	}
+	if (!Try(')')) {
+		stmts.push_back(ParseExpr());
+		Expect(')');
+	}
+
+	auto bodyStmt = ParseStmt();
+	auto bodyLabel = TranslationUnit::NewLabelStmt(bodyStmt);
+	Stmt* stmt = TranslationUnit::NewJumpStmt(bodyLabel);
+	if (nullptr != cond)
+		stmt = TranslationUnit::NewIfStmt(cond, stmt);
+	auto condLabel = TranslationUnit::NewLabelStmt(stmt);
+	stmts.push_back
+	stmts.push_back(ParseStmt());
+	ExitBlock();
+	return TranslationUnit::NewCompoundStmt(stmts);
+}

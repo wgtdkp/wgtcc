@@ -17,6 +17,11 @@ class Variable;
 class Constant;
 class AssignExpr;
 
+class Stmt;
+class IfStmt;
+class JumpStmt;
+class LabelStmt;
+
 /************ AST Node *************/
 
 class ASTNode
@@ -63,6 +68,13 @@ public:
 	static Constant* NewConstant(PointerType* type);
 
 	static UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
+
+	/*************** Statement *******************/
+	static EmptyStmt* NewEmptyStmt(void);
+	static IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=TranslationUnit::NewEmptyStmt());
+	static CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
+	static JumpStmt* NewJumpStmt(LabelStmt* label);
+	static LabelStmt* NewLabelStmt(Stmt* stmt);
 private:
 	TranslationUnit(void) {}
 

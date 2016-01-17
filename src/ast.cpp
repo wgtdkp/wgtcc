@@ -54,3 +54,33 @@ UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
 	return (new UnaryOp(op, operand, type))->TypeChecking();
 }
 
+
+/********** Statement ***********/
+
+//显然空stmt只需要一个
+EmptyStmt* TranslationUnit::NewEmptyStmt(void)
+{
+	static auto inst = new EmptyStmt();
+	return inst;
+}
+
+//else stmt 默认是空stmt，在代码生成的时候判断是否是空stmt可以去掉冗余的jump;
+IfStmt* TranslationUnit::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
+{
+	return new IfStmt(cond, then, els);
+}
+
+CompoundStmt* TranslationUnit::NewCompoundStmt(std::list<Stmt*>& stmts)
+{
+	return (new CompoundStmt(stmts));
+}
+
+JumpStmt* TranslationUnit::NewJumpStmt(LabelStmt* label)
+{
+	return new JumpStmt(label);
+}
+
+LabelStmt* TranslationUnit::NewLabelStmt(Stmt* stmt)
+{
+	return new LabelStmt(stmt);
+}

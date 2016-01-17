@@ -7,6 +7,7 @@
 #include "ast.h"
 #include "expr.h"
 #include "decl.h"
+#include "stmt.h"
 #include "lexer.h"
 #include "symbol.h"
 #include "error.h"
@@ -30,10 +31,9 @@ public:
 
 	TranslationUnit* ParseTranslationUnit(void);
 
-    /****** Declaration ******/
+    
 
 	Decl* ParseFuncDef(void);
-	Type* ParseDecl(std::list<Expr*> initializers);
 
     /************ Expressions ************/
 	
@@ -77,7 +77,7 @@ public:
 
 
 	/************* Declarations **************/
-	void ParseDecl(std::list<Expr*>& initializers);
+	void ParseDecl(std::list<Stmt*>& initializers);
 	Type* ParseDeclSpec(int* storage, int* func);
 	Type* ParseSpecQual(void);
 	int ParseAlignas(void);
@@ -102,9 +102,18 @@ public:
 	//Expr* ParseInit
 
 	/************* Statements ***************/
-
-
-
+	Stmt* ParseStmt(void);
+	CompoundStmt* ParseCompoundStmt(void);
+	IfStmt* ParseIfStmt(void);
+	Stmt* ParseSwitchStmt(void);
+	CompoundStmt* ParseWhileStmt(void);
+	CompoundStmt* ParseDoStmt(void);
+	CompoundStmt* ParseForStmt(void);
+	JumpStmt* ParseGotoStmt(void);
+	JumpStmt* ParseContinueStmt(void);
+	JumpStmt* ParseBreakStmt(void);
+	JumpStmt* ParseReturnStmt(void);
+	Stmt* ParseLabel(void);
 private:
 	//如果当前token符合参数，返回true,并consume一个token
 	//如果与tokTag不符，则返回false，并且不consume token
@@ -138,10 +147,17 @@ private:
 		return Peek();
 	}
 
-	bool IsTypeName(const Token* tok) {
-		if (tok->IsTypeQual() || tok->IsTypeSpec())
+	bool IsTypeName(const Token* tok) const{
+		if (tok->IsTypeSpecQual())
 			return true;
 		return (tok->IsIdentifier() 
+			&& nullptr != _topEnv->FindType(tok->Val()));
+	}
+
+	bool IsType(const Token* tok) const{
+		if (tok->IsDecl())
+			return true;
+		return (tok->IsIdentifier()
 			&& nullptr != _topEnv->FindType(tok->Val()));
 	}
 
@@ -154,7 +170,7 @@ private:
 		}
 	}
 
-	void EnsureModifiable(Expr* expr) const {
+	void EnsureModifiableExpr(Expr* expr) const {
 		if (!expr->IsLVal()) {
 			//TODO: error
 			Error("lvalue expression expected");
@@ -163,10 +179,15 @@ private:
 		}
 	}
 
-	void EnsureLVal(Expr* expr) const {
+	void EnsureLValExpr(Expr* expr) const {
 		if (!expr->IsLVal()) {
 			Error("lvalue expected");
 		}
+	}
+
+	void EnsureScalarExpr(Expr* expr) const {
+		if (!expr->Ty()->IsScalar())
+			Error("scalar type expected");
 	}
 
 	void EnterBlock(void) {
@@ -176,9 +197,26 @@ private:
 		_topEnv = _topEnv->Parent();
 	}
 
+	void EnterFunc(const char* funcName) {
+		_labelMaps.push(new LabelMap());
+		EnterBlock();
+	}
+
+	void ExitFunc(void) {
+		auto top = _labelMaps.top();
+		_labelMaps.pop();
+		delete top;
+		ExitBlock();
+	}
+
+	typedef std::map<const char*, Stmt*, StrCmp> LabelMap;
+	LabelMap* TopLabels(void) { return _labelMaps.top(); }
+	const LabelMap* TopLabels(void) const { return _labelMaps.top(); }
 private:
+	
     Lexer* _lexer;
 	Env* _topEnv;
+	std::stack<LabelMap*> _labelMaps;
 	std::stack<Token*> _buf;
 };
 
