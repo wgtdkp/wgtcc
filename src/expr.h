@@ -3,10 +3,11 @@
 
 #include <cassert>
 #include "ast.h"
+#include "stmt.h"
 
 /********** Expr ************/
 
-class Expr : public ASTNode
+class Expr : public Stmt
 {
 	friend class TranslationUnit;
 public:

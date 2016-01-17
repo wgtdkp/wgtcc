@@ -5,6 +5,8 @@
 
 using namespace std;
 
+
+
 void Parser::Expect(int expect, int follow1, int follow2)
 {
 	auto tok = Next();
@@ -214,7 +216,10 @@ UnaryOp* Parser::ParseUnaryOp(int op)
 
 Type* Parser::ParseTypeName(void)
 {
-	return nullptr;
+	auto type = ParseSpecQual();
+	if (Try('*') || Try('(')) //abstract-declarator 的FIRST集合
+		return ParseAbstractDeclarator(type);
+	return type;
 }
 
 Expr* Parser::ParseCastExpr(void)
@@ -384,9 +389,21 @@ Constant* Parser::ParseConstantExpr(void)
 
 /* if there is an initializer, then return the initializer expression,
    else, return null.*/
-Expr* Parser::ParseDecl(void)
+void Parser::ParseDecl(std::list<Expr*>& initializers)
 {
+	if (Try(Token::STATIC_ASSERT)) {
 
+	} else {
+		int storageSpec, funcSpec;
+		auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+		//init-declarator 的 FIRST 集合：'*' identifier '('
+		if (Test('*') || Test(Token::IDENTIFIER) || Test('(')) {
+			do {
+				auto initExpr = ParseInitDeclarator(type, storageSpec, funcSpec);
+				if (nullptr != initExpr) initializers.push_back(initExpr);
+			} while (Try(','));
+		}
+	}
 }
 
 //for state machine
@@ -411,6 +428,11 @@ static inline void TypeLL(int& typeSpec)
 		typeSpec |= T_LONG_LONG;
 	} else
 		typeSpec |= T_LONG;
+}
+
+Type* Parser::ParseSpecQual(void)
+{
+	return ParseDeclSpec(nullptr, nullptr);
 }
 
 /*
@@ -588,7 +610,7 @@ StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 			Error("premature end of input");
 
 		//解析type specifier/qualifier, 不接受storage等
-		auto fieldType = ParseDeclSpec(nullptr, nullptr);
+		auto fieldType = ParseSpecQual();
 		//TODO: 解析declarator
 
 	}
@@ -612,9 +634,9 @@ int Parser::ParseQual(void)
 	}
 }
 
-PointerType* Parser::ParsePointer(Type* typePointedTo)
+Type* Parser::ParsePointer(Type* typePointedTo)
 {
-	PointerType* retType = nullptr;
+	Type* retType = typePointedTo;
 	while (Try('*')) {
 		retType = Type::NewPointerType(typePointedTo);
 		retType->SetQual(ParseQual());
@@ -632,31 +654,36 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
 	return ty;
 }
 
-Type* Parser::ParseDeclarator(Type* base, int storage, int funcSpec)
+Variable* Parser::ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec)
 {
-	Type* pointerType = base;
-	if (Peek()->Tag() == '*')
-		pointerType = ParsePointer(base);
+	NameTypePair nameType = Parser::ParseDeclarator(base);
+	//TODO: 检查在同一 scope 是否已经定义此变量
+	//      如果 storage 是 typedef，那么应该往符号表里面插入 type
+	//      定义 void 类型变量是非法的，只能是指向void类型的指针
+	//      如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
+	auto var = _topEnv->InsertVar(nameType.first, nameType.second);
+	var->SetStorage(storageSpec);
+	return var;
+}
+
+NameTypePair Parser::ParseDeclarator(Type* base)
+{
+	auto pointerType = ParsePointer(base);
 	if (Try('(')) {
 		//现在的 pointerType 并不是正确的 base type
-		auto ret = ParseDeclarator(pointerType, storage, funcSpec);
+		auto nameTypePair = ParseDeclarator(pointerType);
 		Expect(')');
 		auto newBase = ParseArrayFuncDeclarator(pointerType);
 		//修正 base type
-		return ModifyBase(ret, pointerType, newBase);
+		auto retType = ModifyBase(nameTypePair.second, pointerType, newBase);
+		return std::pair<const char*, Type*>(nameTypePair.first, retType);
 	} else if (Peek()->IsIdentifier()) {
-		//TODO: 检查在同一 scope 是否已经定义此变量
-		//      如果 storage 是 typedef，那么应该往符号表里面插入 type
-		//      定义 void 类型变量是非法的，只能是指向void类型的指针
-		//      如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
 		auto retType = ParseArrayFuncDeclarator(pointerType);
 		auto ident = Peek()->Val();
-		auto var = _topEnv->InsertVar(ident, retType);
-		var->SetStorage(storage);
-		return retType;
+		return NameTypePair(ident, retType);
 	}
 	Error("expect identifier or '(' but get '%s'", Peek()->Val());
-	return nullptr; //make compiler happy
+	return std::pair<const char*, Type*>(nullptr, nullptr); //make compiler happy
 }
 
 Type* Parser::ParseArrayFuncDeclarator(Type* base)
@@ -747,6 +774,32 @@ Type* Parser::ParseParamDecl(void)
 	if (Peek()->Tag() == ',')
 		return type;
 	//TODO: declarator 和 abstract declarator 都要支持
-	return ParseDeclarator(type, storageSpec, funcSpec);
+	//TODO: 区分 declarator 和 abstract declarator
+	return ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();		//ParseDeclarator(type);
 }
+
+Type* Parser::ParseAbstractDeclarator(Type* type)
+{
+	auto pointerType = ParsePointer(type);
+	if (nullptr != pointerType->ToPointerType() && !Try('('))
+		return pointerType;
+	auto ret = ParseAbstractDeclarator(pointerType);
+	Expect(')');
+	auto newBase = ParseArrayFuncDeclarator(pointerType);
+	return ModifyBase(ret, pointerType, newBase);
+}
+
+//TODO:: 缓一缓
+Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
+{
+	auto var = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
+	if (Try('=')) {
+		auto rhs = ParseInitializer();
+		return TranslationUnit::NewBinaryOp('=', var, rhs);
+	}
+	return nullptr;
+}
+
+
+/************** Statements ****************/
 

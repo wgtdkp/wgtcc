@@ -13,6 +13,8 @@
 
 class Env;
 
+typedef std::pair<const char*, Type*> NameTypePair;
+
 class Parser
 {
 public:
@@ -31,8 +33,7 @@ public:
     /****** Declaration ******/
 
 	Decl* ParseFuncDef(void);
-
-	Expr* ParseDecl(void);
+	Type* ParseDecl(std::list<Expr*> initializers);
 
     /************ Expressions ************/
 	
@@ -76,20 +77,34 @@ public:
 
 
 	/************* Declarations **************/
-	Expr* ParseDecl(void);
+	void ParseDecl(std::list<Expr*>& initializers);
 	Type* ParseDeclSpec(int* storage, int* func);
+	Type* ParseSpecQual(void);
 	int ParseAlignas(void);
 	Type* ParseStructUnionSpec(bool isStruct);
 	StructUnionType* ParseStructDecl(StructUnionType* type);
 	
 	//declarator
 	int ParseQual(void);
-	PointerType* ParsePointer(Type* typePointedTo);
-	Type* ParseDeclarator(Type* type, int storage, int funcSpec);
+	Type* ParsePointer(Type* typePointedTo);
+	Variable* ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec);
+	NameTypePair ParseDeclarator(Type* type);
 	Type* ParseArrayFuncDeclarator(Type* base);
 	int ParseArrayLength(void);
 	bool ParseParamList(std::list<Type*>& params);
 	Type* ParseParamDecl(void);
+
+	//typename
+	Type* ParseAbstractDeclarator(Type* type);
+
+	//initializer
+	Expr* ParseInitDeclarator(Type* type, int storageSpec, int funcSpec);
+	//Expr* ParseInit
+
+	/************* Statements ***************/
+
+
+
 private:
 	//如果当前token符合参数，返回true,并consume一个token
 	//如果与tokTag不符，则返回false，并且不consume token
@@ -102,24 +117,16 @@ private:
 	}
 
 	//返回当前token，并前移
-	Token* Next(void) {
-		return _lexer->Get();
-	}
-
-	void PutBack(void) {
-		_lexer->Unget();
-	}
+	Token* Next(void) { return _lexer->Get(); }
+	void PutBack(void) { _lexer->Unget(); }
 
 	//返回当前token，但是不前移
-	Token* Peek(void) {
-		auto tok = _lexer->Peek();
-		return tok;
-	}
+	Token* Peek(void) { return _lexer->Peek(); }
+	const Token* Peek(void) const{ return _lexer->Peek(); }
+	bool Test(int tag) const { return Peek()->Tag() == tag; }
 
 	//记录当前token位置
-	void Mark(void) {
-		_buf.push(Peek());
-	}
+	void Mark(void) { _buf.push(Peek()); }
 
 	//回到最近一次Mark的地方
 	Token* Release(void) {
