@@ -88,7 +88,8 @@ public:
 	bool IsReal(void) const;
 	bool IsArithm(void) const { return (nullptr != ToArithmType()); }
 
-
+	virtual VoidType* ToVoidType(void) { return nullptr; }
+	virtual const VoidType* ToVoidType(void) const { return nullptr; }
 	virtual ArithmType* ToArithmType(void) { return nullptr; }
 	virtual const ArithmType* ToArithmType(void) const { return nullptr; }
 	virtual ArrayType* ToArrayType(void) {return nullptr;}
@@ -114,7 +115,8 @@ public:
 	//static IntType* NewIntType();
 	static VoidType* NewVoidType(void);
 	static ArrayType* NewArrayType(long long len, Type* eleType);
-	static FuncType* NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params = std::list<Type*>());
+	static FuncType* NewFuncType(Type* derived, int funcSpec, \
+		bool hasEllipsis, const std::list<Type*>& params = std::list<Type*>());
 	static PointerType* NewPointerType(Type* derived);
 	static StructUnionType* NewStructUnionType(bool isStruct);
 	static EnumType* NewEnumType();
@@ -296,16 +298,18 @@ public:
 	virtual const FuncType* ToFuncType(void) const { return this; }
 	virtual bool operator==(const Type& other) const;
 	virtual bool Compatible(const Type& other) const;
-	bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
-	bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
+	//bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
+	//bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 protected:
 	//a function does not has the width property
-	FuncType(Type* derived, int inlineReturn, const std::list<Type*>& params = std::list<Type*>())
-		: DerivedType(_derived, -1), _inlineNoReturn(inlineReturn), _params(params) {}
+	FuncType(Type* derived, int inlineReturn, bool hasEllipsis, const std::list<Type*>& params = std::list<Type*>())
+		: DerivedType(_derived, -1), _inlineNoReturn(inlineReturn), _hasEllipsis(hasEllipsis), _params(params) {}
 
 private:
 	int _inlineNoReturn;
+	bool _hasEllipsis;
 	std::list<Type*> _params;
+	
 };
 
 

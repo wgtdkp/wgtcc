@@ -416,7 +416,7 @@ static inline void TypeLL(int& typeSpec)
 /*
 param: storage: null, only type specifier and qualifier accepted;
 */
-Type* Parser::ParseDeclSpec(int* storage)
+Type* Parser::ParseDeclSpec(int* storage, int* func)
 {
 	Type* type = nullptr;
 	int align = -1;
@@ -484,11 +484,12 @@ end_of_loop:
 	default: type = ArithmType::NewArithmType(typeSpec); break;
 	}
 
-	if (nullptr == storage && 0 != funcSpec && 0 != storageSpec && -1 != align)
+	if ((nullptr == storage || nullptr == func)
+		&& 0 != funcSpec && 0 != storageSpec && -1 != align) {
 		Error("type specifier/qualifier only");
+	}
 	*storage = storageSpec;
-	if (0 != funcSpec)
-		return Type::NewFuncType(type, funcSpec);	//the params is lefted unspecified
+	*func = funcSpec;
 	return type;
 error:
 	Error("type speficier/qualifier/storage error");
@@ -587,7 +588,7 @@ StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 			Error("premature end of input");
 
 		//解析type specifier/qualifier, 不接受storage等
-		auto fieldType = ParseDeclSpec(nullptr);
+		auto fieldType = ParseDeclSpec(nullptr, nullptr);
 		//TODO: 解析declarator
 
 	}
@@ -631,19 +632,23 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
 	return ty;
 }
 
-Type* Parser::ParseDeclarator(Type* base, int storage)
+Type* Parser::ParseDeclarator(Type* base, int storage, int funcSpec)
 {
 	Type* pointerType = base;
 	if (Peek()->Tag() == '*')
 		pointerType = ParsePointer(base);
 	if (Try('(')) {
 		//现在的 pointerType 并不是正确的 base type
-		auto ret = ParseDeclarator(pointerType, storage);
+		auto ret = ParseDeclarator(pointerType, storage, funcSpec);
 		Expect(')');
 		auto newBase = ParseArrayFuncDeclarator(pointerType);
 		//修正 base type
 		return ModifyBase(ret, pointerType, newBase);
 	} else if (Peek()->IsIdentifier()) {
+		//TODO: 检查在同一 scope 是否已经定义此变量
+		//      如果 storage 是 typedef，那么应该往符号表里面插入 type
+		//      定义 void 类型变量是非法的，只能是指向void类型的指针
+		//      如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
 		auto retType = ParseArrayFuncDeclarator(pointerType);
 		auto ident = Peek()->Val();
 		auto var = _topEnv->InsertVar(ident, retType);
@@ -667,7 +672,7 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
 		base = ParseArrayFuncDeclarator(base);
 		return Type::NewArrayType(len, base);
 	}
-	else if (Try('(')) {
+	else if (Try('(')) {	//function declaration
 		if (nullptr != base->ToFuncType())
 			Error("the return value of a function can't be a function");
 		else if (nullptr != base->ToArrayType())
@@ -675,9 +680,13 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
 
 		//TODO: parse arguments
 		std::list<Type*> params;
+		EnterBlock();
+		bool hasEllipsis = ParseParamList(params);
+		ExitBlock();
+		
 		Expect(')');
 		base = ParseArrayFuncDeclarator(base);
-		return Type::NewFuncType(base, 0, params);
+		return Type::NewFuncType(base, 0, hasEllipsis, params);
 	}
 	return base;
 }
@@ -715,4 +724,29 @@ int Parser::ParseArrayLength(void)
 	}
 }
 
+
+bool Parser::ParseParamList(std::list<Type*>& params)
+{
+	auto paramType = ParseParamDecl();
+	if (nullptr != paramType->ToVoidType())
+		return false;
+	while (Try(',')) {
+		if (Try(Token::ELLIPSIS))
+			return Expect(')'), true;
+		paramType = ParseParamDecl();
+		params.push_back(paramType);
+	}
+	Expect(')');
+	return false;
+}
+
+Type* Parser::ParseParamDecl(void)
+{
+	int storageSpec, funcSpec;
+	auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+	if (Peek()->Tag() == ',')
+		return type;
+	//TODO: declarator 和 abstract declarator 都要支持
+	return ParseDeclarator(type, storageSpec, funcSpec);
+}
 

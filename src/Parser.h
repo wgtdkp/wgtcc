@@ -77,7 +77,7 @@ public:
 
 	/************* Declarations **************/
 	Expr* ParseDecl(void);
-	Type* ParseDeclSpec(int* storage);
+	Type* ParseDeclSpec(int* storage, int* func);
 	int ParseAlignas(void);
 	Type* ParseStructUnionSpec(bool isStruct);
 	StructUnionType* ParseStructDecl(StructUnionType* type);
@@ -85,10 +85,11 @@ public:
 	//declarator
 	int ParseQual(void);
 	PointerType* ParsePointer(Type* typePointedTo);
-	Type* ParseDeclarator(Type* type, int storage);
+	Type* ParseDeclarator(Type* type, int storage, int funcSpec);
 	Type* ParseArrayFuncDeclarator(Type* base);
 	int ParseArrayLength(void);
-
+	bool ParseParamList(std::list<Type*>& params);
+	Type* ParseParamDecl(void);
 private:
 	//如果当前token符合参数，返回true,并consume一个token
 	//如果与tokTag不符，则返回false，并且不consume token

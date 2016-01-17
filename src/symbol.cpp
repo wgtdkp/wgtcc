@@ -42,8 +42,8 @@ ArrayType* Type::NewArrayType(long long len, Type* eleType)
 }
 
 //static IntType* NewIntType();
-FuncType* Type::NewFuncType(Type* derived, int funcSpec, const std::list<Type*>& params) {
-	return new FuncType(derived, funcSpec, params);
+FuncType* Type::NewFuncType(Type* derived, int funcSpec, bool hasEllipsis, const std::list<Type*>& params) {
+	return new FuncType(derived, funcSpec, hasEllipsis, params);
 }
 
 PointerType* Type::NewPointerType(Type* derived) {
