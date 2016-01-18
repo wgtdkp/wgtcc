@@ -5,8 +5,6 @@
 
 using namespace std;
 
-
-
 void Parser::Expect(int expect, int follow1, int follow2)
 {
 	auto tok = Next();
@@ -16,6 +14,23 @@ void Parser::Expect(int expect, int follow1, int follow2)
 		Error(tok, "'%s' expected, but got '%s'", Token::Lexeme(expect), tok->Val());
 		Panic(follow1, follow2);
 	}
+}
+
+void Parser::EnterFunc(const char* funcName) {
+	//TODO: 添加编译器自带的 __func__ 宏
+}
+
+void Parser::ExitFunc(void) {
+	//TODO: resolve 那些待定的jump
+	//TODO: 如果有jump无法resolve，也就是有未定义的label，报错；
+	for (auto iter = _unresolvedJumps.begin(); iter != _unresolvedJumps.end(); iter++) {
+		auto labelStmt = FindLabel(iter->first);
+		if (nullptr != labelStmt)
+			Error("unresolved label '%s'", iter->first);
+		iter->second->SetLabel(labelStmt);
+	}
+	_topLabels.clear();
+	ExitBlock();
 }
 
 TranslationUnit* Parser::ParseTranslationUnit(void)
@@ -823,7 +838,7 @@ Stmt* Parser::ParseStmt(void)
 	case Token::DEFAULT: return ParseDefaultStmt();
 	}
 	if (tok->IsIdentifier() && Try(':'))
-		return ParseLabel(tok->Val());
+		return ParseLabelStmt(tok->Val());
 	if (Try(';')) return TranslationUnit::NewEmptyStmt();
 	auto expr = ParseExpr();
 	return Expect(';'), expr;
@@ -861,17 +876,27 @@ IfStmt* Parser::ParseIfStmt(void)
 
 /*
 for 循环结构：
-    for (declaration; expression1; expression2) statement
+	for (declaration; expression1; expression2) statement
 
 展开后的结构：
 		declaration
-cond:	if (expression1) goto body
-		goto next
-body:	statement
-		expression2
-		goto 
+cond:	if (expression1) then empty
+		else goto end
+		statement
+step:	expression2
+		goto cond
 next:
 */
+
+#define ENTER_LOOP_BODY(breakl, continuel) \
+	LabelStmt* breako = _breakDest; \
+	LabelStmt* continueo = _continueDest; \
+	LabelStmt* _breakDest = breakl; \
+	LabelStmt* _continueDest = continuel; 
+
+#define EXIT_LOOP_BODY() \
+	_breakDest = breako; \
+	_continueDest = continueo;
 
 CompoundStmt* Parser::ParseForStmt(void)
 {
@@ -885,23 +910,169 @@ CompoundStmt* Parser::ParseForStmt(void)
 		Expect(';');
 	}
 
-	Expr* cond = nullptr;
+	Expr* condExpr = nullptr;
 	if (!Try(';')) {
-		cond = ParseExpr();
+		condExpr = ParseExpr();
 	}
+
+	Expr* stepExpr = nullptr;
 	if (!Try(')')) {
-		stmts.push_back(ParseExpr());
+		stepExpr = ParseExpr();
 		Expect(')');
 	}
 
+	auto condLabel = TranslationUnit::NewLabelStmt();
+	auto stepLabel = TranslationUnit::NewLabelStmt();
+	auto endLabel = TranslationUnit::NewLabelStmt();
+	stmts.push_back(condLabel);
+	if (nullptr != condExpr) {
+		auto gotoEndStmt = TranslationUnit::NewJumpStmt(endLabel);
+		auto ifStmt = TranslationUnit::NewIfStmt(condExpr, nullptr, gotoEndStmt);
+		stmts.push_back(ifStmt);
+	}
+
+	//我们需要给break和continue语句提供相应的标号，不然不知往哪里跳
+	ENTER_LOOP_BODY(endLabel, condLabel);
 	auto bodyStmt = ParseStmt();
-	auto bodyLabel = TranslationUnit::NewLabelStmt(bodyStmt);
-	Stmt* stmt = TranslationUnit::NewJumpStmt(bodyLabel);
-	if (nullptr != cond)
-		stmt = TranslationUnit::NewIfStmt(cond, stmt);
-	auto condLabel = TranslationUnit::NewLabelStmt(stmt);
-	stmts.push_back
-	stmts.push_back(ParseStmt());
+	//因为for的嵌套结构，在这里需要回复break和continue的目标标号
+	EXIT_LOOP_BODY()
+	
+	stmts.push_back(bodyStmt);
+	stmts.push_back(stepLabel);
+	stmts.push_back(stepExpr);
+	stmts.push_back(TranslationUnit::NewJumpStmt(condLabel));
+	stmts.push_back(endLabel);
+
 	ExitBlock();
 	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+/*
+while 循环结构：
+while (expression1) statement
+
+展开后的结构：
+declaration
+cond:	if (expression1) then empty
+		else goto end
+		statement
+		goto cond
+end:
+*/
+CompoundStmt* Parser::ParseWhileStmt(void)
+{
+	std::list<Stmt*> stmts;
+	Expect('(');
+	auto condExpr = ParseExpr();
+	//TODO: ensure scalar type
+	Expect(')');
+
+	auto condLabel = TranslationUnit::NewLabelStmt();
+	auto endLabel = TranslationUnit::NewLabelStmt();
+	auto gotoEndStmt = TranslationUnit::NewJumpStmt(endLabel);
+	auto ifStmt = TranslationUnit::NewIfStmt(condExpr, nullptr, gotoEndStmt);
+	stmts.push_back(ifStmt);
+	
+	ENTER_LOOP_BODY(endLabel, condLabel)
+	auto bodyStmt = ParseStmt();
+	EXIT_LOOP_BODY()
+	
+	stmts.push_back(bodyStmt);
+	stmts.push_back(TranslationUnit::NewJumpStmt(condLabel));
+	stmts.push_back(endLabel);
+	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+#define ENTER_SWITCH_BODY(caseLabels) \
+	{ \
+		CaseLabelList* caseLabelso = _caseLabels; \
+		LabelStmt* defaultLabelo = _defaultLabel; \
+		_caseLabels = &caseLabels; 
+
+#define EXIT_SWITCH_BODY() \
+		_caseLabels = caseLabelso; \
+		_defaultLabel = defaultLabelo; \
+	} 
+	
+
+CompoundStmt* Parser::ParseSwitchStmt(void)
+{
+	std::list<Stmt*> stmts;
+	Expect('(');
+	auto expr = ParseExpr();
+	//TODO: ensure integer type
+	Expect(')');
+
+	auto labelTest = TranslationUnit::NewLabelStmt();
+	auto labelEnd = TranslationUnit::NewLabelStmt();
+	auto t = TranslationUnit::NewTempVar(expr->Ty());
+	auto assign = TranslationUnit::NewBinaryOp('=', t, expr);
+	stmts.push_back(assign);
+	stmts.push_back(TranslationUnit::NewJumpStmt(labelTest));
+
+	CaseLabelList caseLabels;
+	ENTER_SWITCH_BODY(caseLabels)
+	auto bodyStmt = ParseStmt();
+	stmts.push_back(labelTest);
+	for (auto iter = _caseLabels->begin(); iter != _caseLabels->end(); iter++) {
+		auto rhs = TranslationUnit::NewConstantInt(iter->first);
+		auto cond = TranslationUnit::NewBinaryOp(Token::EQ_OP, t, rhs);
+		auto then = TranslationUnit::NewJumpStmt(iter->second);
+		auto ifStmt = TranslationUnit::NewIfStmt(cond, then, nullptr);
+		stmts.push_back(ifStmt);
+	}
+	stmts.push_back(TranslationUnit::NewJumpStmt(_defaultLabel));
+	EXIT_SWITCH_BODY()
+
+	stmts.push_back(labelEnd);
+	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+CompoundStmt* Parser::ParseCaseStmt(void)
+{
+	std::list<Stmt*> stmts;
+	//TODO: constant epxr 整型
+	auto expr = ParseExpr();
+	Expect(':');
+	int val = Evaluate(expr);
+	auto labelStmt = TranslationUnit::NewLabelStmt();
+	_caseLabels->push_back(std::make_pair(val, labelStmt));
+	stmts.push_back(labelStmt);
+	stmts.push_back(ParseStmt());
+	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+JumpStmt* Parser::ParseContinueStmt(void)
+{
+	Expect(';');
+	if (nullptr == _continueDest)
+		Error("'continue' only in loop is allowed");
+	return TranslationUnit::NewJumpStmt(_continueDest);
+}
+
+JumpStmt* Parser::ParseBreakStmt(void)
+{
+	Expect(';');
+	if (nullptr == _breakDest)
+		Error("'break' only in switch/loop is allowed");
+	return TranslationUnit::NewJumpStmt(_breakDest);
+}
+
+JumpStmt* Parser::ParseGotoStmt(void)
+{
+	Expect(Token::IDENTIFIER);
+	const char* label = Peek()->Val();
+	Expect(';');
+
+	auto labelStmt = FindLabel(label);
+	if (nullptr != labelStmt)
+		return TranslationUnit::NewJumpStmt(labelStmt);
+	auto unresolvedJump = TranslationUnit::NewJumpStmt(nullptr);;
+	_unresolvedJumps.push_back(std::make_pair(label, unresolvedJump));
+	return unresolvedJump;
+}
+
+CompoundStmt* Parser::ParseLabelStmt(const char* label)
+{
+
 }

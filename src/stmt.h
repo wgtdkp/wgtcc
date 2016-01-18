@@ -26,17 +26,14 @@ class LabelStmt : public Stmt
 public:
 	~LabelStmt(void) {}
 	int Tag(void) const { return Tag(); }
-	void SetStmt(Stmt* stmt) { _stmt = stmt; }
 protected:
-	LabelStmt(Stmt* stmt)
-		: _tag(GenTag()), _stmt(stmt) {}
+	LabelStmt(void): _tag(GenTag()) {}
 private:
 	static int GenTag(void) {
 		static int tag = 0;
 		return ++tag;
 	}
 	int _tag; //使用整型的tag值，而不直接用字符串
-	Stmt* _stmt;
 };
 
 class IfStmt : public Stmt
@@ -58,6 +55,7 @@ class JumpStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~JumpStmt(void) {}
+	void SetLabel(LabelStmt* label) { _label = label; }
 protected:
 	JumpStmt(LabelStmt* label) : _label(label) {}
 private:

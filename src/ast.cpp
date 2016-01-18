@@ -48,6 +48,17 @@ Constant* TranslationUnit::NewConstant(PointerType* type) {
 	return new Constant(type);
 }
 
+Constant* TranslationUnit::NewConstantInt(size_t val)
+{
+	auto type = Type::NewArithmType(T_INT);
+	return NewConstant(type, val);
+}
+
+
+TempVar* TranslationUnit::NewTempVar(Type* type)
+{
+	return new TempVar(type);
+}
 
 UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
 {
@@ -64,7 +75,7 @@ EmptyStmt* TranslationUnit::NewEmptyStmt(void)
 	return inst;
 }
 
-//else stmt 默认是空stmt，在代码生成的时候判断是否是空stmt可以去掉冗余的jump;
+//else stmt 默认是 null
 IfStmt* TranslationUnit::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
 {
 	return new IfStmt(cond, then, els);
@@ -80,7 +91,7 @@ JumpStmt* TranslationUnit::NewJumpStmt(LabelStmt* label)
 	return new JumpStmt(label);
 }
 
-LabelStmt* TranslationUnit::NewLabelStmt(Stmt* stmt)
+LabelStmt* TranslationUnit::NewLabelStmt(void)
 {
-	return new LabelStmt(stmt);
+	return new LabelStmt();
 }

@@ -15,12 +15,14 @@ class UnaryOp;
 class FuncCall;
 class Variable;
 class Constant;
+class TempVar;
 class AssignExpr;
 
 class Stmt;
 class IfStmt;
 class JumpStmt;
 class LabelStmt;
+class EmptyStmt;
 
 /************ AST Node *************/
 
@@ -66,15 +68,16 @@ public:
 	static Variable* NewVariable(Type* type, int offset = 0);
 	static Constant* NewConstant(ArithmType* type, size_t val);
 	static Constant* NewConstant(PointerType* type);
-
+	static Constant* NewConstantInt(size_t val);
+	static TempVar* NewTempVar(Type* type);
 	static UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
 
 	/*************** Statement *******************/
 	static EmptyStmt* NewEmptyStmt(void);
-	static IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=TranslationUnit::NewEmptyStmt());
-	static CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
+	static IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
 	static JumpStmt* NewJumpStmt(LabelStmt* label);
-	static LabelStmt* NewLabelStmt(Stmt* stmt);
+	static LabelStmt* NewLabelStmt(void);
+	static CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
 private:
 	TranslationUnit(void) {}
 

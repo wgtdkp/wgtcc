@@ -104,6 +104,23 @@ protected:
 };
 
 
+class TempVar : public Expr
+{
+	friend class TempVar;
+public:
+	virtual ~TempVar(void) {}
+	virtual bool IsLVal(void) const { return true; }
+protected:
+	explicit TempVar(Type* type) 
+		: Expr(type), _tag(GenTag()) {}
+private:
+	static int GenTag(void) {
+		static int tag = 0;
+		return ++tag;
+	}
+	int _tag;
+};
+
 class AssignExpr : public ASTNode
 {
 public:

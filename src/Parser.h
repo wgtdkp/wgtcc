@@ -19,11 +19,14 @@ typedef std::pair<const char*, Type*> NameTypePair;
 class Parser
 {
 public:
-    explicit Parser(Lexer* lexer): _lexer(lexer) {}
+    explicit Parser(Lexer* lexer) 
+		: _lexer(lexer), _topEnv(nullptr),
+		  _breakDest(nullptr), _continueDest(nullptr),
+		  _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
     ~Parser(void) { 
-        delete _lexer;
-    }
+		delete _lexer; 
+	}
 
 	Expr* ParseConstant(const Token* tok);
 	Expr* ParseString(const Token* tok);
@@ -105,7 +108,7 @@ public:
 	Stmt* ParseStmt(void);
 	CompoundStmt* ParseCompoundStmt(void);
 	IfStmt* ParseIfStmt(void);
-	Stmt* ParseSwitchStmt(void);
+	CompoundStmt* ParseSwitchStmt(void);
 	CompoundStmt* ParseWhileStmt(void);
 	CompoundStmt* ParseDoStmt(void);
 	CompoundStmt* ParseForStmt(void);
@@ -113,7 +116,8 @@ public:
 	JumpStmt* ParseContinueStmt(void);
 	JumpStmt* ParseBreakStmt(void);
 	JumpStmt* ParseReturnStmt(void);
-	Stmt* ParseLabel(void);
+	CompoundStmt* ParseLabelStmt(const char* label);
+	CompoundStmt* ParseCaseStmt(void);
 private:
 	//如果当前token符合参数，返回true,并consume一个token
 	//如果与tokTag不符，则返回false，并且不consume token
@@ -197,27 +201,32 @@ private:
 		_topEnv = _topEnv->Parent();
 	}
 
-	void EnterFunc(const char* funcName) {
-		_labelMaps.push(new LabelMap());
-		EnterBlock();
+	void EnterFunc(const char* funcName);
+
+	void ExitFunc(void);
+
+	LabelStmt* FindLabel(const char* label) {
+		auto ret = _topLabels.find(label);
+		if (_topLabels.end() == ret)
+			return nullptr;
+		return ret->second;
 	}
 
-	void ExitFunc(void) {
-		auto top = _labelMaps.top();
-		_labelMaps.pop();
-		delete top;
-		ExitBlock();
-	}
-
-	typedef std::map<const char*, Stmt*, StrCmp> LabelMap;
-	LabelMap* TopLabels(void) { return _labelMaps.top(); }
-	const LabelMap* TopLabels(void) const { return _labelMaps.top(); }
+	typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelVec;
+	typedef std::list<std::pair<const char*, JumpStmt*>> LabelJumpList;
+	typedef std::map<const char*, LabelStmt*, StrCmp> LabelMap;
 private:
 	
     Lexer* _lexer;
 	Env* _topEnv;
-	std::stack<LabelMap*> _labelMaps;
+	LabelMap _topLabels;
+	LabelJumpList _unresolvedJumps;
 	std::stack<Token*> _buf;
+
+	LabelStmt* _breakDest;
+	LabelStmt* _continueDest;
+	CaseLabelVec* _caseLabels;
+	LabelStmt* _defaultLabel;
 };
 
 #endif
