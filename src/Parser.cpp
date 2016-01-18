@@ -25,12 +25,12 @@ void Parser::ExitFunc(void) {
 	//TODO: 如果有jump无法resolve，也就是有未定义的label，报错；
 	for (auto iter = _unresolvedJumps.begin(); iter != _unresolvedJumps.end(); iter++) {
 		auto labelStmt = FindLabel(iter->first);
-		if (nullptr != labelStmt)
+		if (nullptr == labelStmt)
 			Error("unresolved label '%s'", iter->first);
 		iter->second->SetLabel(labelStmt);
 	}
-	_topLabels.clear();
-	ExitBlock();
+	_unresolvedJumps.clear();	//清空未定的 jump 动作
+	_topLabels.clear();	//清空 label map
 }
 
 TranslationUnit* Parser::ParseTranslationUnit(void)
@@ -407,7 +407,7 @@ Constant* Parser::ParseConstantExpr(void)
 void Parser::ParseDecl(std::list<Stmt*>& initializers)
 {
 	if (Try(Token::STATIC_ASSERT)) {
-
+		//TODO: static_assert();
 	} else {
 		int storageSpec, funcSpec;
 		auto type = ParseDeclSpec(&storageSpec, &funcSpec);
@@ -949,10 +949,9 @@ CompoundStmt* Parser::ParseForStmt(void)
 
 /*
 while 循环结构：
-while (expression1) statement
+while (expression) statement
 
 展开后的结构：
-declaration
 cond:	if (expression1) then empty
 		else goto end
 		statement
@@ -971,6 +970,7 @@ CompoundStmt* Parser::ParseWhileStmt(void)
 	auto endLabel = TranslationUnit::NewLabelStmt();
 	auto gotoEndStmt = TranslationUnit::NewJumpStmt(endLabel);
 	auto ifStmt = TranslationUnit::NewIfStmt(condExpr, nullptr, gotoEndStmt);
+	stmts.push_back(condLabel);
 	stmts.push_back(ifStmt);
 	
 	ENTER_LOOP_BODY(endLabel, condLabel)
@@ -979,6 +979,44 @@ CompoundStmt* Parser::ParseWhileStmt(void)
 	
 	stmts.push_back(bodyStmt);
 	stmts.push_back(TranslationUnit::NewJumpStmt(condLabel));
+	stmts.push_back(endLabel);
+	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+/*
+do-while 循环结构：
+do statement while (expression)
+
+展开后的结构：
+begin:	statement
+cond:	if (expression) then goto begin
+		else goto end
+end:
+*/
+
+CompoundStmt* Parser::ParseDoStmt(void)
+{
+	auto beginLabel = TranslationUnit::NewLabelStmt();
+	auto condLabel = TranslationUnit::NewLabelStmt();
+	auto endLabel = TranslationUnit::NewLabelStmt();
+	ENTER_LOOP_BODY(endLabel, beginLabel)
+	auto bodyStmt = ParseStmt();
+	EXIT_LOOP_BODY()
+
+	Expect(Token::WHILE);
+	Expect('(');
+	auto condExpr = ParseExpr();
+	Expect(')');
+
+	auto gotoBeginStmt = TranslationUnit::NewJumpStmt(beginLabel);
+	auto gotoEndStmt = TranslationUnit::NewJumpStmt(endLabel);
+	auto ifStmt = TranslationUnit::NewIfStmt(condExpr, gotoBeginStmt, gotoEndStmt);
+
+	std::list<Stmt*> stmts;
+	stmts.push_back(beginLabel);
+	stmts.push_back(bodyStmt);
+	stmts.push_back(condLabel);
+	stmts.push_back(ifStmt);
 	stmts.push_back(endLabel);
 	return TranslationUnit::NewCompoundStmt(stmts);
 }
@@ -1030,13 +1068,24 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
 CompoundStmt* Parser::ParseCaseStmt(void)
 {
-	std::list<Stmt*> stmts;
 	//TODO: constant epxr 整型
 	auto expr = ParseExpr();
 	Expect(':');
 	int val = Evaluate(expr);
 	auto labelStmt = TranslationUnit::NewLabelStmt();
 	_caseLabels->push_back(std::make_pair(val, labelStmt));
+	std::list<Stmt*> stmts;
+	stmts.push_back(labelStmt);
+	stmts.push_back(ParseStmt());
+	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+CompoundStmt* Parser::ParseDefaultStmt(void)
+{
+	Expect(':');
+	auto labelStmt = TranslationUnit::NewLabelStmt();
+	_defaultLabel = labelStmt;
+	std::list<Stmt*> stmts;
 	stmts.push_back(labelStmt);
 	stmts.push_back(ParseStmt());
 	return TranslationUnit::NewCompoundStmt(stmts);
@@ -1074,5 +1123,28 @@ JumpStmt* Parser::ParseGotoStmt(void)
 
 CompoundStmt* Parser::ParseLabelStmt(const char* label)
 {
+	auto stmt = ParseStmt();
+	if (nullptr != FindLabel(label))
+		Error("'%s': label redefinition");
+	auto labelStmt = TranslationUnit::NewLabelStmt();
+	AddLabel(label, labelStmt);
+	std::list<Stmt*> stmts;
+	stmts.push_back(labelStmt);
+	stmts.push_back(stmt);
+	return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+/*
+function-definition:
+	declaration-specifiers declarator declaration-list? compound-statement
+*/
+
+bool Parser::IsFuncDef(void)
+{
+	if (Test(Token::STATIC_ASSERT))	//declaration
+		return false;
+
+	int storageSpec, funcSpec;
+	auto declSpec = ParseDeclSpec(&storageSpec, &funcSpec);
 
 }

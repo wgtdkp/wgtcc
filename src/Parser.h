@@ -118,6 +118,11 @@ public:
 	JumpStmt* ParseReturnStmt(void);
 	CompoundStmt* ParseLabelStmt(const char* label);
 	CompoundStmt* ParseCaseStmt(void);
+	CompoundStmt* ParseDefaultStmt(void);
+
+	/*********** Function Definition *************/
+	bool IsFuncDef(void);
+
 private:
 	//如果当前token符合参数，返回true,并consume一个token
 	//如果与tokTag不符，则返回false，并且不consume token
@@ -212,7 +217,12 @@ private:
 		return ret->second;
 	}
 
-	typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelVec;
+	void AddLabel(const char* label, LabelStmt* labelStmt) {
+		assert(nullptr == FindLabel(label));
+		_topLabels[label] = labelStmt;
+	}
+
+	typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
 	typedef std::list<std::pair<const char*, JumpStmt*>> LabelJumpList;
 	typedef std::map<const char*, LabelStmt*, StrCmp> LabelMap;
 private:
@@ -225,7 +235,7 @@ private:
 
 	LabelStmt* _breakDest;
 	LabelStmt* _continueDest;
-	CaseLabelVec* _caseLabels;
+	CaseLabelList* _caseLabels;
 	LabelStmt* _defaultLabel;
 };
 
