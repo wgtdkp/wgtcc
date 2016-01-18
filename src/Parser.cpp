@@ -35,11 +35,15 @@ void Parser::ExitFunc(void) {
 
 TranslationUnit* Parser::ParseTranslationUnit(void)
 {
-	auto program = TranslationUnit::NewTranslationUnit();
+	auto transUnit = TranslationUnit::NewTranslationUnit();
     for (; ;) {
-		//TODO: 
+		if (Peek()->IsEOF())	 break;
+		if (IsFuncDef())
+			transUnit->Add(ParseFuncDef());
+		else
+			transUnit->Add(ParseDecl());
     }
-	return program;
+	return transUnit;
 }
 
 Expr* Parser::ParseExpr(void)
@@ -203,7 +207,7 @@ Constant* Parser::ParseSizeof(void)
 	if (nullptr != type->ToFuncType()) {
 		Error("sizeof operator can't act on function");
 	}
-	auto intType = Type::NewArithmType(ArithmType::TULONG);
+	auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
 	return TranslationUnit::NewConstant(intType, type->Width());
 }
 
@@ -212,7 +216,7 @@ Constant* Parser::ParseAlignof(void)
 	Expect('(');
 	auto type = ParseTypeName();
 	Expect(')');
-	auto intType = Type::NewArithmType(ArithmType::TULONG);
+	auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
 	return TranslationUnit::NewConstant(intType, intType->Align());
 }
 
@@ -404,8 +408,9 @@ Constant* Parser::ParseConstantExpr(void)
 
 /* if there is an initializer, then return the initializer expression,
    else, return null.*/
-void Parser::ParseDecl(std::list<Stmt*>& initializers)
+CompoundStmt* Parser::ParseDecl(void)
 {
+	std::list<Stmt*> stmts;
 	if (Try(Token::STATIC_ASSERT)) {
 		//TODO: static_assert();
 	} else {
@@ -415,10 +420,11 @@ void Parser::ParseDecl(std::list<Stmt*>& initializers)
 		if (Test('*') || Test(Token::IDENTIFIER) || Test('(')) {
 			do {
 				auto initExpr = ParseInitDeclarator(type, storageSpec, funcSpec);
-				if (nullptr != initExpr) initializers.push_back(initExpr);
+				if (nullptr != initExpr) stmts.push_back(initExpr);
 			} while (Try(','));
 		}
 	}
+	return TranslationUnit::NewCompoundStmt(stmts);
 }
 
 //for state machine
@@ -1144,7 +1150,19 @@ bool Parser::IsFuncDef(void)
 	if (Test(Token::STATIC_ASSERT))	//declaration
 		return false;
 
+	Mark();
 	int storageSpec, funcSpec;
-	auto declSpec = ParseDeclSpec(&storageSpec, &funcSpec);
+	auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+	auto nameType = ParseDeclarator(type);
+	Release();
+	return !(Test(',') || Test('=') || Test(';'));
+}
 
+FuncDef* Parser::ParseFuncDef(void)
+{
+	int storageSpec, funcSpec;
+	auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+	auto funcType = ParseDeclaratorAndDo(Type, storageSpec, funcSpec)->Ty();
+	auto stmt = ParseCompoundStmt();
+	return TranslationUnit::NewFuncDef(funcType, stmt);
 }

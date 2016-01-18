@@ -169,26 +169,29 @@ public:
 	}
 
 	bool IsBool(void) const {
-		return TBOOL == _tag;
+		return T_BOOL == _tag;
 	}
 
 	bool IsInteger(void) const {
-		return (TBOOL <= _tag) && (_tag <= TULLONG);
+		return (_tag & T_BOOL) || \
+			   (_tag & T_SHORT) || \
+			   (_tag & T_INT) || \
+			   (_tag & T_LONG) || \
+			   (_tag & T_LONG_LONG) || \
+			   (_tag & T_UNSIGNED);
 	}
 
-	bool IsReal(void) const {
-		return (TFLOAT <= _tag) && (_tag <= TLDOUBLE);
+	bool IsFloat(void) const {
+		return (_tag & T_FLOAT) || (_tag & T_DOUBLE);
 	}
 
 	bool IsComplex(void) const {
-		return (TFCOMPLEX <= _tag) && (_tag <= TLDCOMPLEX);
+		return _tag & T_COMPLEX;
 	}
 
 protected:
-	ArithmType(int tag) : _tag(tag), Type(CalcWidth(tag), true) {
-		assert(TBOOL <= tag && tag <= TLDCOMPLEX);
-	}
-
+	explicit ArithmType(int tag) 
+		: _tag(tag), Type(CalcWidth(tag), true) {}
 private:
 	int _tag;
 	static int CalcWidth(int tag);
@@ -266,14 +269,14 @@ public:
 	virtual bool operator==(const Type& other) const {
 		auto otherArray = ToArrayType();
 		return (nullptr != otherArray
-			&& _len == otherArray->_len
+			&& _width == otherArray->_width
 			&& *_derived == *otherArray->_derived);
 	}
 
 	virtual bool Compactible(const Type& other) const {
 		auto otherArray = ToArrayType();
 		return (nullptr != otherArray
-			&& _len == otherArray->_len
+			&& _width == otherArray->_width
 			&& _derived->Compatible(*otherArray->_derived));
 	}
 
@@ -345,6 +348,14 @@ private:
 class EnumType : public Type
 {
 	friend class Type;
+public:
+	virtual ~EnumType(void) {}
+	virtual EnumType* ToEnumType(void) { return this; }
+	virtual const EnumType* ToEnumType(void) const { return this; }
+	virtual bool operator==(const Type& other) const;
+	virtual bool Compatible(const Type& other) const;
+protected:
+	EnumType(void) : Type(_machineWord, false) {}
 private:
 	
 };

@@ -24,7 +24,7 @@ BinaryOp* BinaryOp::TypeChecking(void)
 	case '&': case '^': case '|': return BitwiseOpTypeChecking();
 	case Token::AND_OP: case Token::OR_OP: return LogicalOpTypeChecking();
 	case '=': return AssignOpTypeChecking();
-	default: assert(0); return nullptr;
+	default: assert(0); return nullptr; //make compiler happy
 	}
 }
 
@@ -108,7 +108,7 @@ BinaryOp* BinaryOp::RelationalOpTypeChecking(void)
 {
 	//TODO: type checking
 
-	_ty = Type::NewArithmType(ArithmType::TBOOL);
+	_ty = Type::NewArithmType(T_BOOL);
 	return this;
 }
 
@@ -116,7 +116,7 @@ BinaryOp* BinaryOp::EqualityOpTypeChecking(void)
 {
 	//TODO: type checking
 
-	_ty = Type::NewArithmType(ArithmType::TBOOL);
+	_ty = Type::NewArithmType(T_BOOL);
 	return this;
 }
 
@@ -125,7 +125,7 @@ BinaryOp* BinaryOp::BitwiseOpTypeChecking(void)
 	if (_lhs->Ty()->IsInteger() || _rhs->Ty()->IsInteger())
 		Error("operands of '&' should be integer");
 	//TODO: type promotion
-	_ty = Type::NewArithmType(ArithmType::TINT);
+	_ty = Type::NewArithmType(T_INT);
 	return this;
 }
 
@@ -134,7 +134,7 @@ BinaryOp* BinaryOp::LogicalOpTypeChecking(void)
 	//TODO: type checking
 	if (!_lhs->Ty()->IsScalar() || !_rhs->Ty()->IsScalar())
 		Error("the operand should be arithmetic type or pointer");
-	_ty = Type::NewArithmType(ArithmType::TBOOL);
+	_ty = Type::NewArithmType(T_BOOL);
 	return this;
 }
 

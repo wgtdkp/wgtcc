@@ -24,6 +24,7 @@ class JumpStmt;
 class LabelStmt;
 class EmptyStmt;
 
+class FuncDef;
 /************ AST Node *************/
 
 class ASTNode
@@ -78,6 +79,9 @@ public:
 	static JumpStmt* NewJumpStmt(LabelStmt* label);
 	static LabelStmt* NewLabelStmt(void);
 	static CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
+
+	/*************** Function Definition ***************/
+	static FuncDef* NewFuncDef(FuncType* type, CompoundStmt* stmt);
 private:
 	TranslationUnit(void) {}
 

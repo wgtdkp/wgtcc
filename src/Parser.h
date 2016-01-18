@@ -34,10 +34,6 @@ public:
 
 	TranslationUnit* ParseTranslationUnit(void);
 
-    
-
-	Decl* ParseFuncDef(void);
-
     /************ Expressions ************/
 	
 	Expr* ParseExpr(void);
@@ -80,7 +76,7 @@ public:
 
 
 	/************* Declarations **************/
-	void ParseDecl(std::list<Stmt*>& initializers);
+	CompoundStmt* Parser::ParseDecl(void);
 	Type* ParseDeclSpec(int* storage, int* func);
 	Type* ParseSpecQual(void);
 	int ParseAlignas(void);
@@ -122,6 +118,7 @@ public:
 
 	/*********** Function Definition *************/
 	bool IsFuncDef(void);
+	FuncDef* ParseFuncDef(void);
 
 private:
 	//如果当前token符合参数，返回true,并consume一个token

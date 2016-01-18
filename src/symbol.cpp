@@ -20,8 +20,6 @@ bool Type::IsReal(void) const {
 }
 
 
-ArithmType* _arithmTypes[ArithmType::SIZE] = { 0 };
-
 
 
 VoidType* Type::NewVoidType(void)
@@ -29,11 +27,46 @@ VoidType* Type::NewVoidType(void)
 	return new VoidType();
 }
 
-ArithmType* Type::NewArithmType(int tag) {
-	if (nullptr == _arithmTypes[tag]) {
-		_arithmTypes[tag] = new ArithmType(tag);
+ArithmType* Type::NewArithmType(int typeSpec) {
+	static ArithmType* charType = new ArithmType(T_CHAR);
+	static ArithmType* ucharType = new ArithmType(T_UNSIGNED | T_CHAR);
+	static ArithmType* shortType = new ArithmType(T_SHORT);
+	static ArithmType* ushortType = new ArithmType(T_UNSIGNED | T_SHORT);
+	static ArithmType* intType = new ArithmType(T_INT);
+	static ArithmType* uintType = new ArithmType(T_UNSIGNED | T_INT);
+	static ArithmType* longType = new ArithmType(T_LONG);
+	static ArithmType* ulongType = new ArithmType(T_UNSIGNED | T_LONG);
+	static ArithmType* longlongType = new ArithmType(T_LONG_LONG);
+	static ArithmType* ulonglongType = new ArithmType(T_UNSIGNED | T_LONG_LONG);
+	static ArithmType* floatType = new ArithmType(T_FLOAT);
+	static ArithmType* doubleType = new ArithmType(T_DOUBLE);
+	static ArithmType* longdoubleType = new ArithmType(T_LONG | T_DOUBLE);
+	static ArithmType* boolType = new ArithmType(T_BOOL);
+	static ArithmType* complexType = new ArithmType(T_FLOAT | T_COMPLEX);
+	static ArithmType* doublecomplexType = new ArithmType(T_DOUBLE | T_COMPLEX);
+	static ArithmType* longdoublecomplexType = new ArithmType(T_LONG | T_DOUBLE | T_COMPLEX);
+
+	switch (typeSpec) {
+	case T_CHAR: case T_SIGNED | T_CHAR: return charType;
+	case T_UNSIGNED | T_CHAR: return ucharType;
+	case T_SHORT: case T_SIGNED | T_SHORT: case T_SHORT | T_INT: case T_SIGNED | T_SHORT | T_INT: return shortType;
+	case T_UNSIGNED | T_SHORT: case T_UNSIGNED | T_SHORT | T_INT: return ushortType;
+	case T_INT: case T_SIGNED: case T_SIGNED | T_INT: return intType;
+	case T_UNSIGNED: case T_UNSIGNED | T_INT: return uintType;
+	case T_LONG: case T_SIGNED | T_LONG: case T_LONG | T_INT: case T_SIGNED | T_LONG | T_INT: return longType;
+	case T_UNSIGNED | T_LONG: case T_UNSIGNED | T_LONG | T_INT: return ulongType;
+	case T_LONG_LONG: case T_SIGNED | T_LONG_LONG: case T_LONG_LONG | T_INT: case T_SIGNED | T_LONG_LONG | T_INT: return longlongType;
+	case T_UNSIGNED | T_LONG_LONG: case T_UNSIGNED | T_LONG_LONG | T_INT: return ulonglongType;
+	case T_FLOAT: return floatType;
+	case T_DOUBLE: return doubleType;
+	case T_LONG | T_DOUBLE: return longdoubleType;
+	case T_BOOL: return boolType;
+	case T_FLOAT | T_COMPLEX: return complexType;
+	case T_DOUBLE | T_COMPLEX: return doublecomplexType;
+	case T_LONG | T_DOUBLE | T_COMPLEX: return longdoublecomplexType;
+	default: assert(0);
 	}
-	return _arithmTypes[tag];
+	return nullptr; // make compiler happy
 }
 
 ArrayType* Type::NewArrayType(long long len, Type* eleType)
@@ -61,17 +94,17 @@ static EnumType* NewEnumType() {
 
 
 /*************** ArithmType *********************/
-int ArithmType::CalcWidth(int tag) {
-	switch (tag) {
-	case TBOOL: case TCHAR: case TUCHAR: return 1;
-	case TSHORT: case TUSHORT: return _machineWord >> 1;
-	case TINT: case TUINT: return _machineWord;
-	case TLONG: case TULONG: return _machineWord;
-	case TLLONG: case TULLONG: return _machineWord << 1;
-	case TFLOAT: return _machineWord;
-	case TDOUBLE: case TLDOUBLE: return _machineWord << 1;
-	case TFCOMPLEX: return _machineWord << 1;
-	case TDCOMPLEX: case TLDCOMPLEX: return _machineWord << 2;
+int ArithmType::CalcWidth(int spec) {
+	switch (spec) {
+	case T_BOOL: case T_CHAR: case T_UNSIGNED | T_CHAR: return 1;
+	case T_SHORT: case T_UNSIGNED | T_SHORT: return _machineWord >> 1;
+	case T_INT: case T_UNSIGNED | T_INT: return _machineWord;
+	case T_LONG: case T_UNSIGNED | T_LONG: return _machineWord;
+	case T_LONG_LONG: case T_UNSIGNED | T_LONG_LONG: return _machineWord << 1;
+	case T_FLOAT: return _machineWord;
+	case T_DOUBLE: case T_LONG | T_DOUBLE: return _machineWord << 1;
+	case T_FLOAT | T_COMPLEX: return _machineWord << 1;
+	case T_DOUBLE | T_COMPLEX: case T_LONG | T_DOUBLE | T_COMPLEX: return _machineWord << 2;
 	}
 	return _machineWord;
 }

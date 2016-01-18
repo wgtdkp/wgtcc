@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "expr.h"
+#include "decl.h"
 
 ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
 {
@@ -94,4 +95,9 @@ JumpStmt* TranslationUnit::NewJumpStmt(LabelStmt* label)
 LabelStmt* TranslationUnit::NewLabelStmt(void)
 {
 	return new LabelStmt();
+}
+
+FuncDef* TranslationUnit::NewFuncDef(FuncType* type, CompoundStmt* stmt)
+{
+	return new FuncDef(type, stmt);
 }

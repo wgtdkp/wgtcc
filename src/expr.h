@@ -69,12 +69,10 @@ public:
 protected:
 	Variable(Type* type, int offset = VAR)
 		: Expr(type), _offset(offset), _storage(0) {}
-	
 	//do nothing
 	virtual Variable* TypeChecking(void) { return this; }
 
 private:
-
 	//the relative address
 	int _offset;
 	int _storage;
@@ -91,28 +89,34 @@ public:
 	virtual bool IsLVal(void) const { return false; }
 
 protected:
-	Constant(ArithmType* type, size_t val)
+	Constant(ArithmType* type, unsigned long long val)
 		: Expr(type), _val(val) {}
 
 	//the null constant pointer
-	explicit Constant(PointerType* type)
-		: Expr(type), _val(0) {}
+	explicit Constant(PointerType* pointerType)
+		: Expr(pointerType), _val(0) {}
+
+	explicit Constant(EnumType* enumType, unsigned long long val)
+		: Expr(enumType), _val(val) {}
 	
 	virtual Constant* TypeChecking(void) { return this; }
 
-	size_t _val;
+private:
+	unsigned long long _val;
 };
 
 
 class TempVar : public Expr
 {
-	friend class TempVar;
+	friend class TranslationUnit;
 public:
 	virtual ~TempVar(void) {}
 	virtual bool IsLVal(void) const { return true; }
+	
 protected:
 	explicit TempVar(Type* type) 
 		: Expr(type), _tag(GenTag()) {}
+	virtual TempVar* TypeChecking(void) { return this; }
 private:
 	static int GenTag(void) {
 		static int tag = 0;
@@ -203,59 +207,6 @@ protected:
 	int _op;
 	Expr* _operand;
 };
-
-/*
-class PostfixIncDecOp : public UnaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~PostfixIncDecOp(void) {}
-	//virtual bool IsLVal(void) const { return false; }
-protected:
-	PostfixIncDecOp(Expr* operand, bool isInc) 
-		: UnaryOp(operand, operand->Ty()), _isInc(isInc) {}
-	virtual PostfixIncDecOp* TypeChecking(void);
-private:
-	bool _isInc;
-};
-
-class PrefixIncDecOp : public UnaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~PrefixIncDecOp(void) {}
-	//virtual bool IsLVal(void) const { return false; }
-protected:
-	PrefixIncDecOp(Expr* operand, bool isInc)
-		: UnaryOp(operand, operand->Ty()), _isInc(isInc) {}
-	virtual PrefixIncDecOp* TypeChecking(void);
-private:
-	bool _isInc;
-};
-
-class AddrOp : public UnaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~AddrOp(void) {}
-	//virtual bool IsLVal(void) const { return false; }
-protected:
-	//the type will be evaluated in TypeChecking()
-	AddrOp(Expr* operand) : UnaryOp(operand, nullptr) {}
-	virtual AddrOp* TypeChecking(void);
-};
-
-class CastOp : public UnaryOp
-{
-	friend class TranslationUnit;
-public:
-	virtual ~CastOp(void) {}
-protected:
-	CastOp(Expr* operand, Type* desType) 
-		: UnaryOp(operand, desType) {}
-	virtual CastOp* TypeChecking(void);
-};
-*/
 
 class FuncCall : public Expr
 {
