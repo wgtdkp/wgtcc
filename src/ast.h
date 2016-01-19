@@ -62,14 +62,11 @@ public:
 	/************** Binary Operator ****************/
 	static BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
 	static BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);
-
-
 	static ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
 	static FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
 	static Variable* NewVariable(Type* type, int offset = 0);
-	static Constant* NewConstant(ArithmType* type, size_t val);
-	static Constant* NewConstant(PointerType* type);
-	static Constant* NewConstantInt(size_t val);
+	static Constant* NewConstantInteger(ArithmType* type, unsigned long long val);
+	static Constant* NewConstantFloat(ArithmType* type, long double val);
 	static TempVar* NewTempVar(Type* type);
 	static UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
 

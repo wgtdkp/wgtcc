@@ -208,7 +208,7 @@ Constant* Parser::ParseSizeof(void)
 		Error("sizeof operator can't act on function");
 	}
 	auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
-	return TranslationUnit::NewConstant(intType, type->Width());
+	return TranslationUnit::NewConstantInteger(intType, type->Width());
 }
 
 Constant* Parser::ParseAlignof(void)
@@ -217,7 +217,7 @@ Constant* Parser::ParseAlignof(void)
 	auto type = ParseTypeName();
 	Expect(')');
 	auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
-	return TranslationUnit::NewConstant(intType, intType->Align());
+	return TranslationUnit::NewConstantInteger(intType, intType->Align());
 }
 
 UnaryOp* Parser::ParsePrefixIncDec(int op)
@@ -400,9 +400,19 @@ RETURN:
 
 Constant* Parser::ParseConstantExpr(void)
 {
-	return nullptr;
+	Constant* constant;
+	auto expr = ParseConditionalExpr();
+	if (!expr->IsConstant())
+		Error("constant expression expected");
+	if (expr->Ty()->IsInteger()) {
+		auto val = expr->EvlInteger();
+		constant = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), val);
+	} else if (expr->Ty()->IsFloat()) {
+		auto val = expr->EvalFloat();
+		constant = TranslationUnit::NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
+	} else assert(0);
+	return constant;
 }
-
 
 /**************** Declarations ********************/
 
@@ -548,8 +558,10 @@ int Parser::ParseAlignas(void)
 		align = type->Align();
 	} else {
 		auto constantExpr = ParseConstantExpr();
+		EnsureIntegerExpr(constantExpr);
 		Expect(')');
-		align = EvalIntegerExpr(constantExpr);
+		align = constantExpr->IVal();
+		//TODO: delete constantExpr
 	}
 	return align;
 }
@@ -560,6 +572,63 @@ static inline string MakeStructUnionName(const char* name)
 	return ret + name;
 }
 
+Type* Parser::ParseEnumSpec(void)
+{
+	const char* enumTag = nullptr;
+	auto tok = Next();
+	if (tok->IsIdentifier()) {
+		enumTag = tok->Val();
+		if (Try('{')) {
+			//定义enum类型
+			auto curScopeType = _topEnv->FindTagInCurScope(enumTag);
+			if (nullptr != curScopeType) {
+				if (!curScopeType->IsComplete()) {
+					return ParseEnumerator(curScopeType->ToArithmType());
+				} else Error("'%s': enumeration redifinition");
+			} else
+				goto enum_decl;
+		} else {
+			Type* type = _topEnv->FindTag(enumTag);
+			if (nullptr != type) return type;
+			type = Type::NewArithmType(T_INT); 
+			type->SetComplete(false); //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
+			_topEnv->InsertTag(enumTag, type);
+		}
+	}
+	Expect('{');
+enum_decl:
+	auto type = Type::NewArithmType(T_INT);
+	if (nullptr != enumTag)
+		_topEnv->InsertTag(enumTag, type);
+	return ParseEnumerator(type); //处理反大括号: '}'
+}
+
+Type* Parser::ParseEnumerator(ArithmType* type)
+{
+	assert(type && !type->IsComplete() && type->IsInteger());
+	int val = 0;
+	do {
+		auto tok = Peek();
+		if (!tok->IsIdentifier())
+			Error("enumration constant expected");
+		
+		auto enumName = tok->Val();
+		if (nullptr != _topEnv->FindVarInCurScope(enumName))
+			Error("'%s': symbol redifinition");
+		if (Try('=')) {
+			auto constExpr = ParseConstantExpr();
+			EnsureIntegerExpr(constExpr);
+			int enumVal = EvaluateInteger(constExpr);
+			val = enumVal;
+		}
+		auto Constant = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), val++);
+		_topEnv->InsertConstant(enumName, Constant);
+
+		Try(',');
+	} while (!Try('}'));
+	type->SetComplete(true);
+	return type;
+}
 
 /***
 四种 name space：
@@ -576,6 +645,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 		structUnionTag = tok->Val();
 		if (Try('{')) {
 			//看见大括号，表明现在将定义该struct/union类型
+			auto curScopeType = _topEnv->FindTagInCurScope(structUnionTag);
 			if (nullptr != curScopeType) {	
 				/*
 				  在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
@@ -586,11 +656,10 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 				*/
 				if (!curScopeType->IsComplete()) {
 					//找到了此tag的前向声明，并更新其符号表，最后设置为complete type
-					return ParseStructDecl(curScopeType);
+					return ParseStructDecl(curScopeType->ToStructUnionType());
 				}
 				else Error("'%s': struct type redefinition", tok->Val()); //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
-			} 
-			else //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
+			} else //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
 				goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
 		} else {	
 			/*
@@ -601,13 +670,13 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 				1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
 				2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
 			*/
-			auto type = _topEnv->FindStructUnionType(structUnionTag);
+			auto type = _topEnv->FindTag(structUnionTag);
 			//如果tag已经定义或声明，那么直接返回此定义或者声明
 			if (nullptr != type) return type;
 			//如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
 			type = Type::NewStructUnionType(isStruct); //创建不完整的类型
 			//因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
-			_topEnv->InsertStructUnionType(structUnionTag, type);
+			_topEnv->InsertTag(structUnionTag, type);
 			return type;
 		}
 	}
@@ -618,14 +687,14 @@ struct_decl:
 	//所以现在是第一次开始定义一个完整的struct/union类型
 	auto type = Type::NewStructUnionType(isStruct);
 	if (nullptr != structUnionTag) 
-		_topEnv->InsertType(structUnionTag, type);
-	return ParseStructDecl(type);
+		_topEnv->InsertTag(structUnionTag, type);
+	return ParseStructDecl(type); //处理反大括号: '}'
 }
 
 StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 {
 	//既然是定义，那输入肯定是不完整类型，不然就是重定义了
-	assert(!type->IsComplete());
+	assert(type && !type->IsComplete());
 	while (!Try('}')) {
 		if (Peek()->IsEOF())
 			Error("premature end of input");
@@ -858,7 +927,7 @@ CompoundStmt* Parser::ParseCompoundStmt(void)
 		if (Peek()->IsEOF())
 			Error("premature end of input");
 		if (IsType(Peek()))
-			ParseDecl(stmts);
+			stmts.push_back(ParseDecl());
 		else
 			stmts.push_back(ParseStmt());
 	}
@@ -910,7 +979,7 @@ CompoundStmt* Parser::ParseForStmt(void)
 	Expect('(');
 	std::list<Stmt*> stmts;
 	if (IsType(Peek()))
-		ParseDecl(stmts);
+		stmts.push_back(ParseDecl());
 	else if (!Try(';')) {
 		stmts.push_back(ParseExpr());
 		Expect(';');
@@ -1162,7 +1231,7 @@ FuncDef* Parser::ParseFuncDef(void)
 {
 	int storageSpec, funcSpec;
 	auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-	auto funcType = ParseDeclaratorAndDo(Type, storageSpec, funcSpec)->Ty();
+	auto funcType = ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();
 	auto stmt = ParseCompoundStmt();
-	return TranslationUnit::NewFuncDef(funcType, stmt);
+	return TranslationUnit::NewFuncDef(funcType->ToFuncType(), stmt);
 }

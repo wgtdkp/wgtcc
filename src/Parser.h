@@ -81,8 +81,9 @@ public:
 	Type* ParseSpecQual(void);
 	int ParseAlignas(void);
 	Type* ParseStructUnionSpec(bool isStruct);
+	Type* ParseEnumSpec(void);
 	StructUnionType* ParseStructDecl(StructUnionType* type);
-	
+	Type* ParseEnumerator(ArithmType* type);
 	//declarator
 	int ParseQual(void);
 	Type* ParsePointer(Type* typePointedTo);
@@ -193,7 +194,12 @@ private:
 
 	void EnsureScalarExpr(Expr* expr) const {
 		if (!expr->Ty()->IsScalar())
-			Error("scalar type expected");
+			Error("scalar type expression expected");
+	}
+
+	void EnsureIntegerExpr(Expr* expr) const {
+		if (!expr->Ty()->IsInteger())
+			Error("integer expression expected");
 	}
 
 	void EnterBlock(void) {

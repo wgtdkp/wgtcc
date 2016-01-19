@@ -9,6 +9,7 @@
 class Env;
 class Type;
 class Variable;
+class Constant;
 class ArithmType;
 class DerivedType;
 class ArrayType;
@@ -85,7 +86,6 @@ public:
 	}
 
 	bool IsInteger(void) const;
-	bool IsReal(void) const;
 	bool IsArithm(void) const { return (nullptr != ToArithmType()); }
 
 	virtual VoidType* ToVoidType(void) { return nullptr; }
@@ -119,7 +119,7 @@ public:
 		bool hasEllipsis, const std::list<Type*>& params = std::list<Type*>());
 	static PointerType* NewPointerType(Type* derived);
 	static StructUnionType* NewStructUnionType(bool isStruct);
-	static EnumType* NewEnumType();
+	//static EnumType* NewEnumType();
 	static ArithmType* NewArithmType(int tag);
 
 protected:
@@ -132,6 +132,7 @@ protected:
 	int _qual;
 	bool _complete;
 };
+
 
 class VoidType : public Type
 {
@@ -344,7 +345,7 @@ private:
 	bool _isStruct;
 };
 
-
+/**
 class EnumType : public Type
 {
 	friend class Type;
@@ -359,7 +360,7 @@ protected:
 private:
 	
 };
-
+*/
 
 typedef Variable Symbol;
 
@@ -399,11 +400,35 @@ public:
 	bool operator==(const Env& other) const;
 	Env* Parent(void) { return _parent; }
 	const Env* Parent(void) const { return _parent; }
+
+	Type* FindTagInCurScope(const char* tag);
+	Type* InsertTag(const char* tag, Type* type);
+	Type* FindTag(const char* tag);
+
+	//enumeration constant 
+	//Constant* FindConstantInCurScope(const char* name) {
+	//	auto type = FindVarInCurScope(name);
+	//	return type->ToConstant();
+	//}
+	Constant* InsertConstant(const char* name, Constant* constant) {
+		//注意enumeration constant 与一般变量处于同一命名空间
+		assert(nullptr == FindVarInCurScope(name));
+		_symbMap[name] = constant;
+		return constant;
+	}
+	//Constant* FindConstant(const char* name) {
+	//	auto type = FindVar(name);
+	//	return type->ToConstant();
+	//}
+
 private:
+	typedef std::map<const char*, Symbol*, StrCmp> SymbMap;
+	typedef std::map<const char*, Type*, StrCmp> TagMap;
+
 	Env* _parent;
 	int _offset;
-
-	std::map<const char*, Symbol*, StrCmp> _mapSymb;
+	SymbMap _symbMap;
+	TagMap _tagMap;
 };
 
 #endif

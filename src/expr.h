@@ -13,9 +13,7 @@ class Expr : public Stmt
 public:
 	virtual ~Expr(void) {}
 
-	Type* Ty(void) {
-		return _ty;
-	}
+	Type* Ty(void) { return _ty; }
 
 	const Type* Ty(void) const {
 		assert(nullptr != _ty);
@@ -23,16 +21,19 @@ public:
 	}
 
 	virtual bool IsLVal(void) const = 0;
-
+	void SetConsant(bool isConstant) { _isConstant = isConstant; }
+	bool IsConstant(void) const { return _isConstant; }
 protected:
 	/*you can construct a expression without specifying a type, 
 	  then the type should be evaluated in TypeChecking() */
-	explicit Expr(Type* type) : _ty(type) {}
+	explicit Expr(Type* type, bool isConstant=false) 
+		: _ty(type), _isConstant(isConstant) {}
 	/*do type checking and evaluating the expression type;
 	  called after construction*/
 	virtual Expr* TypeChecking(void) = 0;
 	
 	Type* _ty;
+	bool _isConstant;
 };
 
 
@@ -66,43 +67,50 @@ public:
 		return !(*this == other);
 	}
 
+	virtual Constant* ToConstant(void) { return nullptr; }
+	virtual const Constant* ToConstant(void) const { return nullptr; }
+
 protected:
-	Variable(Type* type, int offset = VAR)
-		: Expr(type), _offset(offset), _storage(0) {}
+	Variable(Type* type, int offset = VAR, bool isConstant=false)
+		: Expr(type, isConstant), _offset(offset), _storage(0) {}
 	//do nothing
 	virtual Variable* TypeChecking(void) { return this; }
 
+protected:
+	int _storage;
 private:
 	//the relative address
 	int _offset;
-	int _storage;
 };
 
 
 //integer or floating
-class Constant : public Expr
+class Constant : public Variable
 {
 	friend class TranslationUnit;
 public:
 	~Constant(void) {}
-
 	virtual bool IsLVal(void) const { return false; }
-
+	unsigned long long IVal(void) const { return _ival; }
+	long double FVal(void) const { return _fval; }
 protected:
 	Constant(ArithmType* type, unsigned long long val)
-		: Expr(type), _val(val) {}
+		: Variable(type, VAR, true), _ival(val) {
+		assert(type->IsInteger());
+	}
 
-	//the null constant pointer
-	explicit Constant(PointerType* pointerType)
-		: Expr(pointerType), _val(0) {}
+	Constant(ArithmType* type, long double val)
+		: Variable(type, VAR, true), _fval(val) {
+		assert(type->IsFloat());
+	}
 
-	explicit Constant(EnumType* enumType, unsigned long long val)
-		: Expr(enumType), _val(val) {}
-	
 	virtual Constant* TypeChecking(void) { return this; }
 
 private:
-	unsigned long long _val;
+	union {
+		unsigned long long _ival;
+		long double _fval;
+	};
 };
 
 

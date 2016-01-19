@@ -41,18 +41,14 @@ Variable* TranslationUnit::NewVariable(Type* type, int offset) {
 	return new Variable(type, offset);
 }
 
-Constant* TranslationUnit::NewConstant(ArithmType* type, size_t val) {
+Constant* TranslationUnit::NewConstantInteger(ArithmType* type, unsigned long long val)
+{
 	return new Constant(type, val);
 }
 
-Constant* TranslationUnit::NewConstant(PointerType* type) {
-	return new Constant(type);
-}
-
-Constant* TranslationUnit::NewConstantInt(size_t val)
+Constant* TranslationUnit::NewConstantFloat(ArithmType* type, long double val)
 {
-	auto type = Type::NewArithmType(T_INT);
-	return NewConstant(type, val);
+	return new Constant(type, val);
 }
 
 

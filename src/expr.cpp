@@ -223,9 +223,9 @@ UnaryOp* UnaryOp::CastOpTypeChecking(void)
 	//the _ty has been initiated to desType
 	if (!_ty->IsScalar())
 		Error("the cast type should be arithemetic type or pointer");
-	if (_ty->IsReal() && nullptr != _operand->Ty()->ToPointerType())
+	if (_ty->Float() && nullptr != _operand->Ty()->ToPointerType())
 		Error("can't cast a pointer to floating");
-	else if (nullptr != _ty->ToPointerType() && _operand->Ty()->IsReal())
+	else if (nullptr != _ty->ToPointerType() && _operand->Ty()->IsFloat())
 		Error("can't cast a floating to pointer");
 
 	return this;
