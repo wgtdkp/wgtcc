@@ -4,7 +4,6 @@
 #include <cassert>
 #include <vector>
 #include <string>
-#include "file.h"
 #include "token.h"
 
 class Lexer

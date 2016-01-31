@@ -5,11 +5,8 @@
 #include <stack>
 #include <memory>
 #include "ast.h"
-#include "expr.h"
-#include "decl.h"
-#include "stmt.h"
 #include "lexer.h"
-#include "symbol.h"
+#include "env.h"
 #include "error.h"
 
 class Env;
@@ -224,6 +221,9 @@ private:
 		assert(nullptr == FindLabel(label));
 		_topLabels[label] = labelStmt;
 	}
+
+	//constant evaluator
+	bool EvaluateConstantExpr(int& val, const Expr* expr);
 
 	typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
 	typedef std::list<std::pair<const char*, JumpStmt*>> LabelJumpList;

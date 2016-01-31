@@ -1,7 +1,9 @@
-#include "expr.h"
-#include "parser.h"
-#include "error.h"
 #include <string>
+#include "parser.h"
+#include "type.h"
+#include "env.h"
+#include "error.h"
+
 
 using namespace std;
 
@@ -405,11 +407,13 @@ Constant* Parser::ParseConstantExpr(void)
 	if (!expr->IsConstant())
 		Error("constant expression expected");
 	if (expr->Ty()->IsInteger()) {
-		auto val = expr->EvlInteger();
-		constant = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), val);
+		//TODO:
+		//auto val = expr->EvaluateConstant();
+		//constant = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), val);
 	} else if (expr->Ty()->IsFloat()) {
-		auto val = expr->EvalFloat();
-		constant = TranslationUnit::NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
+		//TODO:
+		//auto val = expr->EvaluateConstant();
+		//constant = TranslationUnit::NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
 	} else assert(0);
 	return constant;
 }
@@ -618,8 +622,9 @@ Type* Parser::ParseEnumerator(ArithmType* type)
 		if (Try('=')) {
 			auto constExpr = ParseConstantExpr();
 			EnsureIntegerExpr(constExpr);
-			int enumVal = EvaluateInteger(constExpr);
-			val = enumVal;
+			//TODO:
+			//int enumVal = EvaluateConstant(constExpr);
+			//val = enumVal;
 		}
 		auto Constant = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), val++);
 		_topEnv->InsertConstant(enumName, Constant);
@@ -835,9 +840,10 @@ int Parser::ParseArrayLength(void)
 		return -1;
 	else {
 		auto expr = ParseAssignExpr();
-		auto len = Evaluate(expr);
-		Expect(']');
-		return len;
+		//TODO:
+		//auto len = EvaluateConstant(expr);
+		//Expect(']');
+		//return len;
 	}
 }
 
@@ -884,8 +890,9 @@ Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 {
 	auto var = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
 	if (Try('=')) {
-		auto rhs = ParseInitializer();
-		return TranslationUnit::NewBinaryOp('=', var, rhs);
+		//TODO:
+		//auto rhs = ParseInitializer();
+		//return TranslationUnit::NewBinaryOp('=', var, rhs);
 	}
 	return nullptr;
 }
@@ -1128,7 +1135,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 	auto bodyStmt = ParseStmt();
 	stmts.push_back(labelTest);
 	for (auto iter = _caseLabels->begin(); iter != _caseLabels->end(); iter++) {
-		auto rhs = TranslationUnit::NewConstantInt(iter->first);
+		auto rhs = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), iter->first);
 		auto cond = TranslationUnit::NewBinaryOp(Token::EQ_OP, t, rhs);
 		auto then = TranslationUnit::NewJumpStmt(iter->second);
 		auto ifStmt = TranslationUnit::NewIfStmt(cond, then, nullptr);
@@ -1146,7 +1153,7 @@ CompoundStmt* Parser::ParseCaseStmt(void)
 	//TODO: constant epxr ÕûÐÍ
 	auto expr = ParseExpr();
 	Expect(':');
-	int val = Evaluate(expr);
+	int val = EvaluateConstantExpr(expr);
 	auto labelStmt = TranslationUnit::NewLabelStmt();
 	_caseLabels->push_back(std::make_pair(val, labelStmt));
 	std::list<Stmt*> stmts;
@@ -1235,3 +1242,9 @@ FuncDef* Parser::ParseFuncDef(void)
 	auto stmt = ParseCompoundStmt();
 	return TranslationUnit::NewFuncDef(funcType->ToFuncType(), stmt);
 }
+
+bool Parser::EvaluateConstantExpr(int& val, const Expr* expr)
+{
+
+}
+

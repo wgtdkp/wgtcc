@@ -26,6 +26,7 @@ public:
 		DIV = '/',
 		OR = '|',
 		AND = '&',
+		XOR = '^',
 		LESS = '<',
 		GREATER = '>',
 		EQUAL = '=',
@@ -33,7 +34,7 @@ public:
 		MOD = '%',
 		LBRACE = '{',
 		RBRACE = '}',
-		XOR = '^',
+		
 		TILDE = '~',
 		NOT = '!',
 		COND = '?',
