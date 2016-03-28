@@ -1,5 +1,7 @@
-#include "expr.h"
+#include "ast.h"
 #include "error.h"
+
+/********************* Expression ***********************/
 
 ConditionalOp* ConditionalOp::TypeChecking(void)
 {
@@ -10,7 +12,6 @@ ConditionalOp* ConditionalOp::TypeChecking(void)
 
 	return this;
 }
-
 
 BinaryOp* BinaryOp::TypeChecking(void)
 {
@@ -61,7 +62,7 @@ BinaryOp* BinaryOp::MemberRefOpTypeChecking(const char* rhsName)
 
 	if (nullptr == structUnionType)
 		return this; //the _rhs is lefted nullptr
-	
+
 	_rhs = structUnionType->Find(rhsName);
 	if (nullptr == _rhs)
 		Error("'%s' is not a member of '%s'", rhsName, "[obj]");
@@ -78,7 +79,7 @@ BinaryOp* BinaryOp::MultiOpTypeChecking(void)
 		Error("operand should be arithmetic type");
 	if ('%' == _op && !(_lhs->Ty()->IsInteger() && _rhs->Ty()->IsInteger()))
 		Error("operand of '%%' should be integer");
-	
+
 	//TODO: type promotion
 	_ty = _lhs->Ty();
 	return this;
@@ -88,7 +89,7 @@ BinaryOp* BinaryOp::AdditiveOpTypeChecking(void)
 {
 	auto lhsType = _lhs->Ty()->ToArithmType();
 	auto rhsType = _rhs->Ty()->ToArithmType();
-	
+
 
 	//TODO: type promotion
 
@@ -196,7 +197,7 @@ UnaryOp* UnaryOp::DerefOpTypeChecking(void)
 	auto pointer = _operand->Ty()->ToPointerType();
 	if (nullptr == pointer)
 		Error("pointer expected for deref operator '*'");
-	
+
 	_ty = pointer->Derived();
 	return this;
 }
@@ -223,7 +224,7 @@ UnaryOp* UnaryOp::CastOpTypeChecking(void)
 	//the _ty has been initiated to desType
 	if (!_ty->IsScalar())
 		Error("the cast type should be arithemetic type or pointer");
-	if (_ty->Float() && nullptr != _operand->Ty()->ToPointerType())
+	if (_ty->IsFloat() && nullptr != _operand->Ty()->ToPointerType())
 		Error("can't cast a pointer to floating");
 	else if (nullptr != _ty->ToPointerType() && _operand->Ty()->IsFloat())
 		Error("can't cast a floating to pointer");
@@ -245,5 +246,100 @@ FuncCall* FuncCall::TypeChecking(void)
 }
 
 
+ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
+{
+	return (new ConditionalOp(cond, exprTrue, exprFalse))->TypeChecking();
+}
+
+BinaryOp* TranslationUnit::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
+{
+	switch (op) {
+	case '[': case '*': case '/': case '%': case '+': case '-': 
+	case Token::LEFT_OP: case Token::RIGHT_OP: case '<': case '>': 
+	case Token::LE_OP: case Token::GE_OP: case Token::EQ_OP: case Token::NE_OP: 
+	case '&': case '^': case '|': case Token::AND_OP: case Token::OR_OP: break;
+	default: assert(0);
+	}
+	return (new BinaryOp(op, lhs, rhs))->TypeChecking();
+}
+
+BinaryOp* TranslationUnit::NewMemberRefOp(int op, Expr* lhs, const char* rhsName)
+{
+	assert('.' == op || Token::PTR_OP == op);
+	//the initiation of rhs is lefted in type checking
+	return (NewBinaryOp(op, lhs, nullptr))->MemberRefOpTypeChecking(rhsName);
+}
+
+/*
+UnaryOp* TranslationUnit::NewUnaryOp(Type* type, int op, Expr* expr) {
+	return new UnaryOp(type, op, expr);
+}
+*/
 
 
+FuncCall* TranslationUnit::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
+{
+	return (new FuncCall(designator, args))->TypeChecking();
+}
+
+Variable* TranslationUnit::NewVariable(Type* type, int offset)
+{
+	return new Variable(type, offset);
+}
+
+Constant* TranslationUnit::NewConstantInteger(ArithmType* type, unsigned long long val)
+{
+	return new Constant(type, val);
+}
+
+Constant* TranslationUnit::NewConstantFloat(ArithmType* type, long double val)
+{
+	return new Constant(type, val);
+}
+
+
+TempVar* TranslationUnit::NewTempVar(Type* type)
+{
+	return new TempVar(type);
+}
+
+UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
+{
+	return (new UnaryOp(op, operand, type))->TypeChecking();
+}
+
+
+/********** Statement ***********/
+
+//显然空stmt只需要一个
+EmptyStmt* TranslationUnit::NewEmptyStmt(void)
+{
+	static auto inst = new EmptyStmt();
+	return inst;
+}
+
+//else stmt 默认是 null
+IfStmt* TranslationUnit::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
+{
+	return new IfStmt(cond, then, els);
+}
+
+CompoundStmt* TranslationUnit::NewCompoundStmt(std::list<Stmt*>& stmts)
+{
+	return (new CompoundStmt(stmts));
+}
+
+JumpStmt* TranslationUnit::NewJumpStmt(LabelStmt* label)
+{
+	return new JumpStmt(label);
+}
+
+LabelStmt* TranslationUnit::NewLabelStmt(void)
+{
+	return new LabelStmt();
+}
+
+FuncDef* TranslationUnit::NewFuncDef(FuncType* type, CompoundStmt* stmt)
+{
+	return new FuncDef(type, stmt);
+}

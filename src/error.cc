@@ -3,6 +3,7 @@
 #include "error.h"
 #include "token.h"
 
+
 static void Error(
 	const char* fileName, 
 	int line, int column, 

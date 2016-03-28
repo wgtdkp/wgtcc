@@ -1,8 +1,8 @@
 #include <iostream>
 #include "lexer.h"
 
-
 using namespace std;
+
 
 class A {
 public:

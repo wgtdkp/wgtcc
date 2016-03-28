@@ -6,14 +6,14 @@
 #include "token.h"
 #include "type.h"
 
-class ASTVisitor;
 class ASTNode;
+class Visitor;
 
 //Expression
 class Expr;
 class BinaryOp;
-class ConditionalOp;
 class UnaryOp;
+class ConditionalOp;
 class FuncCall;
 class Variable;
 class Constant;
@@ -25,7 +25,7 @@ class IfStmt;
 class JumpStmt;
 class LabelStmt;
 class EmptyStmt;
-
+class CompoundStmt;
 
 class FuncDef;
 
@@ -35,7 +35,7 @@ class ASTNode
 {
 public:
 	virtual ~ASTNode(void) {}
-
+	virtual void Accept(Visitor* v) = 0;
 protected:
 	ASTNode(void) {}
 
@@ -60,6 +60,9 @@ class EmptyStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~EmptyStmt(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitEmptyStmt(this);
+	}
 protected:
 	EmptyStmt(void) {}
 private:
@@ -71,6 +74,9 @@ class LabelStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	~LabelStmt(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitLabelStmt(this);
+	}
 	int Tag(void) const { return Tag(); }
 protected:
 	LabelStmt(void) : _tag(GenTag()) {}
@@ -87,6 +93,9 @@ class IfStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~IfStmt(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitIfStmt(this);
+	}
 protected:
 	IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
 		: _cond(cond), _then(then), _else(els) {}
@@ -101,6 +110,9 @@ class JumpStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~JumpStmt(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitJumpStmt(this);
+	}
 	void SetLabel(LabelStmt* label) { _label = label; }
 protected:
 	JumpStmt(LabelStmt* label) : _label(label) {}
@@ -113,7 +125,9 @@ class CompoundStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~CompoundStmt(void) {}
-
+	virtual void Accept(Visitor* v) {
+		v->VisitCompoundStmt(this);
+	}
 protected:
 	CompoundStmt(const std::list<Stmt*>& stmts)
 		: _stmts(stmts) {}
@@ -130,30 +144,138 @@ class Expr : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~Expr(void) {}
-
 	Type* Ty(void) { return _ty; }
-
 	const Type* Ty(void) const {
 		assert(nullptr != _ty);
 		return _ty;
 	}
 
 	virtual bool IsLVal(void) const = 0;
-	//void SetConsant(bool isConstant) { _isConstant = isConstant; }
-	//bool IsConstant(void) const { return _isConstant; }
 protected:
 	/*you can construct a expression without specifying a type,
 	then the type should be evaluated in TypeChecking() */
 	explicit Expr(Type* type, bool isConstant = false)
-		: _ty(type)/*, _isConstant(isConstant)*/ {}
+		: _ty(type) {}
 	/*do type checking and evaluating the expression type;
 	called after construction*/
 	virtual Expr* TypeChecking(void) = 0;
 
 	Type* _ty;
-	//bool _isConstant;
 };
 
+/***********************************************************
+'+', '-', '*', '/', '%', '<', '>', '<<', '>>', '|', '&', '^'
+'=',(复合赋值运算符被拆分为两个运算)
+'==', '!=', '<=', '>=',
+'&&', '||'
+'['(下标运算符), '.'(成员运算符), '->'(成员运算符)
+','(逗号运算符),
+*************************************************************/
+class BinaryOp : public Expr
+{
+	friend class TranslationUnit;
+public:
+	virtual ~BinaryOp(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitBinaryOp(this);
+	}
+	//like member ref operator is a lvalue
+	virtual bool IsLVal(void) const { return false; }
+
+protected:
+	BinaryOp(int op, Expr* lhs, Expr* rhs)
+		:Expr(nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
+
+	//TODO: 1.type checking; 2. evalute the type;
+	virtual BinaryOp* TypeChecking(void);// { return this; }
+	BinaryOp* SubScriptingOpTypeChecking(void);
+	BinaryOp* MemberRefOpTypeChecking(const char* rhsName);
+	BinaryOp* MultiOpTypeChecking(void);
+	BinaryOp* AdditiveOpTypeChecking(void);
+	BinaryOp* ShiftOpTypeChecking(void);
+	BinaryOp* RelationalOpTypeChecking(void);
+	BinaryOp* EqualityOpTypeChecking(void);
+	BinaryOp* BitwiseOpTypeChecking(void);
+	BinaryOp* LogicalOpTypeChecking(void);
+	BinaryOp* AssignOpTypeChecking(void);
+
+	int _op;
+	Expr* _lhs;
+	Expr* _rhs;
+};
+
+/************* Unary Operator ****************/
+class UnaryOp : public Expr
+{
+	friend class TranslationUnit;
+public:
+	virtual ~UnaryOp(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitUnaryOp(this);
+	}
+	//TODO: like '*p' is lvalue, but '~i' is not lvalue
+	virtual bool IsLVal(void) const {
+		/*only deref('*') op is lvalue;
+		so it's only deref with override this func*/
+		return (Token::DEREF == _op);
+	}
+
+protected:
+	UnaryOp(int op, Expr* operand, Type* type = nullptr)
+		: Expr(type), _op(op), _operand(operand) {}
+
+	virtual UnaryOp* TypeChecking(void);
+	UnaryOp* IncDecOpTypeChecking(void);
+	UnaryOp* AddrOpTypeChecking(void);
+	UnaryOp* DerefOpTypeChecking(void);
+	UnaryOp* UnaryArithmOpTypeChecking(void);
+	UnaryOp* CastOpTypeChecking(void);
+
+	int _op;
+	Expr* _operand;
+};
+
+// cond ？ true ： false
+class ConditionalOp : public Expr
+{
+	friend class TranslationUnit;
+public:
+	virtual ~ConditionalOp(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitConditionalOp(this);
+	}
+	virtual bool IsLVal(void) const { return false; }
+protected:
+	ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
+		: Expr(nullptr), _cond(cond), _exprTrue(exprTrue), _exprFalse(exprFalse) {}
+	virtual ConditionalOp* TypeChecking(void);
+private:
+	Expr* _cond;
+	Expr* _exprTrue;
+	Expr* _exprFalse;
+};
+
+/************** Function Call ****************/
+class FuncCall : public Expr
+{
+	friend class TranslationUnit;
+public:
+	~FuncCall(void) {}
+	virtual void Accept(Visitor* v) { 
+		v->VisitFuncCall(this);
+	}
+	//a function call is ofcourse not lvalue
+	virtual bool IsLVal(void) const { return false; }
+
+protected:
+	FuncCall(Expr* designator, std::list<Expr*> args)
+		:_designator(designator), _args(args), Expr(nullptr) {}
+
+	virtual FuncCall* TypeChecking(void);
+
+	Expr* _designator;
+	std::list<Expr*> _args;
+};
 
 /********* Identifier *************/
 class Variable : public Expr
@@ -163,7 +285,9 @@ public:
 	static const int TYPE = -1;
 	static const int VAR = 0;
 	~Variable(void) {}
-
+	virtual void Accept(Visitor* v) {
+		v->VisitVariable(this);
+	}
 	bool IsVar(void) const {
 		return _offset >= 0;
 	}
@@ -202,12 +326,15 @@ private:
 };
 
 
-//integer, character, floating
+//integer, character, string literal, floating
 class Constant : public Variable
 {
 	friend class TranslationUnit;
 public:
 	~Constant(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitConstant(this);
+	}
 	virtual bool IsLVal(void) const { return false; }
 	unsigned long long IVal(void) const { return _ival; }
 	long double FVal(void) const { return _fval; }
@@ -237,8 +364,10 @@ class TempVar : public Expr
 	friend class TranslationUnit;
 public:
 	virtual ~TempVar(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitTempVar(this);
+	}
 	virtual bool IsLVal(void) const { return true; }
-
 protected:
 	explicit TempVar(Type* type)
 		: Expr(type), _tag(GenTag()) {}
@@ -248,114 +377,9 @@ private:
 		static int tag = 0;
 		return ++tag;
 	}
+
 	int _tag;
 };
-
-// cond ？ true ： false
-class ConditionalOp : public Expr
-{
-	friend class TranslationUnit;
-public:
-	virtual ~ConditionalOp(void) {}
-	virtual bool IsLVal(void) const { return false; }
-protected:
-	ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
-		: Expr(nullptr), _cond(cond), _exprTrue(exprTrue), _exprFalse(exprFalse) {}
-	virtual ConditionalOp* TypeChecking(void);
-private:
-	Expr* _cond;
-	Expr* _exprTrue;
-	Expr* _exprFalse;
-};
-
-/**********
-'+', '-', '*', '/', '%', '<', '>', '<<', '>>', '|', '&', '^'
-'=',(复合赋值运算符被拆分为两个运算)
-'==', '!=', '<=', '>=', 
-'&&', '||'
-'['(下标运算符), '.'(成员运算符), '->'(成员运算符)
-','(逗号运算符), 
-***********/
-class BinaryOp : public Expr
-{
-	friend class TranslationUnit;
-public:
-	virtual ~BinaryOp(void) {}
-
-	//like member ref operator is a lvalue
-	virtual bool IsLVal(void) const { return false; }
-
-protected:
-	BinaryOp(int op, Expr* lhs, Expr* rhs)
-		:Expr(nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
-
-	//TODO: 1.type checking; 2. evalute the type;
-	virtual BinaryOp* TypeChecking(void);// { return this; }
-	BinaryOp* SubScriptingOpTypeChecking(void);
-	BinaryOp* MemberRefOpTypeChecking(const char* rhsName);
-	BinaryOp* MultiOpTypeChecking(void);
-	BinaryOp* AdditiveOpTypeChecking(void);
-	BinaryOp* ShiftOpTypeChecking(void);
-	BinaryOp* RelationalOpTypeChecking(void);
-	BinaryOp* EqualityOpTypeChecking(void);
-	BinaryOp* BitwiseOpTypeChecking(void);
-	BinaryOp* LogicalOpTypeChecking(void);
-	BinaryOp* AssignOpTypeChecking(void);
-
-	int _op;
-	Expr* _lhs;
-	Expr* _rhs;
-};
-
-/************* Unary Operator ****************/
-
-class UnaryOp : public Expr
-{
-	friend class TranslationUnit;
-public:
-	virtual ~UnaryOp(void) {}
-
-	//TODO: like '*p' is lvalue, but '~i' is not lvalue
-	virtual bool IsLVal(void) const {
-		/*only deref('*') op is lvalue;
-		so it's only deref with override this func*/
-		return (Token::DEREF == _op);
-	}
-
-protected:
-	UnaryOp(int op, Expr* operand, Type* type = nullptr)
-		: Expr(type), _op(op), _operand(operand) {}
-
-	virtual UnaryOp* TypeChecking(void);
-	UnaryOp* IncDecOpTypeChecking(void);
-	UnaryOp* AddrOpTypeChecking(void);
-	UnaryOp* DerefOpTypeChecking(void);
-	UnaryOp* UnaryArithmOpTypeChecking(void);
-	UnaryOp* CastOpTypeChecking(void);
-
-	int _op;
-	Expr* _operand;
-};
-
-class FuncCall : public Expr
-{
-	friend class TranslationUnit;
-public:
-	~FuncCall(void) {}
-
-	//a function call is ofcourse not lvalue
-	virtual bool IsLVal(void) const { return false; }
-
-protected:
-	FuncCall(Expr* designator, std::list<Expr*> args)
-		:_designator(designator), _args(args), Expr(nullptr) {}
-
-	virtual FuncCall* TypeChecking(void);
-
-	Expr* _designator;
-	std::list<Expr*> _args;
-};
-
 
 /*************** Declaration ******************/
 
@@ -364,6 +388,9 @@ class FuncDef : public ExtDecl
 	friend class TranslationUnit;
 public:
 	virtual ~FuncDef(void) {}
+	virtual void Accept(Visitor* v) {
+		v->VisitFuncDef(this);
+	}
 protected:
 	FuncDef(FuncType* type, CompoundStmt* stmt)
 		: _type(type), _stmt(stmt) {}
@@ -386,7 +413,9 @@ public:
 		for (; iter != _extDecls.end(); iter++)
 			delete *iter;
 	}
-
+	virtual void Accept(Visitor* v) {
+		v->VisitTranslationUnit(this);
+	}
 	void Add(ExtDecl* extDecl) {
 		_extDecls.push_back(extDecl);
 	}
@@ -394,6 +423,7 @@ public:
 	static TranslationUnit* NewTranslationUnit(void) {
 		return new TranslationUnit();
 	}
+
 	/************** Binary Operator ****************/
 	static BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
 	static BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);

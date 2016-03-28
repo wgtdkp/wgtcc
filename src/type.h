@@ -17,7 +17,6 @@ class PointerType;
 class StructUnionType;
 class EnumType;
 
-
 enum {
 	/*****storage-class-specifiers*****/
 	S_TYPEDEF = 0x01,
@@ -356,6 +355,5 @@ private:
 
 };
 */
-
 
 #endif

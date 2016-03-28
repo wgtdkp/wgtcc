@@ -7,6 +7,7 @@
 #include <list>
 #include <cstring>
 
+
 class Token
 {
 	friend class Lexer;
@@ -34,7 +35,6 @@ public:
 		MOD = '%',
 		LBRACE = '{',
 		RBRACE = '}',
-		
 		TILDE = '~',
 		NOT = '!',
 		COND = '?',
@@ -132,7 +132,6 @@ public:
 		STRING_LITERAL,
 
 		//for the parser, a identifier is a typedef name or user defined type
-		
 		POSTFIX_INC,
 		POSTFIX_DEC,
 		PREFIX_INC,

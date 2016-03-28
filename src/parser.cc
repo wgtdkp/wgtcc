@@ -4,8 +4,8 @@
 #include "env.h"
 #include "error.h"
 
-
 using namespace std;
+
 
 void Parser::Expect(int expect, int follow1, int follow2)
 {

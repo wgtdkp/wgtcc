@@ -9,8 +9,8 @@
 #include "env.h"
 #include "error.h"
 
-class Env;
 
+class Env;
 typedef std::pair<const char*, Type*> NameTypePair;
 
 class Parser

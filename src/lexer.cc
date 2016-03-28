@@ -4,6 +4,7 @@
 
 using namespace std;
 
+
 static inline bool IsDigit(char ch)
 {
 	return '0' <= ch && ch <= '9';

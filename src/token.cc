@@ -2,6 +2,7 @@
 
 using namespace std;
 
+
 const unordered_map<string, int> Token::_kwTypeMap = {
 	{ "auto", Token::AUTO },
 	{ "break", Token::BREAK },

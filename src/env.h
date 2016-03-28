@@ -4,8 +4,8 @@
 #include <map>
 #include <list>
 #include <cassert>
-
 #include "type.h"
+
 
 struct StrCmp
 {
