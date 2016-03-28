@@ -1,5 +1,5 @@
-#ifndef _VISITOR_
-#define _VISITOR_
+#ifndef _WGTCC_VISITOR_
+#define _WGTCC_VISITOR_
 
 #include "ast.h"
 

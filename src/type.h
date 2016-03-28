@@ -1,7 +1,8 @@
-#ifndef _TYPE_H_
-#define _TYPE_H_
+#ifndef _WGTCC_TYPE_H_
+#define _WGTCC_TYPE_H_
 
 #include <list>
+
 
 /********* Type System ***********/
 class Env;

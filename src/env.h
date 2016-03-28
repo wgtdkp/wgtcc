@@ -1,5 +1,5 @@
-#ifndef _ENV_H_
-#define _ENV_H_
+#ifndef _WGTCC_ENV_H_
+#define _WGTCC_ENV_H_
 
 #include <map>
 #include <list>

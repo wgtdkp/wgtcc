@@ -1,5 +1,5 @@
-#ifndef _LEXER_H_
-#define _LEXER_H_
+#ifndef _WGTCC_LEXER_H_
+#define _WGTCC_LEXER_H_
 
 #include <cassert>
 #include <vector>

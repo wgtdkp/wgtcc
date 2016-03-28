@@ -1,5 +1,5 @@
-#ifndef _TOKEN_H_
-#define _TOKEN_H_
+#ifndef _WGTCC_TOKEN_H_
+#define _WGTCC_TOKEN_H_
 
 #include <cassert>
 #include <cstring>

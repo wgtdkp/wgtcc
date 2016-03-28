@@ -1,5 +1,5 @@
-#ifndef _ERROR_H_
-#define _ERROR_H_
+#ifndef _WGTCC_ERROR_H_
+#define _WGTCC_ERROR_H_
 
 
 class Token;

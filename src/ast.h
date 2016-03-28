@@ -1,5 +1,5 @@
-#ifndef _AST_H_
-#define _AST_H_
+#ifndef _WGTCC_AST_H_
+#define _WGTCC_AST_H_
 
 #include <list>
 #include <memory>
