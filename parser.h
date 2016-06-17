@@ -1,13 +1,14 @@
 #ifndef _PARSER_H_
 #define _PARSER_H_
 
-#include <cassert>
-#include <stack>
-#include <memory>
 #include "ast.h"
 #include "lexer.h"
 #include "env.h"
 #include "error.h"
+
+#include <cassert>
+#include <memory>
+#include <stack>
 
 
 class Env;
@@ -73,7 +74,7 @@ public:
 
 
 	/************* Declarations **************/
-	CompoundStmt* Parser::ParseDecl(void);
+	CompoundStmt* ParseDecl(void);
 	Type* ParseDeclSpec(int* storage, int* func);
 	Type* ParseSpecQual(void);
 	int ParseAlignas(void);
@@ -119,8 +120,8 @@ public:
 	FuncDef* ParseFuncDef(void);
 
 private:
-	//Èç¹ûµ±Ç°token·ûºÏ²ÎÊý£¬·µ»Øtrue,²¢consumeÒ»¸ötoken
-	//Èç¹ûÓëtokTag²»·û£¬Ôò·µ»Øfalse£¬²¢ÇÒ²»consume token
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°tokenï¿½ï¿½ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½true,ï¿½ï¿½consumeÒ»ï¿½ï¿½token
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½tokTagï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò·µ»ï¿½falseï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½consume token
 	bool Try(int tokTag) {
 		auto tok = Next();
 		if (tok->Tag() == tokTag)
@@ -129,19 +130,19 @@ private:
 		return false;
 	}
 
-	//·µ»Øµ±Ç°token£¬²¢Ç°ÒÆ
+	//ï¿½ï¿½ï¿½Øµï¿½Ç°tokenï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½
 	Token* Next(void) { return _lexer->Get(); }
 	void PutBack(void) { _lexer->Unget(); }
 
-	//·µ»Øµ±Ç°token£¬µ«ÊÇ²»Ç°ÒÆ
+	//ï¿½ï¿½ï¿½Øµï¿½Ç°tokenï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½Ç°ï¿½ï¿½
 	Token* Peek(void) { return _lexer->Peek(); }
 	const Token* Peek(void) const{ return _lexer->Peek(); }
 	bool Test(int tag) const { return Peek()->Tag() == tag; }
 
-	//¼ÇÂ¼µ±Ç°tokenÎ»ÖÃ
+	//ï¿½ï¿½Â¼ï¿½ï¿½Ç°tokenÎ»ï¿½ï¿½
 	void Mark(void) { _buf.push(Peek()); }
 
-	//»Øµ½×î½üÒ»´ÎMarkµÄµØ·½
+	//ï¿½Øµï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Markï¿½ÄµØ·ï¿½
 	Token* Release(void) {
 		assert(!_buf.empty());
 		while (Peek() != _buf.top()) {

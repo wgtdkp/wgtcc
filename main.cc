@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 int main(void)
 {
 	//int argc;
-	char* argv[2] = {"wgtcc", "test.c"};
+	const char* argv[2] = {"wgtcc", "test.c"};
 	printf("%s\n", __FILE__); return 0;
 	Lexer lexer(argv[1]);
 	lexer.Tokenize();

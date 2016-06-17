@@ -60,23 +60,19 @@ class EmptyStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~EmptyStmt(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitEmptyStmt(this);
-	}
+	virtual void Accept(Visitor* v);
 protected:
 	EmptyStmt(void) {}
 private:
 };
 
-//构建此类的目的在于，在目标代码生成的时候，能够生成相应的label
+// 构建此类的目的在于，在目标代码生成的时候，能够生成相应的label
 class LabelStmt : public Stmt
 {
 	friend class TranslationUnit;
 public:
 	~LabelStmt(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitLabelStmt(this);
-	}
+	virtual void Accept(Visitor* v);
 	int Tag(void) const { return Tag(); }
 protected:
 	LabelStmt(void) : _tag(GenTag()) {}
@@ -85,7 +81,7 @@ private:
 		static int tag = 0;
 		return ++tag;
 	}
-	int _tag; //使用整型的tag值，而不直接用字符串
+	int _tag; // 使用整型的tag值，而不直接用字符串
 };
 
 class IfStmt : public Stmt
@@ -93,9 +89,7 @@ class IfStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~IfStmt(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitIfStmt(this);
-	}
+	virtual void Accept(Visitor* v);
 protected:
 	IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
 		: _cond(cond), _then(then), _else(els) {}
@@ -110,9 +104,7 @@ class JumpStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~JumpStmt(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitJumpStmt(this);
-	}
+	virtual void Accept(Visitor* v);
 	void SetLabel(LabelStmt* label) { _label = label; }
 protected:
 	JumpStmt(LabelStmt* label) : _label(label) {}
@@ -125,9 +117,7 @@ class CompoundStmt : public Stmt
 	friend class TranslationUnit;
 public:
 	virtual ~CompoundStmt(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitCompoundStmt(this);
-	}
+	virtual void Accept(Visitor* v);
 protected:
 	CompoundStmt(const std::list<Stmt*>& stmts)
 		: _stmts(stmts) {}
@@ -176,9 +166,7 @@ class BinaryOp : public Expr
 	friend class TranslationUnit;
 public:
 	virtual ~BinaryOp(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitBinaryOp(this);
-	}
+	virtual void Accept(Visitor* v);
 	//like member ref operator is a lvalue
 	virtual bool IsLVal(void) const { return false; }
 
@@ -210,9 +198,7 @@ class UnaryOp : public Expr
 	friend class TranslationUnit;
 public:
 	virtual ~UnaryOp(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitUnaryOp(this);
-	}
+	virtual void Accept(Visitor* v);
 	//TODO: like '*p' is lvalue, but '~i' is not lvalue
 	virtual bool IsLVal(void) const {
 		/*only deref('*') op is lvalue;
@@ -241,9 +227,7 @@ class ConditionalOp : public Expr
 	friend class TranslationUnit;
 public:
 	virtual ~ConditionalOp(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitConditionalOp(this);
-	}
+	virtual void Accept(Visitor* v);
 	virtual bool IsLVal(void) const { return false; }
 protected:
 	ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
@@ -261,15 +245,13 @@ class FuncCall : public Expr
 	friend class TranslationUnit;
 public:
 	~FuncCall(void) {}
-	virtual void Accept(Visitor* v) { 
-		v->VisitFuncCall(this);
-	}
+	virtual void Accept(Visitor* v);
 	//a function call is ofcourse not lvalue
 	virtual bool IsLVal(void) const { return false; }
 
 protected:
 	FuncCall(Expr* designator, std::list<Expr*> args)
-		:_designator(designator), _args(args), Expr(nullptr) {}
+		: Expr(nullptr), _designator(designator), _args(args) {}
 
 	virtual FuncCall* TypeChecking(void);
 
@@ -285,9 +267,7 @@ public:
 	static const int TYPE = -1;
 	static const int VAR = 0;
 	~Variable(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitVariable(this);
-	}
+	virtual void Accept(Visitor* v);
 	bool IsVar(void) const {
 		return _offset >= 0;
 	}
@@ -314,7 +294,7 @@ public:
 
 protected:
 	Variable(Type* type, int offset = VAR, bool isConstant = false)
-		: Expr(type, isConstant), _offset(offset), _storage(0) {}
+		: Expr(type, isConstant), _storage(0), _offset(offset) {}
 	//do nothing
 	virtual Variable* TypeChecking(void) { return this; }
 
@@ -332,9 +312,7 @@ class Constant : public Variable
 	friend class TranslationUnit;
 public:
 	~Constant(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitConstant(this);
-	}
+	virtual void Accept(Visitor* v);
 	virtual bool IsLVal(void) const { return false; }
 	unsigned long long IVal(void) const { return _ival; }
 	long double FVal(void) const { return _fval; }
@@ -364,9 +342,7 @@ class TempVar : public Expr
 	friend class TranslationUnit;
 public:
 	virtual ~TempVar(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitTempVar(this);
-	}
+	virtual void Accept(Visitor* v);
 	virtual bool IsLVal(void) const { return true; }
 protected:
 	explicit TempVar(Type* type)
@@ -388,9 +364,7 @@ class FuncDef : public ExtDecl
 	friend class TranslationUnit;
 public:
 	virtual ~FuncDef(void) {}
-	virtual void Accept(Visitor* v) {
-		v->VisitFuncDef(this);
-	}
+	virtual void Accept(Visitor* v);
 protected:
 	FuncDef(FuncType* type, CompoundStmt* stmt)
 		: _type(type), _stmt(stmt) {}
@@ -413,9 +387,9 @@ public:
 		for (; iter != _extDecls.end(); iter++)
 			delete *iter;
 	}
-	virtual void Accept(Visitor* v) {
-		v->VisitTranslationUnit(this);
-	}
+
+	virtual void Accept(Visitor* v);
+	
 	void Add(ExtDecl* extDecl) {
 		_extDecls.push_back(extDecl);
 	}

@@ -74,7 +74,7 @@ public:
 	int Align(void) const { return _align; }
 	void SetAlign(int align) { _align = align; }
 	int Qual(void) const { return _qual; }
-	int SetQual(int qual) { _qual = qual; }
+	void SetQual(int qual) { _qual = qual; }
 	bool IsComplete(void) const { return _complete; }
 	void SetComplete(bool complete) { _complete = complete; }
 
@@ -121,8 +121,7 @@ protected:
 	explicit Type(int width, bool complete)
 		: _width(width), _complete(complete) {}
 
-	//the bytes to store object of that type
-	int _width;
+	int _width;	// the bytes to store object of that type
 	int _align;
 	int _qual;
 	bool _complete;
@@ -134,8 +133,22 @@ class VoidType : public Type
 	friend class Type;
 public:
 	virtual ~VoidType(void) {}
-	virtual bool operator==(const Type& other) const;
-	virtual bool Compatible(const Type& other) const;
+
+	virtual VoidType* ToVoidType(void) {
+		return this;
+	}
+
+	virtual const VoidType* ToVoidType(void) const {
+		return this;
+	}
+
+	virtual bool operator==(const Type& other) const {
+		return other.ToVoidType() != nullptr;
+	}
+
+	virtual bool Compatible(const Type& other) const {
+		return *this == other;
+	}
 protected:
 	VoidType(void) : Type(0, true) {}
 };
@@ -187,7 +200,7 @@ public:
 
 protected:
 	explicit ArithmType(int tag)
-		: _tag(tag), Type(CalcWidth(tag), true) {}
+		: Type(CalcWidth(tag), true), _tag(tag) {}
 private:
 	int _tag;
 	static int CalcWidth(int tag);
@@ -206,7 +219,7 @@ public:
 
 protected:
 	DerivedType(Type* derived, int width)
-		: _derived(derived), Type(width, true) {}
+		: Type(width, true), _derived(derived) {}
 
 	Type* _derived;
 };
@@ -279,7 +292,7 @@ public:
 protected:
 	ArrayType(long long len, Type* derived)
 		: PointerType(derived) {
-		SetComplete(len > 0);	//Èç¹ûlen < 0,ÄÇÃ´´ËÀàÐÍ²»ÍêÕû
+		SetComplete(len > 0);	//ï¿½ï¿½ï¿½ï¿½len < 0,ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½
 		SetWidth(len > 0 ? len * derived->Width() : 0);
 		SetQual(Q_CONST);
 
@@ -301,14 +314,16 @@ public:
 	//bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 protected:
 	//a function does not has the width property
-	FuncType(Type* derived, int inlineReturn, bool hasEllipsis, const std::list<Type*>& params = std::list<Type*>())
-		: DerivedType(_derived, -1), _inlineNoReturn(inlineReturn), _hasEllipsis(hasEllipsis), _params(params) {}
+	FuncType(Type* derived, int inlineReturn, bool hasEllipsis,
+			const std::list<Type*>& params = std::list<Type*>())
+		: DerivedType(_derived, -1), _inlineNoReturn(inlineReturn),
+		  _hasEllipsis(hasEllipsis), _params(params) {
+	}
 
 private:
 	int _inlineNoReturn;
 	bool _hasEllipsis;
 	std::list<Type*> _params;
-
 };
 
 
@@ -324,23 +339,22 @@ public:
 	Variable* Find(const char* name);
 	const Variable* Find(const char* name) const;
 
-	//Ïòstruct/unionÌí¼Ó³ÉÔ±
+	// struct/union
 	void AddMember(const char* name, Type* type);
 	bool IsStruct(void) const { return _isStruct; }
 protected:
-	//default is incomplete
-	explicit StructUnionType(bool isStruct)
-		: _mapMember(new Env()), _isStruct(isStruct), Type(0, false) {}
+	// default is incomplete
+	explicit StructUnionType(bool isStruct);
 	StructUnionType(const StructUnionType& other);
 
 private:
 	static int CalcWidth(const Env* env);
 
-	Env* _mapMember;
 	bool _isStruct;
+	Env* _mapMember;
 };
 
-/**
+/*
 class EnumType : public Type
 {
 friend class Type;

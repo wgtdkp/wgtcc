@@ -1,7 +1,11 @@
+#include "error.h"
+
+#include "token.h"
+
 #include <cstdarg>
 #include <cstdio>
-#include "error.h"
-#include "token.h"
+#include <cstring>
+#include <string>
 
 
 static void Error(
@@ -17,6 +21,9 @@ static void Error(
 	fprintf(stderr, "%s: ", label);
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, "\n");
+	
+	if (strcmp(label, "error") == 0)
+		exit(0);
 }
 
 static void Error(const char* label, const char* fmt, va_list args)
@@ -25,6 +32,9 @@ static void Error(const char* label, const char* fmt, va_list args)
 	fprintf(stderr, "%s: ", label);
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, "\n");
+	
+	if (strcmp(label, "error") == 0)
+		exit(0);
 }
 
 

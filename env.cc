@@ -12,7 +12,9 @@ Variable* Env::Find(const char* name)
 	auto symb = _symbMap.find(name);
 	if (_symbMap.end() != symb)
 		return symb->second;
-	if (nullptr == _parent) return false;
+	if (nullptr == _parent)
+		return nullptr;
+
 	return _parent->Find(name);
 }
 
@@ -82,14 +84,14 @@ const Variable* Env::FindVar(const char* name) const
 }
 
 /*
-Èç¹ûÃû×Ö²»ÔÚ·ûºÅ±íÄÚ£¬ÄÇÃ´ÔÚµ±Ç°×÷ÓÃÓò²åÈëÃû×Ö£»
-Èç¹ûÃû×ÖÒÑ¾­ÔÚ·ûºÅ±íÄÚ£¬ÄÇÃ´¸üĞÂÆäÀàĞÍ£»£¨ÕâÏÔÈ»»áÔì³ÉÄÚ´æĞ¹Â¶£¬¾ÉµÄ²»ÍêÕûÀàĞÍ¿ÉÄÜ±»ÒıÓÃÒ²¿ÉÄÜÃ»ÓĞ±»ÒıÓÃ£©
-²åÈë³åÍ»Ó¦¸ÃÓÉµ÷ÓÃ·½¼ì²é£»
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö²ï¿½ï¿½Ú·ï¿½ï¿½Å±ï¿½ï¿½Ú£ï¿½ï¿½ï¿½Ã´ï¿½Úµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö£ï¿½
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½Ú·ï¿½ï¿½Å±ï¿½ï¿½Ú£ï¿½ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½Ğ¹Â¶ï¿½ï¿½ï¿½ÉµÄ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ï¿½Ü±ï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ğ±ï¿½ï¿½ï¿½ï¿½Ã£ï¿½
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í»Ó¦ï¿½ï¿½ï¿½Éµï¿½ï¿½Ã·ï¿½ï¿½ï¿½ï¿½é£»
 */
 Type* Env::InsertType(const char* name, Type* type)
 {
 	//auto iter = _symbMap.find(name);
-	//²»ÔÊĞí¸²¸ÇÍêÕûµÄÀàĞÍ£¬Ò²²»ÔÊĞí¸²¸Ç²»ÍêÕûµÄÀàĞÍ£¬¶øÓ¦¸ÃĞŞ¸Ä´Ë²»ÍêÕûµÄÀàĞÍÎªÍêÕûµÄ
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Ş¸Ä´Ë²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	assert(nullptr == FindTypeInCurScope(name));
 	//assert(!iter->second->Ty()->IsComplete());
 	auto var = TranslationUnit::NewVariable(type, Variable::TYPE);
@@ -99,7 +101,7 @@ Type* Env::InsertType(const char* name, Type* type)
 
 Variable* Env::InsertVar(const char* name, Type* type)
 {
-	//²»ÔÊĞíÖØ¸´¶¨Òå£¬ÕâÓ¦¸ÃÓÉµ÷ÓÃ·½¼ì²é
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½å£¬ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Éµï¿½ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½
 	assert(nullptr == FindVarInCurScope(name));
 	auto var = TranslationUnit::NewVariable(type, _offset);
 	_symbMap[name] = var;
@@ -123,7 +125,7 @@ bool Env::operator==(const Env& other) const
 }
 
 Constant* Env::InsertConstant(const char* name, Constant* constant) {
-	//×¢Òâenumeration constant ÓëÒ»°ã±äÁ¿´¦ÓÚÍ¬Ò»ÃüÃû¿Õ¼ä
+	//×¢ï¿½ï¿½enumeration constant ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½
 	assert(nullptr == FindVarInCurScope(name));
 	_symbMap[name] = constant;
 	return constant;
@@ -146,7 +148,10 @@ Type* Env::InsertTag(const char* tag, Type* type)
 Type* Env::FindTag(const char* tag)
 {
 	auto type = FindTagInCurScope(tag);
-	if (nullptr != type) return type;
-	if (nullptr == _parent) return false;
+	if (nullptr != type)
+		return type;
+	if (nullptr == _parent)
+		return nullptr;
+
 	return _parent->FindTag(tag);
 }

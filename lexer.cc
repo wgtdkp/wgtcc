@@ -126,6 +126,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::SUB;
 			}
 			++p; break;
+
 		case '+':
 			if ('+' == p[1]) {
 				tokTag = Token::INC_OP; ++p;
@@ -135,6 +136,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::ADD;
 			}
 			++p; break;
+
 		case '<':
 			if ('<' == p[1]) {
 				if ('=' == p[2]) {
@@ -152,6 +154,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::LESS;
 			}
 			++p; break;
+
 		case '>':
 			if ('>' == p[1]) {
 				if ('=' == p[2]) {
@@ -165,6 +168,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::GREATER;
 			}
 			++p; break;
+
 		case '=':
 			if ('=' == p[1]) {
 				tokTag = Token::EQ_OP; ++p;
@@ -172,6 +176,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::EQUAL;
 			}
 			++p; break;
+
 		case '!':
 			if ('=' == p[1]) {
 				tokTag = Token::NE_OP; ++p;
@@ -179,6 +184,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::NOT;
 			}
 			++p; break;
+
 		case '&':
 			if ('&' == p[1]) {
 				tokTag = Token::AND_OP; ++p;
@@ -188,6 +194,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::ADD;
 			}
 			++p; break;
+
 		case '|':
 			if ('|' == p[1]) {
 				tokTag = Token::OR_OP; ++p;
@@ -197,6 +204,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::OR;
 			}
 			++p; break;
+
 		case '*':
 			if ('=' == p[1]) {
 				tokTag = Token::MUL_ASSIGN; ++p;
@@ -204,6 +212,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::MUL;
 			}
 			++p; break;
+
 		case '/':
 			if ('/' == p[1]) {
 				while ('\n' != p[0]) ++p;
@@ -221,6 +230,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::DIV;
 			}
 			++p; break;
+
 		case '%':
 			if ('=' == p[1]) {
 				tokTag = Token::MOD_ASSIGN; ++p;
@@ -236,6 +246,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::MOD;
 			}
 			++p; break;
+
 		case '^':
 			if ('=' == p[1]) {
 				tokTag = Token::XOR_ASSIGN; ++p;
@@ -243,6 +254,7 @@ void Lexer::Tokenize(void)
 				tokTag = Token::XOR;
 			}
 			++p; break;
+
 		case '.':
 			if ('.' == p[1]) {
 				if ('.' == p[2]) {
@@ -258,6 +270,7 @@ void Lexer::Tokenize(void)
 				tokTag =  Token::DOT;
 			}
 			++p; break;
+
 		case 'u': case 'U': case 'L':
 			//character constant
 			if ('\'' == p[1]) {
@@ -272,7 +285,8 @@ void Lexer::Tokenize(void)
 			} else {
 				goto letter_handler;
 			}
-			++p; break;	
+			++p; break;
+
 		case '#': 
 			if ('#' == p[1]) {
 				tokTag = Token::DSHARP; ++p;
@@ -280,6 +294,7 @@ void Lexer::Tokenize(void)
 				tokTag = '#';
 			}
 			++p; break;
+
 		case ':':
 			if ('>' == p[1]) {
 				tokTag = ']'; ++p;
@@ -287,9 +302,12 @@ void Lexer::Tokenize(void)
 				tokTag = ':';
 			}
 			++p; break;
+
 		case '(': case ')': case '[': case ']': case '?': 
 		case ',': case '{': case '}': case '~': case ';':
-			tokTag = p[0]; ++p; break;
+			tokTag = p[0]; 
+			++p; break;
+
 		case '\'':
 			_tokBegin = p;
 		char_handler:
@@ -300,6 +318,7 @@ void Lexer::Tokenize(void)
 			tokTag = Token::CONSTANT;
 			_tokBuf.push_back(NewToken(tokTag, _tokBegin, _tokEnd));
 			++p; continue;
+
 		case '"':
 			_tokBegin = p;
 		string_handler:
@@ -310,6 +329,7 @@ void Lexer::Tokenize(void)
 			tokTag = Token::STRING_LITERAL;
 			_tokBuf.push_back(NewToken(tokTag, _tokBegin, _tokEnd));
 			++p; continue;
+			
 		default:
 			letter_handler:
 			if (IsLetter(p[0])) {

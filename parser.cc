@@ -19,20 +19,20 @@ void Parser::Expect(int expect, int follow1, int follow2)
 }
 
 void Parser::EnterFunc(const char* funcName) {
-	//TODO: Ìí¼Ó±àÒëÆ÷×Ô´øµÄ __func__ ºê
+	//TODO: ï¿½ï¿½ï¿½Ó±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ __func__ ï¿½ï¿½
 }
 
 void Parser::ExitFunc(void) {
-	//TODO: resolve ÄÇÐ©´ý¶¨µÄjump
-	//TODO: Èç¹ûÓÐjumpÎÞ·¨resolve£¬Ò²¾ÍÊÇÓÐÎ´¶¨ÒåµÄlabel£¬±¨´í£»
+	//TODO: resolve ï¿½ï¿½Ð©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½jump
+	//TODO: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½jumpï¿½Þ·ï¿½resolveï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½labelï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	for (auto iter = _unresolvedJumps.begin(); iter != _unresolvedJumps.end(); iter++) {
 		auto labelStmt = FindLabel(iter->first);
 		if (nullptr == labelStmt)
 			Error("unresolved label '%s'", iter->first);
 		iter->second->SetLabel(labelStmt);
 	}
-	_unresolvedJumps.clear();	//Çå¿ÕÎ´¶¨µÄ jump ¶¯×÷
-	_topLabels.clear();	//Çå¿Õ label map
+	_unresolvedJumps.clear();	//ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ jump ï¿½ï¿½ï¿½ï¿½
+	_topLabels.clear();	//ï¿½ï¿½ï¿½ï¿½ label map
 }
 
 TranslationUnit* Parser::ParseTranslationUnit(void)
@@ -238,7 +238,7 @@ UnaryOp* Parser::ParseUnaryOp(int op)
 Type* Parser::ParseTypeName(void)
 {
 	auto type = ParseSpecQual();
-	if (Try('*') || Try('(')) //abstract-declarator µÄFIRST¼¯ºÏ
+	if (Try('*') || Try('(')) //abstract-declarator ï¿½ï¿½FIRSTï¿½ï¿½ï¿½ï¿½
 		return ParseAbstractDeclarator(type);
 	return type;
 }
@@ -383,29 +383,73 @@ Expr* Parser::ParseAssignExpr(void)
 	Expr* lhs = ParseConditionalExpr();
 	Expr* rhs;
 	switch (Next()->Tag()) {
-	case Token::MUL_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('*', lhs, rhs); goto RETURN;
-	case Token::DIV_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('/', lhs, rhs); goto RETURN;
-	case Token::MOD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('%', lhs, rhs); goto RETURN;
-	case Token::ADD_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('+', lhs, rhs); goto RETURN;
-	case Token::SUB_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('-', lhs, rhs); goto RETURN;
-	case Token::LEFT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp(Token::LEFT_OP, lhs, rhs); goto RETURN;
-	case Token::RIGHT_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp(Token::RIGHT_OP, lhs, rhs); goto RETURN;
-	case Token::AND_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('&', lhs, rhs); goto RETURN;
-	case Token::XOR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('^', lhs, rhs); goto RETURN;
-	case Token::OR_ASSIGN: rhs = ParseAssignExpr(); rhs = TranslationUnit::NewBinaryOp('|', lhs, rhs); goto RETURN;
-	case '=': rhs = ParseAssignExpr(); goto RETURN;
+	case Token::MUL_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('*', lhs, rhs);
+		break;
+
+	case Token::DIV_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('/', lhs, rhs);
+		break;
+
+	case Token::MOD_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('%', lhs, rhs);
+		break;
+
+	case Token::ADD_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('+', lhs, rhs);
+		break;
+
+	case Token::SUB_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('-', lhs, rhs);
+		break;
+
+	case Token::LEFT_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp(Token::LEFT_OP, lhs, rhs);
+		break;
+
+	case Token::RIGHT_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp(Token::RIGHT_OP, lhs, rhs);
+		break;
+
+	case Token::AND_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('&', lhs, rhs);
+		break;
+
+	case Token::XOR_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('^', lhs, rhs);
+		break;
+
+	case Token::OR_ASSIGN:
+		rhs = ParseAssignExpr();
+		rhs = TranslationUnit::NewBinaryOp('|', lhs, rhs);
+		break;
+
+	case '=':
+		rhs = ParseAssignExpr();
+		break;
+
 	default: return lhs;
 	}
-RETURN:
+
 	return TranslationUnit::NewBinaryOp('=', lhs, rhs);
 }
 
 Constant* Parser::ParseConstantExpr(void)
 {
-	Constant* constant;
+	Constant* constant = nullptr;
 	auto expr = ParseConditionalExpr();
-	if (!expr->IsConstant())
-		Error("constant expression expected");
+	// TODO(wgtdkp):
+	//if (!expr->IsConstant())
+	//	Error("constant expression expected");
 	if (expr->Ty()->IsInteger()) {
 		//TODO:
 		//auto val = expr->EvaluateConstant();
@@ -415,13 +459,17 @@ Constant* Parser::ParseConstantExpr(void)
 		//auto val = expr->EvaluateConstant();
 		//constant = TranslationUnit::NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
 	} else assert(0);
+	
 	return constant;
 }
 
 /**************** Declarations ********************/
 
-/* if there is an initializer, then return the initializer expression,
-   else, return null.*/
+/*
+ * If there is an initializer,
+ * then return the initializer expression,
+ * else, return null.
+ */
 CompoundStmt* Parser::ParseDecl(void)
 {
 	std::list<Stmt*> stmts;
@@ -430,11 +478,12 @@ CompoundStmt* Parser::ParseDecl(void)
 	} else {
 		int storageSpec, funcSpec;
 		auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-		//init-declarator µÄ FIRST ¼¯ºÏ£º'*' identifier '('
+		//init-declarator ï¿½ï¿½ FIRST ï¿½ï¿½ï¿½Ï£ï¿½'*' identifier '('
 		if (Test('*') || Test(Token::IDENTIFIER) || Test('(')) {
 			do {
 				auto initExpr = ParseInitDeclarator(type, storageSpec, funcSpec);
-				if (nullptr != initExpr) stmts.push_back(initExpr);
+				if (nullptr != initExpr)
+					stmts.push_back(initExpr);
 			} while (Try(','));
 		}
 	}
@@ -485,60 +534,187 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
 		auto tok = Next();
 		switch (tok->Tag()) {
 		//function specifier
-		case Token::INLINE:		funcSpec |= F_INLINE; break;
-		case Token::NORETURN:	funcSpec |= F_NORETURN; break;
+		case Token::INLINE:
+			funcSpec |= F_INLINE;
+			break;
+
+		case Token::NORETURN:
+			funcSpec |= F_NORETURN;
+			break;
 
 		//alignment specifier
-		case Token::ALIGNAS:    align = ParseAlignas(); break;
+		case Token::ALIGNAS:
+			align = ParseAlignas();
+			break;
 
 		//storage specifier
 			//TODO: typedef needs more constraints
-		case Token::TYPEDEF:	if (storageSpec != 0)			goto error; storageSpec |= S_TYPEDEF; break;
-		case Token::EXTERN:		if (storageSpec & ~S_THREAD)	goto error; storageSpec |= S_EXTERN; break;
-		case Token::STATIC:		if (storageSpec & ~S_THREAD)	goto error; storageSpec |= S_STATIC; break;
-		case Token::THREAD:		if (storageSpec & ~COMP_THREAD)	goto error; storageSpec |= S_THREAD; break;
-		case Token::AUTO:		if (storageSpec != 0)			goto error; storageSpec |= S_AUTO; break;
-		case Token::REGISTER:	if (storageSpec != 0)			goto error; storageSpec |= S_REGISTER; break;
+		case Token::TYPEDEF:
+			if (storageSpec != 0)
+				goto error;
+			storageSpec |= S_TYPEDEF;
+			break;
+
+		case Token::EXTERN:
+			if (storageSpec & ~S_THREAD)
+				goto error;
+			storageSpec |= S_EXTERN;
+			break;
+
+		case Token::STATIC:
+			if (storageSpec & ~S_THREAD)
+				goto error;
+			storageSpec |= S_STATIC;
+			break;
+
+		case Token::THREAD:
+			if (storageSpec & ~COMP_THREAD)
+				goto error;
+			storageSpec |= S_THREAD;
+			break;
+
+		case Token::AUTO:
+			if (storageSpec != 0)
+				goto error;
+			storageSpec |= S_AUTO;
+			break;
+
+		case Token::REGISTER:
+			if (storageSpec != 0)
+				goto error; 
+			storageSpec |= S_REGISTER;
+			break;
 		
 		//type qualifier
-		case Token::CONST:		qualSpec |= Q_CONST; break;
-		case Token::RESTRICT:	qualSpec |= Q_RESTRICT; break;
-		case Token::VOLATILE:	qualSpec |= Q_VOLATILE; break;
-		atomic_qual:			qualSpec |= Q_ATOMIC; break;
+		case Token::CONST:
+			qualSpec |= Q_CONST;
+			break;
+
+		case Token::RESTRICT:
+			qualSpec |= Q_RESTRICT;
+			break;
+
+		case Token::VOLATILE:
+			qualSpec |= Q_VOLATILE;
+			break;
+
+		atomic_qual:
+			qualSpec |= Q_ATOMIC;
+			break;
 
 		//type specifier
-		case Token::SIGNED:		if (typeSpec & ~COMP_SIGNED)	goto error; typeSpec |= T_SIGNED; break;
-		case Token::UNSIGNED:	if (typeSpec & ~COMP_UNSIGNED)	goto error; typeSpec |= T_UNSIGNED; break;
-		case Token::VOID:		if (0 != typeSpec)				goto error; typeSpec |= T_VOID; break;
-		case Token::CHAR:		if (typeSpec & ~COMP_CHAR)		goto error; typeSpec |= T_CHAR; break;
-		case Token::SHORT:		if (typeSpec & ~COMP_SHORT)		goto error; typeSpec |= T_SHORT; break;
-		case Token::INT:		if (typeSpec & ~COMP_INT)		goto error; typeSpec |= T_INT; break;
-		case Token::LONG:		if (typeSpec & ~COMP_LONG)		goto error; TypeLL(typeSpec); break;
-		case Token::FLOAT:		if (typeSpec & ~T_COMPLEX)		goto error; typeSpec |= T_FLOAT; break;
-		case Token::DOUBLE:		if (typeSpec & ~COMP_DOUBLE)	goto error; typeSpec |= T_DOUBLE; break;
-		case Token::BOOL:		if (typeSpec != 0)				goto error; typeSpec |= T_BOOL; break;
-		case Token::COMPLEX:	if (typeSpec & ~COMP_COMPLEX)	goto error; typeSpec |= T_COMPLEX; break;
+		case Token::SIGNED:
+			if (typeSpec & ~COMP_SIGNED)
+				goto error; 
+			typeSpec |= T_SIGNED;
+			break;
+
+		case Token::UNSIGNED:
+			if (typeSpec & ~COMP_UNSIGNED)
+				goto error;
+			typeSpec |= T_UNSIGNED;
+			break;
+
+		case Token::VOID:
+			if (0 != typeSpec)
+				goto error;
+			typeSpec |= T_VOID;
+			break;
+
+		case Token::CHAR:
+			if (typeSpec & ~COMP_CHAR)
+				goto error;
+			typeSpec |= T_CHAR;
+			break;
+
+		case Token::SHORT:
+			if (typeSpec & ~COMP_SHORT)
+				goto error;
+			typeSpec |= T_SHORT;
+			break;
+
+		case Token::INT:
+			if (typeSpec & ~COMP_INT)
+				goto error;
+			typeSpec |= T_INT;
+			break;
+
+		case Token::LONG:
+			if (typeSpec & ~COMP_LONG)
+				goto error; 
+			TypeLL(typeSpec); 
+			break;
+			
+		case Token::FLOAT:
+			if (typeSpec & ~T_COMPLEX)
+				goto error;
+			typeSpec |= T_FLOAT;
+			break;
+
+		case Token::DOUBLE:
+			if (typeSpec & ~COMP_DOUBLE)
+				goto error;
+			typeSpec |= T_DOUBLE;
+			break;
+
+		case Token::BOOL:
+			if (typeSpec != 0)
+				goto error;
+			typeSpec |= T_BOOL;
+			break;
+
+		case Token::COMPLEX:
+			if (typeSpec & ~COMP_COMPLEX)
+				goto error;
+			typeSpec |= T_COMPLEX;
+			break;
+
 		case Token::STRUCT: 
-		case Token::UNION:		if (typeSpec != 0)				goto error; type = ParseStructUnionSpec(Token::STRUCT == tok->Tag()); 
-																			typeSpec |= T_STRUCT_UNION; break;
-		case Token::ENUM:		if (typeSpec != 0)				goto error; type = ParseEnumSpec(); typeSpec |= T_ENUM; break;
+		case Token::UNION:
+			if (typeSpec != 0)
+				goto error; 
+			type = ParseStructUnionSpec(Token::STRUCT == tok->Tag()); 
+			typeSpec |= T_STRUCT_UNION;
+			break;
+
+		case Token::ENUM:
+			if (typeSpec != 0)
+				goto error;
+			type = ParseEnumSpec();
+			typeSpec |= T_ENUM;
+			break;
 		case Token::ATOMIC:		assert(false);// if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
 									//type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
 		default:
 			if (0 == typeSpec && IsTypeName(tok)) {
 				type = _topEnv->FindType(tok->Val());
 				typeSpec |= T_TYPEDEF_NAME;
-			} else goto end_of_loop;
+			} else  {
+				goto end_of_loop;
+			}
 		}
 	}
-	//TODO: ÓïÒå²¿·Ö
+	//TODO: ï¿½ï¿½ï¿½å²¿ï¿½ï¿½
 end_of_loop:
 	PutBack();
 	switch (typeSpec) {
-	case 0: Error("no type specifier");
-	case T_VOID: type = Type::NewVoidType(); break;
-	case T_ATOMIC: case T_STRUCT_UNION: case T_ENUM: case T_TYPEDEF_NAME: break;
-	default: type = ArithmType::NewArithmType(typeSpec); break;
+	case 0: 
+		Error("no type specifier");
+		break;
+
+	case T_VOID:
+		type = Type::NewVoidType();
+		break;
+
+	case T_ATOMIC:
+	case T_STRUCT_UNION:
+	case T_ENUM:
+	case T_TYPEDEF_NAME:
+		break;
+
+	default:
+		type = ArithmType::NewArithmType(typeSpec);
+		break;
 	}
 
 	if ((nullptr == storage || nullptr == func)
@@ -548,8 +724,10 @@ end_of_loop:
 	*storage = storageSpec;
 	*func = funcSpec;
 	return type;
+
 error:
 	Error("type speficier/qualifier/storage error");
+	return nullptr;	// Make compiler happy
 }
 
 int Parser::ParseAlignas(void)
@@ -583,7 +761,7 @@ Type* Parser::ParseEnumSpec(void)
 	if (tok->IsIdentifier()) {
 		enumTag = tok->Val();
 		if (Try('{')) {
-			//¶¨ÒåenumÀàÐÍ
+			//ï¿½ï¿½ï¿½ï¿½enumï¿½ï¿½ï¿½ï¿½
 			auto curScopeType = _topEnv->FindTagInCurScope(enumTag);
 			if (nullptr != curScopeType) {
 				if (!curScopeType->IsComplete()) {
@@ -595,7 +773,7 @@ Type* Parser::ParseEnumSpec(void)
 			Type* type = _topEnv->FindTag(enumTag);
 			if (nullptr != type) return type;
 			type = Type::NewArithmType(T_INT); 
-			type->SetComplete(false); //¾¡¹ÜÎÒÃÇ°Ñ enum µ±³É int ¿´´ý£¬µ«ÊÇ»¹ÊÇÈÏÎªËûÊÇ²»ÍêÕûµÄ
+			type->SetComplete(false); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ enum ï¿½ï¿½ï¿½ï¿½ int ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç»ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			_topEnv->InsertTag(enumTag, type);
 		}
 	}
@@ -604,7 +782,7 @@ enum_decl:
 	auto type = Type::NewArithmType(T_INT);
 	if (nullptr != enumTag)
 		_topEnv->InsertTag(enumTag, type);
-	return ParseEnumerator(type); //´¦Àí·´´óÀ¨ºÅ: '}'
+	return ParseEnumerator(type); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: '}'
 }
 
 Type* Parser::ParseEnumerator(ArithmType* type)
@@ -636,11 +814,11 @@ Type* Parser::ParseEnumerator(ArithmType* type)
 }
 
 /***
-ËÄÖÖ name space£º
-1.label, Èç goto end; ËüÓÐº¯Êý×÷ÓÃÓò
-2.struct/union/enum µÄ tag
-3.struct/union µÄ³ÉÔ±
-4.ÆäËüµÄÆÕÍ¨µÄ±äÁ¿
+ï¿½ï¿½ï¿½ï¿½ name spaceï¿½ï¿½
+1.label, ï¿½ï¿½ goto end; ï¿½ï¿½ï¿½Ðºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+2.struct/union/enum ï¿½ï¿½ tag
+3.struct/union ï¿½Ä³ï¿½Ô±
+4.ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½Ä±ï¿½ï¿½ï¿½
 ***/
 Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
@@ -649,68 +827,68 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 	if (tok->IsIdentifier()) {
 		structUnionTag = tok->Val();
 		if (Try('{')) {
-			//¿´¼û´óÀ¨ºÅ£¬±íÃ÷ÏÖÔÚ½«¶¨Òå¸Ãstruct/unionÀàÐÍ
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½struct/unionï¿½ï¿½ï¿½ï¿½
 			auto curScopeType = _topEnv->FindTagInCurScope(structUnionTag);
 			if (nullptr != curScopeType) {	
 				/*
-				  ÔÚµ±Ç°scopeÕÒµ½ÁËÀàÐÍ£¬µ«¿ÉÄÜÖ»ÊÇÉùÃ÷£»×¢ÒâÉùÃ÷Óë¶¨ÒåÖ»ÄÜ³öÏÖÔÚÍ¬Ò»¸öscope£»
-				  1.Èç¹ûÉùÃ÷ÔÚ¶¨ÒåµÄÍâ²ãscope,ÄÇÃ´¼´Ê¹ÔÚÄÚ²ãscope¶¨ÒåÁËÍêÕûµÄÀàÐÍ£¬´ËÉùÃ÷ÈÔÈ»ÊÇÎÞÐ§µÄ£»
-				    ÒòÎªÈçÂÛÈçºÎ£¬±àÒëÆ÷¶¼²»»áÔÚÄÚ²¿scopeÀïÃæÈ¥ÕÒ¶¨Òå£¬ËùÒÔÉùÃ÷µÄÀàÐÍÈÔÈ»ÊÇ²»ÍêÕûµÄ£»
-				  2.Èç¹ûÉùÃ÷ÔÚ¶¨ÒåµÄÄÚ²ãscope,(Ò²¾ÍÊÇÏÈ¶¨Òå£¬ÔÙÔÚÄÚ²¿scopeÉùÃ÷)£¬ÕâÊ±£¬²»ÍêÕûµÄÉùÃ÷»á¸²¸ÇµôÍêÕûµÄ¶¨Òå£»
-				    ÒòÎª±àÒëÆ÷×ÜÊÇÏòÉÏ²éÕÒ·ûºÅ£¬²»¹ÜÕÒµ½µÄÊÇÍêÕûµÄ»¹ÊÇ²»ÍêÕûµÄ£¬¶¼Òª£»
+				  ï¿½Úµï¿½Ç°scopeï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¶¨ï¿½ï¿½Ö»ï¿½Ü³ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ò»ï¿½ï¿½scopeï¿½ï¿½
+				  1.ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½scope,ï¿½ï¿½Ã´ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½Ú²ï¿½scopeï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½Ð§ï¿½Ä£ï¿½
+				    ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½scopeï¿½ï¿½ï¿½ï¿½È¥ï¿½Ò¶ï¿½ï¿½å£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½
+				  2.ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½scope,(Ò²ï¿½ï¿½ï¿½ï¿½ï¿½È¶ï¿½ï¿½å£¬ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½scopeï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¸²ï¿½Çµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½å£»
+				    ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï²ï¿½ï¿½Ò·ï¿½ï¿½Å£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½Òªï¿½ï¿½
 				*/
 				if (!curScopeType->IsComplete()) {
-					//ÕÒµ½ÁË´ËtagµÄÇ°ÏòÉùÃ÷£¬²¢¸üÐÂÆä·ûºÅ±í£¬×îºóÉèÖÃÎªcomplete type
+					//ï¿½Òµï¿½ï¿½Ë´ï¿½tagï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªcomplete type
 					return ParseStructDecl(curScopeType->ToStructUnionType());
 				}
-				else Error("'%s': struct type redefinition", tok->Val()); //ÔÚµ±Ç°×÷ÓÃÓòÕÒµ½ÁËÍêÕûµÄ¶¨Òå£¬²¢ÇÒÏÖÔÚÕýÔÚ¶¨ÒåÍ¬ÃûµÄÀàÐÍ£¬ËùÒÔ±¨´í£»
-			} else //ÎÒÃÇ²»ÓÃ¹ØÐÄÉÏ²ãscopeÊÇ·ñ¶¨ÒåÁË´Ëtag£¬Èç¹û¶¨ÒåÁË£¬ÄÇÃ´¾ÍÖ±½Ó¸²¸Ç¶¨Òå
-				goto struct_decl; //ÏÖÔÚÊÇÔÚµ±Ç°scopeµÚÒ»´Î¿´µ½name£¬ËùÒÔÏÖÔÚÊÇµÚÒ»´Î¶¨Òå£¬Á¬Ç°ÏòÉùÃ÷¶¼Ã»ÓÐ£»
+				else Error("'%s': struct type redefinition", tok->Val()); //ï¿½Úµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½å£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½
+			} else //ï¿½ï¿½ï¿½Ç²ï¿½ï¿½Ã¹ï¿½ï¿½ï¿½ï¿½Ï²ï¿½scopeï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë´ï¿½tagï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½Ã´ï¿½ï¿½Ö±ï¿½Ó¸ï¿½ï¿½Ç¶ï¿½ï¿½ï¿½
+				goto struct_decl; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½Ç°scopeï¿½ï¿½Ò»ï¿½Î¿ï¿½ï¿½ï¿½nameï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½Î¶ï¿½ï¿½å£¬ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ð£ï¿½
 		} else {	
 			/*
-				Ã»ÓÐ´óÀ¨ºÅ£¬±íÃ÷²»ÊÇ¶¨ÒåÒ»¸östruct/union;ÄÇÃ´ÏÖÔÚÖ»¿ÉÄÜÊÇÔÚ£º
-				1.ÉùÃ÷£»
-				2.ÉùÃ÷µÄÍ¬Ê±£¬¶¨ÒåÖ¸Õë(Ö¸ÕëÔÊÐíÖ¸Ïò²»ÍêÕûÀàÐÍ) (struct Foo* p; ÊÇºÏ·¨µÄ) »òÕßÆäËûºÏ·¨µÄÀàÐÍ£»
-				Èç¹ûÏÖÔÚË÷Òý·ûºÅ±í£¬ÄÇÃ´£º
-				1.¿ÉÄÜÕÒµ½nameµÄÍêÕû¶¨Òå£¬Ò²¿ÉÄÜÖ»ÕÒµÃµ½²»ÍêÕûµÄÉùÃ÷£»²»¹ÜnameÖ¸Ê¾µÄÊÇ²»ÊÇÍêÕûÀàÐÍ£¬ÎÒÃÇ¶¼Ö»ÄÜÑ¡ÔñnameÖ¸Ê¾µÄÀàÐÍ£»
-				2.Èç¹ûÎÒÃÇÔÚ·ûºÅ±íÀïÃæÑ¹¸ùÕÒ²»µ½name,ÄÇÃ´ÏÖÔÚÊÇnameµÄµÚÒ»´ÎÉùÃ÷£¬´´½¨²»ÍêÕûµÄÀàÐÍ²¢²åÈë·ûºÅ±í£»
+				Ã»ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Å£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¶ï¿½ï¿½ï¿½Ò»ï¿½ï¿½struct/union;ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½
+				1.ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				2.ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½(Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) (struct Foo* p; ï¿½ÇºÏ·ï¿½ï¿½ï¿½) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½
+				ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½Ã´ï¿½ï¿½
+				1.ï¿½ï¿½ï¿½ï¿½ï¿½Òµï¿½nameï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½å£¬Ò²ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ÒµÃµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½nameÖ¸Ê¾ï¿½ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½Ç¶ï¿½Ö»ï¿½ï¿½Ñ¡ï¿½ï¿½nameÖ¸Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½
+				2.ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú·ï¿½ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½name,ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½nameï¿½Äµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½ï¿½ï¿½
 			*/
 			auto type = _topEnv->FindTag(structUnionTag);
-			//Èç¹ûtagÒÑ¾­¶¨Òå»òÉùÃ÷£¬ÄÇÃ´Ö±½Ó·µ»Ø´Ë¶¨Òå»òÕßÉùÃ÷
+			//ï¿½ï¿½ï¿½ï¿½tagï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã´Ö±ï¿½Ó·ï¿½ï¿½Ø´Ë¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			if (nullptr != type) return type;
-			//Èç¹ûtagÉÐÃ»ÓÐ¶¨Òå»òÕßÉùÃ÷£¬ÄÇÃ´´´½¨´ËtagµÄÉùÃ÷(ÒòÎªÃ»ÓÐ¼ûµ½¡®{¡¯£¬ËùÒÔ²»»áÊÇ¶¨Òå)
-			type = Type::NewStructUnionType(isStruct); //´´½¨²»ÍêÕûµÄÀàÐÍ
-			//ÒòÎªÓÐtag£¬ËùÒÔ²»ÊÇÄäÃûµÄstruct/union£¬ Ïòµ±Ç°µÄscope²åÈë´Ëtag
+			//ï¿½ï¿½ï¿½ï¿½tagï¿½ï¿½Ã»ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½tagï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ÎªÃ»ï¿½Ð¼ï¿½ï¿½ï¿½ï¿½ï¿½{ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½Ç¶ï¿½ï¿½ï¿½)
+			type = Type::NewStructUnionType(isStruct); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			//ï¿½ï¿½Îªï¿½ï¿½tagï¿½ï¿½ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½struct/unionï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½scopeï¿½ï¿½ï¿½ï¿½ï¿½ï¿½tag
 			_topEnv->InsertTag(structUnionTag, type);
 			return type;
 		}
 	}
-	//Ã»¼ûµ½identifier£¬ÄÇ¾Í±ØÐëÓÐstruct/unionµÄ¶¨Òå£¬Õâ½Ð×öÄäÃûstruct/union;
+	//Ã»ï¿½ï¿½ï¿½ï¿½identifierï¿½ï¿½ï¿½Ç¾Í±ï¿½ï¿½ï¿½ï¿½ï¿½struct/unionï¿½Ä¶ï¿½ï¿½å£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½struct/union;
 	Expect('{');
 struct_decl:
-	//ÏÖÔÚ£¬Èç¹ûÊÇÓÐtag£¬ÄÇËüÃ»ÓÐÇ°ÏòÉùÃ÷£»Èç¹ûÊÇÃ»ÓÐtag£¬ÄÇ¸ü¼ÓÃ»ÓÐÇ°ÏòÉùÃ÷£»
-	//ËùÒÔÏÖÔÚÊÇµÚÒ»´Î¿ªÊ¼¶¨ÒåÒ»¸öÍêÕûµÄstruct/unionÀàÐÍ
+	//ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½tagï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½tagï¿½ï¿½ï¿½Ç¸ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½Î¿ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½struct/unionï¿½ï¿½ï¿½ï¿½
 	auto type = Type::NewStructUnionType(isStruct);
 	if (nullptr != structUnionTag) 
 		_topEnv->InsertTag(structUnionTag, type);
-	return ParseStructDecl(type); //´¦Àí·´´óÀ¨ºÅ: '}'
+	return ParseStructDecl(type); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: '}'
 }
 
 StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 {
-	//¼ÈÈ»ÊÇ¶¨Òå£¬ÄÇÊäÈë¿Ï¶¨ÊÇ²»ÍêÕûÀàÐÍ£¬²»È»¾ÍÊÇÖØ¶¨ÒåÁË
+	//ï¿½ï¿½È»ï¿½Ç¶ï¿½ï¿½å£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¶ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½Ø¶ï¿½ï¿½ï¿½ï¿½ï¿½
 	assert(type && !type->IsComplete());
 	while (!Try('}')) {
 		if (Peek()->IsEOF())
 			Error("premature end of input");
 
-		//½âÎötype specifier/qualifier, ²»½ÓÊÜstorageµÈ
+		//ï¿½ï¿½ï¿½ï¿½type specifier/qualifier, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½storageï¿½ï¿½
 		auto fieldType = ParseSpecQual();
-		//TODO: ½âÎödeclarator
+		//TODO: ï¿½ï¿½ï¿½ï¿½declarator
 
 	}
 
-	//struct/union¶¨Òå½áÊø£¬ÉèÖÃÆäÎªÍêÕûÀàÐÍ
+	//struct/unionï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	type->SetComplete(true);
 	return type;
 }
@@ -752,10 +930,10 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
 Variable* Parser::ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec)
 {
 	NameTypePair nameType = Parser::ParseDeclarator(base);
-	//TODO: ¼ì²éÔÚÍ¬Ò» scope ÊÇ·ñÒÑ¾­¶¨Òå´Ë±äÁ¿
-	//      Èç¹û storage ÊÇ typedef£¬ÄÇÃ´Ó¦¸ÃÍù·ûºÅ±íÀïÃæ²åÈë type
-	//      ¶¨Òå void ÀàÐÍ±äÁ¿ÊÇ·Ç·¨µÄ£¬Ö»ÄÜÊÇÖ¸ÏòvoidÀàÐÍµÄÖ¸Õë
-	//      Èç¹û funcSpec != 0, ÄÇÃ´ÏÖÔÚ±ØÐëÊÇÔÚ¶¨Òåº¯Êý£¬·ñÔò³ö´í
+	//TODO: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ò» scope ï¿½Ç·ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë±ï¿½ï¿½ï¿½
+	//      ï¿½ï¿½ï¿½ï¿½ storage ï¿½ï¿½ typedefï¿½ï¿½ï¿½ï¿½Ã´Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ type
+	//      ï¿½ï¿½ï¿½ï¿½ void ï¿½ï¿½ï¿½Í±ï¿½ï¿½ï¿½ï¿½Ç·Ç·ï¿½ï¿½Ä£ï¿½Ö»ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½voidï¿½ï¿½ï¿½Íµï¿½Ö¸ï¿½ï¿½
+	//      ï¿½ï¿½ï¿½ï¿½ funcSpec != 0, ï¿½ï¿½Ã´ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½åº¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	auto var = _topEnv->InsertVar(nameType.first, nameType.second);
 	var->SetStorage(storageSpec);
 	return var;
@@ -765,11 +943,11 @@ NameTypePair Parser::ParseDeclarator(Type* base)
 {
 	auto pointerType = ParsePointer(base);
 	if (Try('(')) {
-		//ÏÖÔÚµÄ pointerType ²¢²»ÊÇÕýÈ·µÄ base type
+		//ï¿½ï¿½ï¿½Úµï¿½ pointerType ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ base type
 		auto nameTypePair = ParseDeclarator(pointerType);
 		Expect(')');
 		auto newBase = ParseArrayFuncDeclarator(pointerType);
-		//ÐÞÕý base type
+		//ï¿½ï¿½ï¿½ï¿½ base type
 		auto retType = ModifyBase(nameTypePair.second, pointerType, newBase);
 		return std::pair<const char*, Type*>(nameTypePair.first, retType);
 	} else if (Peek()->IsIdentifier()) {
@@ -814,7 +992,7 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
 }
 
 /*
-return: -1, Ã»ÓÐÖ¸¶¨³¤¶È£»ÆäËü£¬³¤¶È£»
+return: -1, Ã»ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½
 */
 int Parser::ParseArrayLength(void)
 {
@@ -835,16 +1013,18 @@ int Parser::ParseArrayLength(void)
 			return len;
 		}
 	}*/
-	//²»Ö§³Ö±ä³¤Êý×é
+	//ï¿½ï¿½Ö§ï¿½Ö±ä³¤ï¿½ï¿½ï¿½ï¿½
 	if (!hasStatic && Try(']'))
 		return -1;
-	else {
-		auto expr = ParseAssignExpr();
-		//TODO:
-		//auto len = EvaluateConstant(expr);
-		//Expect(']');
-		//return len;
+
+	auto expr = ParseAssignExpr();
+	int len;
+	if (!EvaluateConstantExpr(len, expr)) {
+		Error("expect constant expression");
 	}
+
+	Expect(']');
+	return len;
 }
 
 
@@ -869,8 +1049,8 @@ Type* Parser::ParseParamDecl(void)
 	auto type = ParseDeclSpec(&storageSpec, &funcSpec);
 	if (Peek()->Tag() == ',')
 		return type;
-	//TODO: declarator ºÍ abstract declarator ¶¼ÒªÖ§³Ö
-	//TODO: Çø·Ö declarator ºÍ abstract declarator
+	//TODO: declarator ï¿½ï¿½ abstract declarator ï¿½ï¿½ÒªÖ§ï¿½ï¿½
+	//TODO: ï¿½ï¿½ï¿½ï¿½ declarator ï¿½ï¿½ abstract declarator
 	return ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();		//ParseDeclarator(type);
 }
 
@@ -885,7 +1065,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
 	return ModifyBase(ret, pointerType, newBase);
 }
 
-//TODO:: »ºÒ»»º
+//TODO:: ï¿½ï¿½Ò»ï¿½ï¿½
 Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 {
 	auto var = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
@@ -957,10 +1137,10 @@ IfStmt* Parser::ParseIfStmt(void)
 }
 
 /*
-for Ñ­»·½á¹¹£º
+for Ñ­ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½
 	for (declaration; expression1; expression2) statement
 
-Õ¹¿ªºóµÄ½á¹¹£º
+Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½Ä½á¹¹ï¿½ï¿½
 		declaration
 cond:	if (expression1) then empty
 		else goto end
@@ -970,21 +1150,25 @@ step:	expression2
 next:
 */
 
-#define ENTER_LOOP_BODY(breakl, continuel) \
-	LabelStmt* breako = _breakDest; \
-	LabelStmt* continueo = _continueDest; \
-	LabelStmt* _breakDest = breakl; \
+#define ENTER_LOOP_BODY(breakl, continuel)	\
+{											\
+	LabelStmt* breako = _breakDest;			\
+	LabelStmt* continueo = _continueDest;	\
+	LabelStmt* _breakDest = breakl;			\
 	LabelStmt* _continueDest = continuel; 
 
-#define EXIT_LOOP_BODY() \
-	_breakDest = breako; \
-	_continueDest = continueo;
+#define EXIT_LOOP_BODY()		\
+	_breakDest = breako;		\
+	_continueDest = continueo;	\
+}
 
 CompoundStmt* Parser::ParseForStmt(void)
 {
 	EnterBlock();
 	Expect('(');
+	
 	std::list<Stmt*> stmts;
+
 	if (IsType(Peek()))
 		stmts.push_back(ParseDecl());
 	else if (!Try(';')) {
@@ -1013,10 +1197,11 @@ CompoundStmt* Parser::ParseForStmt(void)
 		stmts.push_back(ifStmt);
 	}
 
-	//ÎÒÃÇÐèÒª¸øbreakºÍcontinueÓï¾äÌá¹©ÏàÓ¦µÄ±êºÅ£¬²»È»²»ÖªÍùÄÄÀïÌø
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½breakï¿½ï¿½continueï¿½ï¿½ï¿½ï¿½ï¿½á¹©ï¿½ï¿½Ó¦ï¿½Ä±ï¿½ï¿½Å£ï¿½ï¿½ï¿½È»ï¿½ï¿½Öªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	Stmt* bodyStmt;
 	ENTER_LOOP_BODY(endLabel, condLabel);
-	auto bodyStmt = ParseStmt();
-	//ÒòÎªforµÄÇ¶Ì×½á¹¹£¬ÔÚÕâÀïÐèÒª»Ø¸´breakºÍcontinueµÄÄ¿±ê±êºÅ
+	bodyStmt = ParseStmt();
+	//ï¿½ï¿½Îªforï¿½ï¿½Ç¶ï¿½×½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½Ø¸ï¿½breakï¿½ï¿½continueï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	EXIT_LOOP_BODY()
 	
 	stmts.push_back(bodyStmt);
@@ -1026,14 +1211,15 @@ CompoundStmt* Parser::ParseForStmt(void)
 	stmts.push_back(endLabel);
 
 	ExitBlock();
+	
 	return TranslationUnit::NewCompoundStmt(stmts);
 }
 
 /*
-while Ñ­»·½á¹¹£º
+while Ñ­ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½
 while (expression) statement
 
-Õ¹¿ªºóµÄ½á¹¹£º
+Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½Ä½á¹¹ï¿½ï¿½
 cond:	if (expression1) then empty
 		else goto end
 		statement
@@ -1055,8 +1241,9 @@ CompoundStmt* Parser::ParseWhileStmt(void)
 	stmts.push_back(condLabel);
 	stmts.push_back(ifStmt);
 	
+	Stmt* bodyStmt;
 	ENTER_LOOP_BODY(endLabel, condLabel)
-	auto bodyStmt = ParseStmt();
+	bodyStmt = ParseStmt();
 	EXIT_LOOP_BODY()
 	
 	stmts.push_back(bodyStmt);
@@ -1066,10 +1253,10 @@ CompoundStmt* Parser::ParseWhileStmt(void)
 }
 
 /*
-do-while Ñ­»·½á¹¹£º
+do-while Ñ­ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½
 do statement while (expression)
 
-Õ¹¿ªºóµÄ½á¹¹£º
+Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½Ä½á¹¹ï¿½ï¿½
 begin:	statement
 cond:	if (expression) then goto begin
 		else goto end
@@ -1081,8 +1268,10 @@ CompoundStmt* Parser::ParseDoStmt(void)
 	auto beginLabel = TranslationUnit::NewLabelStmt();
 	auto condLabel = TranslationUnit::NewLabelStmt();
 	auto endLabel = TranslationUnit::NewLabelStmt();
+	
+	Stmt* bodyStmt;
 	ENTER_LOOP_BODY(endLabel, beginLabel)
-	auto bodyStmt = ParseStmt();
+	bodyStmt = ParseStmt();
 	EXIT_LOOP_BODY()
 
 	Expect(Token::WHILE);
@@ -1103,17 +1292,16 @@ CompoundStmt* Parser::ParseDoStmt(void)
 	return TranslationUnit::NewCompoundStmt(stmts);
 }
 
-#define ENTER_SWITCH_BODY(caseLabels) \
-	{ \
-		CaseLabelList* caseLabelso = _caseLabels; \
-		LabelStmt* defaultLabelo = _defaultLabel; \
-		_caseLabels = &caseLabels; 
+#define ENTER_SWITCH_BODY(caseLabels) 			\
+{ 												\
+	CaseLabelList* caseLabelso = _caseLabels; 	\
+	LabelStmt* defaultLabelo = _defaultLabel; 	\
+	_caseLabels = &caseLabels; 
 
-#define EXIT_SWITCH_BODY() \
-		_caseLabels = caseLabelso; \
-		_defaultLabel = defaultLabelo; \
-	} 
-	
+#define EXIT_SWITCH_BODY()			\
+	_caseLabels = caseLabelso;		\
+	_defaultLabel = defaultLabelo;	\
+}
 
 CompoundStmt* Parser::ParseSwitchStmt(void)
 {
@@ -1131,29 +1319,39 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 	stmts.push_back(TranslationUnit::NewJumpStmt(labelTest));
 
 	CaseLabelList caseLabels;
-	ENTER_SWITCH_BODY(caseLabels)
+	ENTER_SWITCH_BODY(caseLabels);
+
 	auto bodyStmt = ParseStmt();
 	stmts.push_back(labelTest);
 	for (auto iter = _caseLabels->begin(); iter != _caseLabels->end(); iter++) {
-		auto rhs = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), iter->first);
+		auto rhs = TranslationUnit::NewConstantInteger(
+				Type::NewArithmType(T_INT), iter->first);
 		auto cond = TranslationUnit::NewBinaryOp(Token::EQ_OP, t, rhs);
 		auto then = TranslationUnit::NewJumpStmt(iter->second);
 		auto ifStmt = TranslationUnit::NewIfStmt(cond, then, nullptr);
 		stmts.push_back(ifStmt);
 	}
 	stmts.push_back(TranslationUnit::NewJumpStmt(_defaultLabel));
-	EXIT_SWITCH_BODY()
+	EXIT_SWITCH_BODY();
 
 	stmts.push_back(labelEnd);
+
 	return TranslationUnit::NewCompoundStmt(stmts);
 }
 
 CompoundStmt* Parser::ParseCaseStmt(void)
 {
-	//TODO: constant epxr ÕûÐÍ
+	
 	auto expr = ParseExpr();
 	Expect(':');
-	int val = EvaluateConstantExpr(expr);
+	
+	int val;
+	bool succeed = EvaluateConstantExpr(val, expr);
+	// TODO: constant epxr ï¿½ï¿½ï¿½ï¿½
+	if (!succeed) {
+		Error("expect constant expression");
+	}
+
 	auto labelStmt = TranslationUnit::NewLabelStmt();
 	_caseLabels->push_back(std::make_pair(val, labelStmt));
 	std::list<Stmt*> stmts;
@@ -1189,6 +1387,12 @@ JumpStmt* Parser::ParseBreakStmt(void)
 	return TranslationUnit::NewJumpStmt(_breakDest);
 }
 
+JumpStmt* Parser::ParseReturnStmt(void)
+{
+	// TODO(wgtdkp):
+	return nullptr;
+}
+
 JumpStmt* Parser::ParseGotoStmt(void)
 {
 	Expect(Token::IDENTIFIER);
@@ -1207,12 +1411,14 @@ CompoundStmt* Parser::ParseLabelStmt(const char* label)
 {
 	auto stmt = ParseStmt();
 	if (nullptr != FindLabel(label))
-		Error("'%s': label redefinition");
+		Error("'%s': label redefinition", label);
+
 	auto labelStmt = TranslationUnit::NewLabelStmt();
 	AddLabel(label, labelStmt);
 	std::list<Stmt*> stmts;
 	stmts.push_back(labelStmt);
 	stmts.push_back(stmt);
+
 	return TranslationUnit::NewCompoundStmt(stmts);
 }
 
@@ -1227,10 +1433,11 @@ bool Parser::IsFuncDef(void)
 		return false;
 
 	Mark();
-	int storageSpec, funcSpec;
+	int storageSpec = 0, funcSpec = 0;
 	auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-	auto nameType = ParseDeclarator(type);
+	ParseDeclarator(type);
 	Release();
+	
 	return !(Test(',') || Test('=') || Test(';'));
 }
 
@@ -1240,11 +1447,13 @@ FuncDef* Parser::ParseFuncDef(void)
 	auto type = ParseDeclSpec(&storageSpec, &funcSpec);
 	auto funcType = ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();
 	auto stmt = ParseCompoundStmt();
+
 	return TranslationUnit::NewFuncDef(funcType->ToFuncType(), stmt);
 }
 
 bool Parser::EvaluateConstantExpr(int& val, const Expr* expr)
 {
 
+	return true;
 }
 

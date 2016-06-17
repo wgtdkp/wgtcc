@@ -1,10 +1,12 @@
 #ifndef _WGTCC_ENV_H_
 #define _WGTCC_ENV_H_
 
+#include "type.h"
+
 #include <map>
 #include <list>
 #include <cassert>
-#include "type.h"
+#include <cstring>
 
 
 struct StrCmp

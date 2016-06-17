@@ -1,5 +1,67 @@
 #include "ast.h"
 #include "error.h"
+#include "visitor.h"
+
+
+/*
+ * accept
+ */
+
+void EmptyStmt::Accept(Visitor* v) {
+	v->VisitEmptyStmt(this);
+}
+
+void LabelStmt::Accept(Visitor* v) {
+	v->VisitLabelStmt(this);
+}
+
+void IfStmt::Accept(Visitor* v) {
+	v->VisitIfStmt(this);
+}
+
+void JumpStmt::Accept(Visitor* v) {
+	v->VisitJumpStmt(this);
+}
+
+void CompoundStmt::Accept(Visitor* v) {
+	v->VisitCompoundStmt(this);
+}
+
+void BinaryOp::Accept(Visitor* v) {
+	v->VisitBinaryOp(this);
+}
+
+void UnaryOp::Accept(Visitor* v) {
+	v->VisitUnaryOp(this);
+}
+
+void ConditionalOp::Accept(Visitor* v) {
+	v->VisitConditionalOp(this);
+}
+
+void FuncCall::Accept(Visitor* v) { 
+	v->VisitFuncCall(this);
+}
+
+void Variable::Accept(Visitor* v) {
+	v->VisitVariable(this);
+}
+
+void Constant::Accept(Visitor* v) {
+	v->VisitConstant(this);
+}
+
+void TempVar::Accept(Visitor* v) {
+	v->VisitTempVar(this);
+}
+
+void FuncDef::Accept(Visitor* v) {
+	v->VisitFuncDef(this);
+}
+
+void TranslationUnit::Accept(Visitor* v) {
+	v->VisitTranslationUnit(this);
+}
 
 /********************* Expression ***********************/
 
@@ -311,14 +373,14 @@ UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
 
 /********** Statement ***********/
 
-//显然空stmt只需要一个
+//锟斤拷然锟斤拷stmt只锟斤拷要一锟斤拷
 EmptyStmt* TranslationUnit::NewEmptyStmt(void)
 {
 	static auto inst = new EmptyStmt();
 	return inst;
 }
 
-//else stmt 默认是 null
+//else stmt 默锟斤拷锟斤拷 null
 IfStmt* TranslationUnit::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
 {
 	return new IfStmt(cond, then, els);

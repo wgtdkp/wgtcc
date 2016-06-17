@@ -12,6 +12,31 @@ class Token
 {
 	friend class Lexer;
 public:
+	Token(	
+			int tag,
+			const char* fileName=nullptr,
+			int line=1,
+			int column=1,
+			const char* begin = nullptr,
+			const char* end = nullptr)
+		: _tag(tag), _line(line), _column(column) , _fileName(fileName) {
+		if (nullptr == begin) {
+			assert(IsPunctuator() || IsKeyWord() || IsEOF());
+			_val = _TagLexemeMap.at(tag);
+		} else {
+			SetVal(begin, end);
+		}
+	}
+
+	//Token::NOTOK represents not a kw.
+	static int KeyWordTag(const char* begin, const char* end) {
+		std::string key(begin, end);
+		auto kwIter = _kwTypeMap.find(key);
+		if (_kwTypeMap.end() == kwIter)
+			return Token::NOTOK;	//not a key word type
+		return kwIter->second;
+	}
+
 	enum {
 		/**punctuators**/
 		LPAR = '(',
@@ -210,8 +235,13 @@ public:
 		return _tag == Token::END;
 	}
 
-	bool IsTypeSpecQual(void) const { return CONST <= _tag && _tag <= ENUM; }
-	bool IsDecl(void) const { return CONST <= _tag && _tag <= REGISTER; }
+	bool IsTypeSpecQual(void) const { 
+		return CONST <= _tag && _tag <= ENUM;
+	}
+	
+	bool IsDecl(void) const {
+		return CONST <= _tag && _tag <= REGISTER;
+	}
 
 	static const char* Lexeme(int tag) {
 		return _TagLexemeMap.at(tag);
@@ -228,28 +258,8 @@ private:
 	static const std::unordered_map<int, const char*> _TagLexemeMap;
 	//static const char* _tokenTable[TOKEN_NUM - OFFSET - 1];
 	
-private:
-	Token(int tag, const char* fileName=nullptr, int line=1, int column=1, const char* begin = nullptr, const char* end = nullptr)
-		: _tag(tag), _fileName(fileName), _line(line), _column(column) {
-		if (nullptr == begin) {
-			assert(IsPunctuator() || IsKeyWord() || IsEOF());
-			_val = _TagLexemeMap.at(tag);
-		} else {
-			SetVal(begin, end);
-		}
-	}
-
-	//Token::NOTOK represents not a kw.
-	static int KeyWordTag(const char* begin, const char* end) {
-		std::string key(begin, end);
-		auto kwIter = _kwTypeMap.find(key);
-		if (_kwTypeMap.end() == kwIter)
-			return Token::NOTOK;	//not a key word type
-		return kwIter->second;
-	}
-
 	Token(const Token& other);
-	const Token& operator=(const Token& other);
+	const Token& operator=(const Token& other);	
 };
 
 #endif
