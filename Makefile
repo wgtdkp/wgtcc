@@ -8,12 +8,12 @@ OBJS_DIR = build/
 OBJS = $(SRCS:.cc=.o)
 
 $(TARGET): $(OBJS)
-	$(CC) -o $@ $^
+    $(CC) -o $@ $^
 
 %.o: %.cc
-	$(CC) $(CFLAGS) -o $@ -c $<
+    $(CC) $(CFLAGS) -o $@ -c $<
 
 .PHONY: clean
 
 clean:
-	-rm -rf $(TARGET) $(OBJS)
+    -rm -rf $(TARGET) $(OBJS)

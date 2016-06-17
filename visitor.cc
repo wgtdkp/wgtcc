@@ -4,12 +4,12 @@
 /*************** Constant Evaluator ******************/
 void ConstantEvaluator::VisitBinaryOp(BinaryOp* binaryOp)
 {
-	if (!binaryOp->Ty()->IsInteger())
-		Error("integer expected");
+    if (!binaryOp->Ty()->IsInteger())
+        Error("integer expected");
 
-	ConstantEvaluator lEvaluator;
-	ConstantEvaluator rEvaluator;
-	//lEvaluator.visit
+    ConstantEvaluator lEvaluator;
+    ConstantEvaluator rEvaluator;
+    //lEvaluator.visit
 
 }
 
@@ -51,7 +51,7 @@ void ConstantEvaluator::VisitStmt(Stmt* stmt)
 
 void ConstantEvaluator::VisitIfStmt(IfStmt* ifStmt)
 {
-	
+    
 }
 
 void ConstantEvaluator::VisitJumpStmt(JumpStmt* jumpStmt)
@@ -71,7 +71,7 @@ void ConstantEvaluator::VisitEmptyStmt(EmptyStmt* emptyStmt)
 
 void ConstantEvaluator::VisitCompoundStmt(CompoundStmt* compoundStmt)
 {
-	
+    
 }
 
 //Function Definition
