@@ -15,6 +15,7 @@ class TempVar;
 class Stmt;
 class IfStmt;
 class JumpStmt;
+class ReturnStmt;
 class LabelStmt;
 class EmptyStmt;
 
@@ -38,6 +39,7 @@ public:
     virtual void VisitStmt(Stmt* stmt) = 0;
     virtual void VisitIfStmt(IfStmt* ifStmt) = 0;
     virtual void VisitJumpStmt(JumpStmt* jumpStmt) = 0;
+    virtual void VisitReturnStmt(ReturnStmt* returnStmt) = 0;
     virtual void VisitLabelStmt(LabelStmt* labelStmt) = 0;
     virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) = 0;
     virtual void VisitCompoundStmt(CompoundStmt* compoundStmt) = 0;
@@ -74,6 +76,7 @@ public:
     virtual void VisitStmt(Stmt* stmt);
     virtual void VisitIfStmt(IfStmt* ifStmt);
     virtual void VisitJumpStmt(JumpStmt* jumpStmt);
+    virtual void VisitReturnStmt(ReturnStmt* returnStmt);
     virtual void VisitLabelStmt(LabelStmt* labelStmt);
     virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
     virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);

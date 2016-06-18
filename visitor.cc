@@ -59,6 +59,11 @@ void ConstantEvaluator::VisitJumpStmt(JumpStmt* jumpStmt)
 
 }
 
+void ConstantEvaluator::VisitReturnStmt(ReturnStmt* returnStmt)
+{
+    
+}
+
 void ConstantEvaluator::VisitLabelStmt(LabelStmt* labelStmt)
 {
 

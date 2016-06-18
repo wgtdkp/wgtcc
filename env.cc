@@ -54,7 +54,6 @@ const Variable* Env::FindVarInCurScope(const char* name) const
     return const_cast<const Variable*>(thi->FindVarInCurScope(name));
 }
 
-
 Type* Env::FindType(const char* name)
 {
     auto symb = Find(name);
@@ -153,7 +152,7 @@ Type* Env::InsertTag(const char* tag, Type* type)
 {
     assert(nullptr == FindTagInCurScope(tag));
     _tagMap[tag] = type;
-    
+
     return type;
 }
 

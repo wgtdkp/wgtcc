@@ -23,6 +23,10 @@ void JumpStmt::Accept(Visitor* v) {
     v->VisitJumpStmt(this);
 }
 
+void ReturnStmt::Accept(Visitor* v) {
+    v->VisitReturnStmt(this);
+}
+
 void CompoundStmt::Accept(Visitor* v) {
     v->VisitCompoundStmt(this);
 }
@@ -448,6 +452,11 @@ CompoundStmt* TranslationUnit::NewCompoundStmt(std::list<Stmt*>& stmts)
 JumpStmt* TranslationUnit::NewJumpStmt(LabelStmt* label)
 {
     return new JumpStmt(label);
+}
+
+ReturnStmt* TranslationUnit::NewReturnStmt(Expr* expr)
+{
+    return new ReturnStmt(expr);
 }
 
 LabelStmt* TranslationUnit::NewLabelStmt(void)

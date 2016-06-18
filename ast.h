@@ -58,11 +58,14 @@ class Stmt : public ASTNode
 class EmptyStmt : public Stmt
 {
     friend class TranslationUnit;
+
 public:
     virtual ~EmptyStmt(void) {}
     virtual void Accept(Visitor* v);
+
 protected:
     EmptyStmt(void) {}
+
 private:
 };
 
@@ -70,12 +73,15 @@ private:
 class LabelStmt : public Stmt
 {
     friend class TranslationUnit;
+
 public:
     ~LabelStmt(void) {}
     virtual void Accept(Visitor* v);
     int Tag(void) const { return Tag(); }
+
 protected:
     LabelStmt(void) : _tag(GenTag()) {}
+
 private:
     static int GenTag(void) {
         static int tag = 0;
@@ -87,12 +93,15 @@ private:
 class IfStmt : public Stmt
 {
     friend class TranslationUnit;
+
 public:
     virtual ~IfStmt(void) {}
     virtual void Accept(Visitor* v);
+
 protected:
     IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
         : _cond(cond), _then(then), _else(els) {}
+
 private:
     Expr* _cond;
     Stmt* _then;
@@ -102,24 +111,44 @@ private:
 class JumpStmt : public Stmt
 {
     friend class TranslationUnit;
+
 public:
     virtual ~JumpStmt(void) {}
     virtual void Accept(Visitor* v);
     void SetLabel(LabelStmt* label) { _label = label; }
+
 protected:
-    JumpStmt(LabelStmt* label) : _label(label) {}
+    explicit JumpStmt(LabelStmt* label) : _label(label) {}
+
 private:
     LabelStmt* _label;
+};
+
+class ReturnStmt: public Stmt
+{
+    friend class TranslationUnit;
+
+public:
+    virtual ~ReturnStmt(void) {}
+    virtual void Accept(Visitor* v);
+    
+protected:
+    explicit ReturnStmt(Expr* expr): _expr(expr) {}
+
+private:
+    Expr* _expr;
 };
 
 class CompoundStmt : public Stmt
 {
     friend class TranslationUnit;
+
 public:
     virtual ~CompoundStmt(void) {}
     virtual void Accept(Visitor* v);
+
 protected:
-    CompoundStmt(const std::list<Stmt*>& stmts)
+    explicit CompoundStmt(const std::list<Stmt*>& stmts)
         : _stmts(stmts) {}
 
 private:
@@ -132,6 +161,7 @@ private:
 class Expr : public Stmt
 {
     friend class TranslationUnit;
+
 public:
     virtual ~Expr(void) {}
     Type* Ty(void) { return _ty; }
@@ -141,6 +171,7 @@ public:
     }
 
     virtual bool IsLVal(void) const = 0;
+
 protected:
     /*you can construct a expression without specifying a type,
     then the type should be evaluated in TypeChecking() */
@@ -164,6 +195,7 @@ protected:
 class BinaryOp : public Expr
 {
     friend class TranslationUnit;
+
 public:
     virtual ~BinaryOp(void) {}
     virtual void Accept(Visitor* v);
@@ -196,6 +228,7 @@ protected:
 class UnaryOp : public Expr
 {
     friend class TranslationUnit;
+
 public:
     virtual ~UnaryOp(void) {}
     virtual void Accept(Visitor* v);
@@ -225,14 +258,17 @@ protected:
 class ConditionalOp : public Expr
 {
     friend class TranslationUnit;
+
 public:
     virtual ~ConditionalOp(void) {}
     virtual void Accept(Visitor* v);
     virtual bool IsLVal(void) const { return false; }
+
 protected:
     ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
         : Expr(nullptr), _cond(cond), _exprTrue(exprTrue), _exprFalse(exprFalse) {}
     virtual ConditionalOp* TypeChecking(void);
+
 private:
     Expr* _cond;
     Expr* _exprTrue;
@@ -243,6 +279,7 @@ private:
 class FuncCall : public Expr
 {
     friend class TranslationUnit;
+
 public:
     ~FuncCall(void) {}
     virtual void Accept(Visitor* v);
@@ -263,6 +300,7 @@ protected:
 class Variable : public Expr
 {
     friend class TranslationUnit;
+
 public:
     static const int TYPE = -1;
     static const int VAR = 0;
@@ -300,6 +338,7 @@ protected:
 
 protected:
     int _storage;
+
 private:
     //the relative address
     int _offset;
@@ -310,12 +349,14 @@ private:
 class Constant : public Variable
 {
     friend class TranslationUnit;
+
 public:
     ~Constant(void) {}
     virtual void Accept(Visitor* v);
     virtual bool IsLVal(void) const { return false; }
     unsigned long long IVal(void) const { return _ival; }
     long double FVal(void) const { return _fval; }
+
 protected:
     Constant(ArithmType* type, unsigned long long val)
         : Variable(type, VAR, true), _ival(val) {
@@ -340,14 +381,17 @@ private:
 class TempVar : public Expr
 {
     friend class TranslationUnit;
+
 public:
     virtual ~TempVar(void) {}
     virtual void Accept(Visitor* v);
     virtual bool IsLVal(void) const { return true; }
+
 protected:
     explicit TempVar(Type* type)
         : Expr(type), _tag(GenTag()) {}
     virtual TempVar* TypeChecking(void) { return this; }
+
 private:
     static int GenTag(void) {
         static int tag = 0;
@@ -362,12 +406,15 @@ private:
 class FuncDef : public ExtDecl
 {
     friend class TranslationUnit;
+
 public:
     virtual ~FuncDef(void) {}
     virtual void Accept(Visitor* v);
+
 protected:
     FuncDef(FuncType* type, CompoundStmt* stmt)
         : _type(type), _stmt(stmt) {}
+
 private:
     FuncType* _type;
     CompoundStmt* _stmt;
@@ -413,11 +460,13 @@ public:
     static EmptyStmt* NewEmptyStmt(void);
     static IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
     static JumpStmt* NewJumpStmt(LabelStmt* label);
+    static ReturnStmt* NewReturnStmt(Expr* expr);
     static LabelStmt* NewLabelStmt(void);
     static CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
 
     /*************** Function Definition ***************/
     static FuncDef* NewFuncDef(FuncType* type, CompoundStmt* stmt);
+
 private:
     TranslationUnit(void) {}
 

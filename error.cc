@@ -15,7 +15,7 @@ static void Error(
     const char* fmt,
     va_list args)
 {
-    fprintf(stderr, "[ %s ]: [ %d ]: ", __FILE__, __LINE__);
+    //fprintf(stderr, "[ %s ]: [ %d ]: ", __FILE__, __LINE__);
     fprintf(stderr, "%s: %d: %d: ", fileName, line, column);
     //Error(label, fmt, args);
     fprintf(stderr, "%s: ", label);
@@ -28,7 +28,7 @@ static void Error(
 
 static void Error(const char* label, const char* fmt, va_list args)
 {
-    fprintf(stderr, "[ %s ]: [ %d ]: ", __FILE__, __LINE__);
+    //fprintf(stderr, "[ %s ]: [ %d ]: ", __FILE__, __LINE__);
     fprintf(stderr, "%s: ", label);
     vfprintf(stderr, fmt, args);
     fprintf(stderr, "\n");

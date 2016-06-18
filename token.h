@@ -38,7 +38,7 @@ public:
     }
 
     enum {
-        /**punctuators**/
+        /* punctuators */
         LPAR = '(',
         RPAR = ')',
         LSQB = '[',
@@ -90,9 +90,9 @@ public:
         OR_ASSIGN,
 
         ELLIPSIS,
-        /**punctuators end**/
+        /* punctuators end */
 
-        /**key words**/
+        /* key words */
         //type qualifier
         CONST,
         RESTRICT,
@@ -114,6 +114,7 @@ public:
         STRUCT,
         UNION,
         ENUM,
+
         TYPEDEF_NAME, //not used
 
         //function specifier
@@ -148,7 +149,7 @@ public:
         GENERIC, //_Generic
         IMAGINARY, //_Imaginary
         STATIC_ASSERT, //_Static_assert
-        /**key words end**/
+        /* key words end */
     
         IDENTIFIER,
         CONSTANT,
@@ -174,7 +175,7 @@ public:
     };
 
     virtual ~Token(void) {
-        if (IsString() || IsKeyWord() || IsIdentifier())
+        if (IsString() || IsIdentifier())
             delete[] _val;
     }
 
@@ -207,7 +208,7 @@ public:
     }
 
     static bool IsKeyWord(int tag) {
-        return AUTO <= tag && tag <= THREAD;
+        return CONST <= tag && tag <= STATIC_ASSERT;
     }
 
     bool IsKeyWord(void) const {

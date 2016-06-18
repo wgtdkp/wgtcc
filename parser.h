@@ -11,19 +11,18 @@
 #include <stack>
 
 
-class Env;
 typedef std::pair<const char*, Type*> NameTypePair;
 
 class Parser
 {
 public:
     explicit Parser(Lexer* lexer) 
-        : _lexer(lexer), _topEnv(nullptr),
+        : _lexer(lexer), _topEnv(new Env(nullptr)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
     ~Parser(void) { 
-        delete _lexer; 
+        //delete _lexer; 
     }
 
     Expr* ParseConstant(const Token* tok);
@@ -110,7 +109,7 @@ public:
     JumpStmt* ParseGotoStmt(void);
     JumpStmt* ParseContinueStmt(void);
     JumpStmt* ParseBreakStmt(void);
-    JumpStmt* ParseReturnStmt(void);
+    ReturnStmt* ParseReturnStmt(void);
     CompoundStmt* ParseLabelStmt(const char* label);
     CompoundStmt* ParseCaseStmt(void);
     CompoundStmt* ParseDefaultStmt(void);

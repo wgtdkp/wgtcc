@@ -1,6 +1,7 @@
 #ifndef _WGTCC_TYPE_H_
 #define _WGTCC_TYPE_H_
 
+#include <algorithm>
 #include <list>
 
 
@@ -70,19 +71,32 @@ public:
     virtual ~Type(void) {}
 
     int Width(void) const { return _width; }
+    
     void SetWidth(int width) { _width = width; }
-    int Align(void) const { return _align; }
+    
+    int Align(void) const {
+        // TOD(wgtdkp):
+        //return _align;
+        return std::max(_align, _width);
+    }
+
     void SetAlign(int align) { _align = align; }
+    
     int Qual(void) const { return _qual; }
+    
     void SetQual(int qual) { _qual = qual; }
+    
     bool IsComplete(void) const { return _complete; }
+    
     void SetComplete(bool complete) { _complete = complete; }
 
     bool IsConst(void) const { return _qual & Q_CONST; }
+    
     bool IsScalar(void) const {
         return (nullptr != ToArithmType()
             || nullptr != ToPointerType());
     }
+    
     bool IsFloat(void) const;
     bool IsInteger(void) const;
     bool IsArithm(void) const { return (nullptr != ToArithmType()); }
@@ -347,7 +361,7 @@ public:
     // struct/union
     void AddMember(const char* name, Type* type);
     bool IsStruct(void) const { return _isStruct; }
-    
+
 protected:
     // default is incomplete
     explicit StructUnionType(bool isStruct);

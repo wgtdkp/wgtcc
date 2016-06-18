@@ -38,13 +38,13 @@ void Parser::ExitFunc(void) {
 TranslationUnit* Parser::ParseTranslationUnit(void)
 {
     auto transUnit = TranslationUnit::NewTranslationUnit();
-    for (; ;) {
-        if (Peek()->IsEOF())	 break;
+    while (!Peek()->IsEOF()) {
         if (IsFuncDef())
             transUnit->Add(ParseFuncDef());
         else
             transUnit->Add(ParseDecl());
     }
+
     return transUnit;
 }
 
@@ -776,13 +776,15 @@ end_of_loop:
         break;
     }
 
-    if ((nullptr == storage || nullptr == func)
-        && 0 != funcSpec && 0 != storageSpec && -1 != align) {
-        Error("type specifier/qualifier only");
+    if ((nullptr == storage || nullptr == func)) {
+        if (0 != funcSpec && 0 != storageSpec && -1 != align) {
+            Error("type specifier/qualifier only");
+        }
+    } else {
+        *storage = storageSpec;
+        *func = funcSpec;
     }
-    
-    *storage = storageSpec;
-    *func = funcSpec;
+
     return type;
 
 error:
@@ -1035,6 +1037,7 @@ Variable* Parser::ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec
 
 NameTypePair Parser::ParseDeclarator(Type* base)
 {
+    // May be pointer
     auto pointerType = ParsePointer(base);
     
     if (Try('(')) {
@@ -1046,9 +1049,9 @@ NameTypePair Parser::ParseDeclarator(Type* base)
         auto retType = ModifyBase(nameTypePair.second, pointerType, newBase);
         return std::pair<const char*, Type*>(nameTypePair.first, retType);
     } else if (Peek()->IsIdentifier()) {
+        auto tok = Next();
         auto retType = ParseArrayFuncDeclarator(pointerType);
-        auto ident = Peek()->Val();
-        return NameTypePair(ident, retType);
+        return NameTypePair(tok->Val(), retType);
     }
     
     Error("expect identifier or '(' but get '%s'", Peek()->Val());
@@ -1130,22 +1133,31 @@ int Parser::ParseArrayLength(void)
     return len;
 }
 
-
+/*
+ * Return: true, has ellipsis;
+ */
 bool Parser::ParseParamList(std::list<Type*>& params)
 {
     auto paramType = ParseParamDecl();
-    if (nullptr != paramType->ToVoidType())
+
+    /*
+     * The parameter list is 'void'
+     */
+    if (paramType->ToVoidType()) {
         return false;
-    
-    while (Try(',')) {
-        if (Try(Token::ELLIPSIS))
-            return Expect(')'), true;
-        paramType = ParseParamDecl();
-        params.push_back(paramType);
     }
     
-    Expect(')');
-    
+    while (Try(',')) {
+        if (Try(Token::ELLIPSIS)) {
+            return true;
+        }
+        paramType = ParseParamDecl();
+        if (paramType->ToVoidType())
+            Error("'void' must be the ponly parameter");
+
+        params.push_back(paramType);
+    }
+
     return false;
 }
 
@@ -1153,8 +1165,11 @@ Type* Parser::ParseParamDecl(void)
 {
     int storageSpec, funcSpec;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-    if (Peek()->Tag() == ',')
+    
+    // No declarator
+    if (Peek()->Tag() == ',' || Peek()->Tag() == ')')
         return type;
+    
     //TODO: declarator 和 abstract declarator 都要支持
 	//TODO: 区分 declarator 和 abstract declarator
     return ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();
@@ -1526,10 +1541,17 @@ JumpStmt* Parser::ParseBreakStmt(void)
     return TranslationUnit::NewJumpStmt(_breakDest);
 }
 
-JumpStmt* Parser::ParseReturnStmt(void)
+ReturnStmt* Parser::ParseReturnStmt(void)
 {
-    // TODO(wgtdkp):
-    return nullptr;
+    Expr* expr;
+
+    if (Try(';')) {
+        expr = nullptr;
+    } else {
+        expr = ParseExpr();
+    }
+
+    return TranslationUnit::NewReturnStmt(expr);
 }
 
 JumpStmt* Parser::ParseGotoStmt(void)
@@ -1577,9 +1599,12 @@ bool Parser::IsFuncDef(void)
     int storageSpec = 0, funcSpec = 0;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
     ParseDeclarator(type);
+    // FIXME(wgtdkp): Memory leak
+
+    bool ret = !(Test(',') || Test('=') || Test(';'));
     Release();
     
-    return !(Test(',') || Test('=') || Test(';'));
+    return ret;
 }
 
 FuncDef* Parser::ParseFuncDef(void)
@@ -1587,6 +1612,8 @@ FuncDef* Parser::ParseFuncDef(void)
     int storageSpec, funcSpec;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
     auto funcType = ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();
+    
+    Expect('{');
     auto stmt = ParseCompoundStmt();
 
     return TranslationUnit::NewFuncDef(funcType->ToFuncType(), stmt);
