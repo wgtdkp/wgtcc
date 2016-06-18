@@ -19,20 +19,20 @@ void Parser::Expect(int expect, int follow1, int follow2)
 }
 
 void Parser::EnterFunc(const char* funcName) {
-    //TODO: ���ӱ������Դ��� __func__ ��
+    //TODO: 添加编译器自带的 __func__ 宏
 }
 
 void Parser::ExitFunc(void) {
-    //TODO: resolve ��Щ������jump
-    //TODO: ������jump�޷�resolve��Ҳ������δ������label��������
+    //TODO: resolve 那些待定的jump；
+	//TODO: 如果有jump无法resolve，也就是有未定义的label，报错；
     for (auto iter = _unresolvedJumps.begin(); iter != _unresolvedJumps.end(); iter++) {
         auto labelStmt = FindLabel(iter->first);
         if (nullptr == labelStmt)
             Error("unresolved label '%s'", iter->first);
         iter->second->SetLabel(labelStmt);
     }
-    _unresolvedJumps.clear();	//����δ���� jump ����
-    _topLabels.clear();	//���� label map
+    _unresolvedJumps.clear();	//清空未定的 jump 动作
+    _topLabels.clear();	//清空 label map
 }
 
 TranslationUnit* Parser::ParseTranslationUnit(void)
@@ -274,7 +274,7 @@ UnaryOp* Parser::ParseUnaryOp(int op)
 Type* Parser::ParseTypeName(void)
 {
     auto type = ParseSpecQual();
-    if (Try('*') || Try('(')) //abstract-declarator ��FIRST����
+    if (Try('*') || Try('(')) //abstract-declarator ??FIRST????
         return ParseAbstractDeclarator(type);
     
     return type;
@@ -531,7 +531,7 @@ CompoundStmt* Parser::ParseDecl(void)
     } else {
         int storageSpec, funcSpec;
         auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-        //init-declarator �� FIRST ���ϣ�'*' identifier '('
+        //init-declarator 的 FIRST 集合：'*' identifier '('
         if (Test('*') || Test(Token::IDENTIFIER) || Test('(')) {
             do {
                 auto initExpr = ParseInitDeclarator(type, storageSpec, funcSpec);
@@ -752,7 +752,8 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             }
         }
     }
-    //TODO: ���岿��
+
+    //TODO: 语义部分
 end_of_loop:
     PutBack();
     switch (typeSpec) {
@@ -822,7 +823,7 @@ Type* Parser::ParseEnumSpec(void)
     if (tok->IsIdentifier()) {
         enumTag = tok->Val();
         if (Try('{')) {
-            //����enum����
+            //定义enum类型
             auto curScopeType = _topEnv->FindTagInCurScope(enumTag);
             if (nullptr != curScopeType) {
                 if (!curScopeType->IsComplete()) {
@@ -834,7 +835,7 @@ Type* Parser::ParseEnumSpec(void)
             Type* type = _topEnv->FindTag(enumTag);
             if (nullptr != type) return type;
             type = Type::NewArithmType(T_INT); 
-            type->SetComplete(false); //�������ǰ� enum ���� int ���������ǻ�����Ϊ���ǲ�������
+            type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
             _topEnv->InsertTag(enumTag, type);
         }
     }
@@ -846,7 +847,7 @@ enum_decl:
     if (nullptr != enumTag)
         _topEnv->InsertTag(enumTag, type);
     
-    return ParseEnumerator(type); //������������: '}'
+    return ParseEnumerator(type);   //处理反大括号: '}'
 }
 
 Type* Parser::ParseEnumerator(ArithmType* type)
@@ -879,13 +880,13 @@ Type* Parser::ParseEnumerator(ArithmType* type)
     return type;
 }
 
-/***
-���� name space��
-1.label, �� goto end; ���к���������
-2.struct/union/enum �� tag
-3.struct/union �ĳ�Ա
-4.��������ͨ�ı���
-***/
+/*
+ * 四种 name space：
+ * 1.label, 如 goto end; 它有函数作用域
+ * 2.struct/union/enum 的 tag
+ * 3.struct/union 的成员
+ * 4.其它的普通的变量
+ */
 Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
     const char* structUnionTag = nullptr; //
@@ -893,71 +894,74 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
     if (tok->IsIdentifier()) {
         structUnionTag = tok->Val();
         if (Try('{')) {
-            //���������ţ��������ڽ�������struct/union����
+            //看见大括号，表明现在将定义该struct/union类型
             auto curScopeType = _topEnv->FindTagInCurScope(structUnionTag);
             if (nullptr != curScopeType) {	
                 /*
-                  �ڵ�ǰscope�ҵ������ͣ�������ֻ��������ע�������붨��ֻ�ܳ�����ͬһ��scope��
-                  1.���������ڶ���������scope,��ô��ʹ���ڲ�scope���������������ͣ���������Ȼ����Ч�ģ�
-                    ��Ϊ�������Σ����������������ڲ�scope����ȥ�Ҷ��壬����������������Ȼ�ǲ������ģ�
-                  2.���������ڶ������ڲ�scope,(Ҳ�����ȶ��壬�����ڲ�scope����)����ʱ���������������Ḳ�ǵ������Ķ��壻
-                    ��Ϊ�������������ϲ��ҷ��ţ������ҵ����������Ļ��ǲ������ģ���Ҫ��
-                */
+				 * 在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
+				 * 1.如果声明在定义的外层scope,那么即使在内层scope定义了完整的类型，此声明仍然是无效的；
+				 *   因为如论如何，编译器都不会在内部scope里面去找定义，所以声明的类型仍然是不完整的；
+				 * 2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
+				 *   因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
+				 */
                 if (!curScopeType->IsComplete()) {
-                    //�ҵ��˴�tag��ǰ�������������������ű�����������Ϊcomplete type
+                    //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
                     return ParseStructDecl(curScopeType->ToStructUnionType());
+                } else {
+                    //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
+                    Error("'%s': struct type redefinition", tok->Val());
                 }
-                else Error("'%s': struct type redefinition", tok->Val()); //�ڵ�ǰ�������ҵ��������Ķ��壬�����������ڶ���ͬ�������ͣ����Ա�����
-            } else //���ǲ��ù����ϲ�scope�Ƿ������˴�tag�����������ˣ���ô��ֱ�Ӹ��Ƕ���
-                goto struct_decl; //�������ڵ�ǰscope��һ�ο���name�����������ǵ�һ�ζ��壬��ǰ��������û�У�
-        } else {	
+            } else { //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
+                goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
+            }
+        } else {
             /*
-                û�д����ţ��������Ƕ���һ��struct/union;��ô����ֻ�������ڣ�
-                1.������
-                2.������ͬʱ������ָ��(ָ������ָ������������) (struct Foo* p; �ǺϷ���) ���������Ϸ������ͣ�
-                ���������������ű�����ô��
-                1.�����ҵ�name���������壬Ҳ����ֻ�ҵõ�������������������nameָʾ���ǲ����������ͣ����Ƕ�ֻ��ѡ��nameָʾ�����ͣ�
-                2.���������ڷ��ű�����ѹ���Ҳ���name,��ô������name�ĵ�һ�����������������������Ͳ��������ű���
-            */
+			 * 没有大括号，表明不是定义一个struct/union;那么现在只可能是在：
+			 * 1.声明；
+			 * 2.声明的同时，定义指针(指针允许指向不完整类型) (struct Foo* p; 是合法的) 或者其他合法的类型；
+			 *   如果现在索引符号表，那么：
+			 *   1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
+			 *   2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
+			 */
             auto type = _topEnv->FindTag(structUnionTag);
-            //����tag�Ѿ���������������ôֱ�ӷ��ش˶�����������
+            //如果tag已经定义或声明，那么直接返回此定义或者声明
             if (nullptr != type) return type;
-            //����tag��û�ж���������������ô������tag������(��Ϊû�м�����{�������Բ����Ƕ���)
-            type = Type::NewStructUnionType(isStruct); //����������������
-            //��Ϊ��tag�����Բ���������struct/union�� ����ǰ��scope������tag
+            //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
+            type = Type::NewStructUnionType(isStruct); //创建不完整的类型
+            //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
             _topEnv->InsertTag(structUnionTag, type);
             return type;
         }
     }
-    //û����identifier���Ǿͱ�����struct/union�Ķ��壬����������struct/union;
+    //没见到identifier，那就必须有struct/union的定义，这叫做匿名struct/union;
     Expect('{');
 
 struct_decl:
-    //���ڣ���������tag������û��ǰ��������������û��tag���Ǹ���û��ǰ��������
-    //���������ǵ�һ�ο�ʼ����һ��������struct/union����
+    //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
+	//所以现在是第一次开始定义一个完整的struct/union类型
     auto type = Type::NewStructUnionType(isStruct);
     if (nullptr != structUnionTag) 
         _topEnv->InsertTag(structUnionTag, type);
     
-    return ParseStructDecl(type); //������������: '}'
+    return ParseStructDecl(type); //处理反大括号: '}'
 }
 
 StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 {
-    //��Ȼ�Ƕ��壬�������϶��ǲ��������ͣ���Ȼ�����ض�����
+    //既然是定义，那输入肯定是不完整类型，不然就是重定义了
     assert(type && !type->IsComplete());
     
     while (!Try('}')) {
         if (Peek()->IsEOF())
             Error("premature end of input");
 
-        //����type specifier/qualifier, ������storage��
+        //解析type specifier/qualifier, 不接受storage等
         auto fieldType = ParseSpecQual();
-        //TODO: ����declarator
+        //TODO: 解析declarator
 
     }
 
-    //struct/union����������������Ϊ��������
+    //struct/union定义结束，设置其为完整类型
     type->SetComplete(true);
     
     return type;
@@ -1017,10 +1021,12 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
 Variable* Parser::ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec)
 {
     NameTypePair nameType = Parser::ParseDeclarator(base);
-    //TODO: ������ͬһ scope �Ƿ��Ѿ������˱���
-    //      ���� storage �� typedef����ôӦ�������ű��������� type
-    //      ���� void ���ͱ����ǷǷ��ģ�ֻ����ָ��void���͵�ָ��
-    //      ���� funcSpec != 0, ��ô���ڱ������ڶ��庯������������
+    /*
+     * TODO: 检查在同一 scope 是否已经定义此变量
+	 * 如果 storage 是 typedef，那么应该往符号表里面插入 type
+	 * 定义 void 类型变量是非法的，只能是指向void类型的指针
+	 * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
+     */
     auto var = _topEnv->InsertVar(nameType.first, nameType.second);
     var->SetStorage(storageSpec);
     
@@ -1032,11 +1038,11 @@ NameTypePair Parser::ParseDeclarator(Type* base)
     auto pointerType = ParsePointer(base);
     
     if (Try('(')) {
-        //���ڵ� pointerType ��������ȷ�� base type
+        //现在的 pointerType 并不是正确的 base type
         auto nameTypePair = ParseDeclarator(pointerType);
         Expect(')');
         auto newBase = ParseArrayFuncDeclarator(pointerType);
-        //���� base type
+        //修正 base type
         auto retType = ModifyBase(nameTypePair.second, pointerType, newBase);
         return std::pair<const char*, Type*>(nameTypePair.first, retType);
     } else if (Peek()->IsIdentifier()) {
@@ -1087,8 +1093,8 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
 }
 
 /*
-return: -1, û��ָ�����ȣ����������ȣ�
-*/
+ * return: -1, 没有指定长度；其它，长度；
+ */
 int Parser::ParseArrayLength(void)
 {
     auto hasStatic = Try(Token::STATIC);
@@ -1108,7 +1114,8 @@ int Parser::ParseArrayLength(void)
             return len;
         }
     }*/
-    //��֧�ֱ䳤����
+
+    //不支持变长数组
     if (!hasStatic && Try(']'))
         return -1;
 
@@ -1148,9 +1155,9 @@ Type* Parser::ParseParamDecl(void)
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
     if (Peek()->Tag() == ',')
         return type;
-    //TODO: declarator �� abstract declarator ��Ҫ֧��
-    //TODO: ���� declarator �� abstract declarator
-    return ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();		//ParseDeclarator(type);
+    //TODO: declarator 和 abstract declarator 都要支持
+	//TODO: 区分 declarator 和 abstract declarator
+    return ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();
 }
 
 Type* Parser::ParseAbstractDeclarator(Type* type)
@@ -1166,7 +1173,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
     return ModifyBase(ret, pointerType, newBase);
 }
 
-//TODO:: ��һ��
+//TODO:: 缓一缓
 Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 {
     auto var = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
@@ -1180,7 +1187,9 @@ Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 }
 
 
-/************** Statements ****************/
+/*
+ * Statements
+ */
 
 Stmt* Parser::ParseStmt(void)
 {
@@ -1264,18 +1273,17 @@ IfStmt* Parser::ParseIfStmt(void)
 }
 
 /*
-for ѭ���ṹ��
-    for (declaration; expression1; expression2) statement
-
-չ�����Ľṹ��
-        declaration
-cond:	if (expression1) then empty
-        else goto end
-        statement
-step:	expression2
-        goto cond
-next:
-*/
+ * for 循环结构：
+ *      for (declaration; expression1; expression2) statement
+ * 展开后的结构：
+ *		declaration
+ * cond: if (expression1) then empty
+ *		else goto end
+ *		statement
+ * step: expression2
+ *		goto cond
+ * next:
+ */
 
 #define ENTER_LOOP_BODY(breakl, continuel)	    \
 {											    \
@@ -1324,11 +1332,11 @@ CompoundStmt* Parser::ParseForStmt(void)
         stmts.push_back(ifStmt);
     }
 
-    //������Ҫ��break��continue�����ṩ��Ӧ�ı��ţ���Ȼ��֪��������
+    //我们需要给break和continue语句提供相应的标号，不然不知往哪里跳
     Stmt* bodyStmt;
     ENTER_LOOP_BODY(endLabel, condLabel);
     bodyStmt = ParseStmt();
-    //��Ϊfor��Ƕ�׽ṹ����������Ҫ�ظ�break��continue��Ŀ������
+    //因为for的嵌套结构，在这里需要回复break和continue的目标标号
     EXIT_LOOP_BODY()
     
     stmts.push_back(bodyStmt);
@@ -1343,16 +1351,15 @@ CompoundStmt* Parser::ParseForStmt(void)
 }
 
 /*
-while ѭ���ṹ��
-while (expression) statement
-
-չ�����Ľṹ��
-cond:	if (expression1) then empty
-        else goto end
-        statement
-        goto cond
-end:
-*/
+ * while 循环结构：
+ * while (expression) statement
+ * 展开后的结构：
+ * cond: if (expression1) then empty
+ *		else goto end
+ *		statement
+ *		goto cond
+ * end:
+ */
 CompoundStmt* Parser::ParseWhileStmt(void)
 {
     std::list<Stmt*> stmts;
@@ -1381,16 +1388,14 @@ CompoundStmt* Parser::ParseWhileStmt(void)
 }
 
 /*
-do-while ѭ���ṹ��
-do statement while (expression)
-
-չ�����Ľṹ��
-begin:	statement
-cond:	if (expression) then goto begin
-        else goto end
-end:
-*/
-
+ * do-while 循环结构：
+ *      do statement while (expression)
+ * 展开后的结构：
+ * begin: statement
+ * cond: if (expression) then goto begin
+ *		 else goto end
+ * end:
+ */
 CompoundStmt* Parser::ParseDoStmt(void)
 {
     auto beginLabel = TranslationUnit::NewLabelStmt();
@@ -1477,7 +1482,7 @@ CompoundStmt* Parser::ParseCaseStmt(void)
     
     int val;
     bool succeed = EvaluateConstantExpr(val, expr);
-    // TODO: constant epxr ����
+    //TODO: constant epxr 整型
     if (!succeed) {
         Error("expect constant expression");
     }
@@ -1559,9 +1564,9 @@ CompoundStmt* Parser::ParseLabelStmt(const char* label)
 }
 
 /*
-function-definition:
-    declaration-specifiers declarator declaration-list? compound-statement
-*/
+ * function-definition:
+ *   declaration-specifiers declarator declaration-list? compound-statement
+ */
 
 bool Parser::IsFuncDef(void)
 {
