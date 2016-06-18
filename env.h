@@ -19,6 +19,7 @@ struct StrCmp
 class Env
 {
     friend class StructUnionType;
+    
 public:
     explicit Env(Env* parent=nullptr) 
         : _parent(parent), _offset(0) {}
@@ -50,6 +51,7 @@ public:
     Type* FindTag(const char* tag);
 
     Constant* InsertConstant(const char* name, Constant* constant);
+
 private:
     typedef std::map<const char*, Variable*, StrCmp> SymbMap;
     typedef std::map<const char*, Type*, StrCmp> TagMap;

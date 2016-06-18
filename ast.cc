@@ -63,7 +63,9 @@ void TranslationUnit::Accept(Visitor* v) {
     v->VisitTranslationUnit(this);
 }
 
-/********************* Expression ***********************/
+/*
+ * Expression
+ */
 
 ConditionalOp* ConditionalOp::TypeChecking(void)
 {
@@ -109,9 +111,9 @@ BinaryOp* BinaryOp::MemberRefOpTypeChecking(const char* rhsName)
     StructUnionType* structUnionType;
     if (Token::PTR_OP == _op) {
         auto pointer = _lhs->Ty()->ToPointerType();
-        if (nullptr == pointer)
+        if (nullptr == pointer) {
             Error("pointer expected for operator '->'");
-        else {
+        } else {
             structUnionType = pointer->Derived()->ToStructUnionType();
             if (nullptr == structUnionType)
                 Error("pointer to struct/union expected");
@@ -126,10 +128,12 @@ BinaryOp* BinaryOp::MemberRefOpTypeChecking(const char* rhsName)
         return this; //the _rhs is lefted nullptr
 
     _rhs = structUnionType->Find(rhsName);
-    if (nullptr == _rhs)
+    if (nullptr == _rhs) {
         Error("'%s' is not a member of '%s'", rhsName, "[obj]");
-    else
+    } else {
         _ty = _rhs->Ty();
+    }
+
     return this;
 }
 
@@ -137,6 +141,7 @@ BinaryOp* BinaryOp::MultiOpTypeChecking(void)
 {
     auto lhsType = _lhs->Ty()->ToArithmType();
     auto rhsType = _rhs->Ty()->ToArithmType();
+
     if (nullptr == lhsType || nullptr == rhsType)
         Error("operand should be arithmetic type");
     if ('%' == _op && !(_lhs->Ty()->IsInteger() && _rhs->Ty()->IsInteger()))
@@ -144,18 +149,20 @@ BinaryOp* BinaryOp::MultiOpTypeChecking(void)
 
     //TODO: type promotion
     _ty = _lhs->Ty();
+    
     return this;
 }
 
 BinaryOp* BinaryOp::AdditiveOpTypeChecking(void)
 {
-    auto lhsType = _lhs->Ty()->ToArithmType();
-    auto rhsType = _rhs->Ty()->ToArithmType();
+    //auto lhsType = _lhs->Ty()->ToArithmType();
+    //auto rhsType = _rhs->Ty()->ToArithmType();
 
 
     //TODO: type promotion
 
     _ty = _lhs->Ty();
+
     return this;
 }
 
@@ -164,6 +171,7 @@ BinaryOp* BinaryOp::ShiftOpTypeChecking(void)
     //TODO: type checking
 
     _ty = _lhs->Ty();
+
     return this;
 }
 
@@ -172,6 +180,7 @@ BinaryOp* BinaryOp::RelationalOpTypeChecking(void)
     //TODO: type checking
 
     _ty = Type::NewArithmType(T_BOOL);
+
     return this;
 }
 
@@ -180,6 +189,7 @@ BinaryOp* BinaryOp::EqualityOpTypeChecking(void)
     //TODO: type checking
 
     _ty = Type::NewArithmType(T_BOOL);
+
     return this;
 }
 
@@ -189,6 +199,7 @@ BinaryOp* BinaryOp::BitwiseOpTypeChecking(void)
         Error("operands of '&' should be integer");
     //TODO: type promotion
     _ty = Type::NewArithmType(T_INT);
+    
     return this;
 }
 
@@ -198,6 +209,7 @@ BinaryOp* BinaryOp::LogicalOpTypeChecking(void)
     if (!_lhs->Ty()->IsScalar() || !_rhs->Ty()->IsScalar())
         Error("the operand should be arithmetic type or pointer");
     _ty = Type::NewArithmType(T_BOOL);
+    
     return this;
 }
 
@@ -212,6 +224,7 @@ BinaryOp* BinaryOp::AssignOpTypeChecking(void)
     }
 
     _ty = _lhs->Ty();
+    
     return this;
 }
 
@@ -221,14 +234,30 @@ BinaryOp* BinaryOp::AssignOpTypeChecking(void)
 UnaryOp* UnaryOp::TypeChecking(void)
 {
     switch (_op) {
-    case Token::POSTFIX_INC: case Token::POSTFIX_DEC:
-    case Token::PREFIX_INC: case Token::PREFIX_DEC: return IncDecOpTypeChecking();
-    case Token::ADDR: return AddrOpTypeChecking();
-    case Token::DEREF: return DerefOpTypeChecking();
-    case Token::PLUS: case Token::MINUS:
-    case '~': case '!': return UnaryArithmOpTypeChecking();
-    case Token::CAST: return CastOpTypeChecking();
-    default: assert(false); return nullptr;
+    case Token::POSTFIX_INC:
+    case Token::POSTFIX_DEC:
+    case Token::PREFIX_INC:
+    case Token::PREFIX_DEC:
+        return IncDecOpTypeChecking();
+
+    case Token::ADDR:
+        return AddrOpTypeChecking();
+
+    case Token::DEREF:
+        return DerefOpTypeChecking();
+
+    case Token::PLUS:
+    case Token::MINUS:
+    case '~':
+    case '!':
+        return UnaryArithmOpTypeChecking();
+
+    case Token::CAST:
+        return CastOpTypeChecking();
+
+    default:
+        assert(false);
+        return nullptr;
     }
 }
 
@@ -242,6 +271,7 @@ UnaryOp* UnaryOp::IncDecOpTypeChecking(void)
     }
 
     _ty = _operand->Ty();
+
     return this;
 }
 
@@ -250,7 +280,9 @@ UnaryOp* UnaryOp::AddrOpTypeChecking(void)
     FuncType* funcType = _operand->Ty()->ToFuncType();
     if (nullptr != funcType && !_operand->IsLVal())
         Error("expression must be an lvalue or function designator");
+    
     _ty = Type::NewPointerType(_operand->Ty());
+
     return this;
 }
 
@@ -261,6 +293,7 @@ UnaryOp* UnaryOp::DerefOpTypeChecking(void)
         Error("pointer expected for deref operator '*'");
 
     _ty = pointer->Derived();
+
     return this;
 }
 
@@ -278,6 +311,7 @@ UnaryOp* UnaryOp::UnaryArithmOpTypeChecking(void)
     }
 
     _ty = _operand->Ty();
+    
     return this;
 }
 
@@ -316,18 +350,38 @@ ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond, Expr* exprTrue, Exp
 BinaryOp* TranslationUnit::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
 {
     switch (op) {
-    case '[': case '*': case '/': case '%': case '+': case '-': 
-    case Token::LEFT_OP: case Token::RIGHT_OP: case '<': case '>': 
-    case Token::LE_OP: case Token::GE_OP: case Token::EQ_OP: case Token::NE_OP: 
-    case '&': case '^': case '|': case Token::AND_OP: case Token::OR_OP: break;
-    default: assert(0);
+    case '[':
+    case '*':
+    case '/':
+    case '%':
+    case '+':
+    case '-':
+    case '&':
+    case '^':
+    case '|':
+    case '<':
+    case '>':
+    case Token::LEFT_OP:
+    case Token::RIGHT_OP:
+    case Token::LE_OP:
+    case Token::GE_OP:
+    case Token::EQ_OP:
+    case Token::NE_OP: 
+    case Token::AND_OP:
+    case Token::OR_OP:
+        break;
+
+    default:
+        assert(0);
     }
+
     return (new BinaryOp(op, lhs, rhs))->TypeChecking();
 }
 
 BinaryOp* TranslationUnit::NewMemberRefOp(int op, Expr* lhs, const char* rhsName)
 {
     assert('.' == op || Token::PTR_OP == op);
+    
     //the initiation of rhs is lefted in type checking
     return (NewBinaryOp(op, lhs, nullptr))->MemberRefOpTypeChecking(rhsName);
 }

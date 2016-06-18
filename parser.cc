@@ -128,12 +128,29 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 {
     for (; ;) {
         auto tag = Next()->Tag();
+        
         switch (tag) {
-        case '[': lhs = ParseSubScripting(lhs); break;
-        case '(': lhs = ParseFuncCall(lhs); break;
-        case '.': case Token::PTR_OP: lhs = ParseMemberRef(tag, lhs); break;
-        case Token::INC_OP: case Token::DEC_OP: lhs = ParsePostfixIncDec(tag, lhs); break;
-        default: return PutBack(), lhs;
+        case '[':
+            lhs = ParseSubScripting(lhs);
+            break;
+
+        case '(':
+            lhs = ParseFuncCall(lhs);
+            break;
+
+        case '.':
+        case Token::PTR_OP:
+            lhs = ParseMemberRef(tag, lhs);
+            break;
+
+        case Token::INC_OP:
+        case Token::DEC_OP:
+            lhs = ParsePostfixIncDec(tag, lhs);
+            break;
+
+        default:
+            PutBack();
+            return lhs;
         }
     }
 }
@@ -142,6 +159,7 @@ Expr* Parser::ParseSubScripting(Expr* pointer)
 {
     auto indexExpr = ParseExpr();
     Expect(']');
+
     return TranslationUnit::NewBinaryOp('[', pointer, indexExpr);
 }
 
@@ -150,6 +168,7 @@ Expr* Parser::ParseMemberRef(int tag, Expr* lhs)
 {
     auto memberName = Peek()->Val();
     Expect(Token::IDENTIFIER);
+    
     return TranslationUnit::NewMemberRefOp(tag, lhs, memberName);
 }
 
@@ -179,17 +198,29 @@ Expr* Parser::ParseUnaryExpr(void)
 {
     auto tag = Next()->Tag();
     switch (tag) {
-    case Token::ALIGNOF: return ParseAlignof();
-    case Token::SIZEOF: return ParseSizeof();
-    case Token::INC_OP: return ParsePrefixIncDec(Token::INC_OP);
-    case Token::DEC_OP: return ParsePrefixIncDec(Token::DEC_OP);
-    case '&': return ParseUnaryOp(Token::ADDR);
-    case '*': return ParseUnaryOp(Token::DEREF); 
-    case '+': return ParseUnaryOp(Token::PLUS);
-    case '-': return ParseUnaryOp(Token::MINUS); 
-    case '~': return ParseUnaryOp('~');
-    case '!': return ParseUnaryOp('!');
-    default: return PutBack(), ParsePostfixExpr();
+    case Token::ALIGNOF:
+        return ParseAlignof();
+    case Token::SIZEOF:
+        return ParseSizeof();
+    case Token::INC_OP:
+        return ParsePrefixIncDec(Token::INC_OP);
+    case Token::DEC_OP:
+        return ParsePrefixIncDec(Token::DEC_OP);
+    case '&':
+        return ParseUnaryOp(Token::ADDR);
+    case '*':
+        return ParseUnaryOp(Token::DEREF); 
+    case '+':
+        return ParseUnaryOp(Token::PLUS);
+    case '-':
+        return ParseUnaryOp(Token::MINUS); 
+    case '~':
+        return ParseUnaryOp('~');
+    case '!':
+        return ParseUnaryOp('!');
+    default:
+        PutBack();
+        return ParsePostfixExpr();
     }
 }
 
@@ -197,6 +228,7 @@ Constant* Parser::ParseSizeof(void)
 {
     Type* type;
     auto tok = Next();
+    
     if (tok->Tag() == '(' && IsTypeName(Peek())) {
         type = ParseTypeName();
         Expect(')');
@@ -209,7 +241,9 @@ Constant* Parser::ParseSizeof(void)
     if (nullptr != type->ToFuncType()) {
         Error("sizeof operator can't act on function");
     }
+    
     auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
+
     return TranslationUnit::NewConstantInteger(intType, type->Width());
 }
 
@@ -219,13 +253,15 @@ Constant* Parser::ParseAlignof(void)
     auto type = ParseTypeName();
     Expect(')');
     auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
-    return TranslationUnit::NewConstantInteger(intType, intType->Align());
+    
+    return TranslationUnit::NewConstantInteger(intType, type->Align());
 }
 
 UnaryOp* Parser::ParsePrefixIncDec(int op)
 {
     assert(Token::INC_OP == op || Token::DEC_OP == op);
     auto operand = ParseUnaryExpr();
+    
     return TranslationUnit::NewUnaryOp(op, operand);
 }
 
@@ -240,6 +276,7 @@ Type* Parser::ParseTypeName(void)
     auto type = ParseSpecQual();
     if (Try('*') || Try('(')) //abstract-declarator ��FIRST����
         return ParseAbstractDeclarator(type);
+    
     return type;
 }
 
@@ -252,6 +289,7 @@ Expr* Parser::ParseCastExpr(void)
         auto operand = ParseCastExpr();
         return TranslationUnit::NewUnaryOp(Token::CAST, operand, desType);
     } 
+    
     return PutBack(), ParseUnaryExpr();
 }
 
@@ -264,6 +302,7 @@ Expr* Parser::ParseMultiplicativeExpr(void)
         lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
+    
     return PutBack(), lhs;
 }
 
@@ -276,6 +315,7 @@ Expr* Parser::ParseAdditiveExpr(void)
         lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
+    
     return PutBack(), lhs;
 }
 
@@ -285,8 +325,10 @@ Expr* Parser::ParseShiftExpr(void)
     auto tag = Next()->Tag();
     while (Token::LEFT_OP == tag || Token::RIGHT_OP == tag) {
         auto rhs = ParseAdditiveExpr();
+        lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
+    
     return PutBack(), lhs;
 }
 
@@ -300,6 +342,7 @@ Expr* Parser::ParseRelationalExpr(void)
         lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
+    
     return PutBack(), lhs;
 }
 
@@ -312,6 +355,7 @@ Expr* Parser::ParseEqualityExpr(void)
         lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
+    
     return PutBack(), lhs;
 }
 
@@ -322,6 +366,7 @@ Expr* Parser::ParseBitiwiseAndExpr(void)
         auto rhs = ParseEqualityExpr();
         lhs = TranslationUnit::NewBinaryOp('&', lhs, rhs);
     }
+    
     return lhs;
 }
 
@@ -332,6 +377,7 @@ Expr* Parser::ParseBitwiseXorExpr(void)
         auto rhs = ParseBitiwiseAndExpr();
         lhs = TranslationUnit::NewBinaryOp('^', lhs, rhs);
     }
+    
     return lhs;
 }
 
@@ -342,6 +388,7 @@ Expr* Parser::ParseBitwiseOrExpr(void)
         auto rhs = ParseBitwiseXorExpr();
         lhs = TranslationUnit::NewBinaryOp('|', lhs, rhs);
     }
+    
     return lhs;
 }
 
@@ -352,6 +399,7 @@ Expr* Parser::ParseLogicalAndExpr(void)
         auto rhs = ParseBitwiseOrExpr();
         lhs = TranslationUnit::NewBinaryOp(Token::AND_OP, lhs, rhs);
     }
+    
     return lhs;
 }
 
@@ -362,6 +410,7 @@ Expr* Parser::ParseLogicalOrExpr(void)
         auto rhs = ParseLogicalAndExpr();
         lhs = TranslationUnit::NewBinaryOp(Token::OR_OP, lhs, rhs);
     }
+    
     return lhs;
 }
 
@@ -374,6 +423,7 @@ Expr* Parser::ParseConditionalExpr(void)
         auto exprFalse = ParseConditionalExpr();
         return TranslationUnit::NewConditionalOp(cond, exprTrue, exprFalse);
     }
+    
     return cond;
 }
 
@@ -437,7 +487,8 @@ Expr* Parser::ParseAssignExpr(void)
         rhs = ParseAssignExpr();
         break;
 
-    default: return lhs;
+    default:
+        return lhs;
     }
 
     return TranslationUnit::NewBinaryOp('=', lhs, rhs);
@@ -458,7 +509,9 @@ Constant* Parser::ParseConstantExpr(void)
         //TODO:
         //auto val = expr->EvaluateConstant();
         //constant = TranslationUnit::NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
-    } else assert(0);
+    } else {
+        assert(0);
+    }
     
     return constant;
 }
@@ -487,6 +540,7 @@ CompoundStmt* Parser::ParseDecl(void)
             } while (Try(','));
         }
     }
+
     return TranslationUnit::NewCompoundStmt(stmts);
 }
 
@@ -510,8 +564,9 @@ static inline void TypeLL(int& typeSpec)
     if (typeSpec & T_LONG) {
         typeSpec &= ~T_LONG;
         typeSpec |= T_LONG_LONG;
-    } else
+    } else {
         typeSpec |= T_LONG;
+    }
 }
 
 Type* Parser::ParseSpecQual(void)
@@ -530,6 +585,7 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
     int funcSpec = 0;
     int qualSpec = 0;
     int typeSpec = 0;
+    
     for (; ;) {
         auto tok = Next();
         switch (tok->Tag()) {
@@ -597,10 +653,11 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
         case Token::VOLATILE:
             qualSpec |= Q_VOLATILE;
             break;
-
+        /*
         atomic_qual:
             qualSpec |= Q_ATOMIC;
             break;
+        */
 
         //type specifier
         case Token::SIGNED:
@@ -683,7 +740,8 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             type = ParseEnumSpec();
             typeSpec |= T_ENUM;
             break;
-        case Token::ATOMIC:		assert(false);// if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
+        case Token::ATOMIC:\
+            assert(false);// if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
                                     //type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
         default:
             if (0 == typeSpec && IsTypeName(tok)) {
@@ -721,6 +779,7 @@ end_of_loop:
         && 0 != funcSpec && 0 != storageSpec && -1 != align) {
         Error("type specifier/qualifier only");
     }
+    
     *storage = storageSpec;
     *func = funcSpec;
     return type;
@@ -745,6 +804,7 @@ int Parser::ParseAlignas(void)
         align = constantExpr->IVal();
         //TODO: delete constantExpr
     }
+
     return align;
 }
 
@@ -758,6 +818,7 @@ Type* Parser::ParseEnumSpec(void)
 {
     const char* enumTag = nullptr;
     auto tok = Next();
+    
     if (tok->IsIdentifier()) {
         enumTag = tok->Val();
         if (Try('{')) {
@@ -777,11 +838,14 @@ Type* Parser::ParseEnumSpec(void)
             _topEnv->InsertTag(enumTag, type);
         }
     }
+    
     Expect('{');
+
 enum_decl:
     auto type = Type::NewArithmType(T_INT);
     if (nullptr != enumTag)
         _topEnv->InsertTag(enumTag, type);
+    
     return ParseEnumerator(type); //������������: '}'
 }
 
@@ -809,7 +873,9 @@ Type* Parser::ParseEnumerator(ArithmType* type)
 
         Try(',');
     } while (!Try('}'));
+    
     type->SetComplete(true);
+    
     return type;
 }
 
@@ -865,12 +931,14 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
     }
     //û����identifier���Ǿͱ�����struct/union�Ķ��壬����������struct/union;
     Expect('{');
+
 struct_decl:
     //���ڣ���������tag������û��ǰ��������������û��tag���Ǹ���û��ǰ��������
     //���������ǵ�һ�ο�ʼ����һ��������struct/union����
     auto type = Type::NewStructUnionType(isStruct);
     if (nullptr != structUnionTag) 
         _topEnv->InsertTag(structUnionTag, type);
+    
     return ParseStructDecl(type); //������������: '}'
 }
 
@@ -878,6 +946,7 @@ StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 {
     //��Ȼ�Ƕ��壬�������϶��ǲ��������ͣ���Ȼ�����ض�����
     assert(type && !type->IsComplete());
+    
     while (!Try('}')) {
         if (Peek()->IsEOF())
             Error("premature end of input");
@@ -890,6 +959,7 @@ StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 
     //struct/union����������������Ϊ��������
     type->SetComplete(true);
+    
     return type;
 }
 
@@ -898,11 +968,25 @@ int Parser::ParseQual(void)
     int qualSpec = 0;
     for (; ;) {
         switch (Next()->Tag()) {
-        case Token::CONST:		qualSpec |= Q_CONST; break;
-        case Token::RESTRICT:	qualSpec |= Q_RESTRICT; break;
-        case Token::VOLATILE:	qualSpec |= Q_VOLATILE; break;
-        case Token::ATOMIC:		qualSpec |= Q_ATOMIC; break;
-        default: PutBack(); return qualSpec;
+        case Token::CONST:
+            qualSpec |= Q_CONST;
+            break;
+
+        case Token::RESTRICT:
+            qualSpec |= Q_RESTRICT;
+            break;
+
+        case Token::VOLATILE:
+            qualSpec |= Q_VOLATILE;
+            break;
+
+        case Token::ATOMIC:
+            qualSpec |= Q_ATOMIC;
+            break;
+
+        default:
+            PutBack();
+            return qualSpec;
         }
     }
 }
@@ -915,6 +999,7 @@ Type* Parser::ParsePointer(Type* typePointedTo)
         retType->SetQual(ParseQual());
         typePointedTo = retType;
     }
+
     return retType;
 }
 
@@ -922,8 +1007,10 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
 {
     if (type == base)
         return newBase;
+    
     auto ty = type->ToDerivedType();
     ty->SetDerived(ModifyBase(ty->Derived(), base, newBase));
+    
     return ty;
 }
 
@@ -936,12 +1023,14 @@ Variable* Parser::ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec
     //      ���� funcSpec != 0, ��ô���ڱ������ڶ��庯������������
     auto var = _topEnv->InsertVar(nameType.first, nameType.second);
     var->SetStorage(storageSpec);
+    
     return var;
 }
 
 NameTypePair Parser::ParseDeclarator(Type* base)
 {
     auto pointerType = ParsePointer(base);
+    
     if (Try('(')) {
         //���ڵ� pointerType ��������ȷ�� base type
         auto nameTypePair = ParseDeclarator(pointerType);
@@ -955,24 +1044,28 @@ NameTypePair Parser::ParseDeclarator(Type* base)
         auto ident = Peek()->Val();
         return NameTypePair(ident, retType);
     }
+    
     Error("expect identifier or '(' but get '%s'", Peek()->Val());
+    
     return std::pair<const char*, Type*>(nullptr, nullptr); //make compiler happy
 }
 
 Type* Parser::ParseArrayFuncDeclarator(Type* base)
 {
     if (Try('[')) {
-        if (nullptr != base->ToFuncType())
+        if (nullptr != base->ToFuncType()) {
             Error("the element of array can't be a function");
+        }
         //TODO: parse array length expression
         auto len = ParseArrayLength();
-        if (0 == len)
+        if (0 == len) {
             Error("can't declare an array of length 0");
+        }
         Expect(']');
         base = ParseArrayFuncDeclarator(base);
+        
         return Type::NewArrayType(len, base);
-    }
-    else if (Try('(')) {	//function declaration
+    } else if (Try('(')) {	//function declaration
         if (nullptr != base->ToFuncType())
             Error("the return value of a function can't be a function");
         else if (nullptr != base->ToArrayType())
@@ -986,8 +1079,10 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         
         Expect(')');
         base = ParseArrayFuncDeclarator(base);
+        
         return Type::NewFuncType(base, 0, hasEllipsis, params);
     }
+
     return base;
 }
 
@@ -1024,6 +1119,7 @@ int Parser::ParseArrayLength(void)
     }
 
     Expect(']');
+    
     return len;
 }
 
@@ -1033,13 +1129,16 @@ bool Parser::ParseParamList(std::list<Type*>& params)
     auto paramType = ParseParamDecl();
     if (nullptr != paramType->ToVoidType())
         return false;
+    
     while (Try(',')) {
         if (Try(Token::ELLIPSIS))
             return Expect(')'), true;
         paramType = ParseParamDecl();
         params.push_back(paramType);
     }
+    
     Expect(')');
+    
     return false;
 }
 
@@ -1059,9 +1158,11 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
     auto pointerType = ParsePointer(type);
     if (nullptr != pointerType->ToPointerType() && !Try('('))
         return pointerType;
+    
     auto ret = ParseAbstractDeclarator(pointerType);
     Expect(')');
     auto newBase = ParseArrayFuncDeclarator(pointerType);
+    
     return ModifyBase(ret, pointerType, newBase);
 }
 
@@ -1074,6 +1175,7 @@ Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
         //auto rhs = ParseInitializer();
         //return TranslationUnit::NewBinaryOp('=', var, rhs);
     }
+    
     return nullptr;
 }
 
@@ -1085,24 +1187,42 @@ Stmt* Parser::ParseStmt(void)
     auto tok = Next();
     if (tok->IsEOF())
         Error("premature end of input");
+
     switch (tok->Tag()) {
-    case '{': return ParseCompoundStmt();
-    case Token::IF: return ParseIfStmt();
-    case Token::SWITCH: return ParseSwitchStmt();
-    case Token::WHILE: return ParseWhileStmt();
-    case Token::DO: return ParseDoStmt();
-    case Token::FOR: return ParseForStmt();
-    case Token::GOTO: return ParseGotoStmt();
-    case Token::CONTINUE: return ParseContinueStmt();
-    case Token::BREAK: return ParseBreakStmt();
-    case Token::RETURN: return ParseReturnStmt();
-    case Token::CASE: return ParseCaseStmt();
-    case Token::DEFAULT: return ParseDefaultStmt();
+    case '{':
+        return ParseCompoundStmt();
+    case Token::IF:
+        return ParseIfStmt();
+    case Token::SWITCH:
+        return ParseSwitchStmt();
+    case Token::WHILE:
+        return ParseWhileStmt();
+    case Token::DO:
+        return ParseDoStmt();
+    case Token::FOR:
+        return ParseForStmt();
+    case Token::GOTO:
+        return ParseGotoStmt();
+    case Token::CONTINUE:
+        return ParseContinueStmt();
+    case Token::BREAK:
+        return ParseBreakStmt();
+    case Token::RETURN:
+        return ParseReturnStmt();
+    case Token::CASE:
+        return ParseCaseStmt();
+    case Token::DEFAULT:
+        return ParseDefaultStmt();
     }
+
     if (tok->IsIdentifier() && Try(':'))
         return ParseLabelStmt(tok->Val());
-    if (Try(';')) return TranslationUnit::NewEmptyStmt();
+    
+    if (Try(';'))
+        return TranslationUnit::NewEmptyStmt();
+    
     auto expr = ParseExpr();
+    
     return Expect(';'), expr;
 }
 
@@ -1110,15 +1230,21 @@ CompoundStmt* Parser::ParseCompoundStmt(void)
 {
     EnterBlock();
     std::list<Stmt*> stmts;
+    
     while (!Try('}')) {
-        if (Peek()->IsEOF())
+        if (Peek()->IsEOF()) {
             Error("premature end of input");
-        if (IsType(Peek()))
+        }
+
+        if (IsType(Peek())) {
             stmts.push_back(ParseDecl());
-        else
+        } else {
             stmts.push_back(ParseStmt());
+        }
     }
+
     ExitBlock();
+    
     return TranslationUnit::NewCompoundStmt(stmts);
 }
 
@@ -1133,6 +1259,7 @@ IfStmt* Parser::ParseIfStmt(void)
     Stmt* els = nullptr;
     if (Try(Token::ELSE))
         els = ParseStmt();
+    
     return TranslationUnit::NewIfStmt(cond, then, els);
 }
 
@@ -1150,16 +1277,16 @@ step:	expression2
 next:
 */
 
-#define ENTER_LOOP_BODY(breakl, continuel)	\
-{											\
-    LabelStmt* breako = _breakDest;			\
-    LabelStmt* continueo = _continueDest;	\
-    LabelStmt* _breakDest = breakl;			\
-    LabelStmt* _continueDest = continuel; 
+#define ENTER_LOOP_BODY(breakl, continuel)	    \
+{											    \
+    LabelStmt* breakBackup = _breakDest;	    \
+    LabelStmt* continueBackup = _continueDest;	\
+    _breakDest = breakl;			            \
+    _continueDest = continuel; 
 
-#define EXIT_LOOP_BODY()		\
-    _breakDest = breako;		\
-    _continueDest = continueo;	\
+#define EXIT_LOOP_BODY()		    \
+    _breakDest = breakBackup;		\
+    _continueDest = continueBackup;	\
 }
 
 CompoundStmt* Parser::ParseForStmt(void)
@@ -1169,9 +1296,9 @@ CompoundStmt* Parser::ParseForStmt(void)
     
     std::list<Stmt*> stmts;
 
-    if (IsType(Peek()))
+    if (IsType(Peek())) {
         stmts.push_back(ParseDecl());
-    else if (!Try(';')) {
+    } else if (!Try(';')) {
         stmts.push_back(ParseExpr());
         Expect(';');
     }
@@ -1249,6 +1376,7 @@ CompoundStmt* Parser::ParseWhileStmt(void)
     stmts.push_back(bodyStmt);
     stmts.push_back(TranslationUnit::NewJumpStmt(condLabel));
     stmts.push_back(endLabel);
+    
     return TranslationUnit::NewCompoundStmt(stmts);
 }
 
@@ -1289,6 +1417,7 @@ CompoundStmt* Parser::ParseDoStmt(void)
     stmts.push_back(condLabel);
     stmts.push_back(ifStmt);
     stmts.push_back(endLabel);
+    
     return TranslationUnit::NewCompoundStmt(stmts);
 }
 
@@ -1331,6 +1460,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
         auto ifStmt = TranslationUnit::NewIfStmt(cond, then, nullptr);
         stmts.push_back(ifStmt);
     }
+    
     stmts.push_back(TranslationUnit::NewJumpStmt(_defaultLabel));
     EXIT_SWITCH_BODY();
 
@@ -1357,6 +1487,7 @@ CompoundStmt* Parser::ParseCaseStmt(void)
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());
+    
     return TranslationUnit::NewCompoundStmt(stmts);
 }
 
@@ -1368,6 +1499,7 @@ CompoundStmt* Parser::ParseDefaultStmt(void)
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());
+    
     return TranslationUnit::NewCompoundStmt(stmts);
 }
 
@@ -1376,6 +1508,7 @@ JumpStmt* Parser::ParseContinueStmt(void)
     Expect(';');
     if (nullptr == _continueDest)
         Error("'continue' only in loop is allowed");
+    
     return TranslationUnit::NewJumpStmt(_continueDest);
 }
 
@@ -1384,6 +1517,7 @@ JumpStmt* Parser::ParseBreakStmt(void)
     Expect(';');
     if (nullptr == _breakDest)
         Error("'break' only in switch/loop is allowed");
+    
     return TranslationUnit::NewJumpStmt(_breakDest);
 }
 
@@ -1402,8 +1536,10 @@ JumpStmt* Parser::ParseGotoStmt(void)
     auto labelStmt = FindLabel(label);
     if (nullptr != labelStmt)
         return TranslationUnit::NewJumpStmt(labelStmt);
+    
     auto unresolvedJump = TranslationUnit::NewJumpStmt(nullptr);;
     _unresolvedJumps.push_back(std::make_pair(label, unresolvedJump));
+    
     return unresolvedJump;
 }
 
@@ -1453,7 +1589,5 @@ FuncDef* Parser::ParseFuncDef(void)
 
 bool Parser::EvaluateConstantExpr(int& val, const Expr* expr)
 {
-
     return true;
 }
-

@@ -1,10 +1,12 @@
 #ifndef _WGTCC_LEXER_H_
 #define _WGTCC_LEXER_H_
 
+#include "error.h"
+#include "token.h"
+
 #include <cassert>
 #include <vector>
 #include <string>
-#include "token.h"
 
 
 class Lexer
@@ -13,7 +15,9 @@ public:
     Lexer(const char* path){
         if (!ReadFile(path)) {
             //TODO: error
+            Error("open file: '%s' failed", path);
         }
+
         _line = 1;
         _column = 1;
         _tokBegin = _text;
@@ -58,13 +62,16 @@ private:
     std::vector<Token*> _tokBuf;
 
     Lexer(const Lexer& other);
+    
     const Lexer& operator=(const Lexer& other);
+    
     bool ReadFile(const char* fileName);
+    
     const char* ParseName(const char* path);
+    
     Token* NewToken(int tag, const char* _tokBegin = nullptr, const char* _tokEnd = nullptr) {
         return new Token(tag, _fileName, _line, _column, _tokBegin, _tokEnd);
     }
 };
-
 
 #endif

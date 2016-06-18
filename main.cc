@@ -3,28 +3,20 @@
 
 using namespace std;
 
+void Usage(void)
+{
+    printf("usage: \n"
+           "    wgtcc filename\n");
+}
 
-class A {
-public:
-    A() = delete;
-    A(int k) {}
-    int a = 42;
-    int fun() {
-        a += 1;
-        return a;
-    }
-};
-
-/*
 int main(int argc, char* argv[])
 {
-*/
-int main(void)
-{
-    //int argc;
-    const char* argv[2] = {"wgtcc", "test.c"};
-    printf("%s\n", __FILE__); return 0;
+    if (argc < 2) {
+        Usage();
+    }
+
     Lexer lexer(argv[1]);
     lexer.Tokenize();
+    
     return 0;
 }

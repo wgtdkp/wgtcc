@@ -29,6 +29,7 @@ Type* Env::FindTypeInCurScope(const char* name)
     auto type = _symbMap.find(name);
     if (_symbMap.end() == type)
         return nullptr;
+
     return type->second->IsVar() ? nullptr : type->second->Ty();
 }
 
@@ -43,6 +44,7 @@ Variable* Env::FindVarInCurScope(const char* name)
     auto var = _symbMap.find(name);
     if (_symbMap.end() == var)
         return nullptr;
+
     return var->second->IsVar() ? var->second : nullptr;
 }
 
@@ -58,6 +60,7 @@ Type* Env::FindType(const char* name)
     auto symb = Find(name);
     if (nullptr == symb)
         return nullptr;
+    
     //found the type in current scope
     return symb->IsVar() ? nullptr : symb->Ty();
 } 
@@ -73,6 +76,7 @@ Variable* Env::FindVar(const char* name)
     auto symb = Find(name);
     if (nullptr == symb)
         return nullptr;
+    
     //found the type in current scope
     return symb->IsVar() ? symb : nullptr;
 }
@@ -96,6 +100,7 @@ Type* Env::InsertType(const char* name, Type* type)
     //assert(!iter->second->Ty()->IsComplete());
     auto var = TranslationUnit::NewVariable(type, Variable::TYPE);
     _symbMap[name] = var;
+    
     return var->Ty();
 }
 
@@ -106,6 +111,7 @@ Variable* Env::InsertVar(const char* name, Type* type)
     auto var = TranslationUnit::NewVariable(type, _offset);
     _symbMap[name] = var;
     _offset += type->Align();
+    
     return var;
 }
 
@@ -113,6 +119,7 @@ bool Env::operator==(const Env& other) const
 {
     if (this->_symbMap.size() != other._symbMap.size())
         return false;
+
     auto iterThis = this->_symbMap.begin();
     auto iterOther = other._symbMap.begin();
     for (; iterThis != this->_symbMap.end(); iterThis++, iterOther++) {
@@ -121,6 +128,7 @@ bool Env::operator==(const Env& other) const
         if (*iterThis->second != *iterOther->second)
             return false;
     }
+
     return true;
 }
 
@@ -128,13 +136,16 @@ Constant* Env::InsertConstant(const char* name, Constant* constant) {
     //ע��enumeration constant ��һ����������ͬһ�����ռ�
     assert(nullptr == FindVarInCurScope(name));
     _symbMap[name] = constant;
+    
     return constant;
 }
 
 Type* Env::FindTagInCurScope(const char* tag)
 {
     auto type = _tagMap.find(tag);
-    if (_tagMap.end() == type) return nullptr;
+    if (_tagMap.end() == type)
+        return nullptr;
+
     return type->second;
 }
 
@@ -142,6 +153,7 @@ Type* Env::InsertTag(const char* tag, Type* type)
 {
     assert(nullptr == FindTagInCurScope(tag));
     _tagMap[tag] = type;
+    
     return type;
 }
 

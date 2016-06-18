@@ -229,8 +229,8 @@ private:
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
     typedef std::list<std::pair<const char*, JumpStmt*>> LabelJumpList;
     typedef std::map<const char*, LabelStmt*, StrCmp> LabelMap;
+
 private:
-    
     Lexer* _lexer;
     Env* _topEnv;
     LabelMap _topLabels;

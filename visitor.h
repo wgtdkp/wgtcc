@@ -47,8 +47,10 @@ public:
 
     //Translation Unit
     virtual void VisitTranslationUnit(TranslationUnit* transUnit) = 0;
+
 protected:
     Visitor(void) {}
+
 private:
     Visitor(const Visitor& other);
     const Visitor& operator=(const Visitor& other);
@@ -86,8 +88,8 @@ public:
     //static ConstantEvaluator* NewConstantEvaluator(void) {
     //	return new ConstantEvaluator();
     //}
+
 private:
-    
     int64_t _val;
 };
 

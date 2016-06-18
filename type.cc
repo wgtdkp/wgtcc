@@ -110,7 +110,8 @@ ArithmType* Type::NewArithmType(int typeSpec) {
     case T_LONG | T_DOUBLE | T_COMPLEX:
         return longdoublecomplexType;
 
-    default: assert(0);
+    default:
+        assert(0);
     }
 
     return nullptr; // make compiler happy
@@ -190,7 +191,9 @@ int ArithmType::CalcWidth(int spec) {
 
 bool PointerType::operator==(const Type& other) const {
     auto pointerType = other.ToPointerType();
-    if (nullptr == pointerType) return false;
+    if (nullptr == pointerType)
+        return false;
+
     return *_derived == *pointerType->_derived;
 }
 
@@ -213,6 +216,7 @@ bool FuncType::operator==(const Type& other) const
         return false;
     if (_params.size() != otherFunc->_params.size())
         return false;
+
     auto thisIter = _params.begin();
     auto otherIter = otherFunc->_params.begin();
     while (thisIter != _params.end()) {
@@ -237,6 +241,7 @@ bool FuncType::Compatible(const Type& other) const
         return false;
     if (_params.size() != otherFunc->_params.size())
         return false;
+
     auto thisIter = _params.begin();
     auto otherIter = otherFunc->_params.begin();
     while (thisIter != _params.end()) {
@@ -276,7 +281,9 @@ int StructUnionType::CalcWidth(const Env* env)
 bool StructUnionType::operator==(const Type& other) const
 {
     auto structUnionType = other.ToStructUnionType();
-    if (nullptr == structUnionType) return false;
+    if (nullptr == structUnionType)
+        return false;
+        
     return *_mapMember == *structUnionType->_mapMember;
 }
 

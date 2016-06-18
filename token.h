@@ -12,14 +12,12 @@ class Token
 {
     friend class Lexer;
 public:
-    Token(	
-            int tag,
-            const char* fileName=nullptr,
-            int line=1,
-            int column=1,
+    Token(int tag, const char* fileName=nullptr,
+            int line=1, int column=1,
             const char* begin = nullptr,
             const char* end = nullptr)
         : _tag(tag), _line(line), _column(column) , _fileName(fileName) {
+        
         if (nullptr == begin) {
             assert(IsPunctuator() || IsKeyWord() || IsEOF());
             _val = _TagLexemeMap.at(tag);
@@ -32,8 +30,10 @@ public:
     static int KeyWordTag(const char* begin, const char* end) {
         std::string key(begin, end);
         auto kwIter = _kwTypeMap.find(key);
+        
         if (_kwTypeMap.end() == kwIter)
             return Token::NOTOK;	//not a key word type
+        
         return kwIter->second;
     }
 
@@ -167,7 +167,6 @@ public:
         MINUS,
         CAST,
             
-
         IGNORE,
         INVALID,
         END,

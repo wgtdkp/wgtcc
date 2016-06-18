@@ -13,8 +13,8 @@ static inline bool IsDigit(char ch)
 static inline bool IsLetter(char ch)
 {
     return ('a' <= ch && ch <= 'z') 
-        || ('A' <= ch && ch <= 'Z') 
-        || '_' == ch;
+            || ('A' <= ch && ch <= 'Z') 
+            || '_' == ch;
 }
 
 static inline bool IsOct(char ch)
@@ -25,32 +25,45 @@ static inline bool IsOct(char ch)
 static inline bool IsHex(char ch)
 {
     return ('a' <= ch && ch <= 'f')
-        || ('A' <= ch && ch <= 'F')
-        || IsDigit(ch);
+            || ('A' <= ch && ch <= 'F')
+            || IsDigit(ch);
 }
 
 static void ReadConstant(const char*& p)
 {
     bool sawEP = false, sawSign = false;
+    
     for (; 0 != p[0]; p++) {
         if (IsHex(p[0]))
             continue;
+
         switch (p[0]) {
         //case '0' ... '9': 
         //case 'a' ... 'f': case 'A' ... 'F':
         case '.': 
-        case 'u': case 'U': case 'l': case 'L':
-        case 'f': case 'F': case 'x': case 'X': 
-            continue;
-        case 'e': case 'E': case 'p': case 'P':
+        case 'u':
+        case 'U':
+        case 'l':
+        case 'L':
+        case 'f':
+        case 'F':
+        case 'x':
+        case 'X': 
+            break;
+        case 'e':
+        case 'E':
+        case 'p':
+        case 'P':
             sawEP = true;
-            continue;
-        case '+': case '-':
+            break;
+        case '+':
+        case '-':
             if (!sawEP || sawSign)
                 return;
             sawSign = true;
-            continue;
-        default: return;
+            break;
+        default:
+            return;
         }
     }
 }
@@ -92,16 +105,14 @@ static inline bool IsBlank(char ch)
 
 void Lexer::Tokenize(void)
 {
-    //int line = 1, column = 1;
     auto p = _text;
-    auto lineBegin = p;
-    //auto curBegin = p, curEnd = p;
+    /* auto lineBegin = p; */
 
     for (; ;) {
         while (IsBlank(p[0]) || '\n' == p[0]) {
             if ('\n' == p[0]) {
                 if ('\r' == p[1]) {
-                    ++p; lineBegin = p + 1;
+                    ++p; /* lineBegin = p + 1; */
                 }
                 ++_line;
             }
@@ -271,7 +282,9 @@ void Lexer::Tokenize(void)
             }
             ++p; break;
 
-        case 'u': case 'U': case 'L':
+        case 'u':
+        case 'U':
+        case 'L':
             //character constant
             if ('\'' == p[1]) {
                 _tokBegin = p; ++p;
@@ -303,8 +316,16 @@ void Lexer::Tokenize(void)
             }
             ++p; break;
 
-        case '(': case ')': case '[': case ']': case '?': 
-        case ',': case '{': case '}': case '~': case ';':
+        case '(':
+        case ')':
+        case '[':
+        case ']':
+        case '?': 
+        case ',':
+        case '{':
+        case '}':
+        case '~':
+        case ';':
             tokTag = p[0]; 
             ++p; break;
 
@@ -383,6 +404,7 @@ bool Lexer::ReadFile(const char* filePath)
     fseek(fp, 0, SEEK_END);
     fileSize = ftell(fp);
     fseek(fp, 0, SEEK_SET);
+    
     if (fileSize > _maxSize) {
         //TODO: set error
         Error("source file '%s' is too big", _fileName);
@@ -410,5 +432,6 @@ const char* Lexer::ParseName(const char* path)
             name = path + 1;
         ++path;
     }
+    
     return name;
 }

@@ -131,6 +131,7 @@ protected:
 class VoidType : public Type
 {
     friend class Type;
+
 public:
     virtual ~VoidType(void) {}
 
@@ -149,6 +150,7 @@ public:
     virtual bool Compatible(const Type& other) const {
         return *this == other;
     }
+
 protected:
     VoidType(void) : Type(0, true) {}
 };
@@ -156,6 +158,7 @@ protected:
 class ArithmType : public Type
 {
     friend class Type;
+
 public:
     virtual ~ArithmType(void) {}
 
@@ -201,6 +204,7 @@ public:
 protected:
     explicit ArithmType(int tag)
         : Type(CalcWidth(tag), true), _tag(tag) {}
+
 private:
     int _tag;
     static int CalcWidth(int tag);
@@ -228,6 +232,7 @@ protected:
 class PointerType : public DerivedType
 {
     friend class Type;
+
 public:
     ~PointerType(void) {}
 
@@ -245,15 +250,13 @@ public:
 protected:
     PointerType(Type* derived)
         : DerivedType(derived, _machineWord) {}
-
-private:
-
 };
 
 
 class ArrayType : public PointerType
 {
     friend class Type;
+
 public:
     virtual ~ArrayType(void) {
         delete _derived;
@@ -297,13 +300,13 @@ protected:
         SetQual(Q_CONST);
 
     }
-
 };
 
 
 class FuncType : public DerivedType
 {
     friend class Type;
+
 public:
     ~FuncType(void) {}
     virtual FuncType* ToFuncType(void) { return this; }
@@ -312,6 +315,7 @@ public:
     virtual bool Compatible(const Type& other) const;
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
+
 protected:
     //a function does not has the width property
     FuncType(Type* derived, int inlineReturn, bool hasEllipsis,
@@ -330,6 +334,7 @@ private:
 class StructUnionType : public Type
 {
     friend class Type;
+
 public:
     ~StructUnionType(void) {/*TODO: delete _env ?*/ }
     virtual StructUnionType* ToStructUnionType(void) { return this; }
@@ -342,6 +347,7 @@ public:
     // struct/union
     void AddMember(const char* name, Type* type);
     bool IsStruct(void) const { return _isStruct; }
+    
 protected:
     // default is incomplete
     explicit StructUnionType(bool isStruct);
