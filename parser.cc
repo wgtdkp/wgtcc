@@ -59,8 +59,10 @@ Expr* Parser::ParseCommaExpr(void)
     while (Try(',')) {
         auto rhs = ParseAssignExpr();
 
+        // Process constants
         if (lhs->ToConstant() && rhs->ToConstant()) {
-            // TODO(wgtdkp); Free lhs
+            // Discard left-hand-side operand of comma  
+            _unit->Delete(lhs);
             lhs = rhs;
         } else {
             lhs = _unit->NewBinaryOp(',', lhs, rhs);
@@ -442,9 +444,25 @@ Expr* Parser::ParseConditionalExpr(void)
 {
     auto cond = ParseLogicalOrExpr();
     if (Try('?')) {
+        if (!cond->Ty()->IsScalar()) {
+            Error("scalar is required");
+        }
+
         auto exprTrue = ParseExpr();
         Expect(':');
         auto exprFalse = ParseConditionalExpr();
+
+        if (cond->ToConstant()) {
+            // TODO(wgtdkp): evaluate true/false
+            if (consCond->IVal() != 0) {
+                _unit->Delete(exprFalse);
+                return exprTrue;
+            } else {
+                _unit->Delete(exprTrue);
+                return exprFalse;
+            }
+        }
+
         return _unit->NewConditionalOp(cond, exprTrue, exprFalse);
     }
     
@@ -513,7 +531,7 @@ Expr* Parser::ParseAssignExpr(void)
 
     default:
         PutBack();
-        return lhs;
+        return lhs; // Could be constant
     }
 
     return _unit->NewBinaryOp('=', lhs, rhs);
@@ -1162,8 +1180,6 @@ int Parser::ParseArrayLength(void)
     if (!EvaluateConstantExpr(len, expr)) {
         Error("expect constant expression");
     }
-
-    Expect(']');
     
     return len;
 }
@@ -1726,6 +1742,6 @@ FuncDef* Parser::ParseFuncDef(void)
 
 bool Parser::EvaluateConstantExpr(int& val, const Expr* expr)
 {
-    
+    val = 5;
     return true;
 }
