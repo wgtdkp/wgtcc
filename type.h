@@ -102,18 +102,31 @@ public:
     bool IsArithm(void) const { return (nullptr != ToArithmType()); }
 
     virtual VoidType* ToVoidType(void) { return nullptr; }
+    
     virtual const VoidType* ToVoidType(void) const { return nullptr; }
+    
     virtual ArithmType* ToArithmType(void) { return nullptr; }
+    
     virtual const ArithmType* ToArithmType(void) const { return nullptr; }
+    
     virtual ArrayType* ToArrayType(void) { return nullptr; }
+    
     virtual const ArrayType* ToArrayType(void) const { return nullptr; }
+    
     virtual FuncType* ToFuncType(void) { return nullptr; }
+    
     virtual const FuncType* ToFuncType(void) const { return nullptr; }
+    
     virtual PointerType* ToPointerType(void) { return nullptr; }
+    
     virtual const PointerType* ToPointerType(void) const { return nullptr; }
+    
     virtual DerivedType* ToDerivedType(void) { return nullptr; }
+    
     virtual const DerivedType* ToDerivedType(void) const { return nullptr; }
+    
     virtual StructUnionType* ToStructUnionType(void) { return nullptr; }
+    
     virtual const StructUnionType* ToStructUnionType(void) const { return nullptr; }
 
 
@@ -266,6 +279,21 @@ protected:
         : DerivedType(derived, _machineWord) {}
 };
 
+class StringType: public PointerType
+{
+    friend class Type;
+
+public:
+    ~StringType(void) {}
+
+    virtual bool operator==(const Type& other) const;
+    virtual bool Compatible(const Type& other) const;
+
+protected:
+    StringType(void)
+        : PointerType(Type::NewArithmType(T_CHAR)) {
+    }
+};
 
 class ArrayType : public PointerType
 {
@@ -312,7 +340,6 @@ protected:
         SetComplete(len > 0);	//����len < 0,��ô�����Ͳ�����
         SetWidth(len > 0 ? len * derived->Width() : 0);
         SetQual(Q_CONST);
-
     }
 };
 
@@ -351,12 +378,16 @@ class StructUnionType : public Type
 
 public:
     ~StructUnionType(void) {/*TODO: delete _env ?*/ }
+    
     virtual StructUnionType* ToStructUnionType(void) { return this; }
+    
     virtual const StructUnionType* ToStructUnionType(void) const { return this; }
+    
     virtual bool operator==(const Type& other) const;
+    
     virtual bool Compatible(const Type& other) const;
-    Variable* Find(const char* name);
-    const Variable* Find(const char* name) const;
+
+    Variable* Find(const char* name) const;
 
     // struct/union
     void AddMember(const char* name, Type* type);

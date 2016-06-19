@@ -25,7 +25,7 @@ public:
         //delete _lexer; 
     }
 
-    Expr* ParseConstant(const Token* tok);
+    Constant* ParseConstant(const Token* tok);
     Expr* ParseString(const Token* tok);
     Expr* ParseGeneric(void);
 
@@ -95,8 +95,10 @@ public:
     Type* ParseAbstractDeclarator(Type* type);
 
     //initializer
-    Expr* ParseInitDeclarator(Type* type, int storageSpec, int funcSpec);
-    //Expr* ParseInit
+    Stmt* ParseInitializer(Variable* var);
+    Stmt* ParseArrayInitializer(Variable* arr);
+    Stmt* ParseStructInitializer(Variable* var);
+    Stmt* ParseInitDeclarator(Type* type, int storageSpec, int funcSpec);
 
     /************* Statements ***************/
     Stmt* ParseStmt(void);

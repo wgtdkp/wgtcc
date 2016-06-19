@@ -255,17 +255,15 @@ bool FuncType::Compatible(const Type& other) const
     return true;
 }
 
-/********* StructUnionType ***********/
+/*
+ * StructUnionType
+ */
 
 StructUnionType::StructUnionType(bool isStruct)
         :  Type(0, false), _isStruct(isStruct), _mapMember(new Env()) {
 }
 
-Variable* StructUnionType::Find(const char* name) {
-    return _mapMember->FindVar(name);
-}
-
-const Variable* StructUnionType::Find(const char* name) const {
+Variable* StructUnionType::Find(const char* name) const {
     return _mapMember->FindVar(name);
 }
 
@@ -283,7 +281,7 @@ bool StructUnionType::operator==(const Type& other) const
     auto structUnionType = other.ToStructUnionType();
     if (nullptr == structUnionType)
         return false;
-        
+
     return *_mapMember == *structUnionType->_mapMember;
 }
 

@@ -81,19 +81,93 @@ ConditionalOp* ConditionalOp::TypeChecking(void)
     return this;
 }
 
+// TODO(wgtdkp):
+bool BinaryOp::EvaluateConstant(Constant* cons)
+{
+    bool res = true;
+    switch (_op) {
+    case '+':
+        // TODO(wgtdkp):
+        //res &= _lhs->EvaluateConstant(cons);
+        //res &= _rhs->EvaluateConstant(cons);
+        //if (res) {
+        //    if (_ty->Is)
+        //}
+    case '-':
+    case '*':
+    case '/':
+    case '%':
+    case '<':
+    case '>':
+    case '|':
+    case '&':
+    case '^':
+    case Token::LEFT_OP:
+    case Token::RIGHT_OP:
+    case Token::AND_OP:
+    case Token::OR_OP:
+        // TODO(wgtdkp):
+        //if (_lhs->EvaluateConstant(cons) 
+        //        && _rhs->EvaluateConstant(cons)) {
+        //    
+        //    return true;
+        //}
+        return false;
+
+    // N1548 6.6 [3]
+    // "Constant expressions shall not contain assignment"
+    case '=':
+    case ',': // TOOD(wgtdkp): Not simple as such
+        return false;
+    default:
+        assert(0);
+    }
+}
+
 BinaryOp* BinaryOp::TypeChecking(void)
 {
     switch (_op) {
-    case '[': return SubScriptingOpTypeChecking();
-    case '*': case '/': case '%': return MultiOpTypeChecking();
-    case '+': case '-':return AdditiveOpTypeChecking();
-    case Token::LEFT_OP: case Token::RIGHT_OP: return ShiftOpTypeChecking();
-    case '<': case '>': case Token::LE_OP: case Token::GE_OP: return RelationalOpTypeChecking();
-    case Token::EQ_OP: case Token::NE_OP: return EqualityOpTypeChecking();
-    case '&': case '^': case '|': return BitwiseOpTypeChecking();
-    case Token::AND_OP: case Token::OR_OP: return LogicalOpTypeChecking();
-    case '=': return AssignOpTypeChecking();
-    default: assert(0); return nullptr; //make compiler happy
+    case '[':
+        return SubScriptingOpTypeChecking();
+
+    case '*':
+    case '/':
+    case '%':
+        return MultiOpTypeChecking();
+
+    case '+':
+    case '-':
+        return AdditiveOpTypeChecking();
+
+    case Token::LEFT_OP:
+    case Token::RIGHT_OP:
+        return ShiftOpTypeChecking();
+
+    case '<':
+    case '>':
+    case Token::LE_OP:
+    case Token::GE_OP:
+        return RelationalOpTypeChecking();
+
+    case Token::EQ_OP:
+    case Token::NE_OP:
+        return EqualityOpTypeChecking();
+
+    case '&':
+    case '^':
+    case '|':
+        return BitwiseOpTypeChecking();
+
+    case Token::AND_OP:
+    case Token::OR_OP:
+        return LogicalOpTypeChecking();
+
+    case '=':
+        return AssignOpTypeChecking();
+
+    default:
+        assert(0);
+        return nullptr; //make compiler happy
     }
 }
 
@@ -115,11 +189,11 @@ BinaryOp* BinaryOp::MemberRefOpTypeChecking(const char* rhsName)
     StructUnionType* structUnionType;
     if (Token::PTR_OP == _op) {
         auto pointer = _lhs->Ty()->ToPointerType();
-        if (nullptr == pointer) {
+        if (pointer == nullptr) {
             Error("pointer expected for operator '->'");
         } else {
             structUnionType = pointer->Derived()->ToStructUnionType();
-            if (nullptr == structUnionType)
+            if (structUnionType == nullptr)
                 Error("pointer to struct/union expected");
         }
     } else {
@@ -345,6 +419,35 @@ FuncCall* FuncCall::TypeChecking(void)
     return this;
 }
 
+/*
+ * Variable
+ */
+
+Variable* Variable::GetStructMember(const char* name)
+{
+    auto type = _ty->ToStructUnionType();
+    assert(type);
+
+    auto member = type->Find(name);
+    if (member == nullptr)
+        return nullptr;
+
+    member->SetOffset(member->Offset() + _offset);
+
+    return member;
+}
+
+Variable* Variable::GetArrayElement(size_t idx)
+{
+    auto type = _ty->ToArrayType();
+    assert(type);
+
+    auto eleType = type->Derived();
+    auto offset = _offset + eleType->Width() * idx;
+
+    return TranslationUnit::NewVariable(eleType, offset);
+}
+
 
 ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
 {
@@ -407,12 +510,12 @@ Variable* TranslationUnit::NewVariable(Type* type, int offset)
     return new Variable(type, offset);
 }
 
-Constant* TranslationUnit::NewConstantInteger(ArithmType* type, unsigned long long val)
+Constant* TranslationUnit::NewConstantInteger(ArithmType* type, long long val)
 {
     return new Constant(type, val);
 }
 
-Constant* TranslationUnit::NewConstantFloat(ArithmType* type, long double val)
+Constant* TranslationUnit::NewConstantFloat(ArithmType* type, double val)
 {
     return new Constant(type, val);
 }

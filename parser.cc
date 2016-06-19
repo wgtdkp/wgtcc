@@ -1,8 +1,11 @@
-#include <string>
 #include "parser.h"
-#include "type.h"
+
 #include "env.h"
 #include "error.h"
+#include "type.h"
+
+#include <set>
+#include <string>
 
 using namespace std;
 
@@ -69,7 +72,9 @@ Expr* Parser::ParsePrimaryExpr(void)
         return nullptr;
 
     auto tok = Next();
-    if (tok->IsEOF()) return nullptr;
+    if (tok->IsEOF())
+        return nullptr;
+
     if (tok->Tag() == '(') {
         auto expr = ParseExpr();
         Expect(')');
@@ -87,31 +92,47 @@ Expr* Parser::ParsePrimaryExpr(void)
         return ParseGeneric();
     } 
 
-    //TODO: error 
-    return nullptr;
+    //TODO: error
+    Error("Expect expression");
+
+    return nullptr; // Make compiler happy
 }
 
-Expr* Parser::ParseConstant(const Token* tok)
+Constant* Parser::ParseConstant(const Token* tok)
 {
     assert(tok->IsConstant());
-    return nullptr;
+
+    if (tok->Tag() == Token::I_CONSTANT) {
+        auto ival = atoi(tok->Val());
+        auto type = Type::NewArithmType(T_SIGNED | T_INT);
+        return TranslationUnit::NewConstantInteger(type, ival);
+    } else {
+        auto fval = atoi(tok->Val());
+        auto type = Type::NewArithmType(T_DOUBLE);
+        return TranslationUnit::NewConstantFloat(type, fval);
+    }
 }
 
+// TODO(wgtdkp):
 Expr* Parser::ParseString(const Token* tok)
 {
     assert(tok->IsString());
+    assert(0);
     return nullptr;
 }
 
+// TODO(wgtdkp):
 Expr* Parser::ParseGeneric(void)
 {
+    assert(0);
     return nullptr;
 }
 
 Expr* Parser::ParsePostfixExpr(void)
 {
     auto tok = Next();
-    if (tok->IsEOF()) return nullptr;
+    if (tok->IsEOF())
+        return nullptr;
 
     if ('(' == tok->Tag() && IsTypeName(Peek())) {
         //compound literals
@@ -488,6 +509,7 @@ Expr* Parser::ParseAssignExpr(void)
         break;
 
     default:
+        PutBack();
         return lhs;
     }
 
@@ -741,8 +763,14 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             typeSpec |= T_ENUM;
             break;
         case Token::ATOMIC:\
-            assert(false);// if (Peek()->Tag() != '(')		goto atomic_qual; if (typeSpec != 0) goto error;
-                                    //type = ParseAtomicSpec();  typeSpec |= T_ATOMIC; break;
+            assert(false);
+            //if (Peek()->Tag() != '(')
+            //    goto atomic_qual;
+            //if (typeSpec != 0)
+            //    goto error;
+            //type = ParseAtomicSpec();
+            //typeSpec |= T_ATOMIC;
+            //break;
         default:
             if (0 == typeSpec && IsTypeName(tok)) {
                 type = _topEnv->FindType(tok->Val());
@@ -871,7 +899,10 @@ Type* Parser::ParseEnumerator(ArithmType* type)
             //int enumVal = EvaluateConstant(constExpr);
             //val = enumVal;
         }
-        auto Constant = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), val++);
+
+        auto Constant = TranslationUnit::NewConstantInteger(
+                Type::NewArithmType(T_INT), val++);
+
         _topEnv->InsertConstant(enumName, Constant);
 
         Try(',');
@@ -1188,17 +1219,87 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
     return ModifyBase(ret, pointerType, newBase);
 }
 
-//TODO:: 缓一缓
-Expr* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
+/*
+ * Initialization is translated into assignment expression
+ */
+Stmt* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 {
     auto var = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
-    if (Try('=')) {
-        //TODO:
-        //auto rhs = ParseInitializer();
-        //return TranslationUnit::NewBinaryOp('=', var, rhs);
-    }
-    
+    if (Try('='))
+        return ParseInitializer(var);
+
     return nullptr;
+}
+
+Stmt* Parser::ParseInitializer(Variable* var)
+{
+    auto type = var->Ty();
+    Stmt* stmt;
+    if (Try('{')) {
+        if (type->ToArrayType()) {
+            // Expect array initializer
+            return ParseArrayInitializer(var);
+        } else if (type->ToStructUnionType()) {
+            // Expect struct/union initializer
+            return ParseStructInitializer(var);
+        }
+    }
+
+    Expr* rhs = ParseAssignExpr();
+
+    return TranslationUnit::NewBinaryOp('=', var, rhs);
+}
+
+Stmt* Parser::ParseArrayInitializer(Variable* arr)
+{
+    assert(arr->Ty()->ToArrayType());
+
+    size_t defaultIdx = 0;
+    std::set<size_t> idxSet;
+    std::list<Stmt*> stmts;
+
+    while (true) {
+        auto tok = Next();
+        if (tok->Tag() == '}')
+            break;
+
+        if (tok->Tag() == '[') {
+            auto constExpr = ParseConstantExpr();
+            // TODO(wgtdkp): make sure it is constant integer!
+
+            size_t idx = constExpr->IVal();
+            idxSet.insert(idx);
+            // TODO(wgtdkp): GetArrayElement() create new object
+            // Will there be memory leak?
+            auto ele = arr->GetArrayElement(idx);
+            Expect(']');
+            Expect('=');
+
+            stmts.push_back(ParseInitializer(ele));
+        } else {
+            // If not specified designator,
+            // the default index INC from 0 and jump over designators
+            while (idxSet.find(defaultIdx) != idxSet.end())
+                defaultIdx++;
+            
+            auto ele = arr->GetArrayElement(defaultIdx);
+            stmts.push_back(ParseInitializer(ele));
+        }
+
+        // Needless comma at the end is allowed
+        if (!Try(',')) {
+            if (Peek()->Tag() != '}') {
+                Error("expect ',' or '}'");
+            }
+        }
+    }
+
+    return TranslationUnit::NewCompoundStmt(stmts);
+}
+
+Stmt* Parser::ParseStructInitializer(Variable* var)
+{
+
 }
 
 
@@ -1621,5 +1722,6 @@ FuncDef* Parser::ParseFuncDef(void)
 
 bool Parser::EvaluateConstantExpr(int& val, const Expr* expr)
 {
+    
     return true;
 }

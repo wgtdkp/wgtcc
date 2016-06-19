@@ -35,7 +35,9 @@ class ASTNode
 {
 public:
     virtual ~ASTNode(void) {}
+    
     virtual void Accept(Visitor* v) = 0;
+
 protected:
     ASTNode(void) {}
 
@@ -61,6 +63,7 @@ class EmptyStmt : public Stmt
 
 public:
     virtual ~EmptyStmt(void) {}
+    
     virtual void Accept(Visitor* v);
 
 protected:
@@ -76,7 +79,9 @@ class LabelStmt : public Stmt
 
 public:
     ~LabelStmt(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     int Tag(void) const { return Tag(); }
 
 protected:
@@ -87,6 +92,7 @@ private:
         static int tag = 0;
         return ++tag;
     }
+    
     int _tag; // 使用整型的tag值，而不直接用字符串
 };
 
@@ -114,7 +120,9 @@ class JumpStmt : public Stmt
 
 public:
     virtual ~JumpStmt(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     void SetLabel(LabelStmt* label) { _label = label; }
 
 protected:
@@ -130,6 +138,7 @@ class ReturnStmt: public Stmt
 
 public:
     virtual ~ReturnStmt(void) {}
+    
     virtual void Accept(Visitor* v);
     
 protected:
@@ -145,6 +154,7 @@ class CompoundStmt : public Stmt
 
 public:
     virtual ~CompoundStmt(void) {}
+    
     virtual void Accept(Visitor* v);
 
 protected:
@@ -157,6 +167,16 @@ private:
 
 
 /********** Expr ************/
+/*
+ * Expr
+ *      BinaryOp
+ *      UnaryOp
+ *      ConditionalOp
+ *      FuncCall
+ *      Variable
+ *          Constant
+ *      TempVar
+ */
 
 class Expr : public Stmt
 {
@@ -172,16 +192,28 @@ public:
 
     virtual bool IsLVal(void) const = 0;
 
+    //virtual bool EvaluateConstant(Constant* cons) = 0;
+
+    virtual Constant* ToConstant(void) {
+        return nullptr;
+    }
+
 protected:
-    /*you can construct a expression without specifying a type,
-    then the type should be evaluated in TypeChecking() */
+    /*
+     * You can construct a expression without specifying a type,
+     * then the type should be evaluated in TypeChecking()
+     */
     explicit Expr(Type* type, bool isConstant = false)
-        : _ty(type) {}
-    /*do type checking and evaluating the expression type;
-    called after construction*/
+        : _ty(type), _isConsant(isConstant) {}
+    
+    /*
+     * Do type checking and evaluating the expression type;
+     * called after construction
+     */
     virtual Expr* TypeChecking(void) = 0;
 
     Type* _ty;
+    bool _isConsant;
 };
 
 /***********************************************************
@@ -198,25 +230,41 @@ class BinaryOp : public Expr
 
 public:
     virtual ~BinaryOp(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     //like member ref operator is a lvalue
     virtual bool IsLVal(void) const { return false; }
+
+    virtual bool EvaluateConstant(Constant* cons);
 
 protected:
     BinaryOp(int op, Expr* lhs, Expr* rhs)
         :Expr(nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
 
-    //TODO: 1.type checking; 2. evalute the type;
+    // TODO: 
+    //  1.type checking;
+    //  2. evalute the type;
     virtual BinaryOp* TypeChecking(void);// { return this; }
+    
     BinaryOp* SubScriptingOpTypeChecking(void);
+    
     BinaryOp* MemberRefOpTypeChecking(const char* rhsName);
+    
     BinaryOp* MultiOpTypeChecking(void);
+    
     BinaryOp* AdditiveOpTypeChecking(void);
+    
     BinaryOp* ShiftOpTypeChecking(void);
+    
     BinaryOp* RelationalOpTypeChecking(void);
+    
     BinaryOp* EqualityOpTypeChecking(void);
+    
     BinaryOp* BitwiseOpTypeChecking(void);
+    
     BinaryOp* LogicalOpTypeChecking(void);
+    
     BinaryOp* AssignOpTypeChecking(void);
 
     int _op;
@@ -244,10 +292,15 @@ protected:
         : Expr(type), _op(op), _operand(operand) {}
 
     virtual UnaryOp* TypeChecking(void);
+    
     UnaryOp* IncDecOpTypeChecking(void);
+    
     UnaryOp* AddrOpTypeChecking(void);
+    
     UnaryOp* DerefOpTypeChecking(void);
+    
     UnaryOp* UnaryArithmOpTypeChecking(void);
+    
     UnaryOp* CastOpTypeChecking(void);
 
     int _op;
@@ -261,12 +314,15 @@ class ConditionalOp : public Expr
 
 public:
     virtual ~ConditionalOp(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     virtual bool IsLVal(void) const { return false; }
 
 protected:
     ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
         : Expr(nullptr), _cond(cond), _exprTrue(exprTrue), _exprFalse(exprFalse) {}
+    
     virtual ConditionalOp* TypeChecking(void);
 
 private:
@@ -304,15 +360,21 @@ class Variable : public Expr
 public:
     static const int TYPE = -1;
     static const int VAR = 0;
+    
     ~Variable(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     bool IsVar(void) const {
         return _offset >= 0;
     }
 
     int Offset(void) const { return _offset; }
-    int Storage(void) const { return _storage; }
+        
     void SetOffset(int offset) { _offset = offset; }
+    
+    int Storage(void) const { return _storage; }
+
     void SetStorage(int storage) { _storage = storage; }
 
     //of course a variable is a lvalue expression
@@ -328,10 +390,15 @@ public:
     }
 
     virtual Constant* ToConstant(void) { return nullptr; }
+    
     virtual const Constant* ToConstant(void) const { return nullptr; }
 
+    Variable* GetStructMember(const char* name);
+
+    Variable* GetArrayElement(size_t idx);
+
 protected:
-    Variable(Type* type, int offset = VAR, bool isConstant = false)
+    Variable(Type* type, int offset=VAR, bool isConstant=false)
         : Expr(type, isConstant), _storage(0), _offset(offset) {}
     //do nothing
     virtual Variable* TypeChecking(void) { return this; }
@@ -352,18 +419,26 @@ class Constant : public Variable
 
 public:
     ~Constant(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     virtual bool IsLVal(void) const { return false; }
-    unsigned long long IVal(void) const { return _ival; }
-    long double FVal(void) const { return _fval; }
+    
+    long long IVal(void) const { return _ival; }
+    
+    double FVal(void) const { return _fval; }
+
+    virtual Constant* ToConstant(void) {
+        return this;
+    }
 
 protected:
-    Constant(ArithmType* type, unsigned long long val)
+    Constant(ArithmType* type, long long val)
         : Variable(type, VAR, true), _ival(val) {
         assert(type->IsInteger());
     }
 
-    Constant(ArithmType* type, long double val)
+    Constant(ArithmType* type, double val)
         : Variable(type, VAR, true), _fval(val) {
         assert(type->IsFloat());
     }
@@ -372,8 +447,8 @@ protected:
 
 private:
     union {
-        unsigned long long _ival;
-        long double _fval;
+        long long _ival;
+        double _fval;
     };
 };
 
@@ -451,8 +526,8 @@ public:
     static ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
     static FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
     static Variable* NewVariable(Type* type, int offset = 0);
-    static Constant* NewConstantInteger(ArithmType* type, unsigned long long val);
-    static Constant* NewConstantFloat(ArithmType* type, long double val);
+    static Constant* NewConstantInteger(ArithmType* type, long long val);
+    static Constant* NewConstantFloat(ArithmType* type, double val);
     static TempVar* NewTempVar(Type* type);
     static UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
 

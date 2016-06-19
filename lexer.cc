@@ -29,9 +29,14 @@ static inline bool IsHex(char ch)
             || IsDigit(ch);
 }
 
-static void ReadConstant(const char*& p)
+/*
+ * Return: true, is integer
+ */
+static bool ReadConstant(const char*& p)
 {
-    bool sawEP = false, sawSign = false;
+    bool sawEP = false;
+    bool sawSign = false;
+    bool sawDot = false;
     
     for (; 0 != p[0]; p++) {
         if (IsHex(p[0]))
@@ -40,7 +45,8 @@ static void ReadConstant(const char*& p)
         switch (p[0]) {
         //case '0' ... '9': 
         //case 'a' ... 'f': case 'A' ... 'F':
-        case '.': 
+        case '.':
+            sawDot = true;
         case 'u':
         case 'U':
         case 'l':
@@ -59,11 +65,11 @@ static void ReadConstant(const char*& p)
         case '+':
         case '-':
             if (!sawEP || sawSign)
-                return;
+                return !(sawDot || sawEP);
             sawSign = true;
             break;
         default:
-            return;
+            return !(sawDot || sawEP);
         }
     }
 }
@@ -370,16 +376,17 @@ void Lexer::Tokenize(void)
             } else if (IsDigit(p[0])) {
             constant_handler:
                 _tokBegin = p;
-                ReadConstant(p);
+                auto isInteger = ReadConstant(p);
                 _tokEnd = p;
 
-                tokTag = Token::CONSTANT;
+                tokTag = isInteger? Token::I_CONSTANT: Token::F_CONSTANT;
                 _tokBuf.push_back(NewToken(tokTag, _tokBegin, _tokEnd));
                 continue;
             } else {
                 //TODO: set error: invalid character.
                 tokTag = Token::INVALID;
-                Error(_fileName, _line, _column, "invalid character '%c'", p[0]);
+                Error(_fileName, _line, _column,
+                        "invalid character '%c'", p[0]);
                 //return;
             }
             ++p; break;
