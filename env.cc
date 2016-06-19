@@ -91,27 +91,27 @@ const Variable* Env::FindVar(const char* name) const
 ���������Ѿ��ڷ��ű��ڣ���ô���������ͣ�������Ȼ�������ڴ�й¶���ɵĲ��������Ϳ��ܱ�����Ҳ����û�б����ã�
 ������ͻӦ���ɵ��÷����飻
 */
-Type* Env::InsertType(const char* name, Type* type)
+void Env::InsertType(const char* name, Variable* var)
 {
+    assert(!var->IsVar());
     //auto iter = _symbMap.find(name);
     //�������������������ͣ�Ҳ���������ǲ����������ͣ���Ӧ���޸Ĵ˲�����������Ϊ������
     assert(nullptr == FindTypeInCurScope(name));
     //assert(!iter->second->Ty()->IsComplete());
-    auto var = TranslationUnit::NewVariable(type, Variable::TYPE);
+    //auto var = TranslationUnit::NewVariable(type, Variable::TYPE);
     _symbMap[name] = var;
-    
-    return var->Ty();
 }
 
-Variable* Env::InsertVar(const char* name, Type* type)
+void Env::InsertVar(const char* name, Variable* var)
 {
+    assert(var->IsVar());
     //�������ظ����壬��Ӧ���ɵ��÷�����
     assert(nullptr == FindVarInCurScope(name));
-    auto var = TranslationUnit::NewVariable(type, _offset);
-    _symbMap[name] = var;
-    _offset += type->Align();
+    //auto var = TranslationUnit::NewVariable(type, _offset);
+    var->SetOffset(_offset);
     
-    return var;
+    _symbMap[name] = var;
+    _offset += var->Ty()->Align();
 }
 
 bool Env::operator==(const Env& other) const

@@ -39,8 +39,8 @@ public:
     Variable* FindVar(const char* name);
     const Variable* FindVar(const char* name) const;
 
-    Type* InsertType(const char* name, Type* type);
-    Variable* InsertVar(const char* name, Type* type);
+    void InsertType(const char* name, Variable* var);
+    void InsertVar(const char* name, Variable* var);
 
     bool operator==(const Env& other) const;
     Env* Parent(void) { return _parent; }

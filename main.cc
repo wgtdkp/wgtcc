@@ -30,10 +30,7 @@ int main(int argc, char* argv[])
     */
 
     Parser parser(&lexer);
-    auto unit = parser.ParseTranslationUnit();
-    if (unit == nullptr) {
-        Error("parse failed");
-    }
-
+    parser.ParseTranslationUnit();
+    
     return 0;
 }

@@ -29,22 +29,28 @@ class CompoundStmt;
 
 class FuncDef;
 
+class MemPool;
+class TranslationUnit;
+
 /************ AST Node *************/
 
 class ASTNode
 {
+    friend class TranslationUnit;
+
 public:
     virtual ~ASTNode(void) {}
     
     virtual void Accept(Visitor* v) = 0;
 
 protected:
-    ASTNode(void) {}
+    explicit ASTNode(MemPool* pool): _pool(pool) {}
 
 private:
     //ASTNode(void);  //禁止直接创建Node
 
     //Coordinate _coord;
+    MemPool* _pool;
 };
 
 typedef ASTNode ExtDecl;
@@ -54,8 +60,13 @@ typedef ASTNode ExtDecl;
 
 class Stmt : public ASTNode
 {
+public:
+    virtual ~Stmt(void){}
 
+protected:
+    explicit Stmt(MemPool* pool): ASTNode(pool) {}
 };
+
 
 class EmptyStmt : public Stmt
 {
@@ -67,10 +78,11 @@ public:
     virtual void Accept(Visitor* v);
 
 protected:
-    EmptyStmt(void) {}
+    explicit EmptyStmt(MemPool* pool): Stmt(pool) {}
 
 private:
 };
+
 
 // 构建此类的目的在于，在目标代码生成的时候，能够生成相应的label
 class LabelStmt : public Stmt
@@ -85,7 +97,8 @@ public:
     int Tag(void) const { return Tag(); }
 
 protected:
-    LabelStmt(void) : _tag(GenTag()) {}
+    explicit LabelStmt(MemPool* pool)
+            : Stmt(pool), _tag(GenTag()) {}
 
 private:
     static int GenTag(void) {
@@ -96,6 +109,7 @@ private:
     int _tag; // 使用整型的tag值，而不直接用字符串
 };
 
+
 class IfStmt : public Stmt
 {
     friend class TranslationUnit;
@@ -105,14 +119,15 @@ public:
     virtual void Accept(Visitor* v);
 
 protected:
-    IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
-        : _cond(cond), _then(then), _else(els) {}
+    IfStmt(MemPool* pool, Expr* cond, Stmt* then, Stmt* els = nullptr)
+        : Stmt(pool), _cond(cond), _then(then), _else(els) {}
 
 private:
     Expr* _cond;
     Stmt* _then;
     Stmt* _else;
 };
+
 
 class JumpStmt : public Stmt
 {
@@ -126,7 +141,8 @@ public:
     void SetLabel(LabelStmt* label) { _label = label; }
 
 protected:
-    explicit JumpStmt(LabelStmt* label) : _label(label) {}
+    JumpStmt(MemPool* pool, LabelStmt* label)
+            : Stmt(pool), _label(label) {}
 
 private:
     LabelStmt* _label;
@@ -142,7 +158,8 @@ public:
     virtual void Accept(Visitor* v);
     
 protected:
-    explicit ReturnStmt(Expr* expr): _expr(expr) {}
+    ReturnStmt(MemPool* pool, Expr* expr)
+            : Stmt(pool), _expr(expr) {}
 
 private:
     Expr* _expr;
@@ -158,8 +175,8 @@ public:
     virtual void Accept(Visitor* v);
 
 protected:
-    explicit CompoundStmt(const std::list<Stmt*>& stmts)
-        : _stmts(stmts) {}
+    CompoundStmt(MemPool* pool, const std::list<Stmt*>& stmts)
+        : Stmt(pool), _stmts(stmts) {}
 
 private:
     std::list<Stmt*> _stmts;
@@ -203,8 +220,8 @@ protected:
      * You can construct a expression without specifying a type,
      * then the type should be evaluated in TypeChecking()
      */
-    explicit Expr(Type* type, bool isConstant = false)
-        : _ty(type), _isConsant(isConstant) {}
+    Expr(MemPool* pool, Type* type, bool isConstant = false)
+        : Stmt(pool), _ty(type), _isConsant(isConstant) {}
     
     /*
      * Do type checking and evaluating the expression type;
@@ -215,6 +232,7 @@ protected:
     Type* _ty;
     bool _isConsant;
 };
+
 
 /***********************************************************
 '+', '-', '*', '/', '%', '<', '>', '<<', '>>', '|', '&', '^'
@@ -239,14 +257,14 @@ public:
     virtual bool EvaluateConstant(Constant* cons);
 
 protected:
-    BinaryOp(int op, Expr* lhs, Expr* rhs)
-        :Expr(nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
+    BinaryOp(MemPool* pool, int op, Expr* lhs, Expr* rhs)
+        :Expr(pool, nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
 
     // TODO: 
     //  1.type checking;
     //  2. evalute the type;
-    virtual BinaryOp* TypeChecking(void);// { return this; }
-    
+    virtual BinaryOp* TypeChecking(void);
+
     BinaryOp* SubScriptingOpTypeChecking(void);
     
     BinaryOp* MemberRefOpTypeChecking(const char* rhsName);
@@ -272,6 +290,7 @@ protected:
     Expr* _rhs;
 };
 
+
 /************* Unary Operator ****************/
 class UnaryOp : public Expr
 {
@@ -288,8 +307,8 @@ public:
     }
 
 protected:
-    UnaryOp(int op, Expr* operand, Type* type = nullptr)
-        : Expr(type), _op(op), _operand(operand) {}
+    UnaryOp(MemPool* pool, int op, Expr* operand, Type* type = nullptr)
+        : Expr(pool, type), _op(op), _operand(operand) {}
 
     virtual UnaryOp* TypeChecking(void);
     
@@ -307,6 +326,7 @@ protected:
     Expr* _operand;
 };
 
+
 // cond ？ true ： false
 class ConditionalOp : public Expr
 {
@@ -320,8 +340,9 @@ public:
     virtual bool IsLVal(void) const { return false; }
 
 protected:
-    ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
-        : Expr(nullptr), _cond(cond), _exprTrue(exprTrue), _exprFalse(exprFalse) {}
+    ConditionalOp(MemPool* pool, Expr* cond, Expr* exprTrue, Expr* exprFalse)
+            : Expr(pool, nullptr), _cond(cond), 
+              _exprTrue(exprTrue), _exprFalse(exprFalse) {}
     
     virtual ConditionalOp* TypeChecking(void);
 
@@ -330,6 +351,7 @@ private:
     Expr* _exprTrue;
     Expr* _exprFalse;
 };
+
 
 /************** Function Call ****************/
 class FuncCall : public Expr
@@ -343,14 +365,15 @@ public:
     virtual bool IsLVal(void) const { return false; }
 
 protected:
-    FuncCall(Expr* designator, std::list<Expr*> args)
-        : Expr(nullptr), _designator(designator), _args(args) {}
+    FuncCall(MemPool* pool, Expr* designator, std::list<Expr*> args)
+        : Expr(pool, nullptr), _designator(designator), _args(args) {}
 
     virtual FuncCall* TypeChecking(void);
 
     Expr* _designator;
     std::list<Expr*> _args;
 };
+
 
 /********* Identifier *************/
 class Variable : public Expr
@@ -395,11 +418,11 @@ public:
 
     Variable* GetStructMember(const char* name);
 
-    Variable* GetArrayElement(size_t idx);
+    Variable* GetArrayElement(TranslationUnit* unit, size_t idx);
 
 protected:
-    Variable(Type* type, int offset=VAR, bool isConstant=false)
-        : Expr(type, isConstant), _storage(0), _offset(offset) {}
+    Variable(MemPool* pool, Type* type, int offset=VAR, bool isConstant=false)
+        : Expr(pool, type, isConstant), _storage(0), _offset(offset) {}
     //do nothing
     virtual Variable* TypeChecking(void) { return this; }
 
@@ -433,13 +456,13 @@ public:
     }
 
 protected:
-    Constant(ArithmType* type, long long val)
-        : Variable(type, VAR, true), _ival(val) {
+    Constant(MemPool* pool, ArithmType* type, long long val)
+        : Variable(pool, type, VAR, true), _ival(val) {
         assert(type->IsInteger());
     }
 
-    Constant(ArithmType* type, double val)
-        : Variable(type, VAR, true), _fval(val) {
+    Constant(MemPool* pool, ArithmType* type, double val)
+        : Variable(pool, type, VAR, true), _fval(val) {
         assert(type->IsFloat());
     }
 
@@ -452,6 +475,7 @@ private:
     };
 };
 
+
 //临时变量
 class TempVar : public Expr
 {
@@ -463,8 +487,8 @@ public:
     virtual bool IsLVal(void) const { return true; }
 
 protected:
-    explicit TempVar(Type* type)
-        : Expr(type), _tag(GenTag()) {}
+    TempVar(MemPool* pool, Type* type)
+            : Expr(pool, type), _tag(GenTag()) {}
     virtual TempVar* TypeChecking(void) { return this; }
 
 private:
@@ -475,6 +499,7 @@ private:
 
     int _tag;
 };
+
 
 /*************** Declaration ******************/
 
@@ -487,19 +512,69 @@ public:
     virtual void Accept(Visitor* v);
 
 protected:
-    FuncDef(FuncType* type, CompoundStmt* stmt)
-        : _type(type), _stmt(stmt) {}
+    FuncDef(MemPool* pool, FuncType* type, CompoundStmt* stmt)
+            : ExtDecl(pool), _type(type), _stmt(stmt) {}
 
 private:
     FuncType* _type;
     CompoundStmt* _stmt;
 };
 
+/*
 class Decl : public ExtDecl
 {
 
 };
+*/
 
+class MemPool
+{
+public:
+    MemPool(void) {}
+    virtual ~MemPool(void) {}
+    MemPool(const MemPool& other) = delete;
+    MemPool& operator=(const MemPool& other) = delete;
+
+    virtual void* Alloc(void) = 0;
+    virtual void Free(void* addr) = 0;
+    virtual void Clear(void) = 0;
+};
+
+template <class T>
+class MemPoolImp: public MemPool
+{
+public:
+    MemPoolImp(void) : _root(nullptr) {}
+    MemPoolImp(const MemPool& other) = delete;
+    MemPoolImp& operator=(MemPool& other) = delete;
+    virtual ~MemPoolImp(void) {}
+
+    virtual void* Alloc(void);
+    virtual void Free(void* addr);
+	virtual void Clear(void);
+
+private:
+	enum {
+        COUNT = (4 * 1024) / sizeof(T)
+    };
+    
+    union Chunk {
+        Chunk* _next;
+        char _mem[sizeof(T)];
+    };
+    
+    struct Block {
+        Block(void) {
+            for (size_t i = 0; i < COUNT - 1; i++)
+                _chunks[i]._next = &_chunks[i+1];
+            _chunks[COUNT-1]._next = nullptr;
+        }
+        Chunk _chunks[COUNT];
+    };
+
+    std::vector<Block*> _blocks;
+    Chunk* _root;
+};
 
 class TranslationUnit : public ASTNode
 {
@@ -520,32 +595,55 @@ public:
         return new TranslationUnit();
     }
 
-    /************** Binary Operator ****************/
-    static BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
-    static BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);
-    static ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
-    static FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
-    static Variable* NewVariable(Type* type, int offset = 0);
-    static Constant* NewConstantInteger(ArithmType* type, long long val);
-    static Constant* NewConstantFloat(ArithmType* type, double val);
-    static TempVar* NewTempVar(Type* type);
-    static UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
+    /*
+     * Binary Operator
+     */
+    BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
+    BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);
+    ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
+    FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
+    Variable* NewVariable(Type* type, int offset=0);
+    Constant* NewConstantInteger(ArithmType* type, long long val);
+    Constant* NewConstantFloat(ArithmType* type, double val);
+    TempVar* NewTempVar(Type* type);
+    UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
 
-    /*************** Statement *******************/
-    static EmptyStmt* NewEmptyStmt(void);
-    static IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
-    static JumpStmt* NewJumpStmt(LabelStmt* label);
-    static ReturnStmt* NewReturnStmt(Expr* expr);
-    static LabelStmt* NewLabelStmt(void);
-    static CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
+    /*
+     * Statement
+     */
+    EmptyStmt* NewEmptyStmt(void);
+    IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
+    JumpStmt* NewJumpStmt(LabelStmt* label);
+    ReturnStmt* NewReturnStmt(Expr* expr);
+    LabelStmt* NewLabelStmt(void);
+    CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
 
-    /*************** Function Definition ***************/
-    static FuncDef* NewFuncDef(FuncType* type, CompoundStmt* stmt);
+    /*
+     * Function Definition
+     */
+    FuncDef* NewFuncDef(FuncType* type, CompoundStmt* stmt);
+
+    void Delete(ASTNode* node);
 
 private:
-    TranslationUnit(void) {}
+    TranslationUnit(void): ASTNode(nullptr) {}
 
     std::list<ExtDecl*> _extDecls;
+
+    MemPoolImp<BinaryOp>        _binaryOpPool;
+    MemPoolImp<ConditionalOp>   _conditionalOpPool;
+    MemPoolImp<FuncCall>        _funcCallPool;
+    MemPoolImp<Variable>        _variablePool;
+    MemPoolImp<Constant>        _constantPool;
+    MemPoolImp<TempVar>         _tempVarPool;
+    MemPoolImp<UnaryOp>         _unaryOpPool;
+    MemPoolImp<EmptyStmt>       _emptyStmtPool;
+    MemPoolImp<IfStmt>          _ifStmtPool;
+    MemPoolImp<JumpStmt>        _jumpStmtPool;
+    MemPoolImp<ReturnStmt>      _returnStmtPool;
+    MemPoolImp<LabelStmt>       _labelStmtPool;
+    MemPoolImp<CompoundStmt>    _compoundStmtPool;
+    MemPoolImp<FuncDef>         _funcDefPool;
 };
 
 /*

@@ -390,7 +390,7 @@ public:
     Variable* Find(const char* name) const;
 
     // struct/union
-    void AddMember(const char* name, Type* type);
+    void AddMember(const char* name, Variable* member);
     bool IsStruct(void) const { return _isStruct; }
 
 protected:

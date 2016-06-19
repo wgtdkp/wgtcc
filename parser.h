@@ -17,7 +17,8 @@ class Parser
 {
 public:
     explicit Parser(Lexer* lexer) 
-        : _lexer(lexer), _topEnv(new Env(nullptr)),
+        : _unit(TranslationUnit::NewTranslationUnit()),
+          _lexer(lexer), _topEnv(new Env(nullptr)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -29,7 +30,7 @@ public:
     Expr* ParseString(const Token* tok);
     Expr* ParseGeneric(void);
 
-    TranslationUnit* ParseTranslationUnit(void);
+    void ParseTranslationUnit(void);
 
     /************ Expressions ************/
     
@@ -232,6 +233,8 @@ private:
     typedef std::map<const char*, LabelStmt*, StrCmp> LabelMap;
 
 private:
+    TranslationUnit* _unit;
+
     Lexer* _lexer;
     Env* _topEnv;
     LabelMap _topLabels;

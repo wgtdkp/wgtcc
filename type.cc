@@ -290,9 +290,11 @@ bool StructUnionType::Compatible(const Type& other) const {
     return *this == other;
 }
 
-void StructUnionType::AddMember(const char* name, Type* type)
+void StructUnionType::AddMember(const char* name, Variable* member)
 {
-    auto newMember = _mapMember->InsertVar(name, type);
-    if (!IsStruct())
-        newMember->SetOffset(0);
+    _mapMember->InsertVar(name, member);
+
+    if (!IsStruct()) {
+        member->SetOffset(0);
+    }
 }

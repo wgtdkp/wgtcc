@@ -38,17 +38,14 @@ void Parser::ExitFunc(void) {
     _topLabels.clear();	//清空 label map
 }
 
-TranslationUnit* Parser::ParseTranslationUnit(void)
+void Parser::ParseTranslationUnit(void)
 {
-    auto transUnit = TranslationUnit::NewTranslationUnit();
     while (!Peek()->IsEOF()) {
         if (IsFuncDef())
-            transUnit->Add(ParseFuncDef());
+            _unit->Add(ParseFuncDef());
         else
-            transUnit->Add(ParseDecl());
+            _unit->Add(ParseDecl());
     }
-
-    return transUnit;
 }
 
 Expr* Parser::ParseExpr(void)
@@ -61,7 +58,13 @@ Expr* Parser::ParseCommaExpr(void)
     auto lhs = ParseAssignExpr();
     while (Try(',')) {
         auto rhs = ParseAssignExpr();
-        lhs = TranslationUnit::NewBinaryOp(',', lhs, rhs);
+
+        if (lhs->ToConstant() && rhs->ToConstant()) {
+            // TODO(wgtdkp); Free lhs
+            lhs = rhs;
+        } else {
+            lhs = _unit->NewBinaryOp(',', lhs, rhs);
+        }
     }
     return lhs;
 }
@@ -105,11 +108,11 @@ Constant* Parser::ParseConstant(const Token* tok)
     if (tok->Tag() == Token::I_CONSTANT) {
         auto ival = atoi(tok->Val());
         auto type = Type::NewArithmType(T_SIGNED | T_INT);
-        return TranslationUnit::NewConstantInteger(type, ival);
+        return _unit->NewConstantInteger(type, ival);
     } else {
         auto fval = atoi(tok->Val());
         auto type = Type::NewArithmType(T_DOUBLE);
-        return TranslationUnit::NewConstantFloat(type, fval);
+        return _unit->NewConstantFloat(type, fval);
     }
 }
 
@@ -181,7 +184,7 @@ Expr* Parser::ParseSubScripting(Expr* pointer)
     auto indexExpr = ParseExpr();
     Expect(']');
 
-    return TranslationUnit::NewBinaryOp('[', pointer, indexExpr);
+    return _unit->NewBinaryOp('[', pointer, indexExpr);
 }
 
 
@@ -190,12 +193,12 @@ Expr* Parser::ParseMemberRef(int tag, Expr* lhs)
     auto memberName = Peek()->Val();
     Expect(Token::IDENTIFIER);
     
-    return TranslationUnit::NewMemberRefOp(tag, lhs, memberName);
+    return _unit->NewMemberRefOp(tag, lhs, memberName);
 }
 
 UnaryOp* Parser::ParsePostfixIncDec(int tag, Expr* operand)
 {
-    return TranslationUnit::NewUnaryOp(tag, operand);
+    return _unit->NewUnaryOp(tag, operand);
 }
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
@@ -212,7 +215,7 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
     }
     */
     
-    return TranslationUnit::NewFuncCall(designator, args);
+    return _unit->NewFuncCall(designator, args);
 }
 
 Expr* Parser::ParseUnaryExpr(void)
@@ -265,7 +268,7 @@ Constant* Parser::ParseSizeof(void)
     
     auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
 
-    return TranslationUnit::NewConstantInteger(intType, type->Width());
+    return _unit->NewConstantInteger(intType, type->Width());
 }
 
 Constant* Parser::ParseAlignof(void)
@@ -275,7 +278,7 @@ Constant* Parser::ParseAlignof(void)
     Expect(')');
     auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
     
-    return TranslationUnit::NewConstantInteger(intType, type->Align());
+    return _unit->NewConstantInteger(intType, type->Align());
 }
 
 UnaryOp* Parser::ParsePrefixIncDec(int op)
@@ -283,13 +286,13 @@ UnaryOp* Parser::ParsePrefixIncDec(int op)
     assert(Token::INC_OP == op || Token::DEC_OP == op);
     auto operand = ParseUnaryExpr();
     
-    return TranslationUnit::NewUnaryOp(op, operand);
+    return _unit->NewUnaryOp(op, operand);
 }
 
 UnaryOp* Parser::ParseUnaryOp(int op)
 {
     auto operand = ParseCastExpr();
-    return TranslationUnit::NewUnaryOp(op, operand);
+    return _unit->NewUnaryOp(op, operand);
 }
 
 Type* Parser::ParseTypeName(void)
@@ -308,7 +311,7 @@ Expr* Parser::ParseCastExpr(void)
         auto desType = ParseTypeName();
         Expect(')');
         auto operand = ParseCastExpr();
-        return TranslationUnit::NewUnaryOp(Token::CAST, operand, desType);
+        return _unit->NewUnaryOp(Token::CAST, operand, desType);
     } 
     
     return PutBack(), ParseUnaryExpr();
@@ -320,7 +323,7 @@ Expr* Parser::ParseMultiplicativeExpr(void)
     auto tag = Next()->Tag();
     while ('*' == tag || '/' == tag || '%' == tag) {
         auto rhs = ParseCastExpr();
-        lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
+        lhs = _unit->NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
     
@@ -333,7 +336,7 @@ Expr* Parser::ParseAdditiveExpr(void)
     auto tag = Next()->Tag();
     while ('+' == tag || '-' == tag) {
         auto rhs = ParseMultiplicativeExpr();
-        lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
+        lhs = _unit->NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
     
@@ -346,7 +349,7 @@ Expr* Parser::ParseShiftExpr(void)
     auto tag = Next()->Tag();
     while (Token::LEFT_OP == tag || Token::RIGHT_OP == tag) {
         auto rhs = ParseAdditiveExpr();
-        lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
+        lhs = _unit->NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
     
@@ -360,7 +363,7 @@ Expr* Parser::ParseRelationalExpr(void)
     while (Token::LE_OP == tag || Token::GE_OP == tag 
         || '<' == tag || '>' == tag) {
         auto rhs = ParseShiftExpr();
-        lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
+        lhs = _unit->NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
     
@@ -373,7 +376,7 @@ Expr* Parser::ParseEqualityExpr(void)
     auto tag = Next()->Tag();
     while (Token::EQ_OP == tag || Token::NE_OP == tag) {
         auto rhs = ParseRelationalExpr();
-        lhs = TranslationUnit::NewBinaryOp(tag, lhs, rhs);
+        lhs = _unit->NewBinaryOp(tag, lhs, rhs);
         tag = Next()->Tag();
     }
     
@@ -385,7 +388,7 @@ Expr* Parser::ParseBitiwiseAndExpr(void)
     auto lhs = ParseEqualityExpr();
     while (Try('&')) {
         auto rhs = ParseEqualityExpr();
-        lhs = TranslationUnit::NewBinaryOp('&', lhs, rhs);
+        lhs = _unit->NewBinaryOp('&', lhs, rhs);
     }
     
     return lhs;
@@ -396,7 +399,7 @@ Expr* Parser::ParseBitwiseXorExpr(void)
     auto lhs = ParseBitiwiseAndExpr();
     while (Try('^')) {
         auto rhs = ParseBitiwiseAndExpr();
-        lhs = TranslationUnit::NewBinaryOp('^', lhs, rhs);
+        lhs = _unit->NewBinaryOp('^', lhs, rhs);
     }
     
     return lhs;
@@ -407,7 +410,7 @@ Expr* Parser::ParseBitwiseOrExpr(void)
     auto lhs = ParseBitwiseXorExpr();
     while (Try('|')) {
         auto rhs = ParseBitwiseXorExpr();
-        lhs = TranslationUnit::NewBinaryOp('|', lhs, rhs);
+        lhs = _unit->NewBinaryOp('|', lhs, rhs);
     }
     
     return lhs;
@@ -418,7 +421,7 @@ Expr* Parser::ParseLogicalAndExpr(void)
     auto lhs = ParseBitwiseOrExpr();
     while (Try(Token::AND_OP)) {
         auto rhs = ParseBitwiseOrExpr();
-        lhs = TranslationUnit::NewBinaryOp(Token::AND_OP, lhs, rhs);
+        lhs = _unit->NewBinaryOp(Token::AND_OP, lhs, rhs);
     }
     
     return lhs;
@@ -429,7 +432,7 @@ Expr* Parser::ParseLogicalOrExpr(void)
     auto lhs = ParseLogicalAndExpr();
     while (Try(Token::OR_OP)) {
         auto rhs = ParseLogicalAndExpr();
-        lhs = TranslationUnit::NewBinaryOp(Token::OR_OP, lhs, rhs);
+        lhs = _unit->NewBinaryOp(Token::OR_OP, lhs, rhs);
     }
     
     return lhs;
@@ -442,7 +445,7 @@ Expr* Parser::ParseConditionalExpr(void)
         auto exprTrue = ParseExpr();
         Expect(':');
         auto exprFalse = ParseConditionalExpr();
-        return TranslationUnit::NewConditionalOp(cond, exprTrue, exprFalse);
+        return _unit->NewConditionalOp(cond, exprTrue, exprFalse);
     }
     
     return cond;
@@ -456,52 +459,52 @@ Expr* Parser::ParseAssignExpr(void)
     switch (Next()->Tag()) {
     case Token::MUL_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('*', lhs, rhs);
+        rhs = _unit->NewBinaryOp('*', lhs, rhs);
         break;
 
     case Token::DIV_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('/', lhs, rhs);
+        rhs = _unit->NewBinaryOp('/', lhs, rhs);
         break;
 
     case Token::MOD_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('%', lhs, rhs);
+        rhs = _unit->NewBinaryOp('%', lhs, rhs);
         break;
 
     case Token::ADD_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('+', lhs, rhs);
+        rhs = _unit->NewBinaryOp('+', lhs, rhs);
         break;
 
     case Token::SUB_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('-', lhs, rhs);
+        rhs = _unit->NewBinaryOp('-', lhs, rhs);
         break;
 
     case Token::LEFT_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp(Token::LEFT_OP, lhs, rhs);
+        rhs = _unit->NewBinaryOp(Token::LEFT_OP, lhs, rhs);
         break;
 
     case Token::RIGHT_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp(Token::RIGHT_OP, lhs, rhs);
+        rhs = _unit->NewBinaryOp(Token::RIGHT_OP, lhs, rhs);
         break;
 
     case Token::AND_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('&', lhs, rhs);
+        rhs = _unit->NewBinaryOp('&', lhs, rhs);
         break;
 
     case Token::XOR_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('^', lhs, rhs);
+        rhs = _unit->NewBinaryOp('^', lhs, rhs);
         break;
 
     case Token::OR_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = TranslationUnit::NewBinaryOp('|', lhs, rhs);
+        rhs = _unit->NewBinaryOp('|', lhs, rhs);
         break;
 
     case '=':
@@ -513,7 +516,7 @@ Expr* Parser::ParseAssignExpr(void)
         return lhs;
     }
 
-    return TranslationUnit::NewBinaryOp('=', lhs, rhs);
+    return _unit->NewBinaryOp('=', lhs, rhs);
 }
 
 Constant* Parser::ParseConstantExpr(void)
@@ -526,11 +529,11 @@ Constant* Parser::ParseConstantExpr(void)
     if (expr->Ty()->IsInteger()) {
         //TODO:
         //auto val = expr->EvaluateConstant();
-        //constant = TranslationUnit::NewConstantInteger(Type::NewArithmType(T_INT), val);
+        //constant = _unit->NewConstantInteger(Type::NewArithmType(T_INT), val);
     } else if (expr->Ty()->IsFloat()) {
         //TODO:
         //auto val = expr->EvaluateConstant();
-        //constant = TranslationUnit::NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
+        //constant = _unit->NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
     } else {
         assert(0);
     }
@@ -563,7 +566,7 @@ CompoundStmt* Parser::ParseDecl(void)
         }
     }
 
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 //for state machine
@@ -900,7 +903,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
             //val = enumVal;
         }
 
-        auto Constant = TranslationUnit::NewConstantInteger(
+        auto Constant = _unit->NewConstantInteger(
                 Type::NewArithmType(T_INT), val++);
 
         _topEnv->InsertConstant(enumName, Constant);
@@ -1060,7 +1063,8 @@ Variable* Parser::ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec
 	 * 定义 void 类型变量是非法的，只能是指向void类型的指针
 	 * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
      */
-    auto var = _topEnv->InsertVar(nameType.first, nameType.second);
+    auto var = _unit->NewVariable(nameType.second, 0);
+    _topEnv->InsertVar(nameType.first, var);
     var->SetStorage(storageSpec);
     
     return var;
@@ -1247,7 +1251,7 @@ Stmt* Parser::ParseInitializer(Variable* var)
 
     Expr* rhs = ParseAssignExpr();
 
-    return TranslationUnit::NewBinaryOp('=', var, rhs);
+    return _unit->NewBinaryOp('=', var, rhs);
 }
 
 Stmt* Parser::ParseArrayInitializer(Variable* arr)
@@ -1271,7 +1275,7 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
             idxSet.insert(idx);
             // TODO(wgtdkp): GetArrayElement() create new object
             // Will there be memory leak?
-            auto ele = arr->GetArrayElement(idx);
+            auto ele = arr->GetArrayElement(_unit, idx);
             Expect(']');
             Expect('=');
 
@@ -1282,7 +1286,7 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
             while (idxSet.find(defaultIdx) != idxSet.end())
                 defaultIdx++;
             
-            auto ele = arr->GetArrayElement(defaultIdx);
+            auto ele = arr->GetArrayElement(_unit, defaultIdx);
             stmts.push_back(ParseInitializer(ele));
         }
 
@@ -1294,7 +1298,7 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
         }
     }
 
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 Stmt* Parser::ParseStructInitializer(Variable* var)
@@ -1344,7 +1348,7 @@ Stmt* Parser::ParseStmt(void)
         return ParseLabelStmt(tok->Val());
     
     if (Try(';'))
-        return TranslationUnit::NewEmptyStmt();
+        return _unit->NewEmptyStmt();
     
     auto expr = ParseExpr();
     
@@ -1370,7 +1374,7 @@ CompoundStmt* Parser::ParseCompoundStmt(void)
 
     ExitBlock();
     
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 IfStmt* Parser::ParseIfStmt(void)
@@ -1385,7 +1389,7 @@ IfStmt* Parser::ParseIfStmt(void)
     if (Try(Token::ELSE))
         els = ParseStmt();
     
-    return TranslationUnit::NewIfStmt(cond, then, els);
+    return _unit->NewIfStmt(cond, then, els);
 }
 
 /*
@@ -1438,13 +1442,13 @@ CompoundStmt* Parser::ParseForStmt(void)
         Expect(')');
     }
 
-    auto condLabel = TranslationUnit::NewLabelStmt();
-    auto stepLabel = TranslationUnit::NewLabelStmt();
-    auto endLabel = TranslationUnit::NewLabelStmt();
+    auto condLabel = _unit->NewLabelStmt();
+    auto stepLabel = _unit->NewLabelStmt();
+    auto endLabel = _unit->NewLabelStmt();
     stmts.push_back(condLabel);
     if (nullptr != condExpr) {
-        auto gotoEndStmt = TranslationUnit::NewJumpStmt(endLabel);
-        auto ifStmt = TranslationUnit::NewIfStmt(condExpr, nullptr, gotoEndStmt);
+        auto gotoEndStmt = _unit->NewJumpStmt(endLabel);
+        auto ifStmt = _unit->NewIfStmt(condExpr, nullptr, gotoEndStmt);
         stmts.push_back(ifStmt);
     }
 
@@ -1458,12 +1462,12 @@ CompoundStmt* Parser::ParseForStmt(void)
     stmts.push_back(bodyStmt);
     stmts.push_back(stepLabel);
     stmts.push_back(stepExpr);
-    stmts.push_back(TranslationUnit::NewJumpStmt(condLabel));
+    stmts.push_back(_unit->NewJumpStmt(condLabel));
     stmts.push_back(endLabel);
 
     ExitBlock();
     
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 /*
@@ -1484,10 +1488,10 @@ CompoundStmt* Parser::ParseWhileStmt(void)
     //TODO: ensure scalar type
     Expect(')');
 
-    auto condLabel = TranslationUnit::NewLabelStmt();
-    auto endLabel = TranslationUnit::NewLabelStmt();
-    auto gotoEndStmt = TranslationUnit::NewJumpStmt(endLabel);
-    auto ifStmt = TranslationUnit::NewIfStmt(condExpr, nullptr, gotoEndStmt);
+    auto condLabel = _unit->NewLabelStmt();
+    auto endLabel = _unit->NewLabelStmt();
+    auto gotoEndStmt = _unit->NewJumpStmt(endLabel);
+    auto ifStmt = _unit->NewIfStmt(condExpr, nullptr, gotoEndStmt);
     stmts.push_back(condLabel);
     stmts.push_back(ifStmt);
     
@@ -1497,10 +1501,10 @@ CompoundStmt* Parser::ParseWhileStmt(void)
     EXIT_LOOP_BODY()
     
     stmts.push_back(bodyStmt);
-    stmts.push_back(TranslationUnit::NewJumpStmt(condLabel));
+    stmts.push_back(_unit->NewJumpStmt(condLabel));
     stmts.push_back(endLabel);
     
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 /*
@@ -1514,9 +1518,9 @@ CompoundStmt* Parser::ParseWhileStmt(void)
  */
 CompoundStmt* Parser::ParseDoStmt(void)
 {
-    auto beginLabel = TranslationUnit::NewLabelStmt();
-    auto condLabel = TranslationUnit::NewLabelStmt();
-    auto endLabel = TranslationUnit::NewLabelStmt();
+    auto beginLabel = _unit->NewLabelStmt();
+    auto condLabel = _unit->NewLabelStmt();
+    auto endLabel = _unit->NewLabelStmt();
     
     Stmt* bodyStmt;
     ENTER_LOOP_BODY(endLabel, beginLabel)
@@ -1528,9 +1532,9 @@ CompoundStmt* Parser::ParseDoStmt(void)
     auto condExpr = ParseExpr();
     Expect(')');
 
-    auto gotoBeginStmt = TranslationUnit::NewJumpStmt(beginLabel);
-    auto gotoEndStmt = TranslationUnit::NewJumpStmt(endLabel);
-    auto ifStmt = TranslationUnit::NewIfStmt(condExpr, gotoBeginStmt, gotoEndStmt);
+    auto gotoBeginStmt = _unit->NewJumpStmt(beginLabel);
+    auto gotoEndStmt = _unit->NewJumpStmt(endLabel);
+    auto ifStmt = _unit->NewIfStmt(condExpr, gotoBeginStmt, gotoEndStmt);
 
     std::list<Stmt*> stmts;
     stmts.push_back(beginLabel);
@@ -1539,7 +1543,7 @@ CompoundStmt* Parser::ParseDoStmt(void)
     stmts.push_back(ifStmt);
     stmts.push_back(endLabel);
     
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 #define ENTER_SWITCH_BODY(caseLabels) 			\
@@ -1561,12 +1565,12 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
     //TODO: ensure integer type
     Expect(')');
 
-    auto labelTest = TranslationUnit::NewLabelStmt();
-    auto labelEnd = TranslationUnit::NewLabelStmt();
-    auto t = TranslationUnit::NewTempVar(expr->Ty());
-    auto assign = TranslationUnit::NewBinaryOp('=', t, expr);
+    auto labelTest = _unit->NewLabelStmt();
+    auto labelEnd = _unit->NewLabelStmt();
+    auto t = _unit->NewTempVar(expr->Ty());
+    auto assign = _unit->NewBinaryOp('=', t, expr);
     stmts.push_back(assign);
-    stmts.push_back(TranslationUnit::NewJumpStmt(labelTest));
+    stmts.push_back(_unit->NewJumpStmt(labelTest));
 
     CaseLabelList caseLabels;
     ENTER_SWITCH_BODY(caseLabels);
@@ -1574,20 +1578,20 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
     auto bodyStmt = ParseStmt();
     stmts.push_back(labelTest);
     for (auto iter = _caseLabels->begin(); iter != _caseLabels->end(); iter++) {
-        auto rhs = TranslationUnit::NewConstantInteger(
+        auto rhs = _unit->NewConstantInteger(
                 Type::NewArithmType(T_INT), iter->first);
-        auto cond = TranslationUnit::NewBinaryOp(Token::EQ_OP, t, rhs);
-        auto then = TranslationUnit::NewJumpStmt(iter->second);
-        auto ifStmt = TranslationUnit::NewIfStmt(cond, then, nullptr);
+        auto cond = _unit->NewBinaryOp(Token::EQ_OP, t, rhs);
+        auto then = _unit->NewJumpStmt(iter->second);
+        auto ifStmt = _unit->NewIfStmt(cond, then, nullptr);
         stmts.push_back(ifStmt);
     }
     
-    stmts.push_back(TranslationUnit::NewJumpStmt(_defaultLabel));
+    stmts.push_back(_unit->NewJumpStmt(_defaultLabel));
     EXIT_SWITCH_BODY();
 
     stmts.push_back(labelEnd);
 
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 CompoundStmt* Parser::ParseCaseStmt(void)
@@ -1603,25 +1607,25 @@ CompoundStmt* Parser::ParseCaseStmt(void)
         Error("expect constant expression");
     }
 
-    auto labelStmt = TranslationUnit::NewLabelStmt();
+    auto labelStmt = _unit->NewLabelStmt();
     _caseLabels->push_back(std::make_pair(val, labelStmt));
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());
     
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 CompoundStmt* Parser::ParseDefaultStmt(void)
 {
     Expect(':');
-    auto labelStmt = TranslationUnit::NewLabelStmt();
+    auto labelStmt = _unit->NewLabelStmt();
     _defaultLabel = labelStmt;
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());
     
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 JumpStmt* Parser::ParseContinueStmt(void)
@@ -1630,7 +1634,7 @@ JumpStmt* Parser::ParseContinueStmt(void)
     if (nullptr == _continueDest)
         Error("'continue' only in loop is allowed");
     
-    return TranslationUnit::NewJumpStmt(_continueDest);
+    return _unit->NewJumpStmt(_continueDest);
 }
 
 JumpStmt* Parser::ParseBreakStmt(void)
@@ -1639,7 +1643,7 @@ JumpStmt* Parser::ParseBreakStmt(void)
     if (nullptr == _breakDest)
         Error("'break' only in switch/loop is allowed");
     
-    return TranslationUnit::NewJumpStmt(_breakDest);
+    return _unit->NewJumpStmt(_breakDest);
 }
 
 ReturnStmt* Parser::ParseReturnStmt(void)
@@ -1652,7 +1656,7 @@ ReturnStmt* Parser::ParseReturnStmt(void)
         expr = ParseExpr();
     }
 
-    return TranslationUnit::NewReturnStmt(expr);
+    return _unit->NewReturnStmt(expr);
 }
 
 JumpStmt* Parser::ParseGotoStmt(void)
@@ -1663,9 +1667,9 @@ JumpStmt* Parser::ParseGotoStmt(void)
 
     auto labelStmt = FindLabel(label);
     if (nullptr != labelStmt)
-        return TranslationUnit::NewJumpStmt(labelStmt);
+        return _unit->NewJumpStmt(labelStmt);
     
-    auto unresolvedJump = TranslationUnit::NewJumpStmt(nullptr);;
+    auto unresolvedJump = _unit->NewJumpStmt(nullptr);;
     _unresolvedJumps.push_back(std::make_pair(label, unresolvedJump));
     
     return unresolvedJump;
@@ -1677,13 +1681,13 @@ CompoundStmt* Parser::ParseLabelStmt(const char* label)
     if (nullptr != FindLabel(label))
         Error("'%s': label redefinition", label);
 
-    auto labelStmt = TranslationUnit::NewLabelStmt();
+    auto labelStmt = _unit->NewLabelStmt();
     AddLabel(label, labelStmt);
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(stmt);
 
-    return TranslationUnit::NewCompoundStmt(stmts);
+    return _unit->NewCompoundStmt(stmts);
 }
 
 /*
@@ -1717,7 +1721,7 @@ FuncDef* Parser::ParseFuncDef(void)
     Expect('{');
     auto stmt = ParseCompoundStmt();
 
-    return TranslationUnit::NewFuncDef(funcType->ToFuncType(), stmt);
+    return _unit->NewFuncDef(funcType->ToFuncType(), stmt);
 }
 
 bool Parser::EvaluateConstantExpr(int& val, const Expr* expr)

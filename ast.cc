@@ -84,7 +84,7 @@ ConditionalOp* ConditionalOp::TypeChecking(void)
 // TODO(wgtdkp):
 bool BinaryOp::EvaluateConstant(Constant* cons)
 {
-    bool res = true;
+    //bool res = true;
     switch (_op) {
     case '+':
         // TODO(wgtdkp):
@@ -167,8 +167,9 @@ BinaryOp* BinaryOp::TypeChecking(void)
 
     default:
         assert(0);
-        return nullptr; //make compiler happy
     }
+    
+    return nullptr; //make compiler happy
 }
 
 BinaryOp* BinaryOp::SubScriptingOpTypeChecking(void)
@@ -437,7 +438,7 @@ Variable* Variable::GetStructMember(const char* name)
     return member;
 }
 
-Variable* Variable::GetArrayElement(size_t idx)
+Variable* Variable::GetArrayElement(TranslationUnit* unit, size_t idx)
 {
     auto type = _ty->ToArrayType();
     assert(type);
@@ -445,13 +446,62 @@ Variable* Variable::GetArrayElement(size_t idx)
     auto eleType = type->Derived();
     auto offset = _offset + eleType->Width() * idx;
 
-    return TranslationUnit::NewVariable(eleType, offset);
+    return unit->NewVariable(eleType, offset);
 }
 
-
-ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
+/*
+ * Memory pool
+ */
+template <class T>
+void* MemPoolImp<T>::Alloc(void)
 {
-    return (new ConditionalOp(cond, exprTrue, exprFalse))->TypeChecking();
+    if (nullptr == _root) { //空间不够，需要分配空间
+        auto block = new Block();
+        _root = block->_chunks;
+        //如果blocks实现为std::list, 那么push_back实际的overhead更大
+        //这也表明，即使我们不需要随机访问功能(那么std::vector的拷贝是一种overhead)，
+        //仍然倾向于使用std::vector，
+        //当然std::vector的指数级capacity增长会造成内存浪费。
+        _blocks.push_back(block);
+    }
+    
+    auto ret = _root;
+    _root = _root->_next;
+
+    return ret;
+}
+
+template <class T>
+void MemPoolImp<T>::Free(void* addr)
+{
+    if (nullptr == addr) 
+        return;
+
+    auto chunk = static_cast<Chunk*>(addr);
+    chunk->_next = _root;
+    _root = chunk;
+}
+
+template <class T>
+void MemPoolImp<T>::Clear(void)
+{
+    for (auto iter = _blocks.begin(); iter != _blocks.end(); iter++)
+        delete *iter;
+        
+    _root = nullptr;
+}
+
+/*
+ * Translation unit
+ */
+ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond,
+        Expr* exprTrue, Expr* exprFalse)
+{
+    auto ret = new (_conditionalOpPool.Alloc())
+            ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
+
+    ret->TypeChecking();
+    return ret;
 }
 
 BinaryOp* TranslationUnit::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
@@ -482,7 +532,10 @@ BinaryOp* TranslationUnit::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
         assert(0);
     }
 
-    return (new BinaryOp(op, lhs, rhs))->TypeChecking();
+    auto ret = new (_binaryOpPool.Alloc()) BinaryOp(&_binaryOpPool, op, lhs, rhs);
+    ret->TypeChecking();
+    
+    return ret;
 }
 
 BinaryOp* TranslationUnit::NewMemberRefOp(int op, Expr* lhs, const char* rhsName)
@@ -490,7 +543,12 @@ BinaryOp* TranslationUnit::NewMemberRefOp(int op, Expr* lhs, const char* rhsName
     assert('.' == op || Token::PTR_OP == op);
     
     //the initiation of rhs is lefted in type checking
-    return (NewBinaryOp(op, lhs, nullptr))->MemberRefOpTypeChecking(rhsName);
+    auto ret = new (_binaryOpPool.Alloc())
+            BinaryOp(&_binaryOpPool, op, lhs, nullptr);
+    
+    ret->MemberRefOpTypeChecking(rhsName);
+
+    return ret;
 }
 
 /*
@@ -502,33 +560,47 @@ UnaryOp* TranslationUnit::NewUnaryOp(Type* type, int op, Expr* expr) {
 
 FuncCall* TranslationUnit::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
 {
-    return (new FuncCall(designator, args))->TypeChecking();
+    auto ret = new (_funcCallPool.Alloc()) FuncCall(&_funcCallPool, designator, args);
+    ret->TypeChecking();
+    
+    return ret;
 }
 
 Variable* TranslationUnit::NewVariable(Type* type, int offset)
 {
-    return new Variable(type, offset);
+    auto ret = new (_variablePool.Alloc()) Variable(&_variablePool, type, offset);
+
+    return ret;
 }
 
 Constant* TranslationUnit::NewConstantInteger(ArithmType* type, long long val)
 {
-    return new Constant(type, val);
+    auto ret = new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
+
+    return ret;
 }
 
 Constant* TranslationUnit::NewConstantFloat(ArithmType* type, double val)
 {
-    return new Constant(type, val);
+    auto ret = new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
+
+    return ret;
 }
 
 
 TempVar* TranslationUnit::NewTempVar(Type* type)
 {
-    return new TempVar(type);
+    auto ret = new (_tempVarPool.Alloc()) TempVar(&_tempVarPool, type);
+
+    return ret;
 }
 
 UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
 {
-    return (new UnaryOp(op, operand, type))->TypeChecking();
+    auto ret = new (_unaryOpPool.Alloc()) UnaryOp(&_unaryOpPool, op, operand, type);
+    ret->TypeChecking();
+
+    return ret;
 }
 
 
@@ -537,37 +609,62 @@ UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
 //��Ȼ��stmtֻ��Ҫһ��
 EmptyStmt* TranslationUnit::NewEmptyStmt(void)
 {
-    static auto inst = new EmptyStmt();
-    return inst;
+    auto ret = new (_emptyStmtPool.Alloc()) EmptyStmt(&_emptyStmtPool);
+
+    return ret;
 }
 
 //else stmt Ĭ���� null
 IfStmt* TranslationUnit::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
 {
-    return new IfStmt(cond, then, els);
+    auto ret = new (_ifStmtPool.Alloc()) IfStmt(&_ifStmtPool, cond, then, els);
+
+    return ret;
 }
 
 CompoundStmt* TranslationUnit::NewCompoundStmt(std::list<Stmt*>& stmts)
 {
-    return (new CompoundStmt(stmts));
+    auto ret = new (_compoundStmtPool.Alloc())
+            CompoundStmt(&_compoundStmtPool, stmts);
+
+    return ret;
 }
 
 JumpStmt* TranslationUnit::NewJumpStmt(LabelStmt* label)
 {
-    return new JumpStmt(label);
+    auto ret = new (_jumpStmtPool.Alloc()) JumpStmt(&_jumpStmtPool, label);
+
+    return ret;
 }
 
 ReturnStmt* TranslationUnit::NewReturnStmt(Expr* expr)
 {
-    return new ReturnStmt(expr);
+    auto ret = new (_returnStmtPool.Alloc())
+            ReturnStmt(&_returnStmtPool, expr);
+
+    return ret;
 }
 
 LabelStmt* TranslationUnit::NewLabelStmt(void)
 {
-    return new LabelStmt();
+    auto ret = new (_labelStmtPool.Alloc()) LabelStmt(&_labelStmtPool);
+
+    return ret;
 }
 
 FuncDef* TranslationUnit::NewFuncDef(FuncType* type, CompoundStmt* stmt)
 {
-    return new FuncDef(type, stmt);
+    auto ret = new (_funcDefPool.Alloc()) FuncDef(&_funcDefPool, type, stmt);
+    
+    return ret;
+}
+
+void TranslationUnit::Delete(ASTNode* node)
+{
+    if (node == nullptr)
+        return;
+
+    MemPool* pool = node->_pool;
+    node->~ASTNode();
+    pool->Free(node);
 }

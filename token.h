@@ -162,8 +162,8 @@ public:
         POSTFIX_DEC,
         PREFIX_INC,
         PREFIX_DEC,
-        ADDR,
-        DEREF,
+        ADDR,  // '&'
+        DEREF, // '*'
         PLUS,
         MINUS,
         CAST,
