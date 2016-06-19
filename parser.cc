@@ -1303,7 +1303,7 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
 
 Stmt* Parser::ParseStructInitializer(Variable* var)
 {
-
+    return nullptr;
 }
 
 

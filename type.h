@@ -1,6 +1,8 @@
 #ifndef _WGTCC_TYPE_H_
 #define _WGTCC_TYPE_H_
 
+#include "mem_pool.h"
+
 #include <algorithm>
 #include <list>
 
@@ -98,8 +100,12 @@ public:
     }
     
     bool IsFloat(void) const;
+    
     bool IsInteger(void) const;
-    bool IsArithm(void) const { return (nullptr != ToArithmType()); }
+    
+    bool IsArithm(void) const {
+        return (nullptr != ToArithmType());
+    }
 
     virtual VoidType* ToVoidType(void) { return nullptr; }
     
@@ -136,22 +142,36 @@ public:
 
     //static IntType* NewIntType();
     static VoidType* NewVoidType(void);
+    
     static ArrayType* NewArrayType(long long len, Type* eleType);
+    
     static FuncType* NewFuncType(Type* derived, int funcSpec, \
         bool hasEllipsis, const std::list<Type*>& params = std::list<Type*>());
+    
     static PointerType* NewPointerType(Type* derived);
+    
     static StructUnionType* NewStructUnionType(bool isStruct);
+    
     //static EnumType* NewEnumType();
     static ArithmType* NewArithmType(int tag);
 
 protected:
-    explicit Type(int width, bool complete)
-        : _width(width), _complete(complete) {}
+    explicit Type(MemPool* pool, int width, bool complete)
+        : _pool(pool), _width(width), _complete(complete) {}
 
+    MemPool* _pool;
     int _width;	// the bytes to store object of that type
     int _align;
     int _qual;
     bool _complete;
+    
+private:
+    static MemPoolImp<VoidType>         _voidTypePool;
+    static MemPoolImp<ArrayType>        _arrayTypePool;
+    static MemPoolImp<FuncType>         _funcTypePool;
+    static MemPoolImp<PointerType>      _pointerTypePool;
+    static MemPoolImp<StructUnionType>  _structUnionTypePool;
+    static MemPoolImp<ArithmType>       _arithmTypePool;
 };
 
 
@@ -179,8 +199,9 @@ public:
     }
 
 protected:
-    VoidType(void) : Type(0, true) {}
+    explicit VoidType(MemPool* pool): Type(pool, 0, false) {}
 };
+
 
 class ArithmType : public Type
 {
@@ -229,8 +250,8 @@ public:
     }
 
 protected:
-    explicit ArithmType(int tag)
-        : Type(CalcWidth(tag), true), _tag(tag) {}
+    explicit ArithmType(MemPool* pool, int tag)
+        : Type(pool, CalcWidth(tag), true), _tag(tag) {}
 
 private:
     int _tag;
@@ -242,15 +263,29 @@ class DerivedType : public Type
 {
     //friend class Type;
 public:
-    Type* Derived(void) { return _derived; }
-    const Type* Derived(void) const { return _derived; }
-    void SetDerived(Type* derived) { _derived = derived; }
-    virtual DerivedType* ToDerivedType(void) { return this; }
-    virtual const DerivedType* ToDerivedType(void) const { return this; }
+    Type* Derived(void) {
+        return _derived;
+    }
+    
+    const Type* Derived(void) const {
+        return _derived;
+    }
+    
+    void SetDerived(Type* derived) {
+        _derived = derived;
+    }
+    
+    virtual DerivedType* ToDerivedType(void) {
+        return this;
+    }
+    
+    virtual const DerivedType* ToDerivedType(void) const {
+        return this;
+    }
 
 protected:
-    DerivedType(Type* derived, int width)
-        : Type(width, true), _derived(derived) {}
+    DerivedType(MemPool* pool, Type* derived, int width)
+        : Type(pool, width, true), _derived(derived) {}
 
     Type* _derived;
 };
@@ -272,13 +307,15 @@ public:
     }
 
     virtual bool operator==(const Type& other) const;
+    
     virtual bool Compatible(const Type& other) const;
 
 protected:
-    PointerType(Type* derived)
-        : DerivedType(derived, _machineWord) {}
+    PointerType(MemPool* pool, Type* derived)
+        : DerivedType(pool, derived, _machineWord) {}
 };
 
+/*
 class StringType: public PointerType
 {
     friend class Type;
@@ -287,13 +324,15 @@ public:
     ~StringType(void) {}
 
     virtual bool operator==(const Type& other) const;
+    
     virtual bool Compatible(const Type& other) const;
 
 protected:
-    StringType(void)
+    explicit StringType(void)
         : PointerType(Type::NewArithmType(T_CHAR)) {
     }
 };
+*/
 
 class ArrayType : public PointerType
 {
@@ -335,8 +374,8 @@ public:
     }
 
 protected:
-    ArrayType(long long len, Type* derived)
-        : PointerType(derived) {
+    ArrayType(MemPool* pool, long long len, Type* derived)
+            : PointerType(pool, derived) {
         SetComplete(len > 0);	//����len < 0,��ô�����Ͳ�����
         SetWidth(len > 0 ? len * derived->Width() : 0);
         SetQual(Q_CONST);
@@ -350,18 +389,26 @@ class FuncType : public DerivedType
 
 public:
     ~FuncType(void) {}
-    virtual FuncType* ToFuncType(void) { return this; }
-    virtual const FuncType* ToFuncType(void) const { return this; }
+    
+    virtual FuncType* ToFuncType(void) {
+        return this;
+    }
+    
+    virtual const FuncType* ToFuncType(void) const {
+        return this;
+    }
+    
     virtual bool operator==(const Type& other) const;
+    
     virtual bool Compatible(const Type& other) const;
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 
 protected:
     //a function does not has the width property
-    FuncType(Type* derived, int inlineReturn, bool hasEllipsis,
+    FuncType(MemPool* pool, Type* derived, int inlineReturn, bool hasEllipsis,
             const std::list<Type*>& params = std::list<Type*>())
-        : DerivedType(_derived, -1), _inlineNoReturn(inlineReturn),
+        : DerivedType(pool, _derived, -1), _inlineNoReturn(inlineReturn),
           _hasEllipsis(hasEllipsis), _params(params) {
     }
 
@@ -379,9 +426,13 @@ class StructUnionType : public Type
 public:
     ~StructUnionType(void) {/*TODO: delete _env ?*/ }
     
-    virtual StructUnionType* ToStructUnionType(void) { return this; }
+    virtual StructUnionType* ToStructUnionType(void) {
+        return this;
+    }
     
-    virtual const StructUnionType* ToStructUnionType(void) const { return this; }
+    virtual const StructUnionType* ToStructUnionType(void) const {
+        return this;
+    }
     
     virtual bool operator==(const Type& other) const;
     
@@ -391,11 +442,15 @@ public:
 
     // struct/union
     void AddMember(const char* name, Variable* member);
-    bool IsStruct(void) const { return _isStruct; }
+    
+    bool IsStruct(void) const {
+        return _isStruct;
+    }
 
 protected:
     // default is incomplete
-    explicit StructUnionType(bool isStruct);
+    StructUnionType(MemPool* pool, bool isStruct);
+    
     StructUnionType(const StructUnionType& other);
 
 private:

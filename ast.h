@@ -1,10 +1,13 @@
 #ifndef _WGTCC_AST_H_
 #define _WGTCC_AST_H_
 
-#include <list>
-#include <memory>
+#include "mem_pool.h"
 #include "token.h"
 #include "type.h"
+
+#include <list>
+#include <memory>
+
 
 class ASTNode;
 class Visitor;
@@ -29,7 +32,6 @@ class CompoundStmt;
 
 class FuncDef;
 
-class MemPool;
 class TranslationUnit;
 
 /************ AST Node *************/
@@ -457,21 +459,29 @@ public:
 
 protected:
     Constant(MemPool* pool, ArithmType* type, long long val)
-        : Variable(pool, type, VAR, true), _ival(val) {
+            : Variable(pool, type, VAR, true), _ival(val) {
         assert(type->IsInteger());
     }
 
     Constant(MemPool* pool, ArithmType* type, double val)
-        : Variable(pool, type, VAR, true), _fval(val) {
+            : Variable(pool, type, VAR, true), _fval(val) {
         assert(type->IsFloat());
     }
+/*
+    Constant(MemPool* pool, const char* val)
+            : Variable(pool, , VAR, true), _sval(val) {
 
-    virtual Constant* TypeChecking(void) { return this; }
+    }
+*/
+    virtual Constant* TypeChecking(void) {
+        return this;
+    }
 
 private:
     union {
         long long _ival;
         double _fval;
+        std::string _sval;
     };
 };
 
@@ -527,54 +537,6 @@ class Decl : public ExtDecl
 };
 */
 
-class MemPool
-{
-public:
-    MemPool(void) {}
-    virtual ~MemPool(void) {}
-    MemPool(const MemPool& other) = delete;
-    MemPool& operator=(const MemPool& other) = delete;
-
-    virtual void* Alloc(void) = 0;
-    virtual void Free(void* addr) = 0;
-    virtual void Clear(void) = 0;
-};
-
-template <class T>
-class MemPoolImp: public MemPool
-{
-public:
-    MemPoolImp(void) : _root(nullptr) {}
-    MemPoolImp(const MemPool& other) = delete;
-    MemPoolImp& operator=(MemPool& other) = delete;
-    virtual ~MemPoolImp(void) {}
-
-    virtual void* Alloc(void);
-    virtual void Free(void* addr);
-	virtual void Clear(void);
-
-private:
-	enum {
-        COUNT = (4 * 1024) / sizeof(T)
-    };
-    
-    union Chunk {
-        Chunk* _next;
-        char _mem[sizeof(T)];
-    };
-    
-    struct Block {
-        Block(void) {
-            for (size_t i = 0; i < COUNT - 1; i++)
-                _chunks[i]._next = &_chunks[i+1];
-            _chunks[COUNT-1]._next = nullptr;
-        }
-        Chunk _chunks[COUNT];
-    };
-
-    std::vector<Block*> _blocks;
-    Chunk* _root;
-};
 
 class TranslationUnit : public ASTNode
 {

@@ -72,6 +72,8 @@ static bool ReadConstant(const char*& p)
             return !(sawDot || sawEP);
         }
     }
+
+    return !(sawDot || sawEP);
 }
 
 /**

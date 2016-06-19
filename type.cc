@@ -8,6 +8,13 @@
 
 /***************** Type *********************/
 
+MemPoolImp<VoidType>         Type::_voidTypePool;
+MemPoolImp<ArrayType>        Type::_arrayTypePool;
+MemPoolImp<FuncType>         Type::_funcTypePool;
+MemPoolImp<PointerType>      Type::_pointerTypePool;
+MemPoolImp<StructUnionType>  Type::_structUnionTypePool;
+MemPoolImp<ArithmType>       Type::_arithmTypePool;
+
 bool Type::IsFloat(void) const {
     auto arithmType = ToArithmType();
     return arithmType && arithmType->IsFloat();
@@ -20,9 +27,12 @@ bool Type::IsInteger(void) const {
 
 VoidType* Type::NewVoidType(void)
 {
-    return new VoidType();
+    auto ret = new (_voidTypePool.Alloc()) VoidType(&_voidTypePool);
+
+    return ret;
 }
 
+/*
 ArithmType* Type::NewArithmType(int typeSpec) {
     static ArithmType* charType 		= new ArithmType(T_CHAR);
     static ArithmType* ucharType 		= new ArithmType(T_UNSIGNED | T_CHAR);
@@ -116,24 +126,44 @@ ArithmType* Type::NewArithmType(int typeSpec) {
 
     return nullptr; // make compiler happy
 }
+*/
+
+ArithmType* Type::NewArithmType(int typeSpec) {
+    auto ret = new (_arithmTypePool.Alloc())
+            ArithmType(&_arithmTypePool, typeSpec);
+
+    return ret;
+}
 
 ArrayType* Type::NewArrayType(long long len, Type* eleType)
 {
-    return new ArrayType(len, eleType);
+    auto ret = new (_arrayTypePool.Alloc())
+            ArrayType(&_arrayTypePool, len, eleType);
+    
+    return ret;
 }
 
 //static IntType* NewIntType();
 FuncType* Type::NewFuncType(Type* derived, int funcSpec,
         bool hasEllipsis, const std::list<Type*>& params) {
-    return new FuncType(derived, funcSpec, hasEllipsis, params);
+    auto ret = new (_funcTypePool.Alloc())
+            FuncType(&_funcTypePool, derived, funcSpec, hasEllipsis, params);
+    
+    return ret;
 }
 
 PointerType* Type::NewPointerType(Type* derived) {
-    return new PointerType(derived);
+    auto ret = new (_pointerTypePool.Alloc())
+            PointerType(&_pointerTypePool, derived);
+
+    return ret;
 }
 
 StructUnionType* Type::NewStructUnionType(bool isStruct) {
-    return new StructUnionType(isStruct);
+    auto ret = new (_structUnionTypePool.Alloc())
+            StructUnionType(&_structUnionTypePool, isStruct);
+    
+    return ret;
 }
 
 /*
@@ -259,8 +289,8 @@ bool FuncType::Compatible(const Type& other) const
  * StructUnionType
  */
 
-StructUnionType::StructUnionType(bool isStruct)
-        :  Type(0, false), _isStruct(isStruct), _mapMember(new Env()) {
+StructUnionType::StructUnionType(MemPool* pool, bool isStruct)
+        :  Type(pool, 0, false), _isStruct(isStruct), _mapMember(new Env()) {
 }
 
 Variable* StructUnionType::Find(const char* name) const {
