@@ -1,6 +1,9 @@
 #ifndef _WGTCC_TOKEN_H_
 #define _WGTCC_TOKEN_H_
 
+#include "ast.h"
+#include "visitor.h"
+
 #include <cassert>
 #include <cstring>
 #include <unordered_map>
@@ -8,24 +11,19 @@
 #include <cstring>
 
 
-class Token
+class Token: public ASTNode
 {
     friend class Lexer;
+    
 public:
-    Token(int tag, const char* fileName=nullptr,
-            int line=1, int column=1,
-            const char* begin = nullptr,
-            const char* end = nullptr)
-        : _tag(tag), _line(line), _column(column) , _fileName(fileName) {
-        
-        if (nullptr == begin) {
-            assert(IsPunctuator() || IsKeyWord() || IsEOF());
-            _val = _TagLexemeMap.at(tag);
-        } else {
-            SetVal(begin, end);
-        }
-    }
-
+    Token(int tag, const Coordinate& coord)
+            : ASTNode(nullptr, coord), _tag(tag) {}
+    
+    virtual ~Token(void) {}
+    
+    // Do nothing
+    virtual void Accept(Visitor* v) {}
+    
     //Token::NOTOK represents not a kw.
     static int KeyWordTag(const char* begin, const char* end) {
         std::string key(begin, end);
@@ -174,37 +172,9 @@ public:
         NOTOK = -1,
     };
 
-    virtual ~Token(void) {
-        if (IsString() || IsIdentifier())
-            delete[] _val;
-    }
 
     int Tag(void) const {
         return _tag;
-    }
-
-    int Line(void) const {
-        return _line;
-    }
-
-    int Column(void) const {
-        return _column;
-    }
-
-    const char* Val(void) const {
-        return _val;
-    }
-
-    const char* FileName(void) const {
-        return _fileName;
-    }
-
-    void SetVal(const char* begin, const char* end) {
-        size_t size = end - begin;
-        auto val = new char[size + 1];
-        memcpy(val, begin, size);
-        val[size] = 0;
-        _val = val;
     }
 
     static bool IsKeyWord(int tag) {
@@ -242,18 +212,18 @@ public:
     bool IsDecl(void) const {
         return CONST <= _tag && _tag <= REGISTER;
     }
-
+    
     static const char* Lexeme(int tag) {
-        return _TagLexemeMap.at(tag);
+        auto iter = _TagLexemeMap.find(tag);
+        if (iter == _TagLexemeMap.end())
+            return nullptr;
+            
+        return iter->second;
     }
 
 private:
     int _tag;
-    int _line;
-    int _column;
-    const char* _fileName;
-    const char* _val;
-
+    
     static const std::unordered_map<std::string, int> _kwTypeMap;
     static const std::unordered_map<int, const char*> _TagLexemeMap;
     //static const char* _tokenTable[TOKEN_NUM - OFFSET - 1];

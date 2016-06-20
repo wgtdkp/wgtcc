@@ -2,9 +2,10 @@
 #define _PARSER_H_
 
 #include "ast.h"
-#include "lexer.h"
 #include "env.h"
 #include "error.h"
+#include "lexer.h"
+#include "mem_pool.h"
 
 #include <cassert>
 #include <memory>
@@ -25,6 +26,37 @@ public:
     ~Parser(void) { 
         //delete _lexer; 
     }
+    
+    /*
+     * Binary Operator
+     */
+    BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
+    BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);
+    ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
+    FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
+    Variable* NewVariable(Type* type, int offset=0);
+    Constant* NewConstantInteger(ArithmType* type, long long val);
+    Constant* NewConstantFloat(ArithmType* type, double val);
+    TempVar* NewTempVar(Type* type);
+    UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
+
+    /*
+     * Statement
+     */
+    EmptyStmt* NewEmptyStmt(void);
+    IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
+    JumpStmt* NewJumpStmt(LabelStmt* label);
+    ReturnStmt* NewReturnStmt(Expr* expr);
+    LabelStmt* NewLabelStmt(void);
+    CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
+
+    /*
+     * Function Definition
+     */
+    FuncDef* NewFuncDef(FuncType* type, CompoundStmt* stmt);
+
+    void Delete(ASTNode* node);
+    
 
     Constant* ParseConstant(const Token* tok);
     Expr* ParseString(const Token* tok);
@@ -155,14 +187,14 @@ private:
         if (tok->IsTypeSpecQual())
             return true;
         return (tok->IsIdentifier() 
-            && nullptr != _topEnv->FindType(tok->Val()));
+            && nullptr != _topEnv->FindType(tok->Str()));
     }
 
     bool IsType(const Token* tok) const{
         if (tok->IsDecl())
             return true;
         return (tok->IsIdentifier()
-            && nullptr != _topEnv->FindType(tok->Val()));
+            && nullptr != _topEnv->FindType(tok->Str()));
     }
 
     void Expect(int expect, int follow1 = ',', int follow2 = ';');
@@ -227,6 +259,7 @@ private:
     typedef std::map<const char*, LabelStmt*, StrCmp> LabelMap;
 
 private:
+    // The root of the AST
     TranslationUnit* _unit;
 
     Lexer* _lexer;
@@ -239,6 +272,22 @@ private:
     LabelStmt* _continueDest;
     CaseLabelList* _caseLabels;
     LabelStmt* _defaultLabel;
+    
+    // Memory Pools
+    MemPoolImp<BinaryOp>        _binaryOpPool;
+    MemPoolImp<ConditionalOp>   _conditionalOpPool;
+    MemPoolImp<FuncCall>        _funcCallPool;
+    MemPoolImp<Variable>        _variablePool;
+    MemPoolImp<Constant>        _constantPool;
+    MemPoolImp<TempVar>         _tempVarPool;
+    MemPoolImp<UnaryOp>         _unaryOpPool;
+    MemPoolImp<EmptyStmt>       _emptyStmtPool;
+    MemPoolImp<IfStmt>          _ifStmtPool;
+    MemPoolImp<JumpStmt>        _jumpStmtPool;
+    MemPoolImp<ReturnStmt>      _returnStmtPool;
+    MemPoolImp<LabelStmt>       _labelStmtPool;
+    MemPoolImp<CompoundStmt>    _compoundStmtPool;
+    MemPoolImp<FuncDef>         _funcDefPool;
 };
 
 #endif

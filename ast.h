@@ -2,13 +2,14 @@
 #define _WGTCC_AST_H_
 
 #include "error.h"
-#include "mem_pool.h"
-#include "token.h"
 #include "type.h"
 
+#include <cassert>
 #include <list>
 #include <memory>
 
+
+class Parser;
 
 class ASTNode;
 class Visitor;
@@ -35,24 +36,62 @@ class FuncDef;
 
 class TranslationUnit;
 
-/************ AST Node *************/
+
+struct Coordinate
+{
+    Coordinate(void): line(0), column(0), begin(nullptr), end(nullptr) {}
+    
+    const char* fileName;
+    
+    // Line index of the begin
+    int line;
+    
+    // Column index of the begin
+    int column;
+    
+    char* begin;
+    
+    char* end;
+};
+
+
+/*
+ * AST Node
+ */
 
 class ASTNode
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~ASTNode(void) {}
     
     virtual void Accept(Visitor* v) = 0;
 
+    Coordinate& Coord(void) {
+        return _coord;
+    }
+
+    const Coordinate& Coord(void) const {
+        return _coord;
+    }
+    
+    const char* Str(void) const {
+        static std::string str(_coord.begin, _coord.end);
+        return str.c_str();
+    }
+    
 protected:
     explicit ASTNode(MemPool* pool): _pool(pool) {}
-
+    
+    ASTNode(MemPool* pool, const Coordinate& coord)
+            : _coord(coord), _pool(pool) {}
+    
+    Coordinate _coord;
+    
 private:
     //ASTNode(void);  //禁止直接创建Node
 
-    //Coordinate _coord;
     MemPool* _pool;
 };
 
@@ -73,7 +112,7 @@ protected:
 
 class EmptyStmt : public Stmt
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~EmptyStmt(void) {}
@@ -90,7 +129,7 @@ private:
 // 构建此类的目的在于，在目标代码生成的时候，能够生成相应的label
 class LabelStmt : public Stmt
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     ~LabelStmt(void) {}
@@ -115,7 +154,7 @@ private:
 
 class IfStmt : public Stmt
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~IfStmt(void) {}
@@ -134,7 +173,7 @@ private:
 
 class JumpStmt : public Stmt
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~JumpStmt(void) {}
@@ -153,7 +192,7 @@ private:
 
 class ReturnStmt: public Stmt
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~ReturnStmt(void) {}
@@ -170,7 +209,7 @@ private:
 
 class CompoundStmt : public Stmt
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~CompoundStmt(void) {}
@@ -200,7 +239,7 @@ private:
 
 class Expr : public Stmt
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~Expr(void) {}
@@ -247,7 +286,7 @@ protected:
 *************************************************************/
 class BinaryOp : public Expr
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~BinaryOp(void) {}
@@ -308,7 +347,7 @@ protected:
  */
 class UnaryOp : public Expr
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~UnaryOp(void) {}
@@ -316,11 +355,7 @@ public:
     virtual void Accept(Visitor* v);
     
     //TODO: like '*p' is lvalue, but '~i' is not lvalue
-    virtual bool IsLVal(void) const {
-        /*only deref('*') op is lvalue;
-        so it's only deref with override this func*/
-        return (Token::DEREF == _op);
-    }
+    virtual bool IsLVal(void) const;
 
     virtual long long EvalInteger(void);
 
@@ -348,7 +383,7 @@ protected:
 // cond ? true ： false
 class ConditionalOp : public Expr
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~ConditionalOp(void) {}
@@ -376,7 +411,7 @@ private:
 /************** Function Call ****************/
 class FuncCall : public Expr
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     ~FuncCall(void) {}
@@ -407,7 +442,7 @@ protected:
 /********* Identifier *************/
 class Variable : public Expr
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     static const int TYPE = -1;
@@ -466,7 +501,7 @@ public:
 
     Variable* GetStructMember(const char* name);
 
-    Variable* GetArrayElement(TranslationUnit* unit, size_t idx);
+    Variable* GetArrayElement(Parser* parser, size_t idx);
 
 protected:
     Variable(MemPool* pool, Type* type, int offset=VAR, bool isConstant=false)
@@ -489,7 +524,7 @@ private:
 //integer, character, string literal, floating
 class Constant : public Variable
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     ~Constant(void) {}
@@ -550,7 +585,7 @@ private:
 //临时变量
 class TempVar : public Expr
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~TempVar(void) {}
@@ -588,7 +623,7 @@ private:
 
 class FuncDef : public ExtDecl
 {
-    friend class TranslationUnit;
+    friend class Parser;
 
 public:
     virtual ~FuncDef(void) {}
@@ -630,55 +665,10 @@ public:
         return new TranslationUnit();
     }
 
-    /*
-     * Binary Operator
-     */
-    BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
-    BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);
-    ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
-    FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
-    Variable* NewVariable(Type* type, int offset=0);
-    Constant* NewConstantInteger(ArithmType* type, long long val);
-    Constant* NewConstantFloat(ArithmType* type, double val);
-    TempVar* NewTempVar(Type* type);
-    UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
-
-    /*
-     * Statement
-     */
-    EmptyStmt* NewEmptyStmt(void);
-    IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
-    JumpStmt* NewJumpStmt(LabelStmt* label);
-    ReturnStmt* NewReturnStmt(Expr* expr);
-    LabelStmt* NewLabelStmt(void);
-    CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
-
-    /*
-     * Function Definition
-     */
-    FuncDef* NewFuncDef(FuncType* type, CompoundStmt* stmt);
-
-    void Delete(ASTNode* node);
-
 private:
     TranslationUnit(void): ASTNode(nullptr) {}
 
     std::list<ExtDecl*> _extDecls;
-
-    MemPoolImp<BinaryOp>        _binaryOpPool;
-    MemPoolImp<ConditionalOp>   _conditionalOpPool;
-    MemPoolImp<FuncCall>        _funcCallPool;
-    MemPoolImp<Variable>        _variablePool;
-    MemPoolImp<Constant>        _constantPool;
-    MemPoolImp<TempVar>         _tempVarPool;
-    MemPoolImp<UnaryOp>         _unaryOpPool;
-    MemPoolImp<EmptyStmt>       _emptyStmtPool;
-    MemPoolImp<IfStmt>          _ifStmtPool;
-    MemPoolImp<JumpStmt>        _jumpStmtPool;
-    MemPoolImp<ReturnStmt>      _returnStmtPool;
-    MemPoolImp<LabelStmt>       _labelStmtPool;
-    MemPoolImp<CompoundStmt>    _compoundStmtPool;
-    MemPoolImp<FuncDef>         _funcDefPool;
 };
 
 /*

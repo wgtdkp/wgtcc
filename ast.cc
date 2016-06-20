@@ -1,5 +1,8 @@
 #include "ast.h"
+
 #include "error.h"
+#include "parser.h"
+#include "token.h"
 #include "visitor.h"
 
 
@@ -302,7 +305,15 @@ BinaryOp* BinaryOp::AssignOpTypeChecking(void)
 }
 
 
-/************** Unary Operators *****************/
+/*
+ * Unary Operators
+ */
+
+bool UnaryOp::IsLVal(void) const {
+    /*only deref('*') op is lvalue;
+    so it's only deref will override this func*/
+    return (Token::DEREF == _op);
+}
 
 long long UnaryOp::EvalInteger(void)
 {
@@ -483,7 +494,7 @@ Variable* Variable::GetStructMember(const char* name)
     return member;
 }
 
-Variable* Variable::GetArrayElement(TranslationUnit* unit, size_t idx)
+Variable* Variable::GetArrayElement(Parser* parser, size_t idx)
 {
     auto type = _ty->ToArrayType();
     assert(type);
@@ -491,185 +502,5 @@ Variable* Variable::GetArrayElement(TranslationUnit* unit, size_t idx)
     auto eleType = type->Derived();
     auto offset = _offset + eleType->Width() * idx;
 
-    return unit->NewVariable(eleType, offset);
-}
-
-
-/*
- * Translation unit
- */
-ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond,
-        Expr* exprTrue, Expr* exprFalse)
-{
-    auto ret = new (_conditionalOpPool.Alloc())
-            ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
-
-    ret->TypeChecking();
-    return ret;
-}
-
-BinaryOp* TranslationUnit::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
-{
-    switch (op) {
-    case '=': 
-    case '[':
-    case '*':
-    case '/':
-    case '%':
-    case '+':
-    case '-':
-    case '&':
-    case '^':
-    case '|':
-    case '<':
-    case '>':
-    case Token::LEFT_OP:
-    case Token::RIGHT_OP:
-    case Token::LE_OP:
-    case Token::GE_OP:
-    case Token::EQ_OP:
-    case Token::NE_OP: 
-    case Token::AND_OP:
-    case Token::OR_OP:
-        break;
-
-    default:
-        assert(0);
-    }
-
-    auto ret = new (_binaryOpPool.Alloc()) BinaryOp(&_binaryOpPool, op, lhs, rhs);
-    ret->TypeChecking();
-    
-    return ret;
-}
-
-BinaryOp* TranslationUnit::NewMemberRefOp(int op, Expr* lhs, const char* rhsName)
-{
-    assert('.' == op || Token::PTR_OP == op);
-    
-    //the initiation of rhs is lefted in type checking
-    auto ret = new (_binaryOpPool.Alloc())
-            BinaryOp(&_binaryOpPool, op, lhs, nullptr);
-    
-    ret->MemberRefOpTypeChecking(rhsName);
-
-    return ret;
-}
-
-/*
-UnaryOp* TranslationUnit::NewUnaryOp(Type* type, int op, Expr* expr) {
-    return new UnaryOp(type, op, expr);
-}
-*/
-
-
-FuncCall* TranslationUnit::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
-{
-    auto ret = new (_funcCallPool.Alloc()) FuncCall(&_funcCallPool, designator, args);
-    ret->TypeChecking();
-    
-    return ret;
-}
-
-Variable* TranslationUnit::NewVariable(Type* type, int offset)
-{
-    auto ret = new (_variablePool.Alloc()) Variable(&_variablePool, type, offset);
-
-    return ret;
-}
-
-Constant* TranslationUnit::NewConstantInteger(ArithmType* type, long long val)
-{
-    auto ret = new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
-
-    return ret;
-}
-
-Constant* TranslationUnit::NewConstantFloat(ArithmType* type, double val)
-{
-    auto ret = new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
-
-    return ret;
-}
-
-
-TempVar* TranslationUnit::NewTempVar(Type* type)
-{
-    auto ret = new (_tempVarPool.Alloc()) TempVar(&_tempVarPool, type);
-
-    return ret;
-}
-
-UnaryOp* TranslationUnit::NewUnaryOp(int op, Expr* operand, Type* type)
-{
-    auto ret = new (_unaryOpPool.Alloc()) UnaryOp(&_unaryOpPool, op, operand, type);
-    ret->TypeChecking();
-
-    return ret;
-}
-
-
-/********** Statement ***********/
-
-//��Ȼ��stmtֻ��Ҫһ��
-EmptyStmt* TranslationUnit::NewEmptyStmt(void)
-{
-    auto ret = new (_emptyStmtPool.Alloc()) EmptyStmt(&_emptyStmtPool);
-
-    return ret;
-}
-
-//else stmt Ĭ���� null
-IfStmt* TranslationUnit::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
-{
-    auto ret = new (_ifStmtPool.Alloc()) IfStmt(&_ifStmtPool, cond, then, els);
-
-    return ret;
-}
-
-CompoundStmt* TranslationUnit::NewCompoundStmt(std::list<Stmt*>& stmts)
-{
-    auto ret = new (_compoundStmtPool.Alloc())
-            CompoundStmt(&_compoundStmtPool, stmts);
-
-    return ret;
-}
-
-JumpStmt* TranslationUnit::NewJumpStmt(LabelStmt* label)
-{
-    auto ret = new (_jumpStmtPool.Alloc()) JumpStmt(&_jumpStmtPool, label);
-
-    return ret;
-}
-
-ReturnStmt* TranslationUnit::NewReturnStmt(Expr* expr)
-{
-    auto ret = new (_returnStmtPool.Alloc())
-            ReturnStmt(&_returnStmtPool, expr);
-
-    return ret;
-}
-
-LabelStmt* TranslationUnit::NewLabelStmt(void)
-{
-    auto ret = new (_labelStmtPool.Alloc()) LabelStmt(&_labelStmtPool);
-
-    return ret;
-}
-
-FuncDef* TranslationUnit::NewFuncDef(FuncType* type, CompoundStmt* stmt)
-{
-    auto ret = new (_funcDefPool.Alloc()) FuncDef(&_funcDefPool, type, stmt);
-    
-    return ret;
-}
-
-void TranslationUnit::Delete(ASTNode* node)
-{
-    if (node == nullptr)
-        return;
-
-    MemPool* pool = node->_pool;
-    node->~ASTNode();
-    pool->Free(node);
+    return parser->NewVariable(eleType, offset);
 }
