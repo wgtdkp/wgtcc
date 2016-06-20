@@ -53,7 +53,7 @@ void Error(const Token* tok, const char* fmt, ...)
     Error(tok->FileName(), tok->Line(), tok->Column(), "error", fmt, args);
     va_end(args);
 }
-
+/*
 void Error(const char* fmt, ...)
 {
     va_list args;
@@ -61,7 +61,7 @@ void Error(const char* fmt, ...)
     Error("error", fmt, args);
     va_end(args);
 }
-
+*/
 void Warning(const char* fileName, int line, int column, const char* fmt, ...)
 {
     va_list args;
@@ -77,7 +77,7 @@ void Warning(const Token* tok, const char* fmt, ...)
     Error(tok->FileName(), tok->Line(), tok->Column(), "warning", fmt, args);
     va_end(args);
 }
-
+/*
 void Warning(const char* fmt, ...)
 {
     va_list args;
@@ -85,3 +85,4 @@ void Warning(const char* fmt, ...)
     Error("warning", fmt, args);
     va_end(args);
 }
+*/

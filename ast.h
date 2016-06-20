@@ -384,7 +384,9 @@ public:
     virtual void Accept(Visitor* v);
     
     //a function call is ofcourse not lvalue
-    virtual bool IsLVal(void) const { return false; }
+    virtual bool IsLVal(void) const {
+        return false;
+    }
 
     virtual long long EvalInteger(void) {
         Error("function call is not allowed in constant expression");
