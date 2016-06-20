@@ -67,58 +67,52 @@ void TranslationUnit::Accept(Visitor* v) {
     v->VisitTranslationUnit(this);
 }
 
-/*
- * Expression
- */
 
-ConditionalOp* ConditionalOp::TypeChecking(void)
+long long BinaryOp::EvalInteger(void)
 {
+    // TypeChecking should make sure of this constrains
+    assert(_ty->IsInteger());
 
-    //TODO: type checking
+#define L   _lhs->EvalInteger()
+#define R   _rhs->EvalInteger()
 
-    //TODO: type evaluation
-
-    return this;
-}
-
-// TODO(wgtdkp):
-bool BinaryOp::EvaluateConstant(Constant* cons)
-{
     //bool res = true;
     switch (_op) {
     case '+':
-        // TODO(wgtdkp):
-        //res &= _lhs->EvaluateConstant(cons);
-        //res &= _rhs->EvaluateConstant(cons);
-        //if (res) {
-        //    if (_ty->Is)
-        //}
+        return L + R;
     case '-':
+        return L - R;
     case '*':
+        return L * R;
     case '/':
     case '%':
+        {
+            int l = L, r = R;
+            if (r == 0)
+                Error("division by zero");
+            return _op == '%'? (l % r): (l / r);
+        }
     case '<':
+        return L < R;
     case '>':
+        return L > R;
     case '|':
+        return L | R;
     case '&':
+        return L & R;
     case '^':
+        return L ^ R;
     case Token::LEFT_OP:
+        return L << R;
     case Token::RIGHT_OP:
+        return L >> R;
     case Token::AND_OP:
+        return L && R;
     case Token::OR_OP:
-        // TODO(wgtdkp):
-        //if (_lhs->EvaluateConstant(cons) 
-        //        && _rhs->EvaluateConstant(cons)) {
-        //    
-        //    return true;
-        //}
-        return false;
-
-    // N1548 6.6 [3]
-    // "Constant expressions shall not contain assignment"
-    case '=':
-    case ',': // TOOD(wgtdkp): Not simple as such
-        return false;
+        return L || R;
+    case '=':  
+    case ',':
+        return R;
     default:
         assert(0);
     }
@@ -310,6 +304,28 @@ BinaryOp* BinaryOp::AssignOpTypeChecking(void)
 
 /************** Unary Operators *****************/
 
+long long UnaryOp::EvalInteger(void)
+{
+#define VAL _operand->EvalInteger()
+
+    switch (_op) {
+    case Token::PLUS:
+        return VAL;
+    case Token::MINUS:
+        return -VAL;
+    case '~':
+        return ~VAL;
+    case '!':
+        return !VAL;
+    case Token::CAST:
+        return VAL;
+    default:
+        Error("expect constant integer");
+    }
+
+    return 0;   // Make compiler happy
+}
+
 UnaryOp* UnaryOp::TypeChecking(void)
 {
     switch (_op) {
@@ -406,6 +422,35 @@ UnaryOp* UnaryOp::CastOpTypeChecking(void)
 
     return this;
 }
+
+/*
+ * Conditional Operator
+ */
+
+long long ConditionalOp::EvalInteger(void)
+{
+    int cond = _cond->EvalInteger();
+    if (cond) {
+        return _exprTrue->EvalInteger();
+    } else {
+        return _exprFalse->EvalInteger();
+    }
+}
+
+ConditionalOp* ConditionalOp::TypeChecking(void)
+{
+
+    //TODO: type checking
+
+    //TODO: type evaluation
+
+    return this;
+}
+
+
+/*
+ * Function Call
+ */
 
 FuncCall* FuncCall::TypeChecking(void)
 {

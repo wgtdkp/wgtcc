@@ -58,15 +58,7 @@ Expr* Parser::ParseCommaExpr(void)
     auto lhs = ParseAssignExpr();
     while (Try(',')) {
         auto rhs = ParseAssignExpr();
-
-        // Process constants
-        if (lhs->ToConstant() && rhs->ToConstant()) {
-            // Discard left-hand-side operand of comma  
-            _unit->Delete(lhs);
-            lhs = rhs;
-        } else {
-            lhs = _unit->NewBinaryOp(',', lhs, rhs);
-        }
+        lhs = _unit->NewBinaryOp(',', lhs, rhs);
     }
     return lhs;
 }
@@ -451,17 +443,6 @@ Expr* Parser::ParseConditionalExpr(void)
         auto exprTrue = ParseExpr();
         Expect(':');
         auto exprFalse = ParseConditionalExpr();
-
-        if (cond->ToConstant()) {
-            // TODO(wgtdkp): evaluate true/false
-            if (consCond->IVal() != 0) {
-                _unit->Delete(exprFalse);
-                return exprTrue;
-            } else {
-                _unit->Delete(exprTrue);
-                return exprFalse;
-            }
-        }
 
         return _unit->NewConditionalOp(cond, exprTrue, exprFalse);
     }

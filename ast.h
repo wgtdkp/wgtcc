@@ -1,6 +1,7 @@
 #ifndef _WGTCC_AST_H_
 #define _WGTCC_AST_H_
 
+#include "error.h"
 #include "mem_pool.h"
 #include "token.h"
 #include "type.h"
@@ -211,7 +212,7 @@ public:
 
     virtual bool IsLVal(void) const = 0;
 
-    //virtual bool EvaluateConstant(Constant* cons) = 0;
+    virtual long long EvalInteger(void) = 0;
 
     virtual Constant* ToConstant(void) {
         return nullptr;
@@ -256,7 +257,7 @@ public:
     //like member ref operator is a lvalue
     virtual bool IsLVal(void) const { return false; }
 
-    virtual bool EvaluateConstant(Constant* cons);
+    virtual long long EvalInteger(void);
 
 protected:
     BinaryOp(MemPool* pool, int op, Expr* lhs, Expr* rhs)
@@ -293,20 +294,35 @@ protected:
 };
 
 
-/************* Unary Operator ****************/
+/*
+ * Unary Operator:
+ * '++' (prefix/postfix)
+ * '--' (prefix/postfix)
+ * '&'  (ADDR)
+ * '*'  (DEREF)
+ * '+'  (PLUS)
+ * '-'  (MINUS)
+ * '~'
+ * '!'
+ * CAST // like (int)3
+ */
 class UnaryOp : public Expr
 {
     friend class TranslationUnit;
 
 public:
     virtual ~UnaryOp(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     //TODO: like '*p' is lvalue, but '~i' is not lvalue
     virtual bool IsLVal(void) const {
         /*only deref('*') op is lvalue;
         so it's only deref with override this func*/
         return (Token::DEREF == _op);
     }
+
+    virtual long long EvalInteger(void);
 
 protected:
     UnaryOp(MemPool* pool, int op, Expr* operand, Type* type = nullptr)
@@ -329,7 +345,7 @@ protected:
 };
 
 
-// cond ？ true ： false
+// cond ? true ： false
 class ConditionalOp : public Expr
 {
     friend class TranslationUnit;
@@ -340,6 +356,8 @@ public:
     virtual void Accept(Visitor* v);
     
     virtual bool IsLVal(void) const { return false; }
+
+    virtual long long EvalInteger(void);
 
 protected:
     ConditionalOp(MemPool* pool, Expr* cond, Expr* exprTrue, Expr* exprFalse)
@@ -362,9 +380,16 @@ class FuncCall : public Expr
 
 public:
     ~FuncCall(void) {}
+    
     virtual void Accept(Visitor* v);
+    
     //a function call is ofcourse not lvalue
     virtual bool IsLVal(void) const { return false; }
+
+    virtual long long EvalInteger(void) {
+        Error("function call is not allowed in constant expression");
+        return 0;   // Make compiler happy
+    }
 
 protected:
     FuncCall(MemPool* pool, Expr* designator, std::list<Expr*> args)
@@ -394,16 +419,31 @@ public:
         return _offset >= 0;
     }
 
-    int Offset(void) const { return _offset; }
+    int Offset(void) const {
+        return _offset;
+    }
         
-    void SetOffset(int offset) { _offset = offset; }
+    void SetOffset(int offset) {
+        _offset = offset;
+    }
     
-    int Storage(void) const { return _storage; }
+    int Storage(void) const {
+        return _storage;
+    }
 
-    void SetStorage(int storage) { _storage = storage; }
+    void SetStorage(int storage) {
+        _storage = storage;
+    }
 
     //of course a variable is a lvalue expression
-    virtual bool IsLVal(void) const { return true; }
+    virtual bool IsLVal(void) const {
+        return true;
+    }
+
+    virtual long long EvalInteger(void) {
+        Error("function call is not allowed in constant expression");
+        return 0;   // Make compiler happy
+    }
 
     bool operator==(const Variable& other) const {
         return _offset == other._offset
@@ -414,9 +454,13 @@ public:
         return !(*this == other);
     }
 
-    virtual Constant* ToConstant(void) { return nullptr; }
+    virtual Constant* ToConstant(void) {
+        return nullptr;
+    }
     
-    virtual const Constant* ToConstant(void) const { return nullptr; }
+    virtual const Constant* ToConstant(void) const {
+        return nullptr;
+    }
 
     Variable* GetStructMember(const char* name);
 
@@ -425,8 +469,11 @@ public:
 protected:
     Variable(MemPool* pool, Type* type, int offset=VAR, bool isConstant=false)
         : Expr(pool, type, isConstant), _storage(0), _offset(offset) {}
+    
     //do nothing
-    virtual Variable* TypeChecking(void) { return this; }
+    virtual Variable* TypeChecking(void) {
+        return this;
+    }
 
 protected:
     int _storage;
@@ -447,11 +494,23 @@ public:
     
     virtual void Accept(Visitor* v);
     
-    virtual bool IsLVal(void) const { return false; }
+    virtual bool IsLVal(void) const {
+        return false;
+    }
+
+    virtual long long EvalInteger(void) {
+        if (_ty->IsFloat())
+            Error("expect integer, but get floating");
+        return _ival;
+    }
     
-    long long IVal(void) const { return _ival; }
+    long long IVal(void) const {
+        return _ival;
+    }
     
-    double FVal(void) const { return _fval; }
+    double FVal(void) const {
+        return _fval;
+    }
 
     virtual Constant* ToConstant(void) {
         return this;
@@ -493,13 +552,25 @@ class TempVar : public Expr
 
 public:
     virtual ~TempVar(void) {}
+    
     virtual void Accept(Visitor* v);
-    virtual bool IsLVal(void) const { return true; }
+    
+    virtual bool IsLVal(void) const {
+        return true;
+    }
+
+    virtual long long EvalInteger(void) {
+        Error("function call is not allowed in constant expression");
+        return 0;   // Make compiler happy
+    }
 
 protected:
     TempVar(MemPool* pool, Type* type)
             : Expr(pool, type), _tag(GenTag()) {}
-    virtual TempVar* TypeChecking(void) { return this; }
+
+    virtual TempVar* TypeChecking(void) {
+        return this;
+    }
 
 private:
     static int GenTag(void) {
