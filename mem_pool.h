@@ -8,7 +8,7 @@
 class MemPool
 {
 public:
-    MemPool(void) {}
+    MemPool(void): _allocated(0) {}
     
     virtual ~MemPool(void) {}
     
@@ -21,6 +21,9 @@ public:
     virtual void Free(void* addr) = 0;
     
     virtual void Clear(void) = 0;
+
+protected:
+    size_t _allocated;
 };
 
 template <class T>

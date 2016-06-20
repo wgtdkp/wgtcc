@@ -511,6 +511,7 @@ ConditionalOp* TranslationUnit::NewConditionalOp(Expr* cond,
 BinaryOp* TranslationUnit::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
 {
     switch (op) {
+    case '=': 
     case '[':
     case '*':
     case '/':

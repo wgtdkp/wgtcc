@@ -70,9 +70,6 @@ public:
 
     Expr* ParseAssignExpr(void);
 
-    Constant* ParseConstantExpr(void);
-
-
     /************* Declarations **************/
     CompoundStmt* ParseDecl(void);
     Type* ParseDeclSpec(int* storage, int* func);
@@ -224,9 +221,6 @@ private:
         assert(nullptr == FindLabel(label));
         _topLabels[label] = labelStmt;
     }
-
-    //constant evaluator
-    bool EvaluateConstantExpr(int& val, const Expr* expr);
 
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
     typedef std::list<std::pair<const char*, JumpStmt*>> LabelJumpList;

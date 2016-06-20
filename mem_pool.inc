@@ -14,6 +14,7 @@ void* MemPoolImp<T>::Alloc(void)
     auto ret = _root;
     _root = _root->_next;
 
+    ++_allocated;
     return ret;
 }
 
@@ -26,6 +27,8 @@ void MemPoolImp<T>::Free(void* addr)
     auto chunk = static_cast<Chunk*>(addr);
     chunk->_next = _root;
     _root = chunk;
+
+    --_allocated;
 }
 
 template <class T>
@@ -35,4 +38,5 @@ void MemPoolImp<T>::Clear(void)
         delete *iter;
         
     _root = nullptr;
+    _allocated = 0;
 }

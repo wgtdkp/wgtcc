@@ -216,7 +216,7 @@ public:
     }
 
     bool IsPunctuator(void) const {
-        return LPAR <= _tag && _tag <= ELLIPSIS;
+        return 0 <= _tag && _tag <= ELLIPSIS;
     }
 
     bool IsString(void) const {

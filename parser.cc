@@ -80,7 +80,11 @@ Expr* Parser::ParsePrimaryExpr(void)
 
     if (tok->IsIdentifier()) {
         //TODO: create a expression node with symbol
-
+        auto var = _topEnv->FindVar(tok->Val());
+        if (var == nullptr) {
+            Error(tok, "undefined variable '%s'", tok->Val());
+        }
+        return var;
     } else if (tok->IsConstant()) {
         return ParseConstant(tok);
     } else if (tok->IsString()) {
@@ -91,7 +95,6 @@ Expr* Parser::ParsePrimaryExpr(void)
 
     //TODO: error
     Error("Expect expression");
-
     return nullptr; // Make compiler happy
 }
 
@@ -518,27 +521,6 @@ Expr* Parser::ParseAssignExpr(void)
     return _unit->NewBinaryOp('=', lhs, rhs);
 }
 
-Constant* Parser::ParseConstantExpr(void)
-{
-    Constant* constant = nullptr;
-    auto expr = ParseConditionalExpr();
-    // TODO(wgtdkp):
-    //if (!expr->IsConstant())
-    //	Error("constant expression expected");
-    if (expr->Ty()->IsInteger()) {
-        //TODO:
-        //auto val = expr->EvaluateConstant();
-        //constant = _unit->NewConstantInteger(Type::NewArithmType(T_INT), val);
-    } else if (expr->Ty()->IsFloat()) {
-        //TODO:
-        //auto val = expr->EvaluateConstant();
-        //constant = _unit->NewConstantFloat(Type::NewArithmType(T_FLOAT), val);
-    } else {
-        assert(0);
-    }
-    
-    return constant;
-}
 
 /**************** Declarations ********************/
 
@@ -555,13 +537,16 @@ CompoundStmt* Parser::ParseDecl(void)
     } else {
         int storageSpec, funcSpec;
         auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-        //init-declarator 的 FIRST 集合：'*' identifier '('
+        
+        //init-declarator 的 FIRST 集合：'*', identifier, '('
         if (Test('*') || Test(Token::IDENTIFIER) || Test('(')) {
             do {
                 auto initExpr = ParseInitDeclarator(type, storageSpec, funcSpec);
                 if (nullptr != initExpr)
                     stmts.push_back(initExpr);
             } while (Try(','));
+            
+            Expect(';');
         }
     }
 
@@ -831,11 +816,10 @@ int Parser::ParseAlignas(void)
         Expect(')');
         align = type->Align();
     } else {
-        auto constantExpr = ParseConstantExpr();
-        EnsureIntegerExpr(constantExpr);
+        auto expr = ParseExpr();
+        align = expr->EvalInteger();
         Expect(')');
-        align = constantExpr->IVal();
-        //TODO: delete constantExpr
+        _unit->Delete(expr);
     }
 
     return align;
@@ -895,11 +879,9 @@ Type* Parser::ParseEnumerator(ArithmType* type)
         if (nullptr != _topEnv->FindVarInCurScope(enumName))
             Error("'%s': symbol redifinition");
         if (Try('=')) {
-            auto constExpr = ParseConstantExpr();
-            EnsureIntegerExpr(constExpr);
-            //TODO:
-            //int enumVal = EvaluateConstant(constExpr);
-            //val = enumVal;
+            auto expr = ParseExpr();
+            val = expr->EvalInteger();
+            // TODO(wgtdkp): checking conflict
         }
 
         auto Constant = _unit->NewConstantInteger(
@@ -1157,12 +1139,7 @@ int Parser::ParseArrayLength(void)
         return -1;
 
     auto expr = ParseAssignExpr();
-    int len;
-    if (!EvaluateConstantExpr(len, expr)) {
-        Error("expect constant expression");
-    }
-    
-    return len;
+    return expr->EvalInteger();
 }
 
 /*
@@ -1265,10 +1242,10 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
             break;
 
         if (tok->Tag() == '[') {
-            auto constExpr = ParseConstantExpr();
+            auto expr = ParseExpr();
             // TODO(wgtdkp): make sure it is constant integer!
 
-            size_t idx = constExpr->IVal();
+            auto idx = expr->EvalInteger();
             idxSet.insert(idx);
             // TODO(wgtdkp): GetArrayElement() create new object
             // Will there be memory leak?
@@ -1315,6 +1292,8 @@ Stmt* Parser::ParseStmt(void)
         Error("premature end of input");
 
     switch (tok->Tag()) {
+    case ';':
+        return _unit->NewEmptyStmt();
     case '{':
         return ParseCompoundStmt();
     case Token::IF:
@@ -1344,12 +1323,11 @@ Stmt* Parser::ParseStmt(void)
     if (tok->IsIdentifier() && Try(':'))
         return ParseLabelStmt(tok->Val());
     
-    if (Try(';'))
-        return _unit->NewEmptyStmt();
-    
+    PutBack();
     auto expr = ParseExpr();
-    
-    return Expect(';'), expr;
+    Expect(';');
+
+    return expr;
 }
 
 CompoundStmt* Parser::ParseCompoundStmt(void)
@@ -1597,13 +1575,7 @@ CompoundStmt* Parser::ParseCaseStmt(void)
     auto expr = ParseExpr();
     Expect(':');
     
-    int val;
-    bool succeed = EvaluateConstantExpr(val, expr);
-    //TODO: constant epxr 整型
-    if (!succeed) {
-        Error("expect constant expression");
-    }
-
+    auto val = expr->EvalInteger();
     auto labelStmt = _unit->NewLabelStmt();
     _caseLabels->push_back(std::make_pair(val, labelStmt));
     std::list<Stmt*> stmts;
@@ -1651,6 +1623,7 @@ ReturnStmt* Parser::ParseReturnStmt(void)
         expr = nullptr;
     } else {
         expr = ParseExpr();
+        Expect(';');
     }
 
     return _unit->NewReturnStmt(expr);
@@ -1719,10 +1692,4 @@ FuncDef* Parser::ParseFuncDef(void)
     auto stmt = ParseCompoundStmt();
 
     return _unit->NewFuncDef(funcType->ToFuncType(), stmt);
-}
-
-bool Parser::EvaluateConstantExpr(int& val, const Expr* expr)
-{
-    val = 5;
-    return true;
 }
