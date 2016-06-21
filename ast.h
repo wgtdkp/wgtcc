@@ -39,7 +39,8 @@ class TranslationUnit;
 
 struct Coordinate
 {
-    Coordinate(void): line(0), column(0), begin(nullptr), end(nullptr) {}
+    Coordinate(void): line(0), column(0),
+            lineBegin(nullptr), begin(nullptr), end(nullptr) {}
     
     const char* fileName;
     
@@ -48,7 +49,9 @@ struct Coordinate
     
     // Column index of the begin
     int column;
-    
+
+    char* lineBegin;
+
     char* begin;
     
     char* end;
@@ -423,7 +426,7 @@ public:
     }
 
     virtual long long EvalInteger(void) {
-        Error("function call is not allowed in constant expression");
+        Error(this, "function call is not allowed in constant expression");
         return 0;   // Make compiler happy
     }
 
@@ -477,7 +480,7 @@ public:
     }
 
     virtual long long EvalInteger(void) {
-        Error("function call is not allowed in constant expression");
+        Error(this, "function call is not allowed in constant expression");
         return 0;   // Make compiler happy
     }
 
@@ -536,7 +539,7 @@ public:
 
     virtual long long EvalInteger(void) {
         if (_ty->IsFloat())
-            Error("expect integer, but get floating");
+            Error(this, "expect integer, but get floating");
         return _ival;
     }
     
@@ -596,7 +599,7 @@ public:
     }
 
     virtual long long EvalInteger(void) {
-        Error("function call is not allowed in constant expression");
+        Error(this, "function call is not allowed in constant expression");
         return 0;   // Make compiler happy
     }
 

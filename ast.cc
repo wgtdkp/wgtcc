@@ -92,7 +92,7 @@ long long BinaryOp::EvalInteger(void)
         {
             int l = L, r = R;
             if (r == 0)
-                Error("division by zero");
+                Error(this, "division by zero");
             return _op == '%'? (l % r): (l / r);
         }
     case '<':
@@ -173,9 +173,9 @@ BinaryOp* BinaryOp::SubScriptingOpTypeChecking(void)
 {
     auto lhsType = _lhs->Ty()->ToPointerType();
     if (nullptr == lhsType)
-        Error("an pointer expected");
+        Error(this, "an pointer expected");
     if (!_rhs->Ty()->IsInteger())
-        Error("the operand of [] should be intger");
+        Error(this, "the operand of [] should be intger");
 
     //the type of [] operator is the type the pointer pointed to
     _ty = lhsType->Derived();
@@ -188,16 +188,16 @@ BinaryOp* BinaryOp::MemberRefOpTypeChecking(const std::string& rhsName)
     if (Token::PTR_OP == _op) {
         auto pointer = _lhs->Ty()->ToPointerType();
         if (pointer == nullptr) {
-            Error("pointer expected for operator '->'");
+            Error(this, "pointer expected for operator '->'");
         } else {
             structUnionType = pointer->Derived()->ToStructUnionType();
             if (structUnionType == nullptr)
-                Error("pointer to struct/union expected");
+                Error(this, "pointer to struct/union expected");
         }
     } else {
         structUnionType = _lhs->Ty()->ToStructUnionType();
         if (nullptr == structUnionType)
-            Error("an struct/union expected");
+            Error(this, "an struct/union expected");
     }
 
     if (nullptr == structUnionType)
@@ -205,7 +205,7 @@ BinaryOp* BinaryOp::MemberRefOpTypeChecking(const std::string& rhsName)
 
     _rhs = structUnionType->Find(rhsName);
     if (nullptr == _rhs) {
-        Error("'%s' is not a member of '%s'", rhsName, "[obj]");
+        Error(this, "'%s' is not a member of '%s'", rhsName, "[obj]");
     } else {
         _ty = _rhs->Ty();
     }
@@ -219,9 +219,9 @@ BinaryOp* BinaryOp::MultiOpTypeChecking(void)
     auto rhsType = _rhs->Ty()->ToArithmType();
 
     if (nullptr == lhsType || nullptr == rhsType)
-        Error("operand should be arithmetic type");
+        Error(this, "operand should be arithmetic type");
     if ('%' == _op && !(_lhs->Ty()->IsInteger() && _rhs->Ty()->IsInteger()))
-        Error("operand of '%%' should be integer");
+        Error(this, "operand of '%%' should be integer");
 
     //TODO: type promotion
     _ty = _lhs->Ty();
@@ -272,7 +272,7 @@ BinaryOp* BinaryOp::EqualityOpTypeChecking(void)
 BinaryOp* BinaryOp::BitwiseOpTypeChecking(void)
 {
     if (_lhs->Ty()->IsInteger() || _rhs->Ty()->IsInteger())
-        Error("operands of '&' should be integer");
+        Error(this, "operands of '&' should be integer");
     //TODO: type promotion
     _ty = Type::NewArithmType(T_INT);
     
@@ -283,7 +283,7 @@ BinaryOp* BinaryOp::LogicalOpTypeChecking(void)
 {
     //TODO: type checking
     if (!_lhs->Ty()->IsScalar() || !_rhs->Ty()->IsScalar())
-        Error("the operand should be arithmetic type or pointer");
+        Error(this, "the operand should be arithmetic type or pointer");
     _ty = Type::NewArithmType(T_BOOL);
     
     return this;
@@ -294,9 +294,9 @@ BinaryOp* BinaryOp::AssignOpTypeChecking(void)
     //TODO: type checking
     if (!_lhs->IsLVal()) {
         //TODO: error
-        Error("lvalue expression expected");
+        Error(this, "lvalue expression expected");
     } else if (_lhs->Ty()->IsConst()) {
-        Error("can't modifiy 'const' qualified expression");
+        Error(this, "can't modifiy 'const' qualified expression");
     }
 
     _ty = _lhs->Ty();
@@ -331,7 +331,7 @@ long long UnaryOp::EvalInteger(void)
     case Token::CAST:
         return VAL;
     default:
-        Error("expect constant integer");
+        Error(this, "expect constant integer");
     }
 
     return 0;   // Make compiler happy
@@ -371,9 +371,9 @@ UnaryOp* UnaryOp::IncDecOpTypeChecking(void)
 {
     if (!_operand->IsLVal()) {
         //TODO: error
-        Error("lvalue expression expected");
+        Error(this, "lvalue expression expected");
     } else if (_operand->Ty()->IsConst()) {
-        Error("can't modifiy 'const' qualified expression");
+        Error(this, "can't modifiy 'const' qualified expression");
     }
 
     _ty = _operand->Ty();
@@ -385,7 +385,7 @@ UnaryOp* UnaryOp::AddrOpTypeChecking(void)
 {
     FuncType* funcType = _operand->Ty()->ToFuncType();
     if (nullptr != funcType && !_operand->IsLVal())
-        Error("expression must be an lvalue or function designator");
+        Error(this, "expression must be an lvalue or function designator");
     
     _ty = Type::NewPointerType(_operand->Ty());
 
@@ -396,7 +396,7 @@ UnaryOp* UnaryOp::DerefOpTypeChecking(void)
 {
     auto pointer = _operand->Ty()->ToPointerType();
     if (nullptr == pointer)
-        Error("pointer expected for deref operator '*'");
+        Error(this, "pointer expected for deref operator '*'");
 
     _ty = pointer->Derived();
 
@@ -407,13 +407,13 @@ UnaryOp* UnaryOp::UnaryArithmOpTypeChecking(void)
 {
     if (Token::PLUS == _op || Token::MINUS == _op) {
         if (!_operand->Ty()->IsArithm())
-            Error("Arithmetic type expected");
+            Error(this, "Arithmetic type expected");
     } else if ('~' == _op) {
         if (!_operand->Ty()->IsInteger())
-            Error("integer expected for operator '~'");
+            Error(this, "integer expected for operator '~'");
     } else {//'!'
         if (!_operand->Ty()->IsScalar())
-            Error("arithmetic type or pointer expected for operator '!'");
+            Error(this, "arithmetic type or pointer expected for operator '!'");
     }
 
     _ty = _operand->Ty();
@@ -425,11 +425,11 @@ UnaryOp* UnaryOp::CastOpTypeChecking(void)
 {
     //the _ty has been initiated to desType
     if (!_ty->IsScalar())
-        Error("the cast type should be arithemetic type or pointer");
+        Error(this, "the cast type should be arithemetic type or pointer");
     if (_ty->IsFloat() && nullptr != _operand->Ty()->ToPointerType())
-        Error("can't cast a pointer to floating");
+        Error(this, "can't cast a pointer to floating");
     else if (nullptr != _ty->ToPointerType() && _operand->Ty()->IsFloat())
-        Error("can't cast a floating to pointer");
+        Error(this, "can't cast a floating to pointer");
 
     return this;
 }
@@ -467,7 +467,7 @@ FuncCall* FuncCall::TypeChecking(void)
 {
     auto funcType = _designator->Ty()->ToFuncType();
     if (nullptr == funcType)
-        Error("not a function type");
+        Error(this, "not a function type");
     else
         _ty = funcType->Derived();
 

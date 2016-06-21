@@ -2,20 +2,8 @@
 #define _WGTCC_ERROR_H_
 
 
-class Token;
-/*
-class Error
-{
-public:
+class ASTNode;
 
-};
-*/
-
-void Error(const char* fileName, int line, int column, const char* fmt, ...);
-void Error(const Token* tok, const char* fmt, ...);
-void Error(const char* fmt, ...);
-void Warning(const char* fileName, int line, int column, const char* fmt, ...);
-void Warning(const Token* tok, const char* fmt, ...);
-void Warning(const char* fmt, ...);
+void Error(const ASTNode* node, const char* format, ...);
 
 #endif

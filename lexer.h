@@ -14,11 +14,7 @@ class Lexer
 {
 public:
     Lexer(const char* path): _path(path) {
-        if (!ReadFile(_path)) {
-            //TODO: error
-            Error("open file: '%s' failed", _path);
-        }
-        
+        ReadFile(_path);
         _tokTop = 0;
     }
 
@@ -59,7 +55,7 @@ private:
     
     const Lexer& operator=(const Lexer& other);
     
-    bool ReadFile(const char* fileName);
+    void ReadFile(const char* fileName);
     
     const char* ParseName(const char* path);
     

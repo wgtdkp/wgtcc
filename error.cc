@@ -7,81 +7,45 @@
 #include <cstring>
 #include <string>
 
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
-static void Error(
-    const char* fileName, 
-    int line, int column, 
-    const char* label,
-    const char* fmt,
-    va_list args)
+
+void Error(const ASTNode* node, const char* format, ...)
 {
-    //fprintf(stderr, "[ %s ]: [ %d ]: ", __FILE__, __LINE__);
-    fprintf(stderr, "%s: %d: %d: ", fileName, line, column);
-    //Error(label, fmt, args);
-    fprintf(stderr, "%s: ", label);
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
+    auto coord = node->Coord();
+    fprintf(stderr,  "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
+            coord.fileName, coord.line, coord.column);
     
-    if (strcmp(label, "error") == 0)
-        exit(0);
-}
-
-static void Error(const char* label, const char* fmt, va_list args)
-{
-    //fprintf(stderr, "[ %s ]: [ %d ]: ", __FILE__, __LINE__);
-    fprintf(stderr, "%s: ", label);
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
     
-    if (strcmp(label, "error") == 0)
-        exit(0);
-}
+    fprintf(stderr, "\n    ");
 
+    bool sawNoSpace = false;
+    int nspaces = 0;
+    for (auto p = coord.lineBegin; *p != '\n' && *p != 0; p++) {
+        if (!sawNoSpace && (*p == ' ' || *p == '\t'))
+            nspaces++;
+        else {
+            sawNoSpace = true;
+            fputc(*p, stderr);
+        }
+    }
+    
+    fprintf(stderr, "\n    ");
 
-void Error(const char* fileName, int line, int column, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    Error(fileName, line, column, "error", fmt, args);
-    va_end(args);
-}
+    for (int i = 1; i + nspaces < coord.column; i++)
+        fputc(' ', stderr);
+    
+    fprintf(stderr, ANSI_COLOR_GREEN "^\n");
 
-void Error(const Token* tok, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    //Error(tok->FileName(), tok->Line(), tok->Column(), "error", fmt, args);
-    va_end(args);
-}
-
-void Error(const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    Error("error", fmt, args);
-    va_end(args);
-}
-
-void Warning(const char* fileName, int line, int column, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    Error(fileName, line, column, "waring", fmt, args);
-    va_end(args);
-}
-
-void Warning(const Token* tok, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    //Error(tok->FileName(), tok->Line(), tok->Column(), "warning", fmt, args);
-    va_end(args);
-}
-
-void Warning(const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    Error("warning", fmt, args);
-    va_end(args);
+    exit(0);
 }

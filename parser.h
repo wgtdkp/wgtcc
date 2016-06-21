@@ -142,7 +142,7 @@ public:
     JumpStmt* ParseContinueStmt(void);
     JumpStmt* ParseBreakStmt(void);
     ReturnStmt* ParseReturnStmt(void);
-    CompoundStmt* ParseLabelStmt(const std::string& label);
+    CompoundStmt* ParseLabelStmt(const Token* label);
     CompoundStmt* ParseCaseStmt(void);
     CompoundStmt* ParseDefaultStmt(void);
 
@@ -209,26 +209,26 @@ private:
     void EnsureModifiableExpr(Expr* expr) const {
         if (!expr->IsLVal()) {
             //TODO: error
-            Error("lvalue expression expected");
+            Error(expr, "lvalue expression expected");
         } else if (expr->Ty()->IsConst()) {
-            Error("can't modifiy 'const' qualified expression");
+            Error(expr, "can't modifiy 'const' qualified expression");
         }
     }
 
     void EnsureLValExpr(Expr* expr) const {
         if (!expr->IsLVal()) {
-            Error("lvalue expected");
+            Error(expr, "lvalue expected");
         }
     }
 
     void EnsureScalarExpr(Expr* expr) const {
         if (!expr->Ty()->IsScalar())
-            Error("scalar type expression expected");
+            Error(expr, "scalar type expression expected");
     }
 
     void EnsureIntegerExpr(Expr* expr) const {
         if (!expr->Ty()->IsInteger())
-            Error("integer expression expected");
+            Error(expr, "integer expression expected");
     }
 
     void EnterBlock(void) {

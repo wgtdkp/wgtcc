@@ -8,7 +8,7 @@ union A {
 
 // Declaration
 static int a, b, c = 2;
-static void d;
+//static void d;
 int arr[2][3];
 
 typedef void(*f)(int, int);
@@ -45,6 +45,6 @@ static void test_switch(void)
 int main(void)
 {
 
-
+    int c = sizeof(test_if);
     return 0;
 }

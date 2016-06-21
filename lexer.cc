@@ -93,10 +93,10 @@ static inline bool IsBlank(char ch)
 void Lexer::Tokenize(void)
 {
     char* p = _text;
-    auto lineBegin = p;
     Coordinate coord;
     coord.line = 1,
     coord.column = 1,
+    coord.lineBegin = _text;
     coord.begin = _text,
     coord.end = _text,
     coord.fileName = ParseName(_path);
@@ -107,7 +107,7 @@ void Lexer::Tokenize(void)
                 if ('\r' == p[1]) {
                     ++p;
                 }
-                lineBegin = p + 1;
+                coord.lineBegin = p + 1;
                 ++coord.line;
             }
             ++p;
@@ -227,13 +227,14 @@ void Lexer::Tokenize(void)
                     ++p;
                     
                 tag = Token::IGNORE;
-                lineBegin = p + 1;
+                coord.lineBegin = p + 1;
                 ++coord.line;
+                ++p;
                 continue;
             } else if ('*' == p[1]) {
                 for (p += 2; !('*' == p[0] && '/' == p[1]); p++) {
                     if ('\n' == p[0]) {
-                        lineBegin = p + 1;
+                        coord.lineBegin = p + 1;
                         ++coord.line;
                     }
                 }
@@ -276,8 +277,10 @@ void Lexer::Tokenize(void)
                     //ellipsis
                     tag = Token::ELLIPSIS; ++p; ++p;
                 } else {
-                    //TODO: add error
-                    //Error(_fileName, _line, _column, "illegal identifier '%s'", "..");
+                    coord.end = p;
+                    coord.column = coord.begin - coord.lineBegin + 1;
+                    auto tok = NewToken(tag, coord);
+                    Error(tok, "illegal identifier '..'");
                 }
             } else if (isdigit(p[1])) {	// for float constant like: '.123'
                 goto constant_handler;
@@ -344,7 +347,7 @@ void Lexer::Tokenize(void)
             tag = Token::CONSTANT;
             
             coord.end = p + 1; //keep the prefix and postfix('\'')
-            coord.column = coord.begin - lineBegin + 1; 
+            coord.column = coord.begin - coord.lineBegin + 1; 
             _tokBuf.push_back(NewToken(tag, coord));
             ++p; continue;
 
@@ -358,7 +361,7 @@ void Lexer::Tokenize(void)
             tag = Token::STRING_LITERAL;
             
             coord.end = p + 1; //do not trim the '"' at begin and end
-            coord.column = coord.begin - lineBegin + 1;
+            coord.column = coord.begin - coord.lineBegin + 1;
             _tokBuf.push_back(NewToken(tag, coord));
             ++p; continue;
             
@@ -371,7 +374,7 @@ void Lexer::Tokenize(void)
                 }
                 
                 coord.end = p;
-                coord.column = coord.begin - lineBegin + 1;
+                coord.column = coord.begin - coord.lineBegin + 1;
                 
                 tag = Token::KeyWordTag(coord.begin, coord.end);
                 if (!Token::IsKeyWord(tag)) {
@@ -386,35 +389,33 @@ void Lexer::Tokenize(void)
                 coord.begin = p;
                 auto isInteger = ReadConstant(p);
                 coord.end = p;
-                coord.column = coord.begin - lineBegin + 1;
+                coord.column = coord.begin - coord.lineBegin + 1;
                 
                 tag = isInteger? Token::I_CONSTANT: Token::F_CONSTANT;
                 _tokBuf.push_back(NewToken(tag, coord));
                 continue;
             } else {
-                //TODO: set error: invalid character.
-                tag = Token::INVALID;
-                //Error(_fileName, _line, _column,
-                //        "invalid character '%c'", p[0]);
-                //return;
+                coord.end = p;
+                coord.column = coord.begin - coord.lineBegin + 1;
+                auto tok = NewToken(tag, coord);
+                Error(tok, "invalid character '%c'", p[0]);
             }
             ++p; break;
         }
         
         coord.end = p;
-        coord.column = coord.begin - lineBegin + 1;
+        coord.column = coord.begin - coord.lineBegin + 1;
         _tokBuf.push_back(NewToken(tag, coord));
     }
 }
 
-bool Lexer::ReadFile(const char* filePath)
+void Lexer::ReadFile(const char* filePath)
 {
     //assert(nullptr != fileName);
     FILE* fp = fopen(filePath, "r");
     if (nullptr == fp) {
-        //TODO: add error
-        Error("open file '%s' failed", filePath);
-        return false;
+        fprintf(stderr, "open file '%s' failed", filePath);
+        exit(0);
     }
 
     long long fileSize = 0LL;
@@ -424,9 +425,8 @@ bool Lexer::ReadFile(const char* filePath)
     fseek(fp, 0, SEEK_SET);
     
     if (fileSize > _maxSize) {
-        //TODO: set error
-        Error("source file '%s' is too big", filePath);
-        return false;
+        fprintf(stderr, "source file '%s' is too big", filePath);
+        exit(0);
     }
 
     //在tokenizer过程中需要最多向前看的步数
@@ -439,7 +439,6 @@ bool Lexer::ReadFile(const char* filePath)
     _tokBuf.reserve(fileSize / 8);
     _text = text;
     printf("%s\n", _text);
-    return true;
 }
 
 const char* Lexer::ParseName(const char* path)
