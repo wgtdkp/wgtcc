@@ -438,10 +438,10 @@ public:
     
     virtual bool Compatible(const Type& other) const;
 
-    Variable* Find(const char* name) const;
+    Variable* Find(const std::string& name) const;
 
     // struct/union
-    void AddMember(const char* name, Variable* member);
+    void AddMember(const std::string& name, Variable* member);
     
     bool IsStruct(void) const {
         return _isStruct;

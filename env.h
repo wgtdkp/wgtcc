@@ -3,10 +3,12 @@
 
 #include "type.h"
 
-#include <map>
-#include <list>
 #include <cassert>
 #include <cstring>
+
+#include <map>
+#include <list>
+#include <string>
 
 
 struct StrCmp
@@ -16,6 +18,7 @@ struct StrCmp
     }
 };
 
+
 class Env
 {
     friend class StructUnionType;
@@ -24,37 +27,37 @@ public:
     explicit Env(Env* parent=nullptr) 
         : _parent(parent), _offset(0) {}
 
-    Variable* Find(const char* name);
-    const Variable* Find(const char* name) const;
+    Variable* Find(const std::string& name);
+    const Variable* Find(const std::string& name) const;
 
-    Type* FindTypeInCurScope(const char* name);
-    const Type* FindTypeInCurScope(const char* name) const;
+    Type* FindTypeInCurScope(const std::string& name);
+    const Type* FindTypeInCurScope(const std::string& name) const;
 
-    Variable* FindVarInCurScope(const char* name);
-    const Variable* FindVarInCurScope(const char* name) const;
+    Variable* FindVarInCurScope(const std::string& name);
+    const Variable* FindVarInCurScope(const std::string& name) const;
          
-    Type* FindType(const char* name);
-    const Type* FindType(const char* name) const;
+    Type* FindType(const std::string& name);
+    const Type* FindType(const std::string& name) const;
 
-    Variable* FindVar(const char* name);
-    const Variable* FindVar(const char* name) const;
+    Variable* FindVar(const std::string& name);
+    const Variable* FindVar(const std::string& name) const;
 
-    void InsertType(const char* name, Variable* var);
-    void InsertVar(const char* name, Variable* var);
+    void InsertType(const std::string& name, Variable* var);
+    void InsertVar(const std::string& name, Variable* var);
 
     bool operator==(const Env& other) const;
     Env* Parent(void) { return _parent; }
     const Env* Parent(void) const { return _parent; }
 
-    Type* FindTagInCurScope(const char* tag);
-    Type* InsertTag(const char* tag, Type* type);
-    Type* FindTag(const char* tag);
+    Type* FindTagInCurScope(const std::string& tag);
+    Type* InsertTag(const std::string& tag, Type* type);
+    Type* FindTag(const std::string& tag);
 
-    Constant* InsertConstant(const char* name, Constant* constant);
+    Constant* InsertConstant(const std::string& name, Constant* constant);
 
 private:
-    typedef std::map<const char*, Variable*, StrCmp> SymbMap;
-    typedef std::map<const char*, Type*, StrCmp> TagMap;
+    typedef std::map<std::string, Variable*> SymbMap;
+    typedef std::map<std::string, Type*> TagMap;
 
     Env* _parent;
     int _offset;

@@ -12,7 +12,7 @@
 #include <stack>
 
 
-typedef std::pair<const char*, Type*> NameTypePair;
+typedef std::pair<std::string, Type*> NameTypePair;
 
 class Parser
 {
@@ -31,7 +31,7 @@ public:
      * Binary Operator
      */
     BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
-    BinaryOp* NewMemberRefOp(int op, Expr* lhs, const char* rhsName);
+    BinaryOp* NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName);
     ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
     FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
     Variable* NewVariable(Type* type, int offset=0);
@@ -142,7 +142,7 @@ public:
     JumpStmt* ParseContinueStmt(void);
     JumpStmt* ParseBreakStmt(void);
     ReturnStmt* ParseReturnStmt(void);
-    CompoundStmt* ParseLabelStmt(const char* label);
+    CompoundStmt* ParseLabelStmt(const std::string& label);
     CompoundStmt* ParseCaseStmt(void);
     CompoundStmt* ParseDefaultStmt(void);
 
@@ -242,21 +242,21 @@ private:
 
     void ExitFunc(void);
 
-    LabelStmt* FindLabel(const char* label) {
+    LabelStmt* FindLabel(const std::string& label) {
         auto ret = _topLabels.find(label);
         if (_topLabels.end() == ret)
             return nullptr;
         return ret->second;
     }
 
-    void AddLabel(const char* label, LabelStmt* labelStmt) {
+    void AddLabel(const std::string& label, LabelStmt* labelStmt) {
         assert(nullptr == FindLabel(label));
         _topLabels[label] = labelStmt;
     }
 
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
-    typedef std::list<std::pair<const char*, JumpStmt*>> LabelJumpList;
-    typedef std::map<const char*, LabelStmt*, StrCmp> LabelMap;
+    typedef std::list<std::pair<std::string, JumpStmt*>> LabelJumpList;
+    typedef std::map<std::string, LabelStmt*> LabelMap;
 
 private:
     // The root of the AST

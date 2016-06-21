@@ -76,9 +76,8 @@ public:
         return _coord;
     }
     
-    const char* Str(void) const {
-        static std::string str(_coord.begin, _coord.end);
-        return str.c_str();
+    std::string Str(void) const {
+        return std::string(_coord.begin, _coord.end);
     }
     
 protected:
@@ -88,7 +87,7 @@ protected:
             : _coord(coord), _pool(pool) {}
     
     Coordinate _coord;
-    
+
 private:
     //ASTNode(void);  //禁止直接创建Node
 
@@ -309,7 +308,7 @@ protected:
 
     BinaryOp* SubScriptingOpTypeChecking(void);
     
-    BinaryOp* MemberRefOpTypeChecking(const char* rhsName);
+    BinaryOp* MemberRefOpTypeChecking(const std::string& rhsName);
     
     BinaryOp* MultiOpTypeChecking(void);
     

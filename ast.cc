@@ -182,7 +182,7 @@ BinaryOp* BinaryOp::SubScriptingOpTypeChecking(void)
     return this;
 }
 
-BinaryOp* BinaryOp::MemberRefOpTypeChecking(const char* rhsName)
+BinaryOp* BinaryOp::MemberRefOpTypeChecking(const std::string& rhsName)
 {
     StructUnionType* structUnionType;
     if (Token::PTR_OP == _op) {

@@ -1,33 +1,12 @@
-#include <set>
 #include "lexer.h"
+
 #include "error.h"
+
+#include <cctype>
+#include <set>
 
 using namespace std;
 
-
-static inline bool IsDigit(char ch)
-{
-    return '0' <= ch && ch <= '9';
-}
-
-static inline bool IsLetter(char ch)
-{
-    return ('a' <= ch && ch <= 'z') 
-            || ('A' <= ch && ch <= 'Z') 
-            || '_' == ch;
-}
-
-static inline bool IsOct(char ch)
-{
-    return '0' <= ch && ch <= '7';
-}
-
-static inline bool IsHex(char ch)
-{
-    return ('a' <= ch && ch <= 'f')
-            || ('A' <= ch && ch <= 'F')
-            || IsDigit(ch);
-}
 
 /*
  * Return: true, is integer
@@ -39,7 +18,7 @@ static bool ReadConstant(char*& p)
     bool sawDot = false;
     
     for (; 0 != p[0]; p++) {
-        if (IsHex(p[0]))
+        if (isxdigit(p[0]))
             continue;
 
         switch (p[0]) {
@@ -300,7 +279,7 @@ void Lexer::Tokenize(void)
                     //TODO: add error
                     //Error(_fileName, _line, _column, "illegal identifier '%s'", "..");
                 }
-            } else if (IsDigit(p[1])) {	// for float constant like: '.123'
+            } else if (isdigit(p[1])) {	// for float constant like: '.123'
                 goto constant_handler;
             } else {
                 tag =  Token::DOT;
@@ -385,9 +364,9 @@ void Lexer::Tokenize(void)
             
         default:
             letter_handler:
-            if (IsLetter(p[0])) {
+            if (isalpha(p[0]) || p[0] == '_') {
                 coord.begin = p;
-                while (IsLetter(p[0]) || IsDigit(p[0])) {
+                while (isalnum(p[0]) || p[0] == '_') {
                     ++p;
                 }
                 
@@ -402,7 +381,7 @@ void Lexer::Tokenize(void)
                     _tokBuf.push_back(NewToken(tag, coord));
                 }
                 continue;
-            } else if (IsDigit(p[0])) {
+            } else if (isdigit(p[0])) {
             constant_handler:
                 coord.begin = p;
                 auto isInteger = ReadConstant(p);

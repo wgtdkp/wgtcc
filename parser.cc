@@ -60,7 +60,7 @@ BinaryOp* Parser::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
     return ret;
 }
 
-BinaryOp* Parser::NewMemberRefOp(int op, Expr* lhs, const char* rhsName)
+BinaryOp* Parser::NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName)
 {
     assert('.' == op || Token::PTR_OP == op);
     
@@ -299,11 +299,11 @@ Constant* Parser::ParseConstant(const Token* tok)
     assert(tok->IsConstant());
 
     if (tok->Tag() == Token::I_CONSTANT) {
-        auto ival = atoi(tok->Str());
+        auto ival = atoi(tok->Str().c_str());
         auto type = Type::NewArithmType(T_SIGNED | T_INT);
         return NewConstantInteger(type, ival);
     } else {
-        auto fval = atoi(tok->Str());
+        auto fval = atoi(tok->Str().c_str());
         auto type = Type::NewArithmType(T_DOUBLE);
         return NewConstantFloat(type, fval);
     }
@@ -1029,7 +1029,7 @@ static inline string MakeStructUnionName(const char* name)
 
 Type* Parser::ParseEnumSpec(void)
 {
-    const char* enumTag = nullptr;
+    std::string enumTag;
     auto tok = Next();
     
     if (tok->IsIdentifier()) {
@@ -1056,7 +1056,7 @@ Type* Parser::ParseEnumSpec(void)
 
 enum_decl:
     auto type = Type::NewArithmType(T_INT);
-    if (nullptr != enumTag)
+    if (enumTag.size() != 0)
         _topEnv->InsertTag(enumTag, type);
     
     return ParseEnumerator(type);   //处理反大括号: '}'
@@ -1102,7 +1102,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
  */
 Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
-    const char* structUnionTag = nullptr; //
+    std::string structUnionTag;
     auto tok = Next();
     if (tok->IsIdentifier()) {
         structUnionTag = tok->Str();
@@ -1153,7 +1153,7 @@ struct_decl:
     //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
 	//所以现在是第一次开始定义一个完整的struct/union类型
     auto type = Type::NewStructUnionType(isStruct);
-    if (nullptr != structUnionTag) 
+    if (structUnionTag.size() != 0) 
         _topEnv->InsertTag(structUnionTag, type);
     
     return ParseStructDecl(type); //处理反大括号: '}'
@@ -1259,7 +1259,7 @@ NameTypePair Parser::ParseDeclarator(Type* base)
         auto newBase = ParseArrayFuncDeclarator(pointerType);
         //修正 base type
         auto retType = ModifyBase(nameTypePair.second, pointerType, newBase);
-        return std::pair<const char*, Type*>(nameTypePair.first, retType);
+        return NameTypePair(nameTypePair.first, retType);
     } else if (Peek()->IsIdentifier()) {
         auto tok = Next();
         auto retType = ParseArrayFuncDeclarator(pointerType);
@@ -1268,7 +1268,7 @@ NameTypePair Parser::ParseDeclarator(Type* base)
     
     Error("expect identifier or '(' but get '%s'", Peek()->Str());
     
-    return std::pair<const char*, Type*>(nullptr, nullptr); //make compiler happy
+    return NameTypePair(nullptr, nullptr); //make compiler happy
 }
 
 Type* Parser::ParseArrayFuncDeclarator(Type* base)
@@ -1828,7 +1828,7 @@ ReturnStmt* Parser::ParseReturnStmt(void)
 JumpStmt* Parser::ParseGotoStmt(void)
 {
     Expect(Token::IDENTIFIER);
-    const char* label = Peek()->Str();
+    auto label = Peek()->Str();
     Expect(';');
 
     auto labelStmt = FindLabel(label);
@@ -1841,7 +1841,7 @@ JumpStmt* Parser::ParseGotoStmt(void)
     return unresolvedJump;
 }
 
-CompoundStmt* Parser::ParseLabelStmt(const char* label)
+CompoundStmt* Parser::ParseLabelStmt(const std::string& label)
 {
     auto stmt = ParseStmt();
     if (nullptr != FindLabel(label))

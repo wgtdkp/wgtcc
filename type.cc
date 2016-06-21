@@ -293,7 +293,7 @@ StructUnionType::StructUnionType(MemPool* pool, bool isStruct)
         :  Type(pool, 0, false), _isStruct(isStruct), _mapMember(new Env()) {
 }
 
-Variable* StructUnionType::Find(const char* name) const {
+Variable* StructUnionType::Find(const std::string& name) const {
     return _mapMember->FindVar(name);
 }
 
@@ -320,7 +320,7 @@ bool StructUnionType::Compatible(const Type& other) const {
     return *this == other;
 }
 
-void StructUnionType::AddMember(const char* name, Variable* member)
+void StructUnionType::AddMember(const std::string& name, Variable* member)
 {
     _mapMember->InsertVar(name, member);
 

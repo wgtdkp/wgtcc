@@ -7,7 +7,7 @@ using namespace std;
 
 /************** Env ******************/
 
-Variable* Env::Find(const char* name)
+Variable* Env::Find(const std::string& name)
 {
     auto symb = _symbMap.find(name);
     if (_symbMap.end() != symb)
@@ -18,13 +18,13 @@ Variable* Env::Find(const char* name)
     return _parent->Find(name);
 }
 
-const Variable* Env::Find(const char* name) const
+const Variable* Env::Find(const std::string& name) const
 {
     auto thi = const_cast<Env*>(this);
     return const_cast<const Variable*>(thi->Find(name));
 }
 
-Type* Env::FindTypeInCurScope(const char* name)
+Type* Env::FindTypeInCurScope(const std::string& name)
 {
     auto type = _symbMap.find(name);
     if (_symbMap.end() == type)
@@ -33,13 +33,13 @@ Type* Env::FindTypeInCurScope(const char* name)
     return type->second->IsVar() ? nullptr : type->second->Ty();
 }
 
-const Type* Env::FindTypeInCurScope(const char* name) const
+const Type* Env::FindTypeInCurScope(const std::string& name) const
 {
     auto thi = const_cast<Env*>(this);
     return const_cast<const Type*>(thi->FindTypeInCurScope(name));
 }
 
-Variable* Env::FindVarInCurScope(const char* name)
+Variable* Env::FindVarInCurScope(const std::string& name)
 {
     auto var = _symbMap.find(name);
     if (_symbMap.end() == var)
@@ -48,13 +48,13 @@ Variable* Env::FindVarInCurScope(const char* name)
     return var->second->IsVar() ? var->second : nullptr;
 }
 
-const Variable* Env::FindVarInCurScope(const char* name) const
+const Variable* Env::FindVarInCurScope(const std::string& name) const
 {
     auto thi = const_cast<Env*>(this);
     return const_cast<const Variable*>(thi->FindVarInCurScope(name));
 }
 
-Type* Env::FindType(const char* name)
+Type* Env::FindType(const std::string& name)
 {
     auto symb = Find(name);
     if (nullptr == symb)
@@ -64,13 +64,13 @@ Type* Env::FindType(const char* name)
     return symb->IsVar() ? nullptr : symb->Ty();
 } 
 
-const Type* Env::FindType(const char* name) const
+const Type* Env::FindType(const std::string& name) const
 {
     auto thi = const_cast<Env*>(this);
     return const_cast<const Type*>(thi->FindType(name));
 }
 
-Variable* Env::FindVar(const char* name)
+Variable* Env::FindVar(const std::string& name)
 {
     auto symb = Find(name);
     if (nullptr == symb)
@@ -80,7 +80,7 @@ Variable* Env::FindVar(const char* name)
     return symb->IsVar() ? symb : nullptr;
 }
 
-const Variable* Env::FindVar(const char* name) const
+const Variable* Env::FindVar(const std::string& name) const
 {
     auto thi = const_cast<Env*>(this);
     return const_cast<const Variable*>(thi->FindVar(name));
@@ -91,7 +91,7 @@ const Variable* Env::FindVar(const char* name) const
 ���������Ѿ��ڷ��ű��ڣ���ô���������ͣ�������Ȼ�������ڴ�й¶���ɵĲ��������Ϳ��ܱ�����Ҳ����û�б����ã�
 ������ͻӦ���ɵ��÷����飻
 */
-void Env::InsertType(const char* name, Variable* var)
+void Env::InsertType(const std::string& name, Variable* var)
 {
     assert(!var->IsVar());
     //auto iter = _symbMap.find(name);
@@ -102,7 +102,7 @@ void Env::InsertType(const char* name, Variable* var)
     _symbMap[name] = var;
 }
 
-void Env::InsertVar(const char* name, Variable* var)
+void Env::InsertVar(const std::string& name, Variable* var)
 {
     assert(var->IsVar());
     //�������ظ����壬��Ӧ���ɵ��÷�����
@@ -122,7 +122,7 @@ bool Env::operator==(const Env& other) const
     auto iterThis = this->_symbMap.begin();
     auto iterOther = other._symbMap.begin();
     for (; iterThis != this->_symbMap.end(); iterThis++, iterOther++) {
-        if (0 != strcmp(iterThis->first, iterOther->first))
+        if (iterThis->first != iterOther->first)
             return false;
         if (*iterThis->second != *iterOther->second)
             return false;
@@ -131,7 +131,7 @@ bool Env::operator==(const Env& other) const
     return true;
 }
 
-Constant* Env::InsertConstant(const char* name, Constant* constant) {
+Constant* Env::InsertConstant(const std::string& name, Constant* constant) {
     //ע��enumeration constant ��һ����������ͬһ�����ռ�
     assert(nullptr == FindVarInCurScope(name));
     _symbMap[name] = constant;
@@ -139,7 +139,7 @@ Constant* Env::InsertConstant(const char* name, Constant* constant) {
     return constant;
 }
 
-Type* Env::FindTagInCurScope(const char* tag)
+Type* Env::FindTagInCurScope(const std::string& tag)
 {
     auto type = _tagMap.find(tag);
     if (_tagMap.end() == type)
@@ -148,7 +148,7 @@ Type* Env::FindTagInCurScope(const char* tag)
     return type->second;
 }
 
-Type* Env::InsertTag(const char* tag, Type* type)
+Type* Env::InsertTag(const std::string& tag, Type* type)
 {
     assert(nullptr == FindTagInCurScope(tag));
     _tagMap[tag] = type;
@@ -156,7 +156,7 @@ Type* Env::InsertTag(const char* tag, Type* type)
     return type;
 }
 
-Type* Env::FindTag(const char* tag)
+Type* Env::FindTag(const std::string& tag)
 {
     auto type = FindTagInCurScope(tag);
     if (nullptr != type)
