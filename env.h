@@ -25,7 +25,13 @@ class Env
     
 public:
     explicit Env(Env* parent=nullptr) 
-        : _parent(parent), _offset(0) {}
+            : _parent(parent), _offset(0) {}
+
+    ~Env(void) {}
+
+    bool IsFileScope(void) const {
+        return _parent == nullptr;
+    }
 
     Variable* Find(const std::string& name);
     const Variable* Find(const std::string& name) const;

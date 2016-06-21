@@ -12,7 +12,7 @@
 #include <stack>
 
 
-typedef std::pair<std::string, Type*> NameTypePair;
+typedef std::pair<Token*, Type*> TokenTypePair;
 
 class Parser
 {
@@ -115,7 +115,7 @@ public:
     int ParseQual(void);
     Type* ParsePointer(Type* typePointedTo);
     Variable* ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec);
-    NameTypePair ParseDeclarator(Type* type);
+    TokenTypePair ParseDeclarator(Type* type);
     Type* ParseArrayFuncDeclarator(Type* base);
     int ParseArrayLength(void);
     bool ParseParamList(std::list<Type*>& params);

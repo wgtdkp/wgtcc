@@ -1084,7 +1084,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
             Error(tok, "enumration constant expected");
         
         auto enumName = tok->Str();
-        if (nullptr != _topEnv->FindVarInCurScope(enumName))
+        if (_topEnv->FindVarInCurScope(enumName))
             Error(tok, "'%s': symbol redifinition", enumName.c_str());
         if (Try('=')) {
             auto expr = ParseExpr();
@@ -1121,23 +1121,22 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
         if (Try('{')) {
             //看见大括号，表明现在将定义该struct/union类型
             auto curScopeType = _topEnv->FindTagInCurScope(structUnionTag);
-            if (nullptr != curScopeType) {	
-                /*
-				 * 在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
-				 * 1.如果声明在定义的外层scope,那么即使在内层scope定义了完整的类型，此声明仍然是无效的；
-				 *   因为如论如何，编译器都不会在内部scope里面去找定义，所以声明的类型仍然是不完整的；
-				 * 2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
-				 *   因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
-				 */
-                if (!curScopeType->IsComplete()) {
-                    //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
-                    return ParseStructDecl(curScopeType->ToStructUnionType());
-                } else {
-                    //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
-                    Error(tok, "'%s': struct type redefinition", tok->Str().c_str());
-                }
-            } else { //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
+            if (nullptr == curScopeType) //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
                 goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
+            
+            /*
+             * 在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
+             * 1.如果声明在定义的外层scope,那么即使在内层scope定义了完整的类型，此声明仍然是无效的；
+             *   因为如论如何，编译器都不会在内部scope里面去找定义，所以声明的类型仍然是不完整的；
+             * 2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
+             *   因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
+             */
+            if (!curScopeType->IsComplete()) {
+                //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
+                return ParseStructDecl(curScopeType->ToStructUnionType());
+            } else {
+                //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
+                Error(tok, "'%s': struct type redefinition", tok->Str().c_str());
             }
         } else {
             /*
@@ -1243,45 +1242,61 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
     return ty;
 }
 
-Variable* Parser::ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec)
+Variable* Parser::ParseDeclaratorAndDo(Type* base,
+        int storageSpec, int funcSpec)
 {
-    NameTypePair nameType = Parser::ParseDeclarator(base);
+    TokenTypePair tokenType = Parser::ParseDeclarator(base);
+    auto tok = tokenType.first;
+    auto type = tokenType.second;
     /*
      * TODO: 检查在同一 scope 是否已经定义此变量
 	 * 如果 storage 是 typedef，那么应该往符号表里面插入 type
 	 * 定义 void 类型变量是非法的，只能是指向void类型的指针
 	 * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
      */
-    auto var = NewVariable(nameType.second, 0);
-    _topEnv->InsertVar(nameType.first, var);
+    
+    Variable* var;
+    if ((var = _topEnv->Find(tok->Str()))) {
+        
+        Error(tok, "'%s' redeclared", tok->Str().c_str());
+    }
+
+    if (storageSpec & S_TYPEDEF) {
+        
+    }
+
+    
+    
+    var = NewVariable(type);
+    _topEnv->InsertVar(tok->Str(), var);
     var->SetStorage(storageSpec);
     
     return var;
 }
 
-NameTypePair Parser::ParseDeclarator(Type* base)
+TokenTypePair Parser::ParseDeclarator(Type* base)
 {
     // May be pointer
     auto pointerType = ParsePointer(base);
     
     if (Try('(')) {
         //现在的 pointerType 并不是正确的 base type
-        auto nameTypePair = ParseDeclarator(pointerType);
+        auto tokenTypePair = ParseDeclarator(pointerType);
         Expect(')');
         auto newBase = ParseArrayFuncDeclarator(pointerType);
         //修正 base type
-        auto retType = ModifyBase(nameTypePair.second, pointerType, newBase);
-        return NameTypePair(nameTypePair.first, retType);
+        auto retType = ModifyBase(tokenTypePair.second, pointerType, newBase);
+        return TokenTypePair(tokenTypePair.first, retType);
     } else if (Peek()->IsIdentifier()) {
         auto tok = Next();
         auto retType = ParseArrayFuncDeclarator(pointerType);
-        return NameTypePair(tok->Str(), retType);
+        return TokenTypePair(tok, retType);
     }
     
     Error(Peek(), "expect identifier or '(' but get '%s'",
             Peek()->Str().c_str());
     
-    return NameTypePair(nullptr, nullptr); //make compiler happy
+    return TokenTypePair(nullptr, nullptr); //make compiler happy
 }
 
 Type* Parser::ParseArrayFuncDeclarator(Type* base)
@@ -1301,9 +1316,9 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         return Type::NewArrayType(len, base);
     } else if (Try('(')) {	//function declaration
         if (nullptr != base->ToFuncType())
-            Error(Peek(), "the return value of a function can't be a function");
+            Error(Peek(), "the return value of function can't be function");
         else if (nullptr != base->ToArrayType())
-            Error(Peek(), "the return value of afunction can't be a array");
+            Error(Peek(), "the return value of function can't be array");
 
         //TODO: parse arguments
         std::list<Type*> params;
@@ -1764,7 +1779,9 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
     auto bodyStmt = ParseStmt();
     stmts.push_back(labelTest);
-    for (auto iter = _caseLabels->begin(); iter != _caseLabels->end(); iter++) {
+
+    for (auto iter = _caseLabels->begin();
+            iter != _caseLabels->end(); iter++) {
         auto rhs = NewConstantInteger(
                 Type::NewArithmType(T_INT), iter->first);
         auto cond = NewBinaryOp(Token::EQ_OP, t, rhs);
