@@ -279,8 +279,7 @@ void Lexer::Tokenize(void)
                 } else {
                     coord.end = p;
                     coord.column = coord.begin - coord.lineBegin + 1;
-                    auto tok = NewToken(tag, coord);
-                    Error(tok, "illegal identifier '..'");
+                    Error(coord, "illegal identifier '..'");
                 }
             } else if (isdigit(p[1])) {	// for float constant like: '.123'
                 goto constant_handler;
@@ -397,8 +396,7 @@ void Lexer::Tokenize(void)
             } else {
                 coord.end = p;
                 coord.column = coord.begin - coord.lineBegin + 1;
-                auto tok = NewToken(tag, coord);
-                Error(tok, "invalid character '%c'", p[0]);
+                Error(coord, "invalid character '%c'", p[0]);
             }
             ++p; break;
         }

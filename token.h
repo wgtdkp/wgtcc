@@ -11,13 +11,13 @@
 #include <cstring>
 
 
-class Token: public ASTNode
+class Token
 {
     friend class Lexer;
     
 public:
     Token(int tag, const Coordinate& coord)
-            : ASTNode(nullptr, coord), _tag(tag) {}
+            :  _tag(tag), _coord(coord) {}
     
     virtual ~Token(void) {}
     
@@ -176,6 +176,16 @@ public:
     int Tag(void) const {
         return _tag;
     }
+    
+    const std::string& Str(void) const {
+        if (_str.size() == 0)
+            _str = std::string(_coord.begin, _coord.end);
+        return _str;
+    }
+
+    const Coordinate& Coord(void) const {
+        return _coord;
+    }
 
     static bool IsKeyWord(int tag) {
         return CONST <= tag && tag <= STATIC_ASSERT;
@@ -223,6 +233,8 @@ public:
 
 private:
     int _tag;
+    Coordinate _coord;
+    mutable std::string _str;
     
     static const std::unordered_map<std::string, int> _kwTypeMap;
     static const std::unordered_map<int, const char*> _TagLexemeMap;

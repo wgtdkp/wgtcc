@@ -2,16 +2,19 @@
 #define _WGTCC_TYPE_H_
 
 #include "mem_pool.h"
+#include "scope.h"
 
 #include <algorithm>
 #include <list>
 
 
 /********* Type System ***********/
-class Env;
+class Scope;
+
 class Type;
 class VoidType;
-class Variable;
+class Identifier;
+class Object;
 class Constant;
 class ArithmType;
 class DerivedType;
@@ -68,7 +71,11 @@ public:
 
     bool operator!=(const Type& other) const { return !(*this == other); }
 
-    virtual bool operator==(const Type& other) const = 0;
+    virtual bool operator==(const Type& other) const {
+        return (_width == other._width && _qual == other._qual 
+                && _complete == other._complete);
+    }
+
     virtual bool Compatible(const Type& ohter) const = 0;
     virtual ~Type(void) {}
 
@@ -88,7 +95,9 @@ public:
     
     void SetQual(int qual) { _qual = qual; }
     
-    bool IsComplete(void) const { return _complete; }
+    bool Complete(void) const { 
+        return _complete;
+    }
     
     void SetComplete(bool complete) { _complete = complete; }
 
@@ -146,7 +155,7 @@ public:
     static ArrayType* NewArrayType(long long len, Type* eleType);
     
     static FuncType* NewFuncType(Type* derived, int funcSpec, \
-        bool hasEllipsis, const std::list<Type*>& params = std::list<Type*>());
+        bool hasEllipsis, const std::list<Type*>& params=std::list<Type*>());
     
     static PointerType* NewPointerType(Type* derived);
     
@@ -191,7 +200,7 @@ public:
     }
 
     virtual bool operator==(const Type& other) const {
-        return other.ToVoidType() != nullptr;
+        return Type::operator==(other) && other.ToVoidType() != nullptr;
     }
 
     virtual bool Compatible(const Type& other) const {
@@ -219,8 +228,9 @@ public:
     }
 
     virtual bool operator==(const Type& other) const {
-        auto ArithmType = other.ToArithmType();
-        return (nullptr != ArithmType && _tag == ArithmType->_tag);
+        auto arithmType = other.ToArithmType();
+        return (Type::operator==(other) 
+                && (nullptr != arithmType && _tag == arithmType->_tag));
     }
 
     virtual bool Compatible(const Type& other) const {
@@ -361,8 +371,7 @@ public:
 
     virtual bool operator==(const Type& other) const {
         auto otherArray = ToArrayType();
-        return (nullptr != otherArray
-            && _width == otherArray->_width
+        return Type::operator==(other) && (nullptr != otherArray
             && *_derived == *otherArray->_derived);
     }
 
@@ -371,6 +380,10 @@ public:
         return (nullptr != otherArray
             && _width == otherArray->_width
             && _derived->Compatible(*otherArray->_derived));
+    }
+
+    int GetElementOffset(int idx) const {
+        return _derived->Width() * idx;
     }
 
 protected:
@@ -438,14 +451,14 @@ public:
     
     virtual bool Compatible(const Type& other) const;
 
-    Variable* Find(const std::string& name) const;
-
     // struct/union
-    void AddMember(const std::string& name, Variable* member);
+    void AddMember(const std::string& name, Object* member);
     
     bool IsStruct(void) const {
         return _isStruct;
     }
+
+    Object* GetMember(const std::string& member);
 
 protected:
     // default is incomplete
@@ -454,10 +467,10 @@ protected:
     StructUnionType(const StructUnionType& other);
 
 private:
-    static int CalcWidth(const Env* env);
+    void CalcWidth(void);
 
     bool _isStruct;
-    Env* _mapMember;
+    Scope* _memberMap;
 };
 
 /*

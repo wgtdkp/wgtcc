@@ -49,11 +49,11 @@ void ConditionalOp::Accept(Visitor* v) {
 void FuncCall::Accept(Visitor* v) { 
     v->VisitFuncCall(this);
 }
-
+/*
 void Variable::Accept(Visitor* v) {
     v->VisitVariable(this);
 }
-
+*/
 void Constant::Accept(Visitor* v) {
     v->VisitConstant(this);
 }
@@ -71,13 +71,13 @@ void TranslationUnit::Accept(Visitor* v) {
 }
 
 
-long long BinaryOp::EvalInteger(void)
+long long BinaryOp::EvalInteger(const Coordinate& coord)
 {
     // TypeChecking should make sure of this constrains
     assert(_ty->IsInteger());
 
-#define L   _lhs->EvalInteger()
-#define R   _rhs->EvalInteger()
+#define L   _lhs->EvalInteger(coord)
+#define R   _rhs->EvalInteger(coord)
 
     //bool res = true;
     switch (_op) {
@@ -92,7 +92,7 @@ long long BinaryOp::EvalInteger(void)
         {
             int l = L, r = R;
             if (r == 0)
-                Error(this, "division by zero");
+                ;//Error(this, "division by zero");
             return _op == '%'? (l % r): (l / r);
         }
     case '<':
@@ -121,115 +121,109 @@ long long BinaryOp::EvalInteger(void)
     }
 }
 
-BinaryOp* BinaryOp::TypeChecking(void)
+void BinaryOp::TypeChecking(const Coordinate& coord)
 {
     switch (_op) {
     case '[':
-        return SubScriptingOpTypeChecking();
+        return SubScriptingOpTypeChecking(coord);
 
     case '*':
     case '/':
     case '%':
-        return MultiOpTypeChecking();
+        return MultiOpTypeChecking(coord);
 
     case '+':
     case '-':
-        return AdditiveOpTypeChecking();
+        return AdditiveOpTypeChecking(coord);
 
     case Token::LEFT_OP:
     case Token::RIGHT_OP:
-        return ShiftOpTypeChecking();
+        return ShiftOpTypeChecking(coord);
 
     case '<':
     case '>':
     case Token::LE_OP:
     case Token::GE_OP:
-        return RelationalOpTypeChecking();
+        return RelationalOpTypeChecking(coord);
 
     case Token::EQ_OP:
     case Token::NE_OP:
-        return EqualityOpTypeChecking();
+        return EqualityOpTypeChecking(coord);
 
     case '&':
     case '^':
     case '|':
-        return BitwiseOpTypeChecking();
+        return BitwiseOpTypeChecking(coord);
 
     case Token::AND_OP:
     case Token::OR_OP:
-        return LogicalOpTypeChecking();
+        return LogicalOpTypeChecking(coord);
 
     case '=':
-        return AssignOpTypeChecking();
+        return AssignOpTypeChecking(coord);
 
     default:
         assert(0);
     }
-    
-    return nullptr; //make compiler happy
 }
 
-BinaryOp* BinaryOp::SubScriptingOpTypeChecking(void)
+void BinaryOp::SubScriptingOpTypeChecking(const Coordinate& coord)
 {
     auto lhsType = _lhs->Ty()->ToPointerType();
     if (nullptr == lhsType)
-        Error(this, "an pointer expected");
+        Error(coord, "an pointer expected");
     if (!_rhs->Ty()->IsInteger())
-        Error(this, "the operand of [] should be intger");
+        Error(coord, "the operand of [] should be intger");
 
-    //the type of [] operator is the type the pointer pointed to
+    // The type of [] operator is the derived type
     _ty = lhsType->Derived();
-    return this;
 }
 
-BinaryOp* BinaryOp::MemberRefOpTypeChecking(const std::string& rhsName)
+void BinaryOp::MemberRefOpTypeChecking(
+        const Coordinate& coord, const std::string& rhsName)
 {
     StructUnionType* structUnionType;
-    if (Token::PTR_OP == _op) {
+    if (_op == Token::PTR_OP) {
         auto pointer = _lhs->Ty()->ToPointerType();
         if (pointer == nullptr) {
-            Error(this, "pointer expected for operator '->'");
+            Error(coord, "pointer expected for operator '->'");
         } else {
             structUnionType = pointer->Derived()->ToStructUnionType();
             if (structUnionType == nullptr)
-                Error(this, "pointer to struct/union expected");
+                Error(coord, "pointer to struct/union expected");
         }
     } else {
         structUnionType = _lhs->Ty()->ToStructUnionType();
-        if (nullptr == structUnionType)
-            Error(this, "an struct/union expected");
+        if (structUnionType == nullptr)
+            Error(coord, "an struct/union expected");
     }
 
-    if (nullptr == structUnionType)
-        return this; //the _rhs is lefted nullptr
+    if (structUnionType == nullptr)
+        return; // The _rhs is lefted nullptr
 
-    _rhs = structUnionType->Find(rhsName);
-    if (nullptr == _rhs) {
-        Error(this, "'%s' is not a member of '%s'", rhsName, "[obj]");
-    } else {
-        _ty = _rhs->Ty();
+    _rhs = structUnionType->GetMember(rhsName);
+    if (_rhs == nullptr) {
+        Error(coord, "'%s' is not a member of '%s'", rhsName, "[obj]");
     }
 
-    return this;
+    _ty = _rhs->Ty();
 }
 
-BinaryOp* BinaryOp::MultiOpTypeChecking(void)
+void BinaryOp::MultiOpTypeChecking(const Coordinate& coord)
 {
     auto lhsType = _lhs->Ty()->ToArithmType();
     auto rhsType = _rhs->Ty()->ToArithmType();
 
     if (nullptr == lhsType || nullptr == rhsType)
-        Error(this, "operand should be arithmetic type");
+        Error(coord, "operand should be arithmetic type");
     if ('%' == _op && !(_lhs->Ty()->IsInteger() && _rhs->Ty()->IsInteger()))
-        Error(this, "operand of '%%' should be integer");
+        Error(coord, "operand of '%%' should be integer");
 
     //TODO: type promotion
     _ty = _lhs->Ty();
-    
-    return this;
 }
 
-BinaryOp* BinaryOp::AdditiveOpTypeChecking(void)
+void BinaryOp::AdditiveOpTypeChecking(const Coordinate& coord)
 {
     //auto lhsType = _lhs->Ty()->ToArithmType();
     //auto rhsType = _rhs->Ty()->ToArithmType();
@@ -238,70 +232,58 @@ BinaryOp* BinaryOp::AdditiveOpTypeChecking(void)
     //TODO: type promotion
 
     _ty = _lhs->Ty();
-
-    return this;
 }
 
-BinaryOp* BinaryOp::ShiftOpTypeChecking(void)
+void BinaryOp::ShiftOpTypeChecking(const Coordinate& coord)
 {
     //TODO: type checking
 
     _ty = _lhs->Ty();
-
-    return this;
 }
 
-BinaryOp* BinaryOp::RelationalOpTypeChecking(void)
+void BinaryOp::RelationalOpTypeChecking(const Coordinate& coord)
 {
     //TODO: type checking
 
     _ty = Type::NewArithmType(T_BOOL);
-
-    return this;
 }
 
-BinaryOp* BinaryOp::EqualityOpTypeChecking(void)
+void BinaryOp::EqualityOpTypeChecking(const Coordinate& coord)
 {
     //TODO: type checking
 
     _ty = Type::NewArithmType(T_BOOL);
-
-    return this;
 }
 
-BinaryOp* BinaryOp::BitwiseOpTypeChecking(void)
+void BinaryOp::BitwiseOpTypeChecking(const Coordinate& coord)
 {
     if (_lhs->Ty()->IsInteger() || _rhs->Ty()->IsInteger())
-        Error(this, "operands of '&' should be integer");
+        Error(coord, "operands of '&' should be integer");
+    
     //TODO: type promotion
     _ty = Type::NewArithmType(T_INT);
-    
-    return this;
 }
 
-BinaryOp* BinaryOp::LogicalOpTypeChecking(void)
+void BinaryOp::LogicalOpTypeChecking(const Coordinate& coord)
 {
     //TODO: type checking
     if (!_lhs->Ty()->IsScalar() || !_rhs->Ty()->IsScalar())
-        Error(this, "the operand should be arithmetic type or pointer");
-    _ty = Type::NewArithmType(T_BOOL);
+        Error(coord, "the operand should be arithmetic type or pointer");
     
-    return this;
+    _ty = Type::NewArithmType(T_BOOL);
 }
 
-BinaryOp* BinaryOp::AssignOpTypeChecking(void)
+void BinaryOp::AssignOpTypeChecking(const Coordinate& coord)
 {
     //TODO: type checking
     if (!_lhs->IsLVal()) {
         //TODO: error
-        Error(this, "lvalue expression expected");
+        Error(coord, "lvalue expression expected");
     } else if (_lhs->Ty()->IsConst()) {
-        Error(this, "can't modifiy 'const' qualified expression");
+        Error(coord, "can't modifiy 'const' qualified expression");
     }
 
     _ty = _lhs->Ty();
-    
-    return this;
 }
 
 
@@ -315,9 +297,9 @@ bool UnaryOp::IsLVal(void) const {
     return (Token::DEREF == _op);
 }
 
-long long UnaryOp::EvalInteger(void)
+long long UnaryOp::EvalInteger(const Coordinate& coord)
 {
-#define VAL _operand->EvalInteger()
+#define VAL _operand->EvalInteger(coord)
 
     switch (_op) {
     case Token::PLUS:
@@ -331,131 +313,123 @@ long long UnaryOp::EvalInteger(void)
     case Token::CAST:
         return VAL;
     default:
-        Error(this, "expect constant integer");
+        Error(coord, "expect constant integer");
     }
 
     return 0;   // Make compiler happy
 }
 
-UnaryOp* UnaryOp::TypeChecking(void)
+void UnaryOp::TypeChecking(const Coordinate& coord)
 {
     switch (_op) {
     case Token::POSTFIX_INC:
     case Token::POSTFIX_DEC:
     case Token::PREFIX_INC:
     case Token::PREFIX_DEC:
-        return IncDecOpTypeChecking();
+        return IncDecOpTypeChecking(coord);
 
     case Token::ADDR:
-        return AddrOpTypeChecking();
+        return AddrOpTypeChecking(coord);
 
     case Token::DEREF:
-        return DerefOpTypeChecking();
+        return DerefOpTypeChecking(coord);
 
     case Token::PLUS:
     case Token::MINUS:
     case '~':
     case '!':
-        return UnaryArithmOpTypeChecking();
+        return UnaryArithmOpTypeChecking(coord);
 
     case Token::CAST:
-        return CastOpTypeChecking();
+        return CastOpTypeChecking(coord);
 
     default:
         assert(false);
-        return nullptr;
     }
 }
 
-UnaryOp* UnaryOp::IncDecOpTypeChecking(void)
+void UnaryOp::IncDecOpTypeChecking(const Coordinate& coord)
 {
     if (!_operand->IsLVal()) {
         //TODO: error
-        Error(this, "lvalue expression expected");
+        Error(coord, "lvalue expression expected");
     } else if (_operand->Ty()->IsConst()) {
-        Error(this, "can't modifiy 'const' qualified expression");
+        Error(coord, "can't modifiy 'const' qualified expression");
     }
 
     _ty = _operand->Ty();
-
-    return this;
 }
 
-UnaryOp* UnaryOp::AddrOpTypeChecking(void)
+void UnaryOp::AddrOpTypeChecking(const Coordinate& coord)
 {
     FuncType* funcType = _operand->Ty()->ToFuncType();
-    if (nullptr != funcType && !_operand->IsLVal())
-        Error(this, "expression must be an lvalue or function designator");
+    if (nullptr != funcType && !_operand->IsLVal()) {
+        Error(coord, "expression must be an lvalue or function designator");
+    }
     
     _ty = Type::NewPointerType(_operand->Ty());
-
-    return this;
 }
 
-UnaryOp* UnaryOp::DerefOpTypeChecking(void)
+void UnaryOp::DerefOpTypeChecking(const Coordinate& coord)
 {
     auto pointer = _operand->Ty()->ToPointerType();
-    if (nullptr == pointer)
-        Error(this, "pointer expected for deref operator '*'");
+    if (nullptr == pointer) {
+        Error(coord, "pointer expected for deref operator '*'");
+    }
 
     _ty = pointer->Derived();
-
-    return this;
 }
 
-UnaryOp* UnaryOp::UnaryArithmOpTypeChecking(void)
+void UnaryOp::UnaryArithmOpTypeChecking(const Coordinate& coord)
 {
     if (Token::PLUS == _op || Token::MINUS == _op) {
         if (!_operand->Ty()->IsArithm())
-            Error(this, "Arithmetic type expected");
+            Error(coord, "Arithmetic type expected");
     } else if ('~' == _op) {
         if (!_operand->Ty()->IsInteger())
-            Error(this, "integer expected for operator '~'");
+            Error(coord, "integer expected for operator '~'");
     } else {//'!'
         if (!_operand->Ty()->IsScalar())
-            Error(this, "arithmetic type or pointer expected for operator '!'");
+            Error(coord, "arithmetic type or pointer expected for operator '!'");
     }
 
     _ty = _operand->Ty();
-    
-    return this;
 }
 
-UnaryOp* UnaryOp::CastOpTypeChecking(void)
+void UnaryOp::CastOpTypeChecking(const Coordinate& coord)
 {
     //the _ty has been initiated to desType
-    if (!_ty->IsScalar())
-        Error(this, "the cast type should be arithemetic type or pointer");
-    if (_ty->IsFloat() && nullptr != _operand->Ty()->ToPointerType())
-        Error(this, "can't cast a pointer to floating");
-    else if (nullptr != _ty->ToPointerType() && _operand->Ty()->IsFloat())
-        Error(this, "can't cast a floating to pointer");
+    if (!_ty->IsScalar()) {
+        Error(coord, "the cast type should be arithemetic type or pointer");
+    }
 
-    return this;
+    if (_ty->IsFloat() && nullptr != _operand->Ty()->ToPointerType()) {
+        Error(coord, "can't cast a pointer to floating");
+    } else if (nullptr != _ty->ToPointerType() && _operand->Ty()->IsFloat()) {
+        Error(coord, "can't cast a floating to pointer");
+    }
 }
 
 /*
  * Conditional Operator
  */
 
-long long ConditionalOp::EvalInteger(void)
+long long ConditionalOp::EvalInteger(const Coordinate& coord)
 {
-    int cond = _cond->EvalInteger();
+    int cond = _cond->EvalInteger(coord);
     if (cond) {
-        return _exprTrue->EvalInteger();
+        return _exprTrue->EvalInteger(coord);
     } else {
-        return _exprFalse->EvalInteger();
+        return _exprFalse->EvalInteger(coord);
     }
 }
 
-ConditionalOp* ConditionalOp::TypeChecking(void)
+void ConditionalOp::TypeChecking(const Coordinate& coord)
 {
 
     //TODO: type checking
 
     //TODO: type evaluation
-
-    return this;
 }
 
 
@@ -463,23 +437,22 @@ ConditionalOp* ConditionalOp::TypeChecking(void)
  * Function Call
  */
 
-FuncCall* FuncCall::TypeChecking(void)
+void FuncCall::TypeChecking(const Coordinate& coord)
 {
     auto funcType = _designator->Ty()->ToFuncType();
     if (nullptr == funcType)
-        Error(this, "not a function type");
-    else
-        _ty = funcType->Derived();
+        Error(coord, "not a function type");
+    
+    _ty = funcType->Derived();
 
     //TODO: check if args and params are compatible type
 
-    return this;
 }
 
 /*
  * Variable
  */
-
+/*
 Variable* Variable::GetStructMember(const char* name)
 {
     auto type = _ty->ToStructUnionType();
@@ -503,4 +476,10 @@ Variable* Variable::GetArrayElement(Parser* parser, size_t idx)
     auto offset = _offset + eleType->Width() * idx;
 
     return parser->NewVariable(eleType, offset);
+}
+*/
+
+void Identifier::TypeChecking(const Coordinate& coord)
+{
+    // TODO(wgtdkp):
 }

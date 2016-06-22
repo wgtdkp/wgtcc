@@ -6,13 +6,30 @@ union A {
 };
 */
 
+static int h;
+//extern int h;
+
+typedef void(*f)(int, int);
+typedef const int(*f1)(f);
 // Declaration
 static int a, b, c = 2;
 //static void d;
 int arr[2][3];
 
-typedef void(*f)(int, int);
-typedef const int(*f1)(f);
+void test(void)
+{
+
+    {
+        struct A {
+
+        };
+    }
+    struct A a;
+    int f;
+    extern int f;
+}
+
+int test = 1;
 
 static void test_if(void)
 {

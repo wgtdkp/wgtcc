@@ -1,7 +1,7 @@
 #include "type.h"
 
 #include "ast.h"
-#include "env.h"
+#include "scope.h"
 
 #include <cassert>
 
@@ -290,20 +290,23 @@ bool FuncType::Compatible(const Type& other) const
  */
 
 StructUnionType::StructUnionType(MemPool* pool, bool isStruct)
-        :  Type(pool, 0, false), _isStruct(isStruct), _mapMember(new Env()) {
+        :  Type(pool, 0, false), _isStruct(isStruct), _memberMap(new Scope()) {
 }
 
-Variable* StructUnionType::Find(const std::string& name) const {
-    return _mapMember->FindVar(name);
+Object* StructUnionType::GetMember(const std::string& member) {
+    auto ident = _memberMap->Find(member);
+    if (ident == nullptr)
+        return nullptr;
+    return ident->ToObject();
 }
 
-int StructUnionType::CalcWidth(const Env* env)
+void StructUnionType::CalcWidth(void)
 {
-    int width = 0;
-    auto iter = env->_symbMap.begin();
-    for (; iter != env->_symbMap.end(); iter++)
-        width += iter->second->Ty()->Width();
-    return width;
+    _width = 0;
+    auto iter = _memberMap->_identMap.begin();
+    for (; iter != _memberMap->_identMap.end(); iter++) {
+        _width += iter->second->Ty()->Width();
+    }
 }
 
 bool StructUnionType::operator==(const Type& other) const
@@ -312,7 +315,7 @@ bool StructUnionType::operator==(const Type& other) const
     if (nullptr == structUnionType)
         return false;
 
-    return *_mapMember == *structUnionType->_mapMember;
+    return *_memberMap == *structUnionType->_memberMap;
 }
 
 bool StructUnionType::Compatible(const Type& other) const {
@@ -320,9 +323,9 @@ bool StructUnionType::Compatible(const Type& other) const {
     return *this == other;
 }
 
-void StructUnionType::AddMember(const std::string& name, Variable* member)
+void StructUnionType::AddMember(const std::string& name, Object* member)
 {
-    _mapMember->InsertVar(name, member);
+    _memberMap->Insert(name, member);
 
     if (!IsStruct()) {
         member->SetOffset(0);

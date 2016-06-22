@@ -16,9 +16,8 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 
-void Error(const ASTNode* node, const char* format, ...)
+void Error(const Coordinate& coord, const char* format, ...)
 {
-    auto coord = node->Coord();
     fprintf(stderr,  "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
             coord.fileName, coord.line, coord.column);
     

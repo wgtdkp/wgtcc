@@ -5,8 +5,8 @@ TARGET = wgtcc
 
 CC = g++
 
-SRCS = ast.cc env.cc error.cc lexer.cc\
-	   main.cc parser.cc\
+SRCS = ast.cc error.cc lexer.cc\
+	   main.cc parser.cc scope.cc\
 	   token.cc type.cc visitor.cc
 
 CFLAGS = -g -std=c++11 -Wall

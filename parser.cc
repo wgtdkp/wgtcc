@@ -1,6 +1,6 @@
 #include "parser.h"
 
-#include "env.h"
+#include "scope.h"
 #include "error.h"
 #include "type.h"
 
@@ -19,7 +19,7 @@ ConditionalOp* Parser::NewConditionalOp(Expr* cond,
     auto ret = new (_conditionalOpPool.Alloc())
             ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
 
-    ret->TypeChecking();
+    ret->TypeChecking(_coord);
     return ret;
 }
 
@@ -55,7 +55,7 @@ BinaryOp* Parser::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, rhs);
     
-    ret->TypeChecking();
+    ret->TypeChecking(_coord);
     
     return ret;
 }
@@ -68,7 +68,7 @@ BinaryOp* Parser::NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName)
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, nullptr);
     
-    ret->MemberRefOpTypeChecking(rhsName);
+    ret->MemberRefOpTypeChecking(_coord, rhsName);
 
     return ret;
 }
@@ -85,16 +85,26 @@ FuncCall* Parser::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
     auto ret = new (_funcCallPool.Alloc())
             FuncCall(&_funcCallPool, designator, args);
 
-    ret->TypeChecking();
+    ret->TypeChecking(_coord);
     
     return ret;
 }
 
-Variable* Parser::NewVariable(Type* type, int offset)
-{
-    auto ret = new (_variablePool.Alloc())
-            Variable(&_variablePool, type, offset);
 
+Identifier* Parser::NewIdentifier(Type* type, Scope* scope)
+{
+    auto ret = new (_identifierPool.Alloc())
+            Identifier(&_identifierPool, type, scope);
+
+    return ret;
+}
+
+Object* Parser::NewObject(Type* type, Scope* scope, int offset)
+{
+    auto ret = new (_objectPool.Alloc())
+            Object(&_objectPool, type, scope, offset);
+    
+    ret->TypeChecking(_coord);
     return ret;
 }
 
@@ -125,7 +135,7 @@ UnaryOp* Parser::NewUnaryOp(int op, Expr* operand, Type* type)
     auto ret = new (_unaryOpPool.Alloc())
             UnaryOp(&_unaryOpPool, op, operand, type);
     
-    ret->TypeChecking();
+    ret->TypeChecking(_coord);
 
     return ret;
 }
@@ -206,8 +216,8 @@ void Parser::Expect(int expect, int follow1, int follow2)
     if (tok->Tag() != expect) {
         PutBack();
         //TODO: error
-        Error(tok, "'%s' expected, but got '%s'",
-                Token::Lexeme(expect), tok->Str());
+        Error(tok->Coord(), "'%s' expected, but got '%s'",
+                Token::Lexeme(expect), tok->Str().c_str());
         Panic(follow1, follow2);
     }
 }
@@ -278,12 +288,14 @@ Expr* Parser::ParsePrimaryExpr(void)
     }
 
     if (tok->IsIdentifier()) {
-        //TODO: create a expression node with symbol
-        auto var = _topEnv->FindVar(tok->Str());
-        if (var == nullptr) {
-            Error(tok, "undefined variable '%s'", tok->Str());
+        // TODO(wgtdkp): create a expression node with symbol
+        auto ident = _topScope->Find(tok->Str());
+        if (ident == nullptr || ident->ToObject() == nullptr) {
+            Error(tok->Coord(), "undefined variable '%s'", 
+                    tok->Str().c_str());
         }
-        return var;
+        // TODO(wgtdkp): convert from Object to Expr
+        //return var;
     } else if (tok->IsConstant()) {
         return ParseConstant(tok);
     } else if (tok->IsString()) {
@@ -293,7 +305,7 @@ Expr* Parser::ParsePrimaryExpr(void)
     } 
 
     //TODO: error
-    Error(tok, "Expect expression");
+    Error(tok->Coord(), "Expect expression");
     return nullptr; // Make compiler happy
 }
 
@@ -336,7 +348,7 @@ Expr* Parser::ParsePostfixExpr(void)
     if ('(' == tok->Tag() && IsTypeName(Peek())) {
         // TODO(wgtdkp):
         //compound literals
-        Error(tok, "compound literals not supported yet");
+        Error(tok->Coord(), "compound literals not supported yet");
         //return ParseCompLiteral();
     }
 
@@ -461,12 +473,11 @@ Constant* Parser::ParseSizeof(void)
         unaryExpr = ParseUnaryExpr();
         type = unaryExpr->Ty();
     }
-    // TODO(wgtdkp):
-    /*
-    if (nullptr != type->ToFuncType()) {
-        Error(unaryExpr, "sizeof operator can't act on function");
+
+    if (type->ToFuncType()) {
+        Error(tok->Coord(), "sizeof operator can't act on function");
     }
-    */
+
     auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
 
     return NewConstantInteger(intType, type->Width());
@@ -641,10 +652,12 @@ Expr* Parser::ParseLogicalOrExpr(void)
 
 Expr* Parser::ParseConditionalExpr(void)
 {
+    _coord = Peek()->Coord();
+
     auto cond = ParseLogicalOrExpr();
     if (Try('?')) {
         if (!cond->Ty()->IsScalar()) {
-            Error(cond, "scalar is required");
+            Error(_coord, "scalar is required");
         }
 
         auto exprTrue = ParseExpr();
@@ -968,7 +981,10 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             */
         default:
             if (0 == typeSpec && IsTypeName(tok)) {
-                type = _topEnv->FindType(tok->Str());
+                auto ident = _topScope->Find(tok->Str());
+                if (ident) {
+                    type = ident->ToType();
+                }
                 typeSpec |= T_TYPEDEF_NAME;
             } else  {
                 goto end_of_loop;
@@ -981,7 +997,7 @@ end_of_loop:
     PutBack();
     switch (typeSpec) {
     case 0:
-        Error(tok, "no type specifier");
+        Error(tok->Coord(), "expect type specifier");
         break;
 
     case T_VOID:
@@ -1001,7 +1017,7 @@ end_of_loop:
 
     if ((nullptr == storage || nullptr == func)) {
         if (0 != funcSpec && 0 != storageSpec && -1 != align) {
-            Error(tok, "type specifier/qualifier only");
+            Error(tok->Coord(), "type specifier/qualifier only");
         }
     } else {
         *storage = storageSpec;
@@ -1011,7 +1027,7 @@ end_of_loop:
     return type;
 
 error:
-    Error(tok, "type speficier/qualifier/storage error");
+    Error(tok->Coord(), "type speficier/qualifier/storage error");
     return nullptr;	// Make compiler happy
 }
 
@@ -1024,8 +1040,9 @@ int Parser::ParseAlignas(void)
         Expect(')');
         align = type->Align();
     } else {
+        _coord = Peek()->Coord();
         auto expr = ParseExpr();
-        align = expr->EvalInteger();
+        align = expr->EvalInteger(_coord);
         Expect(')');
         Delete(expr);
     }
@@ -1041,26 +1058,32 @@ static inline string MakeStructUnionName(const char* name)
 
 Type* Parser::ParseEnumSpec(void)
 {
-    std::string enumTag;
+    std::string tagName;
     auto tok = Next();
     
     if (tok->IsIdentifier()) {
-        enumTag = tok->Str();
+        tagName = tok->Str();
         if (Try('{')) {
             //定义enum类型
-            auto curScopeType = _topEnv->FindTagInCurScope(enumTag);
-            if (nullptr != curScopeType) {
-                if (!curScopeType->IsComplete()) {
-                    return ParseEnumerator(curScopeType->ToArithmType());
-                } else Error(tok, "'%s': enumeration redifinition", enumTag.c_str());
-            } else
+            auto tagIdent = _topScope->FindTagInCurScope(tagName);
+            if (tagIdent == nullptr)
                 goto enum_decl;
+
+            if (!tagIdent->Ty()->Complete()) {
+                return ParseEnumerator(tagIdent->Ty()->ToArithmType());
+            } else {
+                Error(tok->Coord(), "'%s': enumeration redifinition", tagName.c_str());
+            }
         } else {
-            Type* type = _topEnv->FindTag(enumTag);
-            if (nullptr != type) return type;
-            type = Type::NewArithmType(T_INT); 
+            //Type* type = _topScope->FindTag(tagName);
+            auto tagIdent = _topScope->FindTag(tagName);
+            if (tagIdent) {
+                return tagIdent->Ty();
+            }
+            auto type = Type::NewArithmType(T_INT); 
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
-            _topEnv->InsertTag(enumTag, type);
+            auto ident = NewIdentifier(type, _topScope);
+            _topScope->InsertTag(tagName, ident);
         }
     }
     
@@ -1068,35 +1091,41 @@ Type* Parser::ParseEnumSpec(void)
 
 enum_decl:
     auto type = Type::NewArithmType(T_INT);
-    if (enumTag.size() != 0)
-        _topEnv->InsertTag(enumTag, type);
+    if (tagName.size() != 0) {
+        auto ident = NewIdentifier(type, _topScope);
+        _topScope->InsertTag(tagName, ident);
+    }
     
     return ParseEnumerator(type);   //处理反大括号: '}'
 }
 
 Type* Parser::ParseEnumerator(ArithmType* type)
 {
-    assert(type && !type->IsComplete() && type->IsInteger());
+    assert(type && !type->Complete() && type->IsInteger());
     int val = 0;
     do {
         auto tok = Peek();
         if (!tok->IsIdentifier())
-            Error(tok, "enumration constant expected");
+            Error(tok->Coord(), "enumration constant expected");
         
         auto enumName = tok->Str();
-        if (_topEnv->FindVarInCurScope(enumName))
-            Error(tok, "'%s': symbol redifinition", enumName.c_str());
+        auto ident = _topScope->FindInCurScope(enumName);
+        if (ident)
+            Error(tok->Coord(), "'%s': symbol redifinition", enumName.c_str());
         if (Try('=')) {
+            _coord = Peek()->Coord();
             auto expr = ParseExpr();
-            val = expr->EvalInteger();
+            val = expr->EvalInteger(_coord);
             // TODO(wgtdkp): checking conflict
         }
 
+        // TODO(wgtdkp):
+        /*
         auto Constant = NewConstantInteger(
                 Type::NewArithmType(T_INT), val++);
 
-        _topEnv->InsertConstant(enumName, Constant);
-
+        _topScope->InsertConstant(enumName, Constant);
+        */
         Try(',');
     } while (!Try('}'));
     
@@ -1114,14 +1143,14 @@ Type* Parser::ParseEnumerator(ArithmType* type)
  */
 Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
-    std::string structUnionTag;
+    std::string tagName;
     auto tok = Next();
     if (tok->IsIdentifier()) {
-        structUnionTag = tok->Str();
+        tagName = tok->Str();
         if (Try('{')) {
             //看见大括号，表明现在将定义该struct/union类型
-            auto curScopeType = _topEnv->FindTagInCurScope(structUnionTag);
-            if (nullptr == curScopeType) //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
+            auto tagIdent = _topScope->FindTagInCurScope(tagName);
+            if (tagIdent == nullptr) //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
                 goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
             
             /*
@@ -1131,12 +1160,13 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
              * 2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
              *   因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
              */
-            if (!curScopeType->IsComplete()) {
+            if (!tagIdent->Ty()->Complete()) {
                 //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
-                return ParseStructDecl(curScopeType->ToStructUnionType());
+                return ParseStructDecl(tagIdent->Ty()->ToStructUnionType());
             } else {
                 //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
-                Error(tok, "'%s': struct type redefinition", tok->Str().c_str());
+                Error(tok->Coord(), "'%s': struct type redefinition",
+                        tok->Str().c_str());
             }
         } else {
             /*
@@ -1147,13 +1177,15 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 			 *   1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
 			 *   2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
 			 */
-            auto type = _topEnv->FindTag(structUnionTag);
+            auto tagIdent = _topScope->FindTag(tagName);
             //如果tag已经定义或声明，那么直接返回此定义或者声明
-            if (nullptr != type) return type;
+            if (tagIdent) 
+                return tagIdent->Ty();
             //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
-            type = Type::NewStructUnionType(isStruct); //创建不完整的类型
+            auto type = Type::NewStructUnionType(isStruct); //创建不完整的类型
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
-            _topEnv->InsertTag(structUnionTag, type);
+            auto ident = NewIdentifier(type, _topScope);
+            _topScope->InsertTag(tagName, ident);
             return type;
         }
     }
@@ -1164,8 +1196,10 @@ struct_decl:
     //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
 	//所以现在是第一次开始定义一个完整的struct/union类型
     auto type = Type::NewStructUnionType(isStruct);
-    if (structUnionTag.size() != 0) 
-        _topEnv->InsertTag(structUnionTag, type);
+    if (tagName.size() != 0) {
+        auto ident = NewIdentifier(type, _topScope);
+        _topScope->InsertTag(tagName, ident);
+    }
     
     return ParseStructDecl(type); //处理反大括号: '}'
 }
@@ -1173,17 +1207,19 @@ struct_decl:
 StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
 {
     //既然是定义，那输入肯定是不完整类型，不然就是重定义了
-    assert(type && !type->IsComplete());
+    assert(type && !type->Complete());
     
     while (!Try('}')) {
         if (Peek()->IsEOF())
-            Error(Peek(), "premature end of input");
+            Error(Peek()->Coord(), "premature end of input");
 
         //解析type specifier/qualifier, 不接受storage等
         auto fieldType = ParseSpecQual();
         //TODO: 解析declarator
 
     }
+
+    // TODO(wgtdkp): calculate width
 
     //struct/union定义结束，设置其为完整类型
     type->SetComplete(true);
@@ -1242,7 +1278,7 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
     return ty;
 }
 
-Variable* Parser::ParseDeclaratorAndDo(Type* base,
+Identifier* Parser::ParseDeclaratorAndDo(Type* base,
         int storageSpec, int funcSpec)
 {
     TokenTypePair tokenType = Parser::ParseDeclarator(base);
@@ -1255,23 +1291,21 @@ Variable* Parser::ParseDeclaratorAndDo(Type* base,
 	 * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
      */
     
-    Variable* var;
-    if ((var = _topEnv->Find(tok->Str()))) {
-        
-        Error(tok, "'%s' redeclared", tok->Str().c_str());
+    Identifier* ident;
+    if ((ident = _topScope->Find(tok->Str()))) {
+        Error(tok->Coord(), "'%s' redeclared", tok->Str().c_str());
     }
 
     if (storageSpec & S_TYPEDEF) {
-        
+        // TODO(wgtdkp):
+        // A typename
+    } else {
+        auto obj = NewObject(type, _topScope);
+        obj->SetStorage(storageSpec);
+        _topScope->Insert(tok->Str(), obj);
+        return obj;
     }
-
-    
-    
-    var = NewVariable(type);
-    _topEnv->InsertVar(tok->Str(), var);
-    var->SetStorage(storageSpec);
-    
-    return var;
+    return ident;
 }
 
 TokenTypePair Parser::ParseDeclarator(Type* base)
@@ -1293,7 +1327,7 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
         return TokenTypePair(tok, retType);
     }
     
-    Error(Peek(), "expect identifier or '(' but get '%s'",
+    Error(Peek()->Coord(), "expect identifier or '(' but get '%s'",
             Peek()->Str().c_str());
     
     return TokenTypePair(nullptr, nullptr); //make compiler happy
@@ -1303,12 +1337,12 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
 {
     if (Try('[')) {
         if (nullptr != base->ToFuncType()) {
-            Error(Peek(), "the element of array can't be a function");
+            Error(Peek()->Coord(), "the element of array can't be a function");
         }
         //TODO: parse array length expression
         auto len = ParseArrayLength();
         if (0 == len) {
-            Error(Peek(), "can't declare an array of length 0");
+            Error(Peek()->Coord(), "can't declare an array of length 0");
         }
         Expect(']');
         base = ParseArrayFuncDeclarator(base);
@@ -1316,9 +1350,9 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         return Type::NewArrayType(len, base);
     } else if (Try('(')) {	//function declaration
         if (nullptr != base->ToFuncType())
-            Error(Peek(), "the return value of function can't be function");
+            Error(Peek()->Coord(), "the return value of function can't be function");
         else if (nullptr != base->ToArrayType())
-            Error(Peek(), "the return value of function can't be array");
+            Error(Peek()->Coord(), "the return value of function can't be array");
 
         //TODO: parse arguments
         std::list<Type*> params;
@@ -1361,9 +1395,10 @@ int Parser::ParseArrayLength(void)
     //不支持变长数组
     if (!hasStatic && Try(']'))
         return -1;
-
+    
+    _coord = Peek()->Coord();
     auto expr = ParseAssignExpr();
-    return expr->EvalInteger();
+    return expr->EvalInteger(_coord);
 }
 
 /*
@@ -1388,7 +1423,7 @@ bool Parser::ParseParamList(std::list<Type*>& params)
         auto tok = Peek();
         paramType = ParseParamDecl();
         if (paramType->ToVoidType()) {
-            Error(tok, "'void' must be the only parameter");
+            Error(tok->Coord(), "'void' must be the only parameter");
         }
 
         params.push_back(paramType);
@@ -1429,35 +1464,40 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
  */
 Stmt* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 {
-    auto var = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
-    if (Try('='))
-        return ParseInitializer(var);
+    auto ident = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
+    if (Try('=')) {
+        if (ident->ToObject() == nullptr) {
+            Error(Peek()->Coord(), "unexpected initializer");
+        }
+        return ParseInitializer(ident->ToObject());
+    }
 
     return nullptr;
 }
 
-Stmt* Parser::ParseInitializer(Variable* var)
+Stmt* Parser::ParseInitializer(Object* obj)
 {
-    auto type = var->Ty();
-    Stmt* stmt;
+    auto type = obj->Ty();
+
     if (Try('{')) {
         if (type->ToArrayType()) {
             // Expect array initializer
-            return ParseArrayInitializer(var);
+            return ParseArrayInitializer(obj);
         } else if (type->ToStructUnionType()) {
             // Expect struct/union initializer
-            return ParseStructInitializer(var);
+            return ParseStructInitializer(obj);
         }
     }
 
     Expr* rhs = ParseAssignExpr();
 
-    return NewBinaryOp('=', var, rhs);
+    return NewBinaryOp('=', obj, rhs);
 }
 
-Stmt* Parser::ParseArrayInitializer(Variable* arr)
+Stmt* Parser::ParseArrayInitializer(Object* arr)
 {
     assert(arr->Ty()->ToArrayType());
+    auto type = arr->Ty()->ToArrayType();
 
     size_t defaultIdx = 0;
     std::set<size_t> idxSet;
@@ -1469,14 +1509,21 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
             break;
 
         if (tok->Tag() == '[') {
+            _coord = Peek()->Coord();
             auto expr = ParseExpr();
             // TODO(wgtdkp): make sure it is constant integer!
 
-            auto idx = expr->EvalInteger();
+            auto idx = expr->EvalInteger(_coord);
             idxSet.insert(idx);
             // TODO(wgtdkp): GetArrayElement() create new object
             // Will there be memory leak?
-            auto ele = arr->GetArrayElement(this, idx);
+            //auto ele = arr->GetElementOffset(this, idx);
+            int offset = type->GetElementOffset(idx);
+            auto ele = NewObject(type->Derived(), arr->Scope());
+            ele->SetOffset(offset + arr->Offset());
+            ele->SetStorage(arr->Storage());
+            ele->SetLinkage(arr->Linkage());
+
             Expect(']');
             Expect('=');
 
@@ -1487,14 +1534,19 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
             while (idxSet.find(defaultIdx) != idxSet.end())
                 defaultIdx++;
             
-            auto ele = arr->GetArrayElement(this, defaultIdx);
+            int offset = type->GetElementOffset(defaultIdx);
+            auto ele = NewObject(type->Derived(), arr->Scope());
+            ele->SetOffset(offset + arr->Offset());
+            ele->SetStorage(arr->Storage());
+            ele->SetLinkage(arr->Linkage());
+
             stmts.push_back(ParseInitializer(ele));
         }
 
         // Needless comma at the end is allowed
         if (!Try(',')) {
             if (Peek()->Tag() != '}') {
-                Error(Peek(), "expect ',' or '}'");
+                Error(Peek()->Coord(), "expect ',' or '}'");
             }
         }
     }
@@ -1502,7 +1554,7 @@ Stmt* Parser::ParseArrayInitializer(Variable* arr)
     return NewCompoundStmt(stmts);
 }
 
-Stmt* Parser::ParseStructInitializer(Variable* var)
+Stmt* Parser::ParseStructInitializer(Object* obj)
 {
     return nullptr;
 }
@@ -1516,7 +1568,7 @@ Stmt* Parser::ParseStmt(void)
 {
     auto tok = Next();
     if (tok->IsEOF())
-        Error(tok, "premature end of input");
+        Error(tok->Coord(), "premature end of input");
 
     switch (tok->Tag()) {
     case ';':
@@ -1564,7 +1616,7 @@ CompoundStmt* Parser::ParseCompoundStmt(void)
     
     while (!Try('}')) {
         if (Peek()->IsEOF()) {
-            Error(Peek(), "premature end of input");
+            Error(Peek()->Coord(), "premature end of input");
         }
 
         if (IsType(Peek())) {
@@ -1582,8 +1634,11 @@ CompoundStmt* Parser::ParseCompoundStmt(void)
 IfStmt* Parser::ParseIfStmt(void)
 {
     Expect('(');
+    _coord = Peek()->Coord();
     auto cond = ParseExpr();
-    EnsureScalarExpr(cond);
+    if (!cond->Ty()->IsScalar()) {
+        Error(_coord, "expect scalar");
+    }
     Expect(')');
 
     auto then = ParseStmt();
@@ -1800,11 +1855,11 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
 CompoundStmt* Parser::ParseCaseStmt(void)
 {
-    
+    _coord = Peek()->Coord();
     auto expr = ParseExpr();
     Expect(':');
     
-    auto val = expr->EvalInteger();
+    auto val = expr->EvalInteger(_coord);
     auto labelStmt = NewLabelStmt();
     _caseLabels->push_back(std::make_pair(val, labelStmt));
     std::list<Stmt*> stmts;
@@ -1831,7 +1886,7 @@ JumpStmt* Parser::ParseContinueStmt(void)
     auto tok = Peek();
     Expect(';');
     if (nullptr == _continueDest) {
-        Error(tok, "'continue' only in loop is allowed");
+        Error(tok->Coord(), "'continue' only in loop is allowed");
     }
     
     return NewJumpStmt(_continueDest);
@@ -1842,7 +1897,7 @@ JumpStmt* Parser::ParseBreakStmt(void)
     auto tok = Peek();
     Expect(';');
     if (nullptr == _breakDest) {
-        Error(tok, "'break' only in switch/loop is allowed");
+        Error(tok->Coord(), "'break' only in switch/loop is allowed");
     }
     
     return NewJumpStmt(_breakDest);
@@ -1885,7 +1940,7 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
     auto labelStr = label->Str();
     auto stmt = ParseStmt();
     if (nullptr != FindLabel(labelStr)) {
-        Error(label, "'%s': label redefinition", labelStr.c_str());
+        Error(label->Coord(), "'%s': label redefinition", labelStr.c_str());
     }
 
     auto labelStmt = NewLabelStmt();

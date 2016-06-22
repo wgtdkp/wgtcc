@@ -8,11 +8,14 @@
 #include <list>
 #include <memory>
 
+class Scope;
 
 class Parser;
 
 class ASTNode;
 class Visitor;
+
+class Token;
 
 //Expression
 class Expr;
@@ -20,7 +23,6 @@ class BinaryOp;
 class UnaryOp;
 class ConditionalOp;
 class FuncCall;
-class Variable;
 class Constant;
 class TempVar;
 
@@ -42,6 +44,21 @@ struct Coordinate
     Coordinate(void): line(0), column(0),
             lineBegin(nullptr), begin(nullptr), end(nullptr) {}
     
+    Coordinate(const Coordinate& other) {
+        fileName = other.fileName;
+        line = other.line;
+        column = other.column;
+        lineBegin = other.lineBegin;
+        begin = other.begin;
+        end = other.end;
+    }
+
+    Coordinate operator+(const Coordinate& other) const {
+        Coordinate coord(*this);
+        coord.end = other.end;
+        return coord;
+    }
+
     const char* fileName;
     
     // Line index of the begin
@@ -71,25 +88,12 @@ public:
     
     virtual void Accept(Visitor* v) = 0;
 
-    Coordinate& Coord(void) {
-        return _coord;
-    }
-
-    const Coordinate& Coord(void) const {
-        return _coord;
-    }
-    
-    std::string Str(void) const {
-        return std::string(_coord.begin, _coord.end);
-    }
+    //virtual Coordinate Coord(void) = 0;
     
 protected:
     explicit ASTNode(MemPool* pool): _pool(pool) {}
-    
-    ASTNode(MemPool* pool, const Coordinate& coord)
-            : _coord(coord), _pool(pool) {}
-    
-    Coordinate _coord;
+
+    mutable std::string _str;
 
 private:
     //ASTNode(void);  //禁止直接创建Node
@@ -108,7 +112,7 @@ public:
     virtual ~Stmt(void){}
 
 protected:
-    explicit Stmt(MemPool* pool): ASTNode(pool) {}
+    explicit Stmt(MemPool* pool) : ASTNode(pool) {}
 };
 
 
@@ -122,9 +126,7 @@ public:
     virtual void Accept(Visitor* v);
 
 protected:
-    explicit EmptyStmt(MemPool* pool): Stmt(pool) {}
-
-private:
+    EmptyStmt(MemPool* pool): Stmt(pool) {}
 };
 
 
@@ -138,10 +140,12 @@ public:
     
     virtual void Accept(Visitor* v);
     
-    int Tag(void) const { return Tag(); }
+    int Tag(void) const {
+        return Tag();
+    }
 
 protected:
-    explicit LabelStmt(MemPool* pool)
+    LabelStmt(MemPool* pool)
             : Stmt(pool), _tag(GenTag()) {}
 
 private:
@@ -164,7 +168,7 @@ public:
 
 protected:
     IfStmt(MemPool* pool, Expr* cond, Stmt* then, Stmt* els = nullptr)
-        : Stmt(pool), _cond(cond), _then(then), _else(els) {}
+            : Stmt(pool), _cond(cond), _then(then), _else(els) {}
 
 private:
     Expr* _cond;
@@ -245,36 +249,33 @@ class Expr : public Stmt
 
 public:
     virtual ~Expr(void) {}
-    Type* Ty(void) { return _ty; }
+    
+    Type* Ty(void) {
+        return _ty;
+    }
+
     const Type* Ty(void) const {
-        assert(nullptr != _ty);
         return _ty;
     }
 
     virtual bool IsLVal(void) const = 0;
 
-    virtual long long EvalInteger(void) = 0;
+    virtual long long EvalInteger(const Coordinate& coord) = 0;
 
-    virtual Constant* ToConstant(void) {
-        return nullptr;
-    }
+    /*
+     * Do type checking and evaluating the expression type;
+     * called after construction
+     */
+    virtual void TypeChecking(const Coordinate& coord) = 0;
 
 protected:
     /*
      * You can construct a expression without specifying a type,
      * then the type should be evaluated in TypeChecking()
      */
-    Expr(MemPool* pool, Type* type, bool isConstant = false)
-        : Stmt(pool), _ty(type), _isConsant(isConstant) {}
-    
-    /*
-     * Do type checking and evaluating the expression type;
-     * called after construction
-     */
-    virtual Expr* TypeChecking(void) = 0;
+    Expr(MemPool* pool, Type* type): Stmt(pool), _ty(type) {}
 
     Type* _ty;
-    bool _isConsant;
 };
 
 
@@ -296,38 +297,41 @@ public:
     virtual void Accept(Visitor* v);
     
     //like member ref operator is a lvalue
-    virtual bool IsLVal(void) const { return false; }
+    virtual bool IsLVal(void) const {
+        return false;
+    }
 
-    virtual long long EvalInteger(void);
+    virtual long long EvalInteger(const Coordinate& coord);
 
 protected:
     BinaryOp(MemPool* pool, int op, Expr* lhs, Expr* rhs)
-        :Expr(pool, nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
+            : Expr(pool, nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
 
     // TODO: 
     //  1.type checking;
     //  2. evalute the type;
-    virtual BinaryOp* TypeChecking(void);
+    virtual void TypeChecking(const Coordinate& coord);
 
-    BinaryOp* SubScriptingOpTypeChecking(void);
+    void SubScriptingOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* MemberRefOpTypeChecking(const std::string& rhsName);
+    void MemberRefOpTypeChecking(
+            const Coordinate& coord, const std::string& rhsName);
     
-    BinaryOp* MultiOpTypeChecking(void);
+    void MultiOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* AdditiveOpTypeChecking(void);
+    void AdditiveOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* ShiftOpTypeChecking(void);
+    void ShiftOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* RelationalOpTypeChecking(void);
+    void RelationalOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* EqualityOpTypeChecking(void);
+    void EqualityOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* BitwiseOpTypeChecking(void);
+    void BitwiseOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* LogicalOpTypeChecking(void);
+    void LogicalOpTypeChecking(const Coordinate& coord);
     
-    BinaryOp* AssignOpTypeChecking(void);
+    void AssignOpTypeChecking(const Coordinate& coord);
 
     int _op;
     Expr* _lhs;
@@ -355,27 +359,27 @@ public:
     virtual ~UnaryOp(void) {}
     
     virtual void Accept(Visitor* v);
-    
+
     //TODO: like '*p' is lvalue, but '~i' is not lvalue
     virtual bool IsLVal(void) const;
 
-    virtual long long EvalInteger(void);
+    virtual long long EvalInteger(const Coordinate& coord);
 
 protected:
     UnaryOp(MemPool* pool, int op, Expr* operand, Type* type = nullptr)
         : Expr(pool, type), _op(op), _operand(operand) {}
 
-    virtual UnaryOp* TypeChecking(void);
+    virtual void TypeChecking(const Coordinate& coord);
     
-    UnaryOp* IncDecOpTypeChecking(void);
+    void IncDecOpTypeChecking(const Coordinate& coord);
     
-    UnaryOp* AddrOpTypeChecking(void);
+    void AddrOpTypeChecking(const Coordinate& coord);
     
-    UnaryOp* DerefOpTypeChecking(void);
+    void DerefOpTypeChecking(const Coordinate& coord);
     
-    UnaryOp* UnaryArithmOpTypeChecking(void);
+    void UnaryArithmOpTypeChecking(const Coordinate& coord);
     
-    UnaryOp* CastOpTypeChecking(void);
+    void CastOpTypeChecking(const Coordinate& coord);
 
     int _op;
     Expr* _operand;
@@ -391,17 +395,19 @@ public:
     virtual ~ConditionalOp(void) {}
     
     virtual void Accept(Visitor* v);
-    
-    virtual bool IsLVal(void) const { return false; }
 
-    virtual long long EvalInteger(void);
+    virtual bool IsLVal(void) const {
+        return false;
+    }
+
+    virtual long long EvalInteger(const Coordinate& coord);
 
 protected:
     ConditionalOp(MemPool* pool, Expr* cond, Expr* exprTrue, Expr* exprFalse)
             : Expr(pool, nullptr), _cond(cond), 
               _exprTrue(exprTrue), _exprFalse(exprFalse) {}
     
-    virtual ConditionalOp* TypeChecking(void);
+    virtual void TypeChecking(const Coordinate& coord);
 
 private:
     Expr* _cond;
@@ -419,14 +425,14 @@ public:
     ~FuncCall(void) {}
     
     virtual void Accept(Visitor* v);
-    
+
     //a function call is ofcourse not lvalue
     virtual bool IsLVal(void) const {
         return false;
     }
 
-    virtual long long EvalInteger(void) {
-        Error(this, "function call is not allowed in constant expression");
+    virtual long long EvalInteger(const Coordinate& coord) {
+        Error(coord, "function call is not allowed in constant expression");
         return 0;   // Make compiler happy
     }
 
@@ -434,7 +440,7 @@ protected:
     FuncCall(MemPool* pool, Expr* designator, std::list<Expr*> args)
         : Expr(pool, nullptr), _designator(designator), _args(args) {}
 
-    virtual FuncCall* TypeChecking(void);
+    virtual void TypeChecking(const Coordinate& coord);
 
     Expr* _designator;
     std::list<Expr*> _args;
@@ -442,89 +448,10 @@ protected:
 
 
 /********* Identifier *************/
-class Variable : public Expr
-{
-    friend class Parser;
-
-public:
-    static const int TYPE = -1;
-    static const int VAR = 0;
-    
-    ~Variable(void) {}
-    
-    virtual void Accept(Visitor* v);
-    
-    bool IsVar(void) const {
-        return _offset >= 0;
-    }
-
-    int Offset(void) const {
-        return _offset;
-    }
-        
-    void SetOffset(int offset) {
-        _offset = offset;
-    }
-    
-    int Storage(void) const {
-        return _storage;
-    }
-
-    void SetStorage(int storage) {
-        _storage = storage;
-    }
-
-    //of course a variable is a lvalue expression
-    virtual bool IsLVal(void) const {
-        return true;
-    }
-
-    virtual long long EvalInteger(void) {
-        Error(this, "function call is not allowed in constant expression");
-        return 0;   // Make compiler happy
-    }
-
-    bool operator==(const Variable& other) const {
-        return _offset == other._offset
-            && *_ty == *other._ty;
-    }
-
-    bool operator!=(const Variable& other) const {
-        return !(*this == other);
-    }
-
-    virtual Constant* ToConstant(void) {
-        return nullptr;
-    }
-    
-    virtual const Constant* ToConstant(void) const {
-        return nullptr;
-    }
-
-    Variable* GetStructMember(const char* name);
-
-    Variable* GetArrayElement(Parser* parser, size_t idx);
-
-protected:
-    Variable(MemPool* pool, Type* type, int offset=VAR, bool isConstant=false)
-        : Expr(pool, type, isConstant), _storage(0), _offset(offset) {}
-    
-    //do nothing
-    virtual Variable* TypeChecking(void) {
-        return this;
-    }
-
-protected:
-    int _storage;
-
-private:
-    //the relative address
-    int _offset;
-};
 
 
 //integer, character, string literal, floating
-class Constant : public Variable
+class Constant : public Expr
 {
     friend class Parser;
 
@@ -537,9 +464,10 @@ public:
         return false;
     }
 
-    virtual long long EvalInteger(void) {
+    virtual long long EvalInteger(const Coordinate& coord) {
         if (_ty->IsFloat())
-            Error(this, "expect integer, but get floating");
+            Error(coord, "expect integer, but get floating");
+        
         return _ival;
     }
     
@@ -551,29 +479,23 @@ public:
         return _fval;
     }
 
-    virtual Constant* ToConstant(void) {
-        return this;
-    }
-
 protected:
     Constant(MemPool* pool, ArithmType* type, long long val)
-            : Variable(pool, type, VAR, true), _ival(val) {
+            : Expr(pool, type), _ival(val) {
         assert(type->IsInteger());
     }
 
     Constant(MemPool* pool, ArithmType* type, double val)
-            : Variable(pool, type, VAR, true), _fval(val) {
+            : Expr(pool, type), _fval(val) {
         assert(type->IsFloat());
     }
-/*
+    /*
     Constant(MemPool* pool, const char* val)
-            : Variable(pool, , VAR, true), _sval(val) {
+            : Expr(pool, , VAR, true), _sval(val) {
 
     }
-*/
-    virtual Constant* TypeChecking(void) {
-        return this;
-    }
+    */
+    virtual void TypeChecking(const Coordinate& coord) {}
 
 private:
     union {
@@ -598,8 +520,8 @@ public:
         return true;
     }
 
-    virtual long long EvalInteger(void) {
-        Error(this, "function call is not allowed in constant expression");
+    virtual long long EvalInteger(const Coordinate& coord) {
+        Error(coord, "function call is not allowed in constant expression");
         return 0;   // Make compiler happy
     }
 
@@ -607,9 +529,7 @@ protected:
     TempVar(MemPool* pool, Type* type)
             : Expr(pool, type), _tag(GenTag()) {}
 
-    virtual TempVar* TypeChecking(void) {
-        return this;
-    }
+    virtual void TypeChecking(const Coordinate& coord) {}
 
 private:
     static int GenTag(void) {
@@ -647,7 +567,6 @@ class Decl : public ExtDecl
 };
 */
 
-
 class TranslationUnit : public ASTNode
 {
 public:
@@ -680,5 +599,142 @@ public:
     virtual void Visit(ASTNode* node) = 0;
 };
 */
+
+
+// TODO(wgtdkp): derived from Expr
+class Identifier: public Expr
+{
+    friend class Parser;
+    
+public:
+    virtual ~Identifier(void) {}
+
+    virtual void Accept(Visitor* v) {}
+
+    virtual bool IsLVal(void) const {
+        return false;
+    }
+
+    virtual Object* ToObject(void) {
+        return nullptr;
+    }
+
+    virtual long long EvalInteger(const Coordinate& coord) {
+        Error(coord, "identifier in constant expression");
+        return 0;   // Make compiler happy
+    }
+    
+    virtual void TypeChecking(const Coordinate& coord);;
+
+    /*
+     * An identifer can be:
+     *     object, sturct/union/enum tag, typedef name, function, label.
+     */
+    virtual Type* ToType(void) {
+        if (ToObject())
+            return nullptr;
+        return this->Ty();
+    }
+
+    ::Scope* Scope(void) {
+        return _scope;
+    }
+
+    virtual bool operator==(const Identifier& other) const {
+        return *_ty == *other._ty && _scope == other._scope;
+    }
+
+protected:
+    Identifier(MemPool* pool, Type* type, ::Scope* scope)
+            : Expr(pool, type), _scope(scope) {}
+    
+    // An identifier has property scope
+    ::Scope* _scope;
+};
+
+
+enum Linkage {
+    NONE,
+    EXTERNAL,
+    INTERNAL,
+};
+
+
+class Object : public Identifier
+{
+    friend class Parser;
+
+public:
+    ~Object(void) {}
+    
+    virtual void Accept(Visitor* v) {}
+
+    virtual bool IsLVal(void) const {
+        // TODO(wgtdkp): not all object is lval?
+        return true;
+    }
+
+    virtual Object* ToObject(void) {
+        return this;
+    }
+
+    int Offset(void) const {
+        return _offset;
+    }
+        
+    void SetOffset(int offset) {
+        _offset = offset;
+    }
+    
+    int Storage(void) const {
+        return _storage;
+    }
+
+    void SetStorage(int storage) {
+        _storage = storage;
+    }
+
+    enum Linkage Linkage(void) const {
+        return _linkage;
+    }
+
+    void SetLinkage(enum Linkage linkage) {
+        _linkage = linkage;
+    }
+
+    /*
+    // of course a variable is a lvalue expression
+    virtual bool IsLVal(void) const {
+        return true;
+    }
+    */
+
+    bool operator==(const Object& other) const {
+        return _offset == other._offset
+            && *_ty == *other._ty;
+    }
+
+    bool operator!=(const Object& other) const {
+        return !(*this == other);
+    }
+
+protected:
+    Object(MemPool* pool, Type* type, ::Scope* scope,
+            int storage=0, enum Linkage linkage=NONE, int offset=0
+            ): Identifier(pool, type, scope), _storage(0),
+               _linkage(linkage), _offset(offset) {}
+    
+    /*
+    //do nothing
+    virtual Variable* TypeChecking(void) {
+        return this;
+    }
+    */
+private:
+    int _storage;
+    enum Linkage _linkage;
+    //the relative address
+    int _offset;
+};
 
 #endif

@@ -4,8 +4,8 @@
 /*************** Constant Evaluator ******************/
 void ConstantEvaluator::VisitBinaryOp(BinaryOp* binaryOp)
 {
-    if (!binaryOp->Ty()->IsInteger())
-        Error(binaryOp, "integer expected");
+    //if (!binaryOp->Ty()->IsInteger())
+    //    Error(binaryOp, "integer expected");
 
     ConstantEvaluator lEvaluator;
     ConstantEvaluator rEvaluator;

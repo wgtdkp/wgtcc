@@ -2,7 +2,7 @@
 #define _PARSER_H_
 
 #include "ast.h"
-#include "env.h"
+#include "scope.h"
 #include "error.h"
 #include "lexer.h"
 #include "mem_pool.h"
@@ -19,13 +19,11 @@ class Parser
 public:
     explicit Parser(Lexer* lexer) 
         : _unit(TranslationUnit::NewTranslationUnit()),
-          _lexer(lexer), _topEnv(new Env(nullptr)),
+          _lexer(lexer), _topScope(new Scope(nullptr)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
-    ~Parser(void) { 
-        //delete _lexer; 
-    }
+    ~Parser(void) {}
     
     /*
      * Binary Operator
@@ -34,7 +32,8 @@ public:
     BinaryOp* NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName);
     ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
     FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
-    Variable* NewVariable(Type* type, int offset=0);
+    Identifier* NewIdentifier(Type* type, Scope* scope);
+    Object* NewObject(Type* type, Scope* scope, int offset=0);
     Constant* NewConstantInteger(ArithmType* type, long long val);
     Constant* NewConstantFloat(ArithmType* type, double val);
     TempVar* NewTempVar(Type* type);
@@ -114,7 +113,7 @@ public:
     //declarator
     int ParseQual(void);
     Type* ParsePointer(Type* typePointedTo);
-    Variable* ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec);
+    Identifier* ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec);
     TokenTypePair ParseDeclarator(Type* type);
     Type* ParseArrayFuncDeclarator(Type* base);
     int ParseArrayLength(void);
@@ -125,9 +124,9 @@ public:
     Type* ParseAbstractDeclarator(Type* type);
 
     //initializer
-    Stmt* ParseInitializer(Variable* var);
-    Stmt* ParseArrayInitializer(Variable* arr);
-    Stmt* ParseStructInitializer(Variable* var);
+    Stmt* ParseInitializer(Object* obj);
+    Stmt* ParseArrayInitializer(Object* arr);
+    Stmt* ParseStructInitializer(Object* obj);
     Stmt* ParseInitDeclarator(Type* type, int storageSpec, int funcSpec);
 
     /************* Statements ***************/
@@ -183,18 +182,30 @@ private:
         return Peek();
     }
 
-    bool IsTypeName(const Token* tok) const{
+    bool IsTypeName(Token* tok) const{
         if (tok->IsTypeSpecQual())
             return true;
-        return (tok->IsIdentifier() 
-            && nullptr != _topEnv->FindType(tok->Str()));
+
+        if (tok->IsIdentifier()) {
+            // TODO(wgtdkp):
+            //auto ident = _topScope->Find(tok->Str());
+            //if (ident->ToTypeName())
+            //    return true;
+        }
+        return false;
     }
 
-    bool IsType(const Token* tok) const{
+    bool IsType(Token* tok) const{
         if (tok->IsDecl())
             return true;
-        return (tok->IsIdentifier()
-            && nullptr != _topEnv->FindType(tok->Str()));
+
+        if (tok->IsIdentifier()) {
+            // TODO(wgtdkp):
+            //auto ident = _topScope->Find(tok->Str());
+            //if (ident->ToTypeName())
+            //    return true;
+        }
+        return false;
     }
 
     void Expect(int expect, int follow1 = ',', int follow2 = ';');
@@ -206,6 +217,7 @@ private:
         }
     }
 
+    /*
     void EnsureModifiableExpr(Expr* expr) const {
         if (!expr->IsLVal()) {
             //TODO: error
@@ -230,12 +242,12 @@ private:
         if (!expr->Ty()->IsInteger())
             Error(expr, "integer expression expected");
     }
-
+    */
     void EnterBlock(void) {
-        _topEnv = new Env(_topEnv);
+        _topScope = new Scope(_topScope);
     }
     void ExitBlock(void) {
-        _topEnv = _topEnv->Parent();
+        _topScope = _topScope->Parent();
     }
 
     void EnterFunc(const char* funcName);
@@ -263,10 +275,12 @@ private:
     TranslationUnit* _unit;
 
     Lexer* _lexer;
-    Env* _topEnv;
+    Scope* _topScope;
     LabelMap _topLabels;
     LabelJumpList _unresolvedJumps;
     std::stack<Token*> _buf;
+
+    Coordinate _coord;
 
     LabelStmt* _breakDest;
     LabelStmt* _continueDest;
@@ -277,7 +291,8 @@ private:
     MemPoolImp<BinaryOp>        _binaryOpPool;
     MemPoolImp<ConditionalOp>   _conditionalOpPool;
     MemPoolImp<FuncCall>        _funcCallPool;
-    MemPoolImp<Variable>        _variablePool;
+    MemPoolImp<Object>          _objectPool;
+    MemPoolImp<Identifier>      _identifierPool;
     MemPoolImp<Constant>        _constantPool;
     MemPoolImp<TempVar>         _tempVarPool;
     MemPoolImp<UnaryOp>         _unaryOpPool;
