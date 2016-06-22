@@ -164,6 +164,7 @@ class IfStmt : public Stmt
 
 public:
     virtual ~IfStmt(void) {}
+    
     virtual void Accept(Visitor* v);
 
 protected:

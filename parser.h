@@ -113,7 +113,7 @@ public:
     //declarator
     int ParseQual(void);
     Type* ParsePointer(Type* typePointedTo);
-    Identifier* ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec);
+    //Identifier* ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec);
     TokenTypePair ParseDeclarator(Type* type);
     Type* ParseArrayFuncDeclarator(Type* base);
     int ParseArrayLength(void);
@@ -122,6 +122,8 @@ public:
 
     //typename
     Type* ParseAbstractDeclarator(Type* type);
+    Identifier* ParseDirectDeclarator(Type* type,
+            int storageSpec, int funcSpec);
 
     //initializer
     Stmt* ParseInitializer(Object* obj);
@@ -148,6 +150,9 @@ public:
     /*********** Function Definition *************/
     bool IsFuncDef(void);
     FuncDef* ParseFuncDef(void);
+
+    Identifier* ProcessDeclarator(Token* tok, Type* type,
+            int storageSpec, int funcSpec);
 
 private:
     //������ǰtoken���ϲ���������true,��consumeһ��token
@@ -187,10 +192,9 @@ private:
             return true;
 
         if (tok->IsIdentifier()) {
-            // TODO(wgtdkp):
-            //auto ident = _topScope->Find(tok->Str());
-            //if (ident->ToTypeName())
-            //    return true;
+            auto ident = _topScope->Find(tok->Str());
+            if (ident && ident->ToType())
+                return true;
         }
         return false;
     }

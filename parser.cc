@@ -294,8 +294,7 @@ Expr* Parser::ParsePrimaryExpr(void)
             Error(tok->Coord(), "undefined variable '%s'", 
                     tok->Str().c_str());
         }
-        // TODO(wgtdkp): convert from Object to Expr
-        //return var;
+        return ident;
     } else if (tok->IsConstant()) {
         return ParseConstant(tok);
     } else if (tok->IsString()) {
@@ -1072,7 +1071,8 @@ Type* Parser::ParseEnumSpec(void)
             if (!tagIdent->Ty()->Complete()) {
                 return ParseEnumerator(tagIdent->Ty()->ToArithmType());
             } else {
-                Error(tok->Coord(), "'%s': enumeration redifinition", tagName.c_str());
+                Error(tok->Coord(), "redefinition of enumeration tag '%s'",
+                        tagName.c_str());
             }
         } else {
             //Type* type = _topScope->FindTag(tagName);
@@ -1110,8 +1110,10 @@ Type* Parser::ParseEnumerator(ArithmType* type)
         
         auto enumName = tok->Str();
         auto ident = _topScope->FindInCurScope(enumName);
-        if (ident)
-            Error(tok->Coord(), "'%s': symbol redifinition", enumName.c_str());
+        if (ident) {
+            Error(tok->Coord(), "redefinition of enumerator '%s'",
+                    enumName.c_str());
+        }
         if (Try('=')) {
             _coord = Peek()->Coord();
             auto expr = ParseExpr();
@@ -1165,7 +1167,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
                 return ParseStructDecl(tagIdent->Ty()->ToStructUnionType());
             } else {
                 //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
-                Error(tok->Coord(), "'%s': struct type redefinition",
+                Error(tok->Coord(), "redefinition of struct tag '%s'",
                         tok->Str().c_str());
             }
         } else {
@@ -1178,11 +1180,15 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 			 *   2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
 			 */
             auto tagIdent = _topScope->FindTag(tagName);
+            
             //如果tag已经定义或声明，那么直接返回此定义或者声明
-            if (tagIdent) 
+            if (tagIdent) {
                 return tagIdent->Ty();
+            }
+            
             //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
             auto type = Type::NewStructUnionType(isStruct); //创建不完整的类型
+            
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
             auto ident = NewIdentifier(type, _topScope);
             _topScope->InsertTag(tagName, ident);
@@ -1278,36 +1284,11 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
     return ty;
 }
 
-Identifier* Parser::ParseDeclaratorAndDo(Type* base,
-        int storageSpec, int funcSpec)
-{
-    TokenTypePair tokenType = Parser::ParseDeclarator(base);
-    auto tok = tokenType.first;
-    auto type = tokenType.second;
-    /*
-     * TODO: 检查在同一 scope 是否已经定义此变量
-	 * 如果 storage 是 typedef，那么应该往符号表里面插入 type
-	 * 定义 void 类型变量是非法的，只能是指向void类型的指针
-	 * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
-     */
-    
-    Identifier* ident;
-    if ((ident = _topScope->Find(tok->Str()))) {
-        Error(tok->Coord(), "'%s' redeclared", tok->Str().c_str());
-    }
-
-    if (storageSpec & S_TYPEDEF) {
-        // TODO(wgtdkp):
-        // A typename
-    } else {
-        auto obj = NewObject(type, _topScope);
-        obj->SetStorage(storageSpec);
-        _topScope->Insert(tok->Str(), obj);
-        return obj;
-    }
-    return ident;
-}
-
+/*
+ * Return: pair of token(must be identifier) and it's type
+ *     if token is nullptr, then we are parsing abstract declarator
+ *     else, parsing direct declarator.
+ */
 TokenTypePair Parser::ParseDeclarator(Type* base)
 {
     // May be pointer
@@ -1327,10 +1308,59 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
         return TokenTypePair(tok, retType);
     }
     
-    Error(Peek()->Coord(), "expect identifier or '(' but get '%s'",
-            Peek()->Str().c_str());
+    _coord = Peek()->Coord();
+    //Error(Peek()->Coord(), "expect identifier or '(' but get '%s'",
+    //        Peek()->Str().c_str());
     
-    return TokenTypePair(nullptr, nullptr); //make compiler happy
+    return TokenTypePair(nullptr, pointerType);
+}
+
+Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
+        int storageSpec, int funcSpec)
+{
+    assert(tok);
+    /*
+     * TODO: 检查在同一 scope 是否已经定义此变量
+	 * 如果 storage 是 typedef，那么应该往符号表里面插入 type
+	 * 定义 void 类型变量是非法的，只能是指向void类型的指针
+	 * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
+     */
+    auto name = tok->Str();
+    Identifier* ident;
+
+    if (storageSpec & S_TYPEDEF) {
+        // TODO(wgtdkp):
+        // A typename
+        if ((ident = _topScope->FindInCurScope(tok->Str()))) {
+            // TODO(wgtdkp): consider linkage
+            Error(tok->Coord(), "redefinition of typename '%s'", name.c_str());
+        }
+        ident = NewIdentifier(type, _topScope);
+        _topScope->Insert(name, ident);
+        return ident;
+    }
+
+    // The identifier is an object
+    if (type->ToVoidType()) {
+        Error(tok->Coord(), "variable or field '%s' declared void",
+                name.c_str());
+    }
+    
+    if ((ident = _topScope->FindInCurScope(tok->Str()))) {
+        // TODO(wgtdkp): consider linkage
+        Error(tok->Coord(), "redefinition of variable or field '%s'",
+                name.c_str());
+    }
+
+    if (!type->Complete()) {
+        Error(tok->Coord(), "storage size of '%s' isn’t known",
+                name.c_str());
+    }
+
+    auto obj = NewObject(type, _topScope);
+    obj->SetStorage(storageSpec);
+    _topScope->Insert(name, obj);
+    return obj;
 }
 
 Type* Parser::ParseArrayFuncDeclarator(Type* base)
@@ -1443,11 +1473,29 @@ Type* Parser::ParseParamDecl(void)
     
     //TODO: declarator 和 abstract declarator 都要支持
 	//TODO: 区分 declarator 和 abstract declarator
-    return ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();
+    auto tokTypePair = ParseDeclarator(type);
+    auto tok = tokTypePair.first;
+    type = tokTypePair.second;
+    if (tok == nullptr) { // Abstract declarator
+        return type;
+    }
+
+    ProcessDeclarator(tok, type, storageSpec, funcSpec);
+
+    return type;
 }
 
 Type* Parser::ParseAbstractDeclarator(Type* type)
 {
+    auto tokenTypePair = ParseDeclarator(type);
+    auto tok = tokenTypePair.first;
+    type = tokenTypePair.second;
+    if (tok) { // Not a abstract declarator!
+        Error(tok->Coord(), "unexpected identifier '%s'",
+                tok->Str().c_str());
+    }
+    return type;
+    /*
     auto pointerType = ParsePointer(type);
     if (nullptr != pointerType->ToPointerType() && !Try('('))
         return pointerType;
@@ -1457,6 +1505,20 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
     auto newBase = ParseArrayFuncDeclarator(pointerType);
     
     return ModifyBase(ret, pointerType, newBase);
+    */
+}
+
+Identifier* Parser::ParseDirectDeclarator(Type* type,
+        int storageSpec, int funcSpec)
+{
+    auto tokenTypePair = ParseDeclarator(type);
+    auto tok = tokenTypePair.first;
+    type = tokenTypePair.second;
+    if (tok == nullptr) {
+        Error(_coord, "expect identifier or '('");
+    }
+
+    return ProcessDeclarator(tok, type, storageSpec, funcSpec);
 }
 
 /*
@@ -1464,7 +1526,8 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
  */
 Stmt* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 {
-    auto ident = ParseDeclaratorAndDo(type, storageSpec, funcSpec);
+    auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
+    
     if (Try('=')) {
         if (ident->ToObject() == nullptr) {
             Error(Peek()->Coord(), "unexpected initializer");
@@ -1940,7 +2003,7 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
     auto labelStr = label->Str();
     auto stmt = ParseStmt();
     if (nullptr != FindLabel(labelStr)) {
-        Error(label->Coord(), "'%s': label redefinition", labelStr.c_str());
+        Error(label->Coord(), "redefinition of label '%s'", labelStr.c_str());
     }
 
     auto labelStmt = NewLabelStmt();
@@ -1978,10 +2041,12 @@ FuncDef* Parser::ParseFuncDef(void)
 {
     int storageSpec, funcSpec;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-    auto funcType = ParseDeclaratorAndDo(type, storageSpec, funcSpec)->Ty();
-    
+    auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
+    type = ident->Ty();
+
     Expect('{');
     auto stmt = ParseCompoundStmt();
-
-    return NewFuncDef(funcType->ToFuncType(), stmt);
+    
+    assert(type->ToFuncType());
+    return NewFuncDef(type->ToFuncType(), stmt);
 }
