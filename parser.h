@@ -19,7 +19,7 @@ class Parser
 public:
     explicit Parser(Lexer* lexer) 
         : _unit(TranslationUnit::NewTranslationUnit()),
-          _lexer(lexer), _topScope(new Scope(nullptr)),
+          _lexer(lexer), _topScope(new Scope(nullptr, S_FILE)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -30,9 +30,11 @@ public:
      */
     BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
     BinaryOp* NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName);
-    ConditionalOp* NewConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse);
+    ConditionalOp* NewConditionalOp(Expr* cond,
+            Expr* exprTrue, Expr* exprFalse);
+    
     FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
-    Identifier* NewIdentifier(Type* type, Scope* scope);
+    Identifier* NewIdentifier(Type* type, Scope* scope, enum Linkage linkage);
     Object* NewObject(Type* type, Scope* scope, int offset=0);
     Constant* NewConstantInteger(ArithmType* type, long long val);
     Constant* NewConstantFloat(ArithmType* type, double val);
@@ -248,7 +250,7 @@ private:
     }
     */
     void EnterBlock(void) {
-        _topScope = new Scope(_topScope);
+        _topScope = new Scope(_topScope, S_BLOCK);
     }
     void ExitBlock(void) {
         _topScope = _topScope->Parent();

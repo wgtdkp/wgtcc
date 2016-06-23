@@ -91,10 +91,11 @@ FuncCall* Parser::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
 }
 
 
-Identifier* Parser::NewIdentifier(Type* type, Scope* scope)
+Identifier* Parser::NewIdentifier(Type* type,
+        Scope* scope, enum Linkage linkage)
 {
     auto ret = new (_identifierPool.Alloc())
-            Identifier(&_identifierPool, type, scope);
+            Identifier(&_identifierPool, type, scope, linkage);
 
     return ret;
 }
@@ -1080,9 +1081,9 @@ Type* Parser::ParseEnumSpec(void)
             if (tagIdent) {
                 return tagIdent->Ty();
             }
-            auto type = Type::NewArithmType(T_INT); 
+            auto type = Type::NewArithmType(T_INT);
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
-            auto ident = NewIdentifier(type, _topScope);
+            auto ident = NewIdentifier(type, _topScope, L_NONE);
             _topScope->InsertTag(tagName, ident);
         }
     }
@@ -1092,7 +1093,7 @@ Type* Parser::ParseEnumSpec(void)
 enum_decl:
     auto type = Type::NewArithmType(T_INT);
     if (tagName.size() != 0) {
-        auto ident = NewIdentifier(type, _topScope);
+        auto ident = NewIdentifier(type, _topScope, L_NONE);
         _topScope->InsertTag(tagName, ident);
     }
     
@@ -1190,7 +1191,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             auto type = Type::NewStructUnionType(isStruct); //创建不完整的类型
             
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
-            auto ident = NewIdentifier(type, _topScope);
+            auto ident = NewIdentifier(type, _topScope, L_NONE);
             _topScope->InsertTag(tagName, ident);
             return type;
         }
@@ -1203,7 +1204,7 @@ struct_decl:
 	//所以现在是第一次开始定义一个完整的struct/union类型
     auto type = Type::NewStructUnionType(isStruct);
     if (tagName.size() != 0) {
-        auto ident = NewIdentifier(type, _topScope);
+        auto ident = NewIdentifier(type, _topScope, L_NONE);
         _topScope->InsertTag(tagName, ident);
     }
     
@@ -1335,7 +1336,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             // TODO(wgtdkp): consider linkage
             Error(tok->Coord(), "redefinition of typename '%s'", name.c_str());
         }
-        ident = NewIdentifier(type, _topScope);
+        ident = NewIdentifier(type, _topScope, L_NONE);
         _topScope->Insert(name, ident);
         return ident;
     }
@@ -1345,7 +1346,27 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         Error(tok->Coord(), "variable or field '%s' declared void",
                 name.c_str());
     }
+
+    enum Linkage linkage;
+    if (type->ToFuncType()) {
+        assert(_topScope->Type() == S_FILE);
+        if (storageSpec & S_STATIC)
+            linkage = L_INTERNAL;
+        else
+            linkage = L_EXTERNAL;
+    } else if (_topScope->Type() == S_FILE) {
+        // TODO(wgtdkp): If is enumerator, then it has no linkage 
+        if (storageSpec == S_STATIC)
+            linkage = L_INTERNAL;
+        else
+            linkage = L_EXTERNAL;
+    } else if (_topScope->Type() == S_PROTO) {
+        linkage = L_NONE;
+    } else if (!(storageSpec & S_EXTERN)) {
+        linkage = L_NONE;
+    }
     
+
     if ((ident = _topScope->FindInCurScope(tok->Str()))) {
         // TODO(wgtdkp): consider linkage
         Error(tok->Coord(), "redefinition of variable or field '%s'",

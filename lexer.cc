@@ -436,7 +436,7 @@ void Lexer::ReadFile(const char* filePath)
 
     _tokBuf.reserve(fileSize / 8);
     _text = text;
-    printf("%s\n", _text);
+    //printf("%s\n", _text);
 }
 
 const char* Lexer::ParseName(const char* path)

@@ -602,6 +602,12 @@ public:
 */
 
 
+enum Linkage {
+    L_NONE,
+    L_EXTERNAL,
+    L_INTERNAL,
+};
+
 // TODO(wgtdkp): derived from Expr
 class Identifier: public Expr
 {
@@ -641,23 +647,25 @@ public:
         return _scope;
     }
 
+    enum Linkage Linkage(void) const {
+        return _linkage;
+    }
+
+    void SetLinkage(enum Linkage linkage) {
+        _linkage = linkage;
+    }
+
     virtual bool operator==(const Identifier& other) const {
         return *_ty == *other._ty && _scope == other._scope;
     }
 
 protected:
-    Identifier(MemPool* pool, Type* type, ::Scope* scope)
-            : Expr(pool, type), _scope(scope) {}
+    Identifier(MemPool* pool, Type* type, ::Scope* scope, enum Linkage linkage)
+            : Expr(pool, type), _scope(scope), _linkage(linkage) {}
     
     // An identifier has property scope
     ::Scope* _scope;
-};
-
-
-enum Linkage {
-    NONE,
-    EXTERNAL,
-    INTERNAL,
+    enum Linkage _linkage;
 };
 
 
@@ -695,14 +703,6 @@ public:
         _storage = storage;
     }
 
-    enum Linkage Linkage(void) const {
-        return _linkage;
-    }
-
-    void SetLinkage(enum Linkage linkage) {
-        _linkage = linkage;
-    }
-
     /*
     // of course a variable is a lvalue expression
     virtual bool IsLVal(void) const {
@@ -721,9 +721,9 @@ public:
 
 protected:
     Object(MemPool* pool, Type* type, ::Scope* scope,
-            int storage=0, enum Linkage linkage=NONE, int offset=0
-            ): Identifier(pool, type, scope), _storage(0),
-               _linkage(linkage), _offset(offset) {}
+            int storage=0, enum Linkage linkage=L_NONE, int offset=0
+            ): Identifier(pool, type, scope, linkage),
+               _storage(0), _offset(offset) {}
     
     /*
     //do nothing
@@ -733,7 +733,7 @@ protected:
     */
 private:
     int _storage;
-    enum Linkage _linkage;
+
     //the relative address
     int _offset;
 };

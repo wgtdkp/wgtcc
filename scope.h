@@ -6,14 +6,20 @@
 
 class Identifier;
 
+enum ScopeType {
+    S_FILE,
+    S_PROTO,
+    S_BLOCK,
+    S_FUNC,
+};
 
 class Scope
 {
     friend class StructUnionType;
     
 public:
-    explicit Scope(Scope* parent=nullptr)
-            : _parent(parent), _offset(0) {}
+    explicit Scope(Scope* parent, enum ScopeType type)
+            : _parent(parent), _offset(0), _type(type) {}
     
     ~Scope(void) {}
 
@@ -25,10 +31,14 @@ public:
         _parent = parent;
     }
 
+    enum ScopeType Type(void) const {
+        return _type;
+    }
+    /*
     bool IsFileScope(void) const {
         return _parent == nullptr;
     }
-
+    */
     std::string TagName(const std::string& name) {
         return name + "@tag";
     }
@@ -60,6 +70,8 @@ private:
 
     Scope* _parent;
     int _offset;
+    enum ScopeType _type;
+
     IdentMap _identMap;
 };
 
