@@ -18,7 +18,8 @@ class Parser
 {
 public:
     explicit Parser(Lexer* lexer) 
-        : _unit(TranslationUnit::NewTranslationUnit()),
+        : _unit(Transla-tionUnit::NewTranslationUnit()),
+          _inEnumeration(false),
           _lexer(lexer), _topScope(new Scope(nullptr, S_FILE)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
@@ -279,7 +280,9 @@ private:
 private:
     // The root of the AST
     TranslationUnit* _unit;
-
+    
+    bool _inEnumeration;
+    
     Lexer* _lexer;
     Scope* _topScope;
     LabelMap _topLabels;

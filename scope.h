@@ -34,11 +34,7 @@ public:
     enum ScopeType Type(void) const {
         return _type;
     }
-    /*
-    bool IsFileScope(void) const {
-        return _parent == nullptr;
-    }
-    */
+    
     std::string TagName(const std::string& name) {
         return name + "@tag";
     }
