@@ -211,11 +211,10 @@ private:
             return true;
 
         if (tok->IsIdentifier()) {
-            // TODO(wgtdkp):
-            //auto ident = _curScope->Find(tok->Str());
-            //if (ident->ToTypeName())
-            //    return true;
+            auto ident = _curScope->Find(tok->Str());
+            return (ident && !ident->ToObject());
         }
+
         return false;
     }
 

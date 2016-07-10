@@ -58,9 +58,9 @@ void Scope::Print(void)
         auto name = iter->first;
         auto ident = iter->second;
         if (ident->Ty()->ToFuncType()) {
-            printf("%s [function]\n", name.c_str());
+            printf("%s\t[function]\n", name.c_str());
         } else {
-            printf("%s [object]\n", name.c_str());
+            printf("%s\t[object]\n", name.c_str());
         }
     }
 }

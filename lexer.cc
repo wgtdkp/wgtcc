@@ -197,9 +197,9 @@ void Lexer::Tokenize(void)
             if ('&' == p[1]) {
                 tag = Token::AND_OP; ++p;
             } else if ('=' == p[1]) {
-                tag = Token::ADD_ASSIGN; ++p;
+                tag = Token::AND_ASSIGN; ++p;
             } else {
-                tag = Token::ADD;
+                tag = Token::AND;
             }
             ++p; break;
 

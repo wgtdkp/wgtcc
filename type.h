@@ -375,7 +375,7 @@ public:
             && *_derived == *otherArray->_derived);
     }
 
-    virtual bool Compactible(const Type& other) const {
+    virtual bool Compatible(const Type& other) const {
         auto otherArray = ToArrayType();
         return (nullptr != otherArray
             && _width == otherArray->_width
@@ -416,6 +416,14 @@ public:
     virtual bool Compatible(const Type& other) const;
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
+
+    std::list<Type*>& Params(void) {
+        return _params;
+    }
+
+    bool HasEllipsis(void) {
+        return _hasEllipsis;
+    }
 
 protected:
     //a function does not has the width property

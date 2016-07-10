@@ -294,8 +294,9 @@ Expr* Parser::ParsePrimaryExpr(void)
     if (tok->IsIdentifier()) {
         // TODO(wgtdkp): create a expression node with symbol
         auto ident = _curScope->Find(tok->Str());
-        if (ident == nullptr || ident->ToObject() == nullptr) {
-            Error(tok->Coord(), "undefined variable '%s'", 
+        /* if (ident == nullptr || ident->ToObject() == nullptr) { */
+        if (ident == nullptr) {
+            Error(tok->Coord(), "undefined symbol '%s'", 
                     tok->Str().c_str());
         }
         return ident;
@@ -422,18 +423,38 @@ UnaryOp* Parser::ParsePostfixIncDec(int tag, Expr* operand)
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
 {
-    //TODO: ParseArgs
-    list<Expr*> args;// = ParseFuncArgs(designator);
-    Expect(')');
-    /*
-        args.push_back(ParseAssignExpr());
-    while (Try(',')) {
-        args.push_back(ParseAssignExpr());
-        //TODO: args type checking
+    FuncType* type = designator->Ty()->ToFuncType();
+    assert(type);
 
+    list<Expr*> args;
+    auto iter = type->Params().begin();
+    while (true) {
+        auto tok = Peek();
+        auto arg = ParseAssignExpr();
+        args.push_back(arg);
+        if (!(*iter)->Compatible(*arg->Ty())) {
+            // TODO(wgtdkp): function name
+            Error(tok->Coord(), "incompatible type for argument 1 of ''");
+        }
+
+        ++iter;
+        
+        if (iter == type->Params().end()) {
+            break;
+        }
+        Expect(',');
     }
-    */
     
+    if (!type->HasEllipsis()) {
+        Expect(')');
+    } else {
+        while (!Try(')')) {
+            Expect(',');
+            auto arg = ParseAssignExpr();
+            args.push_back(arg);
+        }
+    }
+
     return NewFuncCall(designator, args);
 }
 
@@ -511,6 +532,7 @@ UnaryOp* Parser::ParsePrefixIncDec(int op)
 
 UnaryOp* Parser::ParseUnaryOp(int op)
 {
+    _coord = Peek()->Coord();
     auto operand = ParseCastExpr();
     return NewUnaryOp(op, operand);
 }
@@ -534,7 +556,8 @@ Expr* Parser::ParseCastExpr(void)
         return NewUnaryOp(Token::CAST, operand, desType);
     } 
     
-    return PutBack(), ParseUnaryExpr();
+    PutBack();
+    return ParseUnaryExpr();
 }
 
 Expr* Parser::ParseMultiplicativeExpr(void)
@@ -660,12 +683,12 @@ Expr* Parser::ParseLogicalOrExpr(void)
 
 Expr* Parser::ParseConditionalExpr(void)
 {
-    _coord = Peek()->Coord();
+    auto tok = Peek();
 
     auto cond = ParseLogicalOrExpr();
     if (Try('?')) {
         if (!cond->Ty()->IsScalar()) {
-            Error(_coord, "scalar is required");
+            Error(tok->Coord(), "scalar is required");
         }
 
         auto exprTrue = ParseExpr();
@@ -1367,16 +1390,15 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     }
 
     enum Linkage linkage;
+    // Identifiers in function prototype have no linkage
     if (_curScope->Type() == S_PROTO) {
         linkage = L_NONE;
     } else if (_curScope->Type() == S_FILE) {
-        // TODO(wgtdkp): If is enumerator, then it has no linkage
-        // enumerator could have file scope, but it has no linkage
-        linkage = L_EXTERNAL;
+        linkage = L_EXTERNAL; // Default linkage for file scope identifiers
         if (storageSpec & S_STATIC)
             linkage = L_INTERNAL;
     } else if (!(storageSpec & S_EXTERN)) {
-        linkage = L_NONE;
+        linkage = L_NONE; // Default linkage for block scope identifiers
         if (type->ToFuncType())
             linkage = L_EXTERNAL;
     } else {
@@ -1519,7 +1541,7 @@ int Parser::ParseArrayLength(void)
 bool Parser::ParseParamList(std::list<Type*>& params)
 {
     auto paramType = ParseParamDecl();
-
+    params.push_back(paramType);
     /*
      * The parameter list is 'void'
      */

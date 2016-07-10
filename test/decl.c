@@ -1,12 +1,18 @@
-
-
-int foo(void)
+int foo(float* a, float* b)
 {
     //static struct A aaaa;
-    int joke;
     //int joke;
-    extern float cccc;
-    return 0;
+    //int joke;
+    //extern float cccc;
+    //return 0;
+}
+
+int foo1(void)
+{
+    typedef int(func)(float* a, float* b);
+    func* f = &foo;
+    float c, d;
+    foo(3.5f, 4.5f);
 }
 
 int bar(void)

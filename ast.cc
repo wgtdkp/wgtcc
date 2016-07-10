@@ -363,7 +363,7 @@ void UnaryOp::IncDecOpTypeChecking(const Coordinate& coord)
 void UnaryOp::AddrOpTypeChecking(const Coordinate& coord)
 {
     FuncType* funcType = _operand->Ty()->ToFuncType();
-    if (nullptr != funcType && !_operand->IsLVal()) {
+    if (funcType == nullptr && !_operand->IsLVal()) {
         Error(coord, "expression must be an lvalue or function designator");
     }
     

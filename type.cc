@@ -229,8 +229,12 @@ bool PointerType::operator==(const Type& other) const {
 
 bool PointerType::Compatible(const Type& other) const {
     //TODO: compatibility ???
-    assert(false);
-    return false;
+    if (other.IsInteger())
+        return true;
+
+    if (other.ToPointerType() == nullptr)
+        return false;
+    return _derived->Compatible(*other.ToPointerType()->Derived());
 }
 
 
