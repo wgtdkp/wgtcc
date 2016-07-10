@@ -53,6 +53,8 @@ public:
         Insert(TagName(name), ident);
     }
 
+    void Print(void);
+
     bool operator==(const Scope& other) const {
         return _identMap == other._identMap;
     }

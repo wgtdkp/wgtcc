@@ -50,3 +50,17 @@ Identifier* Scope::FindTagInCurScope(const std::string& name) {
     }
     return tag;
 }
+
+void Scope::Print(void)
+{
+    auto iter = _identMap.begin();
+    for (; iter != _identMap.end(); iter++) {
+        auto name = iter->first;
+        auto ident = iter->second;
+        if (ident->Ty()->ToFuncType()) {
+            printf("%s [function]\n", name.c_str());
+        } else {
+            printf("%s [object]\n", name.c_str());
+        }
+    }
+}

@@ -19,8 +19,9 @@ class Parser
 public:
     explicit Parser(Lexer* lexer) 
         : _unit(TranslationUnit::NewTranslationUnit()),
-          _inEnumeration(false),
-          _lexer(lexer), _curScope(new Scope(nullptr, S_FILE)),
+          _inEnumeration(false), _lexer(lexer),
+          _externalSymbols(new Scope(nullptr, S_BLOCK)),
+          _curScope(new Scope(nullptr, S_FILE)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -287,6 +288,11 @@ private:
     bool _inEnumeration;
     
     Lexer* _lexer;
+
+    // It is not the real scope,
+    // it contains all external symbols(resolved and not resolved)
+    Scope* _externalSymbols;
+    
     Scope* _curScope;
     LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;

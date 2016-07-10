@@ -257,6 +257,8 @@ void Parser::ParseTranslationUnit(void)
             _unit->Add(ParseDecl());
         }
     }
+
+    _externalSymbols->Print();
 }
 
 Expr* Parser::ParseExpr(void)
@@ -1408,12 +1410,31 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             if (ident->Linkage() != L_NONE) {
                 linkage = ident->Linkage();
             }
+        } else {
+            ident = _externalSymbols->FindInCurScope(name);
+            if (ident) {
+                if (*type != *ident->Ty()) {
+                    Error(tok->Coord(), "conflicting types for '%s'",
+                            name.c_str());
+                }
+                // Don't return
+            }
         }
     }
 
-    auto obj = NewObject(type, _curScope, storageSpec, linkage);
-    _curScope->Insert(name, obj);
-    return obj;
+    Identifier* ret;
+    if (type->ToFuncType()) {
+        ret = NewIdentifier(type, _curScope, linkage);
+    } else {
+        ret = NewObject(type, _curScope, storageSpec, linkage);
+    }
+    _curScope->Insert(name, ret);
+    
+    if (linkage == L_EXTERNAL && ident == nullptr) {
+        _externalSymbols->Insert(name, ret);
+    }
+
+    return ret;
 }
 
 Type* Parser::ParseArrayFuncDeclarator(Type* base)
