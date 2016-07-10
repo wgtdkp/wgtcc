@@ -18,9 +18,9 @@ class Parser
 {
 public:
     explicit Parser(Lexer* lexer) 
-        : _unit(Transla-tionUnit::NewTranslationUnit()),
+        : _unit(TranslationUnit::NewTranslationUnit()),
           _inEnumeration(false),
-          _lexer(lexer), _topScope(new Scope(nullptr, S_FILE)),
+          _lexer(lexer), _curScope(new Scope(nullptr, S_FILE)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -195,7 +195,7 @@ private:
             return true;
 
         if (tok->IsIdentifier()) {
-            auto ident = _topScope->Find(tok->Str());
+            auto ident = _curScope->Find(tok->Str());
             if (ident && ident->ToType())
                 return true;
         }
@@ -208,7 +208,7 @@ private:
 
         if (tok->IsIdentifier()) {
             // TODO(wgtdkp):
-            //auto ident = _topScope->Find(tok->Str());
+            //auto ident = _curScope->Find(tok->Str());
             //if (ident->ToTypeName())
             //    return true;
         }
@@ -251,10 +251,10 @@ private:
     }
     */
     void EnterBlock(void) {
-        _topScope = new Scope(_topScope, S_BLOCK);
+        _curScope = new Scope(_curScope, S_BLOCK);
     }
     void ExitBlock(void) {
-        _topScope = _topScope->Parent();
+        _curScope = _curScope->Parent();
     }
 
     void EnterFunc(const char* funcName);
@@ -262,15 +262,15 @@ private:
     void ExitFunc(void);
 
     LabelStmt* FindLabel(const std::string& label) {
-        auto ret = _topLabels.find(label);
-        if (_topLabels.end() == ret)
+        auto ret = _curLabels.find(label);
+        if (_curLabels.end() == ret)
             return nullptr;
         return ret->second;
     }
 
     void AddLabel(const std::string& label, LabelStmt* labelStmt) {
         assert(nullptr == FindLabel(label));
-        _topLabels[label] = labelStmt;
+        _curLabels[label] = labelStmt;
     }
 
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
@@ -284,8 +284,8 @@ private:
     bool _inEnumeration;
     
     Lexer* _lexer;
-    Scope* _topScope;
-    LabelMap _topLabels;
+    Scope* _curScope;
+    LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;
     std::stack<Token*> _buf;
 

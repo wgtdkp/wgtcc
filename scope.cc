@@ -11,7 +11,7 @@ Identifier* Scope::Find(const std::string& name)
     if (ident != _identMap.end())
         return ident->second;
     
-    if (IsFileScope())
+    if (_type == S_FILE)
         return nullptr;
     return _parent->Find(name);
 }

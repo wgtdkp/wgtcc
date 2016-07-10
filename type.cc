@@ -290,7 +290,8 @@ bool FuncType::Compatible(const Type& other) const
  */
 
 StructUnionType::StructUnionType(MemPool* pool, bool isStruct)
-        :  Type(pool, 0, false), _isStruct(isStruct), _memberMap(new Scope()) {
+        :  Type(pool, 0, false), _isStruct(isStruct),
+           _memberMap(new Scope(nullptr, S_BLOCK)) {
 }
 
 Object* StructUnionType::GetMember(const std::string& member) {
