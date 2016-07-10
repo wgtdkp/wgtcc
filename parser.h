@@ -35,8 +35,11 @@ public:
             Expr* exprTrue, Expr* exprFalse);
     
     FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
+    
     Identifier* NewIdentifier(Type* type, Scope* scope, enum Linkage linkage);
-    Object* NewObject(Type* type, Scope* scope, int offset=0);
+    Object* NewObject(Type* type, Scope* scope,
+            int storage=0, enum Linkage linkage=L_NONE, int offset=0);
+
     Constant* NewConstantInteger(ArithmType* type, long long val);
     Constant* NewConstantFloat(ArithmType* type, double val);
     TempVar* NewTempVar(Type* type);

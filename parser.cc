@@ -100,10 +100,11 @@ Identifier* Parser::NewIdentifier(Type* type,
     return ret;
 }
 
-Object* Parser::NewObject(Type* type, Scope* scope, int offset)
+Object* Parser::NewObject(Type* type, Scope* scope,
+        int storage, enum Linkage linkage, int offset)
 {
     auto ret = new (_objectPool.Alloc())
-            Object(&_objectPool, type, scope, offset);
+            Object(&_objectPool, type, scope, storage, linkage, offset);
     
     ret->TypeChecking(_coord);
     return ret;
@@ -1330,9 +1331,12 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     Identifier* ident;
 
     if (storageSpec & S_TYPEDEF) {
-        if ((ident = _curScope->FindInCurScope(tok->Str()))) {
-            // TODO(wgtdkp): consider linkage
-            Error(tok->Coord(), "redefinition of typename '%s'", name.c_str());
+        ident = _curScope->FindInCurScope(tok->Str());
+        if (ident) { // There is prio declaration in the same scope
+            // The same declaration, simply return the prio declaration
+            if (*type == *ident->Ty())
+                return ident;
+            Error(tok->Coord(), "conflicting types for '%s'", name.c_str());
         }
         ident = NewIdentifier(type, _curScope, L_NONE);
         _curScope->Insert(name, ident);
@@ -1344,39 +1348,70 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
                 name.c_str());
     }
 
-    enum Linkage linkage;
-    if (type->ToFuncType()) {
-        assert(_curScope->Type() == S_FILE);
-        if (storageSpec & S_STATIC)
-            linkage = L_INTERNAL;
-        else
-            linkage = L_EXTERNAL;
-    } else if (_curScope->Type() == S_FILE) {
-        // TODO(wgtdkp): If is enumerator, then it has no linkage 
-        if (storageSpec == S_STATIC)
-            linkage = L_INTERNAL;
-        else
-            linkage = L_EXTERNAL;
-    } else if (_curScope->Type() == S_PROTO) {
-        linkage = L_NONE;
-    } else if (!(storageSpec & S_EXTERN)) {
-        linkage = L_NONE;
-    }
-    
-
-    if ((ident = _curScope->FindInCurScope(tok->Str()))) {
-        // TODO(wgtdkp): consider linkage
-        Error(tok->Coord(), "redefinition of variable or field '%s'",
-                name.c_str());
-    }
-
     if (!type->Complete()) {
         Error(tok->Coord(), "storage size of '%s' isn’t known",
                 name.c_str());
     }
 
-    auto obj = NewObject(type, _curScope);
-    obj->SetStorage(storageSpec);
+    if (type->ToFuncType() && _curScope->Type() != S_FILE
+            && (storageSpec & S_STATIC)) {
+        Error(tok->Coord(), "invalid storage class for function '%s'",
+                name.c_str());
+    }
+
+    enum Linkage linkage;
+    if (_curScope->Type() == S_PROTO) {
+        linkage = L_NONE;
+    } else if (_curScope->Type() == S_FILE) {
+        // TODO(wgtdkp): If is enumerator, then it has no linkage
+        // enumerator could have file scope, but it has no linkage
+        linkage = L_EXTERNAL;
+        if (storageSpec & S_STATIC)
+            linkage = L_INTERNAL;
+    } else if (!(storageSpec & S_EXTERN)) {
+        linkage = L_NONE;
+        if (type->ToFuncType())
+            linkage = L_EXTERNAL;
+    } else {
+        linkage = L_EXTERNAL;
+    }
+
+    ident = _curScope->FindInCurScope(name);
+    if (ident) { // There is prio declaration in the same scope
+        if (*type != *ident->Ty()) {
+            Error(tok->Coord(), "conflicting types for '%s'", name.c_str());
+        }
+
+        // The same scope prio declaration has no linkage,
+        // there is a redeclaration error
+        if (linkage == L_NONE) {
+            Error(tok->Coord(), "redeclaration of '%s' with no linkage",
+                    name.c_str());
+        } else if (linkage == L_EXTERNAL) {
+            if (ident->Linkage() == L_NONE) {
+                Error(tok->Coord(), "conflicting linkage for '%s'", name.c_str());
+            }
+        } else {
+            if (ident->Linkage() != L_INTERNAL) {
+                Error(tok->Coord(), "conflicting linkage for '%s'", name.c_str());
+            }
+        }
+        // The same redeclaration, simply return the prio declaration 
+        return ident;
+    } else if (linkage == L_EXTERNAL) {
+        ident = _curScope->Find(name);
+        if (ident) {
+            if (*type != *ident->Ty()) {
+            	Error(tok->Coord(), "conflicting types for '%s'",
+                        name.c_str());
+            }
+            if (ident->Linkage() != L_NONE) {
+                linkage = ident->Linkage();
+            }
+        }
+    }
+
+    auto obj = NewObject(type, _curScope, storageSpec, linkage);
     _curScope->Insert(name, obj);
     return obj;
 }
@@ -1397,7 +1432,7 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         
         return Type::NewArrayType(len, base);
     } else if (Try('(')) {	//function declaration
-        if (nullptr != base->ToFuncType())
+        if (base->ToFuncType())
             Error(Peek()->Coord(), "the return value of function can't be function");
         else if (nullptr != base->ToArrayType())
             Error(Peek()->Coord(), "the return value of function can't be array");

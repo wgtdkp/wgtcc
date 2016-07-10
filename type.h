@@ -421,7 +421,7 @@ protected:
     //a function does not has the width property
     FuncType(MemPool* pool, Type* derived, int inlineReturn, bool hasEllipsis,
             const std::list<Type*>& params = std::list<Type*>())
-        : DerivedType(pool, _derived, -1), _inlineNoReturn(inlineReturn),
+        : DerivedType(pool, derived, -1), _inlineNoReturn(inlineReturn),
           _hasEllipsis(hasEllipsis), _params(params) {
     }
 

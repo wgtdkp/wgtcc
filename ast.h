@@ -665,6 +665,7 @@ protected:
     
     // An identifier has property scope
     ::Scope* _scope;
+    // An identifier has property linkage
     enum Linkage _linkage;
 };
 
