@@ -217,7 +217,6 @@ void Parser::Expect(int expect, int follow1, int follow2)
     auto tok = Next();
     if (tok->Tag() != expect) {
         PutBack();
-        //TODO: error
         Error(tok->Coord(), "'%s' expected, but got '%s'",
                 Token::Lexeme(expect), tok->Str().c_str());
         Panic(follow1, follow2);
@@ -229,17 +228,16 @@ void Parser::EnterFunc(const char* funcName) {
 }
 
 void Parser::ExitFunc(void) {
-    //TODO: resolve 那些待定的jump；
-	//TODO: 如果有jump无法resolve，也就是有未定义的label，报错；
+    // Resolve 那些待定的jump；
+	// 如果有jump无法resolve，也就是有未定义的label，报错；
     for (auto iter = _unresolvedJumps.begin();
             iter != _unresolvedJumps.end(); iter++) {
-        
-        auto labelStmt = FindLabel(iter->first);
-        if (nullptr == labelStmt) {
-            // TODO(wgtdkp):
-            //Error("unresolved label '%s'", iter->first);
+        auto label = iter->first;
+        auto labelStmt = FindLabel(label->Str());
+        if (labelStmt == nullptr) {
+            Error(label->Coord(), "label '%s' used but not defined",
+                    label->Str().c_str());
         }
-            
         
         iter->second->SetLabel(labelStmt);
     }
@@ -1909,9 +1907,13 @@ CompoundStmt* Parser::ParseWhileStmt(void)
 {
     std::list<Stmt*> stmts;
     Expect('(');
+    auto tok = Peek();
     auto condExpr = ParseExpr();
-    //TODO: ensure scalar type
     Expect(')');
+
+    if (!condExpr->Ty()->IsScalar()) {
+        Error(tok->Coord(), "scalar expression expected");
+    }
 
     auto condLabel = NewLabelStmt();
     auto endLabel = NewLabelStmt();
@@ -2108,13 +2110,14 @@ ReturnStmt* Parser::ParseReturnStmt(void)
 
 JumpStmt* Parser::ParseGotoStmt(void)
 {
+    auto label = Peek();
     Expect(Token::IDENTIFIER);
-    auto label = Peek()->Str();
     Expect(';');
 
-    auto labelStmt = FindLabel(label);
-    if (nullptr != labelStmt)
+    auto labelStmt = FindLabel(label->Str());
+    if (labelStmt) {
         return NewJumpStmt(labelStmt);
+    }
     
     auto unresolvedJump = NewJumpStmt(nullptr);;
     _unresolvedJumps.push_back(std::make_pair(label, unresolvedJump));
@@ -2124,8 +2127,6 @@ JumpStmt* Parser::ParseGotoStmt(void)
 
 CompoundStmt* Parser::ParseLabelStmt(const Token* label)
 {
-    Expect(':');
-
     auto labelStr = label->Str();
     auto stmt = ParseStmt();
     if (nullptr != FindLabel(labelStr)) {
@@ -2165,6 +2166,9 @@ bool Parser::IsFuncDef(void)
 
 FuncDef* Parser::ParseFuncDef(void)
 {
+    // TODO(wgtdkp): function name
+    EnterFunc(nullptr);
+    
     int storageSpec, funcSpec;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
     auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
@@ -2173,6 +2177,8 @@ FuncDef* Parser::ParseFuncDef(void)
     Expect('{');
     auto stmt = ParseCompoundStmt();
     
+    ExitFunc();
+
     assert(type->ToFuncType());
     return NewFuncDef(type->ToFuncType(), stmt);
 }

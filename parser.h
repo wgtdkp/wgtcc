@@ -277,7 +277,7 @@ private:
     }
 
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
-    typedef std::list<std::pair<std::string, JumpStmt*>> LabelJumpList;
+    typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
     typedef std::map<std::string, LabelStmt*> LabelMap;
 
 private:

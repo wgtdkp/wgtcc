@@ -12,7 +12,12 @@ int foo1(void)
     typedef int(func)(float* a, float* b);
     func* f = &foo;
     float c, d;
-    foo(3.5f, 4.5f);
+    
+hell:
+    return 0;
+    //foo(3.5f, 4.5f);
+    goto hell;
+
 }
 
 int bar(void)
