@@ -2,16 +2,16 @@
 
 int foo(void)
 {
-    static struct A aaaa;
+    //static struct A aaaa;
     int joke;
-    int joke;
+    //int joke;
     extern float cccc;
     return 0;
 }
 
 int bar(void)
 {
-    extern int cccc;
+    //extern int cccc;
     return 0;
 }
 
@@ -20,7 +20,7 @@ typedef void a_t;
 typedef void (f)(int, int);
 int ccc(f);
 
-int a;
+//int a;
 //static int h;
 extern int h;
 

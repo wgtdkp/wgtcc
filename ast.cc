@@ -215,9 +215,9 @@ void BinaryOp::MultiOpTypeChecking(const Coordinate& coord)
     auto rhsType = _rhs->Ty()->ToArithmType();
 
     if (nullptr == lhsType || nullptr == rhsType)
-        Error(coord, "operand should be arithmetic type");
+        Error(coord, "operands should have arithmetic type");
     if ('%' == _op && !(_lhs->Ty()->IsInteger() && _rhs->Ty()->IsInteger()))
-        Error(coord, "operand of '%%' should be integer");
+        Error(coord, "operands of '%%' should be integers");
 
     //TODO: type promotion
     _ty = _lhs->Ty();

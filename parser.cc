@@ -365,7 +365,7 @@ Expr* Parser::ParsePostfixExpr(void)
 Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 {
     for (; ;) {
-        auto tag = Next()->Tag();
+        auto tag= Next()->Tag();
         
         switch (tag) {
         case '[':
@@ -412,6 +412,11 @@ Expr* Parser::ParseMemberRef(int tag, Expr* lhs)
 
 UnaryOp* Parser::ParsePostfixIncDec(int tag, Expr* operand)
 {
+    if (tag == Token::INC_OP) {
+        tag = Token::POSTFIX_INC;
+    } else {
+        tag = Token::POSTFIX_DEC;
+    }
     return NewUnaryOp(tag, operand);
 }
 
@@ -1453,10 +1458,13 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         
         return Type::NewArrayType(len, base);
     } else if (Try('(')) {	//function declaration
-        if (base->ToFuncType())
-            Error(Peek()->Coord(), "the return value of function can't be function");
-        else if (nullptr != base->ToArrayType())
-            Error(Peek()->Coord(), "the return value of function can't be array");
+        if (base->ToFuncType()) {
+            Error(Peek()->Coord(),
+                    "the return value of function can't be function");
+        } else if (nullptr != base->ToArrayType()) {
+            Error(Peek()->Coord(),
+                    "the return value of function can't be array");
+        }
 
         //TODO: parse arguments
         std::list<Type*> params;
@@ -1799,16 +1807,16 @@ IfStmt* Parser::ParseIfStmt(void)
  * next:
  */
 
-#define ENTER_LOOP_BODY(breakl, continuel)	    \
-{											    \
-    LabelStmt* breakBackup = _breakDest;	    \
-    LabelStmt* continueBackup = _continueDest;	\
-    _breakDest = breakl;			            \
-    _continueDest = continuel; 
+#define ENTER_LOOP_BODY(breakDest, continueDest)    \
+{											        \
+    LabelStmt* breakDestBackup = _breakDest;	    \
+    LabelStmt* continueDestBackup = _continueDest;  \
+    _breakDest = breakDest;			                \
+    _continueDest = continueDest; 
 
-#define EXIT_LOOP_BODY()		    \
-    _breakDest = breakBackup;		\
-    _continueDest = continueBackup;	\
+#define EXIT_LOOP_BODY()		        \
+    _breakDest = breakDestBackup;       \
+    _continueDest = continueDestBackup;	\
 }
 
 CompoundStmt* Parser::ParseForStmt(void)
@@ -1828,6 +1836,7 @@ CompoundStmt* Parser::ParseForStmt(void)
     Expr* condExpr = nullptr;
     if (!Try(';')) {
         condExpr = ParseExpr();
+        Expect(';');
     }
 
     Expr* stepExpr = nullptr;
@@ -1940,40 +1949,55 @@ CompoundStmt* Parser::ParseDoStmt(void)
     return NewCompoundStmt(stmts);
 }
 
-#define ENTER_SWITCH_BODY(caseLabels) 			\
-{ 												\
-    CaseLabelList* caseLabelso = _caseLabels; 	\
-    LabelStmt* defaultLabelo = _defaultLabel; 	\
+#define ENTER_SWITCH_BODY(breakDest, caseLabels)    \
+{ 												    \
+    CaseLabelList* caseLabelsBackup = _caseLabels;  \
+    LabelStmt* defaultLabelBackup = _defaultLabel;  \
+    LabelStmt* breakDestBackup = _breakDest;        \
+    _breakDest = breakDest;                         \
     _caseLabels = &caseLabels; 
 
-#define EXIT_SWITCH_BODY()			\
-    _caseLabels = caseLabelso;		\
-    _defaultLabel = defaultLabelo;	\
+#define EXIT_SWITCH_BODY()			    \
+    _caseLabels = caseLabelsBackup;     \
+    _breakDest = breakDestBackup;       \
+    _defaultLabel = defaultLabelBackup;	\
 }
 
+/*
+ * switch
+ *  jump stmt (skip case labels)
+ *  case labels
+ *  jump stmts
+ *  default jump stmt
+ */
 CompoundStmt* Parser::ParseSwitchStmt(void)
 {
     std::list<Stmt*> stmts;
     Expect('(');
+    auto tok = Peek();
     auto expr = ParseExpr();
-    //TODO: ensure integer type
     Expect(')');
 
-    auto labelTest = NewLabelStmt();
-    auto labelEnd = NewLabelStmt();
+    if (!expr->Ty()->IsInteger()) {
+        Error(tok->Coord(), "switch quantity not an integer");
+    }
+
+    auto testLabel = NewLabelStmt();
+    auto endLabel = NewLabelStmt();
     auto t = NewTempVar(expr->Ty());
     auto assign = NewBinaryOp('=', t, expr);
     stmts.push_back(assign);
-    stmts.push_back(NewJumpStmt(labelTest));
+    stmts.push_back(NewJumpStmt(testLabel));
 
     CaseLabelList caseLabels;
-    ENTER_SWITCH_BODY(caseLabels);
+    ENTER_SWITCH_BODY(endLabel, caseLabels);
 
-    auto bodyStmt = ParseStmt();
-    stmts.push_back(labelTest);
+    auto bodyStmt = ParseStmt(); // Fill caseLabels and defaultLabel
+    stmts.push_back(bodyStmt);
+    stmts.push_back(testLabel);
 
-    for (auto iter = _caseLabels->begin();
-            iter != _caseLabels->end(); iter++) {
+    for (auto iter = caseLabels.begin();
+            iter != caseLabels.end(); iter++) {
         auto rhs = NewConstantInteger(
                 Type::NewArithmType(T_INT), iter->first);
         auto cond = NewBinaryOp(Token::EQ_OP, t, rhs);
@@ -1985,7 +2009,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
     stmts.push_back(NewJumpStmt(_defaultLabel));
     EXIT_SWITCH_BODY();
 
-    stmts.push_back(labelEnd);
+    stmts.push_back(endLabel);
 
     return NewCompoundStmt(stmts);
 }
@@ -2008,9 +2032,14 @@ CompoundStmt* Parser::ParseCaseStmt(void)
 
 CompoundStmt* Parser::ParseDefaultStmt(void)
 {
+    auto tok = Peek();
     Expect(':');
+    if (_defaultLabel != nullptr) { // There is a 'default' stmt
+        Error(tok->Coord(), "multiple default labels in one switch");
+    }
     auto labelStmt = NewLabelStmt();
     _defaultLabel = labelStmt;
+    
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());
@@ -2022,8 +2051,8 @@ JumpStmt* Parser::ParseContinueStmt(void)
 {
     auto tok = Peek();
     Expect(';');
-    if (nullptr == _continueDest) {
-        Error(tok->Coord(), "'continue' only in loop is allowed");
+    if (_continueDest == nullptr) {
+        Error(tok->Coord(), "'continue' is allowed only in loop");
     }
     
     return NewJumpStmt(_continueDest);
@@ -2033,8 +2062,9 @@ JumpStmt* Parser::ParseBreakStmt(void)
 {
     auto tok = Peek();
     Expect(';');
-    if (nullptr == _breakDest) {
-        Error(tok->Coord(), "'break' only in switch/loop is allowed");
+    // ERROR(wgtdkp):
+    if (_breakDest == nullptr) {
+        Error(tok->Coord(), "'break' is allowed only in switch/loop");
     }
     
     return NewJumpStmt(_breakDest);
