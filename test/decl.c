@@ -40,9 +40,6 @@ typedef const int(*f1)(f);
 
 static int a, b, c = 2;
 
-
-
-
 //static void d;
 //int arr[2 + 4 * 6][3];
 

@@ -290,7 +290,6 @@ Expr* Parser::ParsePrimaryExpr(void)
     }
 
     if (tok->IsIdentifier()) {
-        // TODO(wgtdkp): create a expression node with symbol
         auto ident = _curScope->Find(tok->Str());
         /* if (ident == nullptr || ident->ToObject() == nullptr) { */
         if (ident == nullptr) {
@@ -306,7 +305,6 @@ Expr* Parser::ParsePrimaryExpr(void)
         return ParseGeneric();
     } 
 
-    //TODO: error
     Error(tok->Coord(), "Expect expression");
     return nullptr; // Make compiler happy
 }
@@ -860,7 +858,7 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             break;
 
         //storage specifier
-            //TODO: typedef needs more constraints
+        //TODO: typedef needs more constraints
         case Token::TYPEDEF:
             if (storageSpec != 0)
                 goto error;
@@ -1021,7 +1019,6 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
         }
     }
 
-    //TODO: 语义部分
 end_of_loop:
     PutBack();
     switch (typeSpec) {
@@ -1350,7 +1347,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
 {
     assert(tok);
     /*
-     * TODO: 检查在同一 scope 是否已经定义此变量
+     * 检查在同一 scope 是否已经定义此变量
 	 * 如果 storage 是 typedef，那么应该往符号表里面插入 type
 	 * 定义 void 类型变量是非法的，只能是指向void类型的指针
 	 * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
@@ -1468,7 +1465,7 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         if (nullptr != base->ToFuncType()) {
             Error(Peek()->Coord(), "the element of array can't be a function");
         }
-        //TODO: parse array length expression
+
         auto len = ParseArrayLength();
         if (0 == len) {
             Error(Peek()->Coord(), "can't declare an array of length 0");
@@ -1486,7 +1483,6 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
                     "the return value of function can't be array");
         }
 
-        //TODO: parse arguments
         std::list<Type*> params;
         EnterBlock();
         bool hasEllipsis = ParseParamList(params);
@@ -1573,8 +1569,6 @@ Type* Parser::ParseParamDecl(void)
     if (Peek()->Tag() == ',' || Peek()->Tag() == ')')
         return type;
     
-    //TODO: declarator 和 abstract declarator 都要支持
-	//TODO: 区分 declarator 和 abstract declarator
     auto tokTypePair = ParseDeclarator(type);
     auto tok = tokTypePair.first;
     type = tokTypePair.second;
@@ -1676,13 +1670,10 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
         if (tok->Tag() == '[') {
             _coord = Peek()->Coord();
             auto expr = ParseExpr();
-            // TODO(wgtdkp): make sure it is constant integer!
 
             auto idx = expr->EvalInteger(_coord);
             idxSet.insert(idx);
-            // TODO(wgtdkp): GetArrayElement() create new object
-            // Will there be memory leak?
-            //auto ele = arr->GetElementOffset(this, idx);
+
             int offset = type->GetElementOffset(idx);
             auto ele = NewObject(type->Derived(), arr->Scope());
             ele->SetOffset(offset + arr->Offset());
