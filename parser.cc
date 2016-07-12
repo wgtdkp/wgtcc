@@ -405,32 +405,11 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
     auto tok = Peek();
 
     list<Expr*> args;
-    auto iter = type->Params().begin();
-    while (true) {
+    while (!Try(')')) {
         auto tok = Peek();
-        auto arg = ParseAssignExpr();
-        args.push_back(arg);
-        if (!(*iter)->Compatible(*arg->Ty())) {
-            // TODO(wgtdkp): function name
-            Error(tok->Coord(), "incompatible type for argument 1 of ''");
-        }
-
-        ++iter;
-        
-        if (iter == type->Params().end()) {
-            break;
-        }
-        Expect(',');
-    }
-    
-    if (!type->HasEllipsis()) {
-        Expect(')');
-    } else {
-        while (!Try(')')) {
+        args.push_back(ParseAssignExpr());
+        if (!Test(')'))
             Expect(',');
-            auto arg = ParseAssignExpr();
-            args.push_back(arg);
-        }
     }
 
     return NewFuncCall(tok, designator, args);
@@ -2516,10 +2495,23 @@ void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
     if (funcType == nullptr) {
         Error(errTok->Coord(), "'%s' is not a function", errTok->Str());
     }
+
+    auto arg = funcCall->_args.begin();
+    auto param = funcType->Params().begin();
+    for (param; param != funcType->Params().end(); param++) {
+        if (arg == funcCall->_args.end()) {
+            Error(tok->Coord(), "too few arguments for function ''");
+        }
+
+        if (!(*iter)->Compatible(*arg->Ty())) {
+            // TODO(wgtdkp): function name
+            Error(tok->Coord(), "incompatible type for argument 1 of ''");
+        }
+    }
+    
+    if (arg != funcCall->_args.end() && !funcType->HasEllipsis()) {
+        Error(tok->Coord(), "too many arguments for function ''");
+    }
     
     funcCall->_ty = funcType->Derived();
-
-    //TODO: check if args and params are compatible type
-
 }
-
