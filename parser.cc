@@ -19,7 +19,7 @@ ConditionalOp* Parser::NewConditionalOp(Expr* cond,
     auto ret = new (_conditionalOpPool.Alloc())
             ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
 
-    ret->TypeChecking(_errTok);
+    TypeChecking(ret, _errTok);
     return ret;
 }
 
@@ -55,7 +55,7 @@ BinaryOp* Parser::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, rhs);
     
-    ret->TypeChecking(_errTok);
+    TypeChecking(ret, _errTok);
     
     return ret;
 }
@@ -68,7 +68,7 @@ BinaryOp* Parser::NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName)
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, nullptr);
     
-    ret->MemberRefOpTypeChecking(_errTok, rhsName);
+    MemberRefOpTypeChecking(ret, _errTok, rhsName);
 
     return ret;
 }
@@ -85,7 +85,7 @@ FuncCall* Parser::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
     auto ret = new (_funcCallPool.Alloc())
             FuncCall(&_funcCallPool, designator, args);
 
-    ret->TypeChecking(_errTok);
+    TypeChecking(ret, _errTok);
     
     return ret;
 }
@@ -106,7 +106,6 @@ Object* Parser::NewObject(Type* type, Scope* scope,
     auto ret = new (_objectPool.Alloc())
             Object(&_objectPool, type, scope, storage, linkage, offset);
     
-    ret->TypeChecking(_errTok);
     return ret;
 }
 
@@ -134,12 +133,8 @@ TempVar* Parser::NewTempVar(Type* type)
 
 UnaryOp* Parser::NewUnaryOp(int op, Expr* operand, Type* type)
 {
-    auto ret = new (_unaryOpPool.Alloc())
+    return new (_unaryOpPool.Alloc())
             UnaryOp(&_unaryOpPool, op, operand, type);
-    
-    ret->TypeChecking(_errTok);
-
-    return ret;
 }
 
 
@@ -267,9 +262,13 @@ Expr* Parser::ParseExpr(void)
 Expr* Parser::ParseCommaExpr(void)
 {
     auto lhs = ParseAssignExpr();
+    auto tok = Peek();
     while (Try(',')) {
         auto rhs = ParseAssignExpr();
         lhs = NewBinaryOp(',', lhs, rhs);
+        
+        TypeChecking(lhs, tok);
+        tok = Peek();
     }
     return lhs;
 }
@@ -361,10 +360,10 @@ Expr* Parser::ParsePostfixExpr(void)
 //return the constructed postfix expression
 Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 {
-    for (; ;) {
-        auto tag= Next()->Tag();
+    while (true) {
+        auto tok = Next();
         
-        switch (tag) {
+        switch (tok->Tag()) {
         case '[':
             lhs = ParseSubScripting(lhs);
             break;
@@ -375,12 +374,12 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 
         case '.':
         case Token::PTR_OP:
-            lhs = ParseMemberRef(tag, lhs);
+            lhs = ParseMemberRef(tok, lhs);
             break;
 
         case Token::INC_OP:
         case Token::DEC_OP:
-            lhs = ParsePostfixIncDec(tag, lhs);
+            lhs = ParsePostfixIncDec(tok, lhs);
             break;
 
         default:
@@ -393,28 +392,34 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 Expr* Parser::ParseSubScripting(Expr* pointer)
 {
     auto indexExpr = ParseExpr();
+    
+    auto tok = Peek();
     Expect(']');
 
-    return NewBinaryOp('[', pointer, indexExpr);
+    auto ret = NewBinaryOp('[', pointer, indexExpr);
+    TypeChecking(ret, tok);
+    return ret;
 }
 
 
-Expr* Parser::ParseMemberRef(int tag, Expr* lhs)
+Expr* Parser::ParseMemberRef(const Token* tok, Expr* lhs)
 {
     auto memberName = Peek()->Str();
     Expect(Token::IDENTIFIER);
     
-    return NewMemberRefOp(tag, lhs, memberName);
+    auto ret = NewMemberRefOp(tok->Tag(), lhs, memberName);
+    TypeChecking(ret, tok);
+    return ret;
 }
 
-UnaryOp* Parser::ParsePostfixIncDec(int tag, Expr* operand)
+UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
 {
-    if (tag == Token::INC_OP) {
-        tag = Token::POSTFIX_INC;
-    } else {
-        tag = Token::POSTFIX_DEC;
-    }
-    return NewUnaryOp(tag, operand);
+    auto op = tok->Tag() == Token::INC_OP ?
+            Token::POSTFIX_INC: Token::POSTFIX_DEC;
+
+    auto ret = NewUnaryOp(op, operand);
+    TypeChecking(ret, tok);
+    return ret;
 }
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
@@ -456,28 +461,28 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
 
 Expr* Parser::ParseUnaryExpr(void)
 {
-    auto tag = Next()->Tag();
-    switch (tag) {
+    auto tok = Next();
+    switch (tok->Tag()) {
     case Token::ALIGNOF:
         return ParseAlignof();
     case Token::SIZEOF:
         return ParseSizeof();
     case Token::INC_OP:
-        return ParsePrefixIncDec(Token::INC_OP);
+        return ParsePrefixIncDec(tok);
     case Token::DEC_OP:
-        return ParsePrefixIncDec(Token::DEC_OP);
+        return ParsePrefixIncDec(tok);
     case '&':
-        return ParseUnaryOp(Token::ADDR);
+        return ParseUnaryOp(tok, Token::ADDR);
     case '*':
-        return ParseUnaryOp(Token::DEREF); 
+        return ParseUnaryOp(tok, Token::DEREF); 
     case '+':
-        return ParseUnaryOp(Token::PLUS);
+        return ParseUnaryOp(tok, Token::PLUS);
     case '-':
-        return ParseUnaryOp(Token::MINUS); 
+        return ParseUnaryOp(tok, Token::MINUS); 
     case '~':
-        return ParseUnaryOp('~');
+        return ParseUnaryOp(tok, '~');
     case '!':
-        return ParseUnaryOp('!');
+        return ParseUnaryOp(tok, '!');
     default:
         PutBack();
         return ParsePostfixExpr();
@@ -518,19 +523,26 @@ Constant* Parser::ParseAlignof(void)
     return NewConstantInteger(intType, type->Align());
 }
 
-UnaryOp* Parser::ParsePrefixIncDec(int op)
+UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
 {
-    assert(Token::INC_OP == op || Token::DEC_OP == op);
+    assert(tok->Tag() == Token::INC_OP || tok->Tag() == Token::DEC_OP);
+    
+    auto op = tok->Tag() == Token::INC_OP ?
+            Token::PREFIX_INC: Token::PREFIX_DEC;
     auto operand = ParseUnaryExpr();
     
-    return NewUnaryOp(op, operand);
+    auto ret = NewUnaryOp(op, operand);
+    TypeChecking(ret, tok);
+    return ret;
 }
 
-UnaryOp* Parser::ParseUnaryOp(int op)
+UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
 {
-    _errTok = Peek();
     auto operand = ParseCastExpr();
-    return NewUnaryOp(op, operand);
+
+    auto ret = NewUnaryOp(op, operand);
+    TypeChecking(ret, tok);
+    return ret;
 }
 
 Type* Parser::ParseTypeName(void)
@@ -549,7 +561,10 @@ Expr* Parser::ParseCastExpr(void)
         auto desType = ParseTypeName();
         Expect(')');
         auto operand = ParseCastExpr();
-        return NewUnaryOp(Token::CAST, operand, desType);
+        
+        auto ret = NewUnaryOp(Token::CAST, operand, desType);
+        TypeChecking(ret, tok);
+        return ret;
     } 
     
     PutBack();
@@ -559,75 +574,94 @@ Expr* Parser::ParseCastExpr(void)
 Expr* Parser::ParseMultiplicativeExpr(void)
 {
     auto lhs = ParseCastExpr();
-    auto tag = Next()->Tag();
-    while ('*' == tag || '/' == tag || '%' == tag) {
+    auto tok = Next();
+    while (tok->Tag() == '*' || tok->Tag() == '/' || tok->Tag() == '%') {
         auto rhs = ParseCastExpr();
-        lhs = NewBinaryOp(tag, lhs, rhs);
-        tag = Next()->Tag();
+        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Next();
     }
     
-    return PutBack(), lhs;
+    PutBack();
+    return lhs;
 }
 
 Expr* Parser::ParseAdditiveExpr(void)
 {
     auto lhs = ParseMultiplicativeExpr();
-    auto tag = Next()->Tag();
-    while ('+' == tag || '-' == tag) {
+    auto tok = Next();
+    while (tok->Tag() == '+' || tok->Tag() == '-') {
         auto rhs = ParseMultiplicativeExpr();
-        lhs = NewBinaryOp(tag, lhs, rhs);
-        tag = Next()->Tag();
+        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Next();
     }
     
-    return PutBack(), lhs;
+    PutBack();
+    return lhs;
 }
 
 Expr* Parser::ParseShiftExpr(void)
 {
     auto lhs = ParseAdditiveExpr();
-    auto tag = Next()->Tag();
-    while (Token::LEFT_OP == tag || Token::RIGHT_OP == tag) {
+    auto tok = Next();
+    while (tok->Tag() == Token::LEFT_OP || tok->Tag() == Token::RIGHT_OP) {
         auto rhs = ParseAdditiveExpr();
-        lhs = NewBinaryOp(tag, lhs, rhs);
-        tag = Next()->Tag();
+        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Next();
     }
     
-    return PutBack(), lhs;
+    PutBack();
+    return lhs;
 }
 
 Expr* Parser::ParseRelationalExpr(void)
 {
     auto lhs = ParseShiftExpr();
-    auto tag = Next()->Tag();
-    while (Token::LE_OP == tag || Token::GE_OP == tag 
-        || '<' == tag || '>' == tag) {
+    auto tok = Next();
+    while (tok->Tag() == Token::LE_OP || tok->Tag() == Token::GE_OP 
+            || tok->Tag() == '<' || tok->Tag() == '>') {
         auto rhs = ParseShiftExpr();
-        lhs = NewBinaryOp(tag, lhs, rhs);
-        tag = Next()->Tag();
+        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Next();
     }
     
-    return PutBack(), lhs;
+    PutBack();
+    return lhs;
 }
 
 Expr* Parser::ParseEqualityExpr(void)
 {
     auto lhs = ParseRelationalExpr();
-    auto tag = Next()->Tag();
-    while (Token::EQ_OP == tag || Token::NE_OP == tag) {
+    auto tok = Next();
+    while (tok->Tag() == Token::EQ_OP || tok->Tag() == Token::NE_OP) {
         auto rhs = ParseRelationalExpr();
-        lhs = NewBinaryOp(tag, lhs, rhs);
-        tag = Next()->Tag();
+        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Next();
     }
     
-    return PutBack(), lhs;
+    PutBack();
+    return lhs;
 }
 
 Expr* Parser::ParseBitiwiseAndExpr(void)
 {
     auto lhs = ParseEqualityExpr();
+    auto tok = Peek();
     while (Try('&')) {
         auto rhs = ParseEqualityExpr();
         lhs = NewBinaryOp('&', lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Peek();
     }
     
     return lhs;
@@ -636,9 +670,13 @@ Expr* Parser::ParseBitiwiseAndExpr(void)
 Expr* Parser::ParseBitwiseXorExpr(void)
 {
     auto lhs = ParseBitiwiseAndExpr();
+    auto tok = Peek();
     while (Try('^')) {
         auto rhs = ParseBitiwiseAndExpr();
         lhs = NewBinaryOp('^', lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Peek();
     }
     
     return lhs;
@@ -647,9 +685,13 @@ Expr* Parser::ParseBitwiseXorExpr(void)
 Expr* Parser::ParseBitwiseOrExpr(void)
 {
     auto lhs = ParseBitwiseXorExpr();
+    auto tok = Peek();
     while (Try('|')) {
         auto rhs = ParseBitwiseXorExpr();
         lhs = NewBinaryOp('|', lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Peek();
     }
     
     return lhs;
@@ -658,9 +700,13 @@ Expr* Parser::ParseBitwiseOrExpr(void)
 Expr* Parser::ParseLogicalAndExpr(void)
 {
     auto lhs = ParseBitwiseOrExpr();
+    auto tok = Peek();
     while (Try(Token::AND_OP)) {
         auto rhs = ParseBitwiseOrExpr();
         lhs = NewBinaryOp(Token::AND_OP, lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Peek();
     }
     
     return lhs;
@@ -669,9 +715,13 @@ Expr* Parser::ParseLogicalAndExpr(void)
 Expr* Parser::ParseLogicalOrExpr(void)
 {
     auto lhs = ParseLogicalAndExpr();
+    auto tok = Peek();
     while (Try(Token::OR_OP)) {
         auto rhs = ParseLogicalAndExpr();
         lhs = NewBinaryOp(Token::OR_OP, lhs, rhs);
+        TypeChecking(lhs, tok);
+
+        tok = Peek();
     }
     
     return lhs;
@@ -679,19 +729,16 @@ Expr* Parser::ParseLogicalOrExpr(void)
 
 Expr* Parser::ParseConditionalExpr(void)
 {
-    auto tok = Peek();
-
     auto cond = ParseLogicalOrExpr();
+    auto tok = Peek();
     if (Try('?')) {
-        if (!cond->Ty()->IsScalar()) {
-            Error(tok->Coord(), "scalar is required");
-        }
-
         auto exprTrue = ParseExpr();
         Expect(':');
         auto exprFalse = ParseConditionalExpr();
 
-        return NewConditionalOp(cond, exprTrue, exprFalse);
+        auto ret = NewConditionalOp(cond, exprTrue, exprFalse);
+        TypeChecking(ret, tok);
+        return ret;
     }
     
     return cond;
@@ -702,7 +749,9 @@ Expr* Parser::ParseAssignExpr(void)
     //yes i know the lhs should be unary expression, let it handled by type checking
     Expr* lhs = ParseConditionalExpr();
     Expr* rhs;
-    switch (Next()->Tag()) {
+
+    auto tok = Next();
+    switch (tok->Tag()) {
     case Token::MUL_ASSIGN:
         rhs = ParseAssignExpr();
         rhs = NewBinaryOp('*', lhs, rhs);
@@ -762,7 +811,11 @@ Expr* Parser::ParseAssignExpr(void)
         return lhs; // Could be constant
     }
 
-    return NewBinaryOp('=', lhs, rhs);
+    TypeChecking(rhs, tok);
+
+    auto ret = NewBinaryOp('=', lhs, rhs);
+    TypeChecking(ret, tok);
+    return ret;
 }
 
 
@@ -2173,3 +2226,344 @@ FuncDef* Parser::ParseFuncDef(void)
     assert(type->ToFuncType());
     return NewFuncDef(type->ToFuncType(), stmt);
 }
+
+/*
+ * Type checking
+ */
+
+void Parser::TypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    switch (binaryOp->_op) {
+    case '[':
+        return SubScriptingOpTypeChecking(binaryOp, errTok);
+
+    case '*':
+    case '/':
+    case '%':
+        return MultiOpTypeChecking(binaryOp, errTok);
+
+    case '+':
+    case '-':
+        return AdditiveOpTypeChecking(binaryOp, errTok);
+
+    case Token::LEFT_OP:
+    case Token::RIGHT_OP:
+        return ShiftOpTypeChecking(binaryOp, errTok);
+
+    case '<':
+    case '>':
+    case Token::LE_OP:
+    case Token::GE_OP:
+        return RelationalOpTypeChecking(binaryOp, errTok);
+
+    case Token::EQ_OP:
+    case Token::NE_OP:
+        return EqualityOpTypeChecking(binaryOp, errTok);
+
+    case '&':
+    case '^':
+    case '|':
+        return BitwiseOpTypeChecking(binaryOp, errTok);
+
+    case Token::AND_OP:
+    case Token::OR_OP:
+        return LogicalOpTypeChecking(binaryOp, errTok);
+
+    case '=':
+        return AssignOpTypeChecking(binaryOp, errTok);
+
+    default:
+        assert(0);
+    }
+}
+
+void Parser::SubScriptingOpTypeChecking(
+        BinaryOp* binaryOp, const Token* errTok)
+{
+    auto lhsType = binaryOp->_lhs->Ty()->ToPointerType();
+    if (nullptr == lhsType) {
+        Error(errTok->Coord(), "an pointer expected");
+    }
+    if (!binaryOp->_rhs->Ty()->IsInteger()) {
+        Error(errTok->Coord(), "the operand of [] should be intger");
+    }
+
+    // The type of [] operator is the derived type
+    binaryOp->_ty = lhsType->Derived();    
+}
+
+void Parser::MemberRefOpTypeChecking(BinaryOp* binaryOp,
+            const Token* errTok, const std::string& rhsName)
+{
+    StructUnionType* structUnionType;
+    if (binaryOp->_op == Token::PTR_OP) {
+        auto pointer = binaryOp->_lhs->Ty()->ToPointerType();
+        if (pointer == nullptr) {
+            Error(errTok->Coord(), "pointer expected for operator '->'");
+        } else {
+            structUnionType = pointer->Derived()->ToStructUnionType();
+            if (structUnionType == nullptr)
+                Error(errTok->Coord(), "pointer to struct/union expected");
+        }
+    } else {
+        structUnionType = binaryOp->_lhs->Ty()->ToStructUnionType();
+        if (structUnionType == nullptr)
+            Error(errTok->Coord(), "an struct/union expected");
+    }
+
+    if (structUnionType == nullptr)
+        return; // The _rhs is lefted nullptr
+
+    binaryOp->_rhs = structUnionType->GetMember(rhsName);
+    if (binaryOp->_rhs == nullptr) {
+        Error(errTok->Coord(), "'%s' is not a member of '%s'",
+                rhsName, "[obj]");
+    }
+
+    binaryOp->_ty = binaryOp->_rhs->Ty();
+}
+
+void Parser::MultiOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    auto lhsType = binaryOp->_lhs->Ty()->ToArithmType();
+    auto rhsType = binaryOp->_rhs->Ty()->ToArithmType();
+
+    if (lhsType == nullptr || rhsType == nullptr) {
+        Error(errTok->Coord(), "operands should have arithmetic type");
+    }
+
+    if ('%' == binaryOp->_op && 
+            !(binaryOp->_lhs->Ty()->IsInteger()
+              && binaryOp->_rhs->Ty()->IsInteger())) {
+        Error(errTok->Coord(), "operands of '%%' should be integers");
+    }
+
+    //TODO: type promotion
+
+    binaryOp->_ty = binaryOp->_lhs->Ty();
+}
+
+/*
+ * Additive operator is only allowed between:
+ *  1. arithmetic types (bool, interger, floating)
+ *  2. pointer can be used:
+ *     1. lhs of MINUS operator, and rhs must be integer or pointer;
+ *     2. lhs/rhs of ADD operator, and the other operand must be integer;
+ */
+void Parser::AdditiveOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    auto lhsType = binaryOp->_lhs->Ty()->ToPointerType();
+    auto rhsType = binaryOp->_rhs->Ty()->ToPointerType();
+    if (lhsType) {
+        if (binaryOp->_op == Token::MINUS) {
+            if ((rhsType && *lhsType != *rhsType)
+                    || !binaryOp->_rhs->Ty()->IsInteger()) {
+                Error(errTok->Coord(), "invalid operands to binary -");
+            }
+        } else if (!binaryOp->_rhs->Ty()->IsInteger()) {
+            Error(errTok->Coord(), "invalid operands to binary -");
+        }
+        binaryOp->_ty = binaryOp->_lhs->Ty();
+    } else if (rhsType) {
+        if (binaryOp->_op != Token::ADD
+                || !binaryOp->_lhs->Ty()->IsInteger()) {
+            Error(errTok->Coord(), "invalid operands to binary +");
+        }
+        binaryOp->_ty = binaryOp->_rhs->Ty();
+    } else {
+        auto lhsType = binaryOp->_lhs->Ty()->ToArithmType();
+        auto rhsType = binaryOp->_rhs->Ty()->ToArithmType();
+        if (lhsType == nullptr || rhsType == nullptr) {
+            Error(errTok->Coord(), "invalid operands to binary %s",
+                    errTok->Str());
+        }
+
+        if (lhsType->Width() < Type::_machineWord
+                && rhsType->Width() < Type::_machineWord) {
+            binaryOp->_ty = Type::NewArithmType(T_INT);
+        } else if (lhsType->Width() > rhsType->Width()) {
+            binaryOp->_ty = lhsType;
+        } else if (lhsType->Width() < rhsType->Width()) {
+            binaryOp->_ty = rhsType;
+        } else if ((lhsType->Tag() & T_FLOAT) || (rhsType->Tag() & T_FLOAT)) {
+            binaryOp->_ty = Type::NewArithmType(T_FLOAT);
+        } else {
+            binaryOp->_ty = lhsType;
+        }
+    }
+}
+
+void Parser::ShiftOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    //TODO: type checking
+
+    binaryOp->_ty = binaryOp->_lhs->Ty();
+}
+
+void Parser::RelationalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    //TODO: type checking
+
+    binaryOp->_ty = Type::NewArithmType(T_BOOL);    
+}
+
+void Parser::EqualityOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    //TODO: type checking
+
+    binaryOp->_ty = Type::NewArithmType(T_BOOL);    
+}
+
+void Parser::BitwiseOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    if (binaryOp->_lhs->Ty()->IsInteger() 
+            || binaryOp->_rhs->Ty()->IsInteger()) {
+        Error(errTok->Coord(), "operands of '&' should be integer");
+    }
+    
+    //TODO: type promotion
+    binaryOp->_ty = Type::NewArithmType(T_INT);    
+}
+
+void Parser::LogicalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    //TODO: type checking
+    if (!binaryOp->_lhs->Ty()->IsScalar()
+            || !binaryOp->_rhs->Ty()->IsScalar()) {
+        Error(errTok->Coord(),
+                "the operand should be arithmetic type or pointer");
+    }
+    
+    binaryOp->_ty = Type::NewArithmType(T_BOOL);
+}
+
+void Parser::AssignOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
+{
+    if (!binaryOp->_lhs->IsLVal()) {
+        Error(errTok->Coord(), "lvalue expression expected");
+    } else if (binaryOp->_lhs->Ty()->IsConst()) {
+        Error(errTok->Coord(), "can't modifiy 'const' qualified expression");
+    }
+
+    binaryOp->_ty = binaryOp->_lhs->Ty();
+}
+
+
+void Parser::TypeChecking(UnaryOp* unaryOp, const Token* errTok)
+{
+    switch (unaryOp->_op) {
+    case Token::POSTFIX_INC:
+    case Token::POSTFIX_DEC:
+    case Token::PREFIX_INC:
+    case Token::PREFIX_DEC:
+        return IncDecOpTypeChecking(unaryOp, errTok);
+
+    case Token::ADDR:
+        return AddrOpTypeChecking(unaryOp, errTok);
+
+    case Token::DEREF:
+        return DerefOpTypeChecking(unaryOp, errTok);
+
+    case Token::PLUS:
+    case Token::MINUS:
+    case '~':
+    case '!':
+        return UnaryArithmOpTypeChecking(unaryOp, errTok);
+
+    case Token::CAST:
+        return CastOpTypeChecking(unaryOp, errTok);
+
+    default:
+        assert(false);
+    }
+}
+
+void Parser::IncDecOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
+{
+    if (!unaryOp->_operand->IsLVal()) {
+        Error(errTok->Coord(), "lvalue expression expected");
+    } else if (unaryOp->_operand->Ty()->IsConst()) {
+        Error(errTok->Coord(), "can't modifiy 'const' qualified expression");
+    }
+
+    unaryOp->_ty = unaryOp->_operand->Ty();
+}
+
+void Parser::AddrOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
+{
+    FuncType* funcType = unaryOp->_operand->Ty()->ToFuncType();
+    if (funcType == nullptr && !unaryOp->_operand->IsLVal()) {
+        Error(errTok->Coord(),
+                "expression must be an lvalue or function designator");
+    }
+    
+    unaryOp->_ty = Type::NewPointerType(unaryOp->_operand->Ty());
+}
+
+void Parser::DerefOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
+{
+    auto pointerType = unaryOp->_operand->Ty()->ToPointerType();
+    if (pointerType == nullptr) {
+        Error(errTok->Coord(), "pointer expected for deref operator '*'");
+    }
+
+    unaryOp->_ty = pointerType->Derived();    
+}
+
+void Parser::UnaryArithmOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
+{
+    if (Token::PLUS == unaryOp->_op || Token::MINUS == unaryOp->_op) {
+        if (!unaryOp->_operand->Ty()->IsArithm())
+            Error(errTok->Coord(), "Arithmetic type expected");
+    } else if ('~' == unaryOp->_op) {
+        if (!unaryOp->_operand->Ty()->IsInteger())
+            Error(errTok->Coord(), "integer expected for operator '~'");
+    } else if (!unaryOp->_operand->Ty()->IsScalar()) {
+        Error(errTok->Coord(),
+                "arithmetic type or pointer expected for operator '!'");
+    }
+
+    unaryOp->_ty = unaryOp->_operand->Ty();
+}
+
+void Parser::CastOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
+{
+    // The _ty has been initiated to dest type
+    if (!unaryOp->_ty->IsScalar()) {
+        Error(errTok->Coord(),
+                "the cast type should be arithemetic type or pointer");
+    }
+
+    if (unaryOp->_ty->IsFloat() && unaryOp->_operand->Ty()->ToPointerType()) {
+        Error(errTok->Coord(), "can't cast a pointer to floating");
+    } else if (unaryOp->_ty->ToPointerType()
+            && unaryOp->_operand->Ty()->IsFloat()) {
+        Error(errTok->Coord(), "can't cast a floating to pointer");
+    }
+}
+
+void Parser::TypeChecking(ConditionalOp* conditionalOp, const Token* errTok)
+{
+
+    //TODO: type checking
+    if (!conditionalOp->_cond->Ty()->IsScalar()) {
+        Error(errTok->Coord(), "scalar is required");
+    }
+
+    //TODO: type evaluation
+
+}
+
+void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
+{
+    auto funcType = funcCall->_designator->Ty()->ToFuncType();
+    if (funcType == nullptr) {
+        Error(errTok->Coord(), "'%s' is not a function", errTok->Str());
+    }
+    
+    funcCall->_ty = funcType->Derived();
+
+    //TODO: check if args and params are compatible type
+
+}
+

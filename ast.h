@@ -262,12 +262,6 @@ public:
 
     virtual long long EvalInteger(const Token* errTok) = 0;
 
-    /*
-     * Do type checking and evaluating the expression type;
-     * called after construction
-     */
-    virtual void TypeChecking(const Token* errTok) = 0;
-
 protected:
     /*
      * You can construct a expression without specifying a type,
@@ -307,32 +301,6 @@ protected:
     BinaryOp(MemPool* pool, int op, Expr* lhs, Expr* rhs)
             : Expr(pool, nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
 
-    // TODO: 
-    //  1.type checking;
-    //  2. evalute the type;
-    virtual void TypeChecking(const Token* errTok);
-
-    void SubScriptingOpTypeChecking(const Token* errTok);
-    
-    void MemberRefOpTypeChecking(
-            const Token* errTok, const std::string& rhsName);
-    
-    void MultiOpTypeChecking(const Token* errTok);
-    
-    void AdditiveOpTypeChecking(const Token* errTok);
-    
-    void ShiftOpTypeChecking(const Token* errTok);
-    
-    void RelationalOpTypeChecking(const Token* errTok);
-    
-    void EqualityOpTypeChecking(const Token* errTok);
-    
-    void BitwiseOpTypeChecking(const Token* errTok);
-    
-    void LogicalOpTypeChecking(const Token* errTok);
-    
-    void AssignOpTypeChecking(const Token* errTok);
-
     int _op;
     Expr* _lhs;
     Expr* _rhs;
@@ -369,18 +337,6 @@ protected:
     UnaryOp(MemPool* pool, int op, Expr* operand, Type* type = nullptr)
         : Expr(pool, type), _op(op), _operand(operand) {}
 
-    virtual void TypeChecking(const Token* errTok);
-    
-    void IncDecOpTypeChecking(const Token* errTok);
-    
-    void AddrOpTypeChecking(const Token* errTok);
-    
-    void DerefOpTypeChecking(const Token* errTok);
-    
-    void UnaryArithmOpTypeChecking(const Token* errTok);
-    
-    void CastOpTypeChecking(const Token* errTok);
-
     int _op;
     Expr* _operand;
 };
@@ -406,8 +362,6 @@ protected:
     ConditionalOp(MemPool* pool, Expr* cond, Expr* exprTrue, Expr* exprFalse)
             : Expr(pool, nullptr), _cond(cond), 
               _exprTrue(exprTrue), _exprFalse(exprFalse) {}
-    
-    virtual void TypeChecking(const Token* errTok);
 
 private:
     Expr* _cond;
@@ -436,8 +390,6 @@ public:
 protected:
     FuncCall(MemPool* pool, Expr* designator, std::list<Expr*> args)
         : Expr(pool, nullptr), _designator(designator), _args(args) {}
-
-    virtual void TypeChecking(const Token* errTok);
 
     Expr* _designator;
     std::list<Expr*> _args;
@@ -487,7 +439,6 @@ protected:
 
     }
     */
-    virtual void TypeChecking(const Token* errTok) {}
 
 private:
     union {
@@ -517,9 +468,7 @@ public:
 protected:
     TempVar(MemPool* pool, Type* type)
             : Expr(pool, type), _tag(GenTag()) {}
-
-    virtual void TypeChecking(const Token* errTok) {}
-
+    
 private:
     static int GenTag(void) {
         static int tag = 0;
@@ -615,8 +564,6 @@ public:
     }
 
     virtual long long EvalInteger(const Token* errTok);
-    
-    virtual void TypeChecking(const Token* errTok);;
 
     /*
      * An identifer can be:
@@ -710,13 +657,7 @@ protected:
             int storage=0, enum Linkage linkage=L_NONE, int offset=0
             ): Identifier(pool, type, scope, linkage),
                _storage(0), _offset(offset) {}
-    
-    /*
-    //do nothing
-    virtual Variable* TypeChecking(void) {
-        return this;
-    }
-    */
+
 private:
     int _storage;
 

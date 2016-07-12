@@ -80,15 +80,15 @@ public:
     Expr* ParsePostfixExpr(void);
     Expr* ParsePostfixExprTail(Expr* primExpr);
     Expr* ParseSubScripting(Expr* pointer);
-    Expr* ParseMemberRef(int tag, Expr* lhs);
-    UnaryOp* ParsePostfixIncDec(int tag, Expr* expr);
+    Expr* ParseMemberRef(const Token* tok, Expr* lhs);
+    UnaryOp* ParsePostfixIncDec(const Token* tok, Expr* operand);
     FuncCall* ParseFuncCall(Expr* caller);
 
     Expr* ParseUnaryExpr(void);
     Constant* ParseSizeof(void);
     Constant* ParseAlignof(void);
-    UnaryOp* ParsePrefixIncDec(int tag);
-    UnaryOp* ParseUnaryOp(int op);
+    UnaryOp* ParsePrefixIncDec(const Token* tok);
+    UnaryOp* ParseUnaryOp(const Token* tok, int op);
     //UnaryOp* ParseDerefOperand(void);
 
     Type* ParseTypeName(void);
@@ -155,12 +155,48 @@ public:
     CompoundStmt* ParseCaseStmt(void);
     CompoundStmt* ParseDefaultStmt(void);
 
-    /*********** Function Definition *************/
+    /*
+     * Function Definition
+     */
     bool IsFuncDef(void);
     FuncDef* ParseFuncDef(void);
 
     Identifier* ProcessDeclarator(Token* tok, Type* type,
             int storageSpec, int funcSpec);
+
+    /*
+     * Type checking:
+     * Do type checking and evaluating the expression type;
+     */
+    void TypeChecking(Expr* expr, const Token* errTok) {}
+    
+    // BinaryOp
+    void TypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void SubScriptingOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void MemberRefOpTypeChecking(BinaryOp* binaryOp,
+            const Token* errTok, const std::string& rhsName);
+    void MultiOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void AdditiveOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void ShiftOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void RelationalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void EqualityOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void BitwiseOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void LogicalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+    void AssignOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
+
+    // UnaryOp
+    void TypeChecking(UnaryOp* unaryOp, const Token* errTok);
+    void IncDecOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
+    void AddrOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
+    void DerefOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
+    void UnaryArithmOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
+    void CastOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
+
+    // ConditionalOp
+    void TypeChecking(ConditionalOp* conditionalOp, const Token* errTok);
+    
+    // FuncCall
+    void TypeChecking(FuncCall* funcCall, const Token* errTok);
 
 private:
     //������ǰtoken���ϲ���������true,��consumeһ��token
