@@ -129,8 +129,9 @@ ArithmType* Type::NewArithmType(int typeSpec) {
 */
 
 ArithmType* Type::NewArithmType(int typeSpec) {
+    auto tag = ArithmType::Spec2Tag(typeSpec);
     auto ret = new (_arithmTypePool.Alloc())
-            ArithmType(&_arithmTypePool, typeSpec);
+            ArithmType(&_arithmTypePool, tag);
 
     return ret;
 }
@@ -175,8 +176,8 @@ static EnumType* Type::NewEnumType() {
 */
 
 /*************** ArithmType *********************/
-int ArithmType::CalcWidth(int spec) {
-    switch (spec) {
+int ArithmType::CalcWidth(int tag) {
+    switch (tag) {
     case T_BOOL:
     case T_CHAR:
     case T_UNSIGNED | T_CHAR:
@@ -187,12 +188,12 @@ int ArithmType::CalcWidth(int spec) {
         return _machineWord >> 1;
 
     case T_INT:
-    case T_UNSIGNED | T_INT:
+    case T_UNSIGNED:
         return _machineWord;
 
     case T_LONG:
     case T_UNSIGNED | T_LONG:
-        return _machineWord;
+        return _machineWord << 1;
 
     case T_LONG_LONG:
     case T_UNSIGNED | T_LONG_LONG:
@@ -202,39 +203,58 @@ int ArithmType::CalcWidth(int spec) {
         return _machineWord;
 
     case T_DOUBLE:
-    case T_LONG | T_DOUBLE:
         return _machineWord << 1;
+
+    case T_LONG | T_DOUBLE:
+        return _machineWord << 2;
 
     case T_FLOAT | T_COMPLEX:
         return _machineWord << 1;
 
     case T_DOUBLE | T_COMPLEX:
-    case T_LONG | T_DOUBLE | T_COMPLEX:
         return _machineWord << 2;
+
+    case T_LONG | T_DOUBLE | T_COMPLEX:
+        return _machineWord << 3;
+
+    default:
+        assert(false);
     }
 
     return _machineWord;
 }
 
+int ArithmType::Spec2Tag(int spec) {
+    spec &= ~T_SIGNED;
+    if ((spec & T_SHORT) || (spec & T_LONG)
+            || (spec & T_LONG_LONG) || (spec & T_UNSIGNED)) {
+        spec &= ~T_INT;
+    }
+    return spec;
+}
 
 /*************** PointerType *****************/
 
 bool PointerType::operator==(const Type& other) const {
-    auto pointerType = other.ToPointerType();
-    if (nullptr == pointerType)
+    auto otherType = other.ToPointerType();
+    if (nullptr == otherType)
         return false;
 
-    return *_derived == *pointerType->_derived;
+    return *_derived == *otherType->_derived;
 }
 
 bool PointerType::Compatible(const Type& other) const {
     //TODO: compatibility ???
     if (other.IsInteger())
         return true;
-
-    if (other.ToPointerType() == nullptr)
+    auto otherType = other.ToPointerType();
+    if (otherType == nullptr)
         return false;
-    return _derived->Compatible(*other.ToPointerType()->Derived());
+    if (otherType->Derived()->ToVoidType())
+        return true;
+    if (_derived->ToVoidType())
+        return true;
+    return _derived->Compatible(*otherType->Derived());
 }
 
 

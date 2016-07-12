@@ -34,5 +34,7 @@ void foo(void)
 
     //continue;
     //break;
-
+    int* y;
+    unsigned* z;
+    int* x = y - z;
 }

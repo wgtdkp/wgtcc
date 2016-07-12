@@ -162,7 +162,7 @@ public:
     static StructUnionType* NewStructUnionType(bool isStruct);
     
     //static EnumType* NewEnumType();
-    static ArithmType* NewArithmType(int tag);
+    static ArithmType* NewArithmType(int typeSpec);
 
 protected:
     explicit Type(MemPool* pool, int width, bool complete)
@@ -204,7 +204,8 @@ public:
     }
 
     virtual bool Compatible(const Type& other) const {
-        return *this == other;
+        //return *this == other;
+        return true;
     }
 
 protected:
@@ -259,6 +260,10 @@ public:
         return _tag & T_COMPLEX;
     }
 
+    int Tag(void) const {
+        return _tag;
+    }
+
 protected:
     explicit ArithmType(MemPool* pool, int tag)
         : Type(pool, CalcWidth(tag), true), _tag(tag) {}
@@ -266,6 +271,7 @@ protected:
 private:
     int _tag;
     static int CalcWidth(int tag);
+    static int Spec2Tag(int spec);
 };
 
 

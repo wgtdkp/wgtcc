@@ -16,7 +16,6 @@ class ASTNode;
 class Visitor;
 
 class Token;
-
 //Expression
 class Expr;
 class BinaryOp;
@@ -54,9 +53,9 @@ struct Coordinate
     }
 
     Coordinate operator+(const Coordinate& other) const {
-        Coordinate coord(*this);
-        coord.end = other.end;
-        return coord;
+        Coordinate errTok(*this);
+        errTok.end = other.end;
+        return errTok;
     }
 
     const char* fileName;
@@ -261,13 +260,13 @@ public:
 
     virtual bool IsLVal(void) const = 0;
 
-    virtual long long EvalInteger(const Coordinate& coord) = 0;
+    virtual long long EvalInteger(const Token* errTok) = 0;
 
     /*
      * Do type checking and evaluating the expression type;
      * called after construction
      */
-    virtual void TypeChecking(const Coordinate& coord) = 0;
+    virtual void TypeChecking(const Token* errTok) = 0;
 
 protected:
     /*
@@ -302,7 +301,7 @@ public:
         return false;
     }
 
-    virtual long long EvalInteger(const Coordinate& coord);
+    virtual long long EvalInteger(const Token* errTok);
 
 protected:
     BinaryOp(MemPool* pool, int op, Expr* lhs, Expr* rhs)
@@ -311,28 +310,28 @@ protected:
     // TODO: 
     //  1.type checking;
     //  2. evalute the type;
-    virtual void TypeChecking(const Coordinate& coord);
+    virtual void TypeChecking(const Token* errTok);
 
-    void SubScriptingOpTypeChecking(const Coordinate& coord);
+    void SubScriptingOpTypeChecking(const Token* errTok);
     
     void MemberRefOpTypeChecking(
-            const Coordinate& coord, const std::string& rhsName);
+            const Token* errTok, const std::string& rhsName);
     
-    void MultiOpTypeChecking(const Coordinate& coord);
+    void MultiOpTypeChecking(const Token* errTok);
     
-    void AdditiveOpTypeChecking(const Coordinate& coord);
+    void AdditiveOpTypeChecking(const Token* errTok);
     
-    void ShiftOpTypeChecking(const Coordinate& coord);
+    void ShiftOpTypeChecking(const Token* errTok);
     
-    void RelationalOpTypeChecking(const Coordinate& coord);
+    void RelationalOpTypeChecking(const Token* errTok);
     
-    void EqualityOpTypeChecking(const Coordinate& coord);
+    void EqualityOpTypeChecking(const Token* errTok);
     
-    void BitwiseOpTypeChecking(const Coordinate& coord);
+    void BitwiseOpTypeChecking(const Token* errTok);
     
-    void LogicalOpTypeChecking(const Coordinate& coord);
+    void LogicalOpTypeChecking(const Token* errTok);
     
-    void AssignOpTypeChecking(const Coordinate& coord);
+    void AssignOpTypeChecking(const Token* errTok);
 
     int _op;
     Expr* _lhs;
@@ -364,23 +363,23 @@ public:
     //TODO: like '*p' is lvalue, but '~i' is not lvalue
     virtual bool IsLVal(void) const;
 
-    virtual long long EvalInteger(const Coordinate& coord);
+    virtual long long EvalInteger(const Token* errTok);
 
 protected:
     UnaryOp(MemPool* pool, int op, Expr* operand, Type* type = nullptr)
         : Expr(pool, type), _op(op), _operand(operand) {}
 
-    virtual void TypeChecking(const Coordinate& coord);
+    virtual void TypeChecking(const Token* errTok);
     
-    void IncDecOpTypeChecking(const Coordinate& coord);
+    void IncDecOpTypeChecking(const Token* errTok);
     
-    void AddrOpTypeChecking(const Coordinate& coord);
+    void AddrOpTypeChecking(const Token* errTok);
     
-    void DerefOpTypeChecking(const Coordinate& coord);
+    void DerefOpTypeChecking(const Token* errTok);
     
-    void UnaryArithmOpTypeChecking(const Coordinate& coord);
+    void UnaryArithmOpTypeChecking(const Token* errTok);
     
-    void CastOpTypeChecking(const Coordinate& coord);
+    void CastOpTypeChecking(const Token* errTok);
 
     int _op;
     Expr* _operand;
@@ -401,14 +400,14 @@ public:
         return false;
     }
 
-    virtual long long EvalInteger(const Coordinate& coord);
+    virtual long long EvalInteger(const Token* errTok);
 
 protected:
     ConditionalOp(MemPool* pool, Expr* cond, Expr* exprTrue, Expr* exprFalse)
             : Expr(pool, nullptr), _cond(cond), 
               _exprTrue(exprTrue), _exprFalse(exprFalse) {}
     
-    virtual void TypeChecking(const Coordinate& coord);
+    virtual void TypeChecking(const Token* errTok);
 
 private:
     Expr* _cond;
@@ -432,16 +431,13 @@ public:
         return false;
     }
 
-    virtual long long EvalInteger(const Coordinate& coord) {
-        Error(coord, "function call is not allowed in constant expression");
-        return 0;   // Make compiler happy
-    }
+    virtual long long EvalInteger(const Token* errTok);
 
 protected:
     FuncCall(MemPool* pool, Expr* designator, std::list<Expr*> args)
         : Expr(pool, nullptr), _designator(designator), _args(args) {}
 
-    virtual void TypeChecking(const Coordinate& coord);
+    virtual void TypeChecking(const Token* errTok);
 
     Expr* _designator;
     std::list<Expr*> _args;
@@ -465,12 +461,7 @@ public:
         return false;
     }
 
-    virtual long long EvalInteger(const Coordinate& coord) {
-        if (_ty->IsFloat())
-            Error(coord, "expect integer, but get floating");
-        
-        return _ival;
-    }
+    virtual long long EvalInteger(const Token* errTok);
     
     long long IVal(void) const {
         return _ival;
@@ -496,7 +487,7 @@ protected:
 
     }
     */
-    virtual void TypeChecking(const Coordinate& coord) {}
+    virtual void TypeChecking(const Token* errTok) {}
 
 private:
     union {
@@ -521,16 +512,13 @@ public:
         return true;
     }
 
-    virtual long long EvalInteger(const Coordinate& coord) {
-        Error(coord, "function call is not allowed in constant expression");
-        return 0;   // Make compiler happy
-    }
+    virtual long long EvalInteger(const Token* errTok);
 
 protected:
     TempVar(MemPool* pool, Type* type)
             : Expr(pool, type), _tag(GenTag()) {}
 
-    virtual void TypeChecking(const Coordinate& coord) {}
+    virtual void TypeChecking(const Token* errTok) {}
 
 private:
     static int GenTag(void) {
@@ -626,12 +614,9 @@ public:
         return nullptr;
     }
 
-    virtual long long EvalInteger(const Coordinate& coord) {
-        Error(coord, "identifier in constant expression");
-        return 0;   // Make compiler happy
-    }
+    virtual long long EvalInteger(const Token* errTok);
     
-    virtual void TypeChecking(const Coordinate& coord);;
+    virtual void TypeChecking(const Token* errTok);;
 
     /*
      * An identifer can be:

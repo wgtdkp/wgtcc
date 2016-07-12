@@ -22,6 +22,7 @@ public:
           _inEnumeration(false), _lexer(lexer),
           _externalSymbols(new Scope(nullptr, S_BLOCK)),
           _curScope(new Scope(nullptr, S_FILE)),
+          _errTok(nullptr),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -297,7 +298,7 @@ private:
     LabelJumpList _unresolvedJumps;
     std::stack<Token*> _buf;
 
-    Coordinate _coord;
+    Token* _errTok;
 
     LabelStmt* _breakDest;
     LabelStmt* _continueDest;

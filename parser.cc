@@ -19,7 +19,7 @@ ConditionalOp* Parser::NewConditionalOp(Expr* cond,
     auto ret = new (_conditionalOpPool.Alloc())
             ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
 
-    ret->TypeChecking(_coord);
+    ret->TypeChecking(_errTok);
     return ret;
 }
 
@@ -55,7 +55,7 @@ BinaryOp* Parser::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, rhs);
     
-    ret->TypeChecking(_coord);
+    ret->TypeChecking(_errTok);
     
     return ret;
 }
@@ -68,7 +68,7 @@ BinaryOp* Parser::NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName)
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, nullptr);
     
-    ret->MemberRefOpTypeChecking(_coord, rhsName);
+    ret->MemberRefOpTypeChecking(_errTok, rhsName);
 
     return ret;
 }
@@ -85,7 +85,7 @@ FuncCall* Parser::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
     auto ret = new (_funcCallPool.Alloc())
             FuncCall(&_funcCallPool, designator, args);
 
-    ret->TypeChecking(_coord);
+    ret->TypeChecking(_errTok);
     
     return ret;
 }
@@ -106,7 +106,7 @@ Object* Parser::NewObject(Type* type, Scope* scope,
     auto ret = new (_objectPool.Alloc())
             Object(&_objectPool, type, scope, storage, linkage, offset);
     
-    ret->TypeChecking(_coord);
+    ret->TypeChecking(_errTok);
     return ret;
 }
 
@@ -137,7 +137,7 @@ UnaryOp* Parser::NewUnaryOp(int op, Expr* operand, Type* type)
     auto ret = new (_unaryOpPool.Alloc())
             UnaryOp(&_unaryOpPool, op, operand, type);
     
-    ret->TypeChecking(_coord);
+    ret->TypeChecking(_errTok);
 
     return ret;
 }
@@ -528,7 +528,7 @@ UnaryOp* Parser::ParsePrefixIncDec(int op)
 
 UnaryOp* Parser::ParseUnaryOp(int op)
 {
-    _coord = Peek()->Coord();
+    _errTok = Peek();
     auto operand = ParseCastExpr();
     return NewUnaryOp(op, operand);
 }
@@ -1066,9 +1066,9 @@ int Parser::ParseAlignas(void)
         Expect(')');
         align = type->Align();
     } else {
-        _coord = Peek()->Coord();
+        _errTok = Peek();
         auto expr = ParseExpr();
-        align = expr->EvalInteger(_coord);
+        align = expr->EvalInteger(_errTok);
         Expect(')');
         Delete(expr);
     }
@@ -1142,9 +1142,9 @@ Type* Parser::ParseEnumerator(ArithmType* type)
                     enumName.c_str());
         }
         if (Try('=')) {
-            _coord = Peek()->Coord();
+            _errTok = Peek();
             auto expr = ParseExpr();
-            val = expr->EvalInteger(_coord);
+            val = expr->EvalInteger(_errTok);
             // TODO(wgtdkp): checking conflict
         }
 
@@ -1335,7 +1335,7 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
         return TokenTypePair(tok, retType);
     }
     
-    _coord = Peek()->Coord();
+    _errTok = Peek();
     //Error(Peek()->Coord(), "expect identifier or '(' but get '%s'",
     //        Peek()->Str().c_str());
     
@@ -1524,9 +1524,9 @@ int Parser::ParseArrayLength(void)
     if (!hasStatic && Try(']'))
         return -1;
     
-    _coord = Peek()->Coord();
+    _errTok = Peek();
     auto expr = ParseAssignExpr();
-    return expr->EvalInteger(_coord);
+    return expr->EvalInteger(_errTok);
 }
 
 /*
@@ -1611,7 +1611,7 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
     auto tok = tokenTypePair.first;
     type = tokenTypePair.second;
     if (tok == nullptr) {
-        Error(_coord, "expect identifier or '('");
+        Error(_errTok->Coord(), "expect identifier or '('");
     }
 
     return ProcessDeclarator(tok, type, storageSpec, funcSpec);
@@ -1668,10 +1668,10 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
             break;
 
         if (tok->Tag() == '[') {
-            _coord = Peek()->Coord();
+            _errTok = Peek();
             auto expr = ParseExpr();
 
-            auto idx = expr->EvalInteger(_coord);
+            auto idx = expr->EvalInteger(_errTok);
             idxSet.insert(idx);
 
             int offset = type->GetElementOffset(idx);
@@ -1790,10 +1790,10 @@ CompoundStmt* Parser::ParseCompoundStmt(void)
 IfStmt* Parser::ParseIfStmt(void)
 {
     Expect('(');
-    _coord = Peek()->Coord();
+    _errTok = Peek();
     auto cond = ParseExpr();
     if (!cond->Ty()->IsScalar()) {
-        Error(_coord, "expect scalar");
+        Error(_errTok->Coord(), "expect scalar");
     }
     Expect(')');
 
@@ -2031,11 +2031,11 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
 CompoundStmt* Parser::ParseCaseStmt(void)
 {
-    _coord = Peek()->Coord();
+    _errTok = Peek();
     auto expr = ParseExpr();
     Expect(':');
     
-    auto val = expr->EvalInteger(_coord);
+    auto val = expr->EvalInteger(_errTok);
     auto labelStmt = NewLabelStmt();
     _caseLabels->push_back(std::make_pair(val, labelStmt));
     std::list<Stmt*> stmts;
