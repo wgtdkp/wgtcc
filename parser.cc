@@ -13,8 +13,8 @@ using namespace std;
 /*
  * Allocation
  */
-ConditionalOp* Parser::NewConditionalOp(Expr* cond,
-        Expr* exprTrue, Expr* exprFalse)
+ConditionalOp* Parser::NewConditionalOp(const Token* tok,
+        Expr* cond, Expr* exprTrue, Expr* exprFalse)
 {
     auto ret = new (_conditionalOpPool.Alloc())
             ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
@@ -23,7 +23,12 @@ ConditionalOp* Parser::NewConditionalOp(Expr* cond,
     return ret;
 }
 
-BinaryOp* Parser::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
+BinaryOp* Parser::NewBinaryOp(const Token* tok, Expr* lhs, Expr* rhs)
+{
+    return NewBinaryOp(tok, tok->Tag(), lhs, rhs);
+}
+
+BinaryOp* Parser::NewBinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs)
 {
     switch (op) {
     case '=': 
@@ -54,39 +59,46 @@ BinaryOp* Parser::NewBinaryOp(int op, Expr* lhs, Expr* rhs)
 
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, rhs);
-    
-    TypeChecking(ret, _errTok);
-    
+    TypeChecking(ret, tok);
     return ret;
 }
 
-BinaryOp* Parser::NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName)
+BinaryOp* Parser::NewMemberRefOp( const Token* tok, 
+        Expr* lhs, const std::string& rhsName)
 {
+    auto op = tok->Tag();
     assert('.' == op || Token::PTR_OP == op);
     
     //the initiation of rhs is lefted in type checking
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, nullptr);
-    
-    MemberRefOpTypeChecking(ret, _errTok, rhsName);
-
+    TypeChecking(ret, tok);
     return ret;
 }
 
 /*
-UnaryOp* Parser::NewUnaryOp(Type* type, int op, Expr* expr) {
-    return new UnaryOp(type, op, expr);
+UnaryOp* Parser::NewUnaryOp(const Token* tok, Expr* operand, Type* type)
+{
+    return NewUnaryOp(tok, tok->Tag(), operand, type);
 }
 */
 
+UnaryOp* Parser::NewUnaryOp(const Token* tok,
+        int op, Expr* operand, Type* type)
+{
+    auto ret = new (_unaryOpPool.Alloc())
+            UnaryOp(&_unaryOpPool, op, operand, type);
+    TypeChecking(ret, tok);
+    return ret;
+}
 
-FuncCall* Parser::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
+
+FuncCall* Parser::NewFuncCall(const Token* tok,
+        Expr* designator, const std::list<Expr*>& args)
 {
     auto ret = new (_funcCallPool.Alloc())
             FuncCall(&_funcCallPool, designator, args);
-
-    TypeChecking(ret, _errTok);
-    
+    TypeChecking(ret, tok);
     return ret;
 }
 
@@ -94,47 +106,31 @@ FuncCall* Parser::NewFuncCall(Expr* designator, const std::list<Expr*>& args)
 Identifier* Parser::NewIdentifier(Type* type,
         Scope* scope, enum Linkage linkage)
 {
-    auto ret = new (_identifierPool.Alloc())
+    return new (_identifierPool.Alloc())
             Identifier(&_identifierPool, type, scope, linkage);
-
-    return ret;
 }
 
 Object* Parser::NewObject(Type* type, Scope* scope,
         int storage, enum Linkage linkage, int offset)
 {
-    auto ret = new (_objectPool.Alloc())
+    return new (_objectPool.Alloc())
             Object(&_objectPool, type, scope, storage, linkage, offset);
-    
-    return ret;
 }
 
 Constant* Parser::NewConstantInteger(ArithmType* type, long long val)
 {
-    auto ret = new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
-
-    return ret;
+    return new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
 }
 
 Constant* Parser::NewConstantFloat(ArithmType* type, double val)
 {
-    auto ret = new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
-
-    return ret;
+    return new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
 }
 
 
 TempVar* Parser::NewTempVar(Type* type)
 {
-    auto ret = new (_tempVarPool.Alloc()) TempVar(&_tempVarPool, type);
-
-    return ret;
-}
-
-UnaryOp* Parser::NewUnaryOp(int op, Expr* operand, Type* type)
-{
-    return new (_unaryOpPool.Alloc())
-            UnaryOp(&_unaryOpPool, op, operand, type);
+    return new (_tempVarPool.Alloc()) TempVar(&_tempVarPool, type);
 }
 
 
@@ -143,54 +139,40 @@ UnaryOp* Parser::NewUnaryOp(int op, Expr* operand, Type* type)
 //��Ȼ��stmtֻ��Ҫһ��
 EmptyStmt* Parser::NewEmptyStmt(void)
 {
-    auto ret = new (_emptyStmtPool.Alloc()) EmptyStmt(&_emptyStmtPool);
-
-    return ret;
+    return new (_emptyStmtPool.Alloc()) EmptyStmt(&_emptyStmtPool);
 }
 
 //else stmt Ĭ���� null
 IfStmt* Parser::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
 {
-    auto ret = new (_ifStmtPool.Alloc()) IfStmt(&_ifStmtPool, cond, then, els);
-
-    return ret;
+    return new (_ifStmtPool.Alloc()) IfStmt(&_ifStmtPool, cond, then, els);
 }
 
 CompoundStmt* Parser::NewCompoundStmt(std::list<Stmt*>& stmts)
 {
-    auto ret = new (_compoundStmtPool.Alloc())
+    return new (_compoundStmtPool.Alloc())
             CompoundStmt(&_compoundStmtPool, stmts);
-
-    return ret;
 }
 
 JumpStmt* Parser::NewJumpStmt(LabelStmt* label)
 {
-    auto ret = new (_jumpStmtPool.Alloc()) JumpStmt(&_jumpStmtPool, label);
-
-    return ret;
+    return new (_jumpStmtPool.Alloc()) JumpStmt(&_jumpStmtPool, label);
 }
 
 ReturnStmt* Parser::NewReturnStmt(Expr* expr)
 {
-    auto ret = new (_returnStmtPool.Alloc())
+    return new (_returnStmtPool.Alloc())
             ReturnStmt(&_returnStmtPool, expr);
-
-    return ret;
 }
 
 LabelStmt* Parser::NewLabelStmt(void)
 {
-    auto ret = new (_labelStmtPool.Alloc()) LabelStmt(&_labelStmtPool);
-
-    return ret;
+    return new (_labelStmtPool.Alloc()) LabelStmt(&_labelStmtPool);
 }
 
 FuncDef* Parser::NewFuncDef(FuncType* type, CompoundStmt* stmt)
 {
-    auto ret = new (_funcDefPool.Alloc()) FuncDef(&_funcDefPool, type, stmt);
-    
-    return ret;
+    return new (_funcDefPool.Alloc()) FuncDef(&_funcDefPool, type, stmt);
 }
 
 void Parser::Delete(ASTNode* node)
@@ -265,9 +247,8 @@ Expr* Parser::ParseCommaExpr(void)
     auto tok = Peek();
     while (Try(',')) {
         auto rhs = ParseAssignExpr();
-        lhs = NewBinaryOp(',', lhs, rhs);
-        
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
+
         tok = Peek();
     }
     return lhs;
@@ -396,9 +377,7 @@ Expr* Parser::ParseSubScripting(Expr* pointer)
     auto tok = Peek();
     Expect(']');
 
-    auto ret = NewBinaryOp('[', pointer, indexExpr);
-    TypeChecking(ret, tok);
-    return ret;
+    return NewBinaryOp(tok, pointer, indexExpr);
 }
 
 
@@ -407,9 +386,7 @@ Expr* Parser::ParseMemberRef(const Token* tok, Expr* lhs)
     auto memberName = Peek()->Str();
     Expect(Token::IDENTIFIER);
     
-    auto ret = NewMemberRefOp(tok->Tag(), lhs, memberName);
-    TypeChecking(ret, tok);
-    return ret;
+    return  NewMemberRefOp(tok, lhs, memberName);
 }
 
 UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
@@ -417,15 +394,15 @@ UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
     auto op = tok->Tag() == Token::INC_OP ?
             Token::POSTFIX_INC: Token::POSTFIX_DEC;
 
-    auto ret = NewUnaryOp(op, operand);
-    TypeChecking(ret, tok);
-    return ret;
+    return NewUnaryOp(tok, op, operand);
 }
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
 {
     FuncType* type = designator->Ty()->ToFuncType();
     assert(type);
+
+    auto tok = Peek();
 
     list<Expr*> args;
     auto iter = type->Params().begin();
@@ -456,7 +433,7 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
         }
     }
 
-    return NewFuncCall(designator, args);
+    return NewFuncCall(tok, designator, args);
 }
 
 Expr* Parser::ParseUnaryExpr(void)
@@ -531,18 +508,14 @@ UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
             Token::PREFIX_INC: Token::PREFIX_DEC;
     auto operand = ParseUnaryExpr();
     
-    auto ret = NewUnaryOp(op, operand);
-    TypeChecking(ret, tok);
-    return ret;
+    return NewUnaryOp(tok, op, operand);
 }
 
 UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
 {
     auto operand = ParseCastExpr();
 
-    auto ret = NewUnaryOp(op, operand);
-    TypeChecking(ret, tok);
-    return ret;
+    return NewUnaryOp(tok, op, operand);
 }
 
 Type* Parser::ParseTypeName(void)
@@ -562,10 +535,8 @@ Expr* Parser::ParseCastExpr(void)
         Expect(')');
         auto operand = ParseCastExpr();
         
-        auto ret = NewUnaryOp(Token::CAST, operand, desType);
-        TypeChecking(ret, tok);
-        return ret;
-    } 
+        return NewUnaryOp(tok, Token::CAST, operand, desType);
+    }
     
     PutBack();
     return ParseUnaryExpr();
@@ -577,8 +548,7 @@ Expr* Parser::ParseMultiplicativeExpr(void)
     auto tok = Next();
     while (tok->Tag() == '*' || tok->Tag() == '/' || tok->Tag() == '%') {
         auto rhs = ParseCastExpr();
-        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Next();
     }
@@ -593,8 +563,7 @@ Expr* Parser::ParseAdditiveExpr(void)
     auto tok = Next();
     while (tok->Tag() == '+' || tok->Tag() == '-') {
         auto rhs = ParseMultiplicativeExpr();
-        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Next();
     }
@@ -609,8 +578,7 @@ Expr* Parser::ParseShiftExpr(void)
     auto tok = Next();
     while (tok->Tag() == Token::LEFT_OP || tok->Tag() == Token::RIGHT_OP) {
         auto rhs = ParseAdditiveExpr();
-        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Next();
     }
@@ -626,8 +594,7 @@ Expr* Parser::ParseRelationalExpr(void)
     while (tok->Tag() == Token::LE_OP || tok->Tag() == Token::GE_OP 
             || tok->Tag() == '<' || tok->Tag() == '>') {
         auto rhs = ParseShiftExpr();
-        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Next();
     }
@@ -642,8 +609,7 @@ Expr* Parser::ParseEqualityExpr(void)
     auto tok = Next();
     while (tok->Tag() == Token::EQ_OP || tok->Tag() == Token::NE_OP) {
         auto rhs = ParseRelationalExpr();
-        lhs = NewBinaryOp(tok->Tag(), lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Next();
     }
@@ -658,8 +624,7 @@ Expr* Parser::ParseBitiwiseAndExpr(void)
     auto tok = Peek();
     while (Try('&')) {
         auto rhs = ParseEqualityExpr();
-        lhs = NewBinaryOp('&', lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Peek();
     }
@@ -673,8 +638,7 @@ Expr* Parser::ParseBitwiseXorExpr(void)
     auto tok = Peek();
     while (Try('^')) {
         auto rhs = ParseBitiwiseAndExpr();
-        lhs = NewBinaryOp('^', lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Peek();
     }
@@ -688,8 +652,7 @@ Expr* Parser::ParseBitwiseOrExpr(void)
     auto tok = Peek();
     while (Try('|')) {
         auto rhs = ParseBitwiseXorExpr();
-        lhs = NewBinaryOp('|', lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Peek();
     }
@@ -703,8 +666,7 @@ Expr* Parser::ParseLogicalAndExpr(void)
     auto tok = Peek();
     while (Try(Token::AND_OP)) {
         auto rhs = ParseBitwiseOrExpr();
-        lhs = NewBinaryOp(Token::AND_OP, lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Peek();
     }
@@ -718,8 +680,7 @@ Expr* Parser::ParseLogicalOrExpr(void)
     auto tok = Peek();
     while (Try(Token::OR_OP)) {
         auto rhs = ParseLogicalAndExpr();
-        lhs = NewBinaryOp(Token::OR_OP, lhs, rhs);
-        TypeChecking(lhs, tok);
+        lhs = NewBinaryOp(tok, lhs, rhs);
 
         tok = Peek();
     }
@@ -736,9 +697,7 @@ Expr* Parser::ParseConditionalExpr(void)
         Expect(':');
         auto exprFalse = ParseConditionalExpr();
 
-        auto ret = NewConditionalOp(cond, exprTrue, exprFalse);
-        TypeChecking(ret, tok);
-        return ret;
+        return NewConditionalOp(tok, cond, exprTrue, exprFalse);
     }
     
     return cond;
@@ -754,52 +713,52 @@ Expr* Parser::ParseAssignExpr(void)
     switch (tok->Tag()) {
     case Token::MUL_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('*', lhs, rhs);
+        rhs = NewBinaryOp(tok, '*', lhs, rhs);
         break;
 
     case Token::DIV_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('/', lhs, rhs);
+        rhs = NewBinaryOp(tok, '/', lhs, rhs);
         break;
 
     case Token::MOD_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('%', lhs, rhs);
+        rhs = NewBinaryOp(tok, '%', lhs, rhs);
         break;
 
     case Token::ADD_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('+', lhs, rhs);
+        rhs = NewBinaryOp(tok, '+', lhs, rhs);
         break;
 
     case Token::SUB_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('-', lhs, rhs);
+        rhs = NewBinaryOp(tok, '-', lhs, rhs);
         break;
 
     case Token::LEFT_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(Token::LEFT_OP, lhs, rhs);
+        rhs = NewBinaryOp(tok, Token::LEFT_OP, lhs, rhs);
         break;
 
     case Token::RIGHT_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(Token::RIGHT_OP, lhs, rhs);
+        rhs = NewBinaryOp(tok, Token::RIGHT_OP, lhs, rhs);
         break;
 
     case Token::AND_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('&', lhs, rhs);
+        rhs = NewBinaryOp(tok, '&', lhs, rhs);
         break;
 
     case Token::XOR_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('^', lhs, rhs);
+        rhs = NewBinaryOp(tok, '^', lhs, rhs);
         break;
 
     case Token::OR_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp('|', lhs, rhs);
+        rhs = NewBinaryOp(tok, '|', lhs, rhs);
         break;
 
     case '=':
@@ -811,11 +770,7 @@ Expr* Parser::ParseAssignExpr(void)
         return lhs; // Could be constant
     }
 
-    TypeChecking(rhs, tok);
-
-    auto ret = NewBinaryOp('=', lhs, rhs);
-    TypeChecking(ret, tok);
-    return ret;
+    return NewBinaryOp(tok, '=', lhs, rhs);
 }
 
 
@@ -1701,9 +1656,10 @@ Stmt* Parser::ParseInitializer(Object* obj)
         }
     }
 
+    auto tok = Peek();
     Expr* rhs = ParseAssignExpr();
 
-    return NewBinaryOp('=', obj, rhs);
+    return NewBinaryOp(tok, '=', obj, rhs);
 }
 
 Stmt* Parser::ParseArrayInitializer(Object* arr)
@@ -1843,10 +1799,10 @@ CompoundStmt* Parser::ParseCompoundStmt(void)
 IfStmt* Parser::ParseIfStmt(void)
 {
     Expect('(');
-    _errTok = Peek();
+    auto tok = Peek();
     auto cond = ParseExpr();
     if (!cond->Ty()->IsScalar()) {
-        Error(_errTok->Coord(), "expect scalar");
+        Error(tok->Coord(), "expect scalar");
     }
     Expect(')');
 
@@ -2053,7 +2009,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
     auto testLabel = NewLabelStmt();
     auto endLabel = NewLabelStmt();
     auto t = NewTempVar(expr->Ty());
-    auto assign = NewBinaryOp('=', t, expr);
+    auto assign = NewBinaryOp(tok, '=', t, expr);
     stmts.push_back(assign);
     stmts.push_back(NewJumpStmt(testLabel));
 
@@ -2068,7 +2024,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
             iter != caseLabels.end(); iter++) {
         auto rhs = NewConstantInteger(
                 Type::NewArithmType(T_INT), iter->first);
-        auto cond = NewBinaryOp(Token::EQ_OP, t, rhs);
+        auto cond = NewBinaryOp(tok, Token::EQ_OP, t, rhs);
         auto then = NewJumpStmt(iter->second);
         auto ifStmt = NewIfStmt(cond, then, nullptr);
         stmts.push_back(ifStmt);

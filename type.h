@@ -104,8 +104,7 @@ public:
     bool IsConst(void) const { return _qual & Q_CONST; }
     
     bool IsScalar(void) const {
-        return (nullptr != ToArithmType()
-            || nullptr != ToPointerType());
+        return (ToArithmType() || ToPointerType());
     }
     
     bool IsFloat(void) const;

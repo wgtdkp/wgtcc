@@ -31,12 +31,15 @@ public:
     /*
      * Binary Operator
      */
-    BinaryOp* NewBinaryOp(int op, Expr* lhs, Expr* rhs);
-    BinaryOp* NewMemberRefOp(int op, Expr* lhs, const std::string& rhsName);
-    ConditionalOp* NewConditionalOp(Expr* cond,
-            Expr* exprTrue, Expr* exprFalse);
+    BinaryOp* NewBinaryOp(const Token* tok, Expr* lhs, Expr* rhs);
+    BinaryOp* NewBinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs);
+    BinaryOp* NewMemberRefOp(const Token* tok,
+            Expr* lhs, const std::string& rhsName);
+    ConditionalOp* NewConditionalOp(const Token* tok,
+            Expr* cond, Expr* exprTrue, Expr* exprFalse);
     
-    FuncCall* NewFuncCall(Expr* designator, const std::list<Expr*>& args);
+    FuncCall* NewFuncCall(const Token* tok,
+            Expr* designator, const std::list<Expr*>& args);
     
     Identifier* NewIdentifier(Type* type, Scope* scope, enum Linkage linkage);
     Object* NewObject(Type* type, Scope* scope,
@@ -45,8 +48,8 @@ public:
     Constant* NewConstantInteger(ArithmType* type, long long val);
     Constant* NewConstantFloat(ArithmType* type, double val);
     TempVar* NewTempVar(Type* type);
-    UnaryOp* NewUnaryOp(int op, Expr* operand, Type* type=nullptr);
-
+    UnaryOp* NewUnaryOp(const Token* tok,
+        int op, Expr* operand, Type* type=nullptr);
     /*
      * Statement
      */
