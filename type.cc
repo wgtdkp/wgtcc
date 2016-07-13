@@ -250,9 +250,8 @@ bool PointerType::Compatible(const Type& other) const {
     auto otherType = other.ToPointerType();
     if (otherType == nullptr)
         return false;
-    if (otherType->Derived()->ToVoidType())
-        return true;
-    if (_derived->ToVoidType())
+    if ((otherType->Derived()->ToVoidType() && !_derived->ToFuncType())
+            || (_derived->ToVoidType() && !otherType->Derived()->ToFuncType()))
         return true;
     return _derived->Compatible(*otherType->Derived());
 }
@@ -355,4 +354,29 @@ void StructUnionType::AddMember(const std::string& name, Object* member)
     if (!IsStruct()) {
         member->SetOffset(0);
     }
+}
+
+
+ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType)
+{
+    int intWidth = ArithmType::CalcWidth(T_INT);
+    ArithmType* desType;
+
+    if (lhsType->Width() < intWidth && rhsType->Width() < intWidth) {
+        desType = Type::NewArithmType(T_INT);
+    } else if (lhsType->Width() > rhsType->Width()) {
+        desType = lhsType;
+    } else if (lhsType->Width() < rhsType->Width()) {
+        desType = rhsType;
+    } else if ((lhsType->Tag() & T_FLOAT) || (lhsType->Tag() & T_DOUBLE)) {
+        desType = lhsType;
+    } else if ((rhsType->Tag() & T_FLOAT) || (rhsType->Tag() & T_DOUBLE)) {
+        desType = rhsType;
+    } else if (lhsType->Tag() & T_UNSIGNED) {
+        desType = lhsType;
+    } else {
+        desType = rhsType;
+    }
+
+    return desType;
 }

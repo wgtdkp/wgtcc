@@ -297,6 +297,8 @@ public:
 
     virtual long long EvalInteger(const Token* errTok);
 
+    ArithmType* Promote(Parser* parser, const Token* errTok);
+
 protected:
     BinaryOp(MemPool* pool, int op, Expr* lhs, Expr* rhs)
             : Expr(pool, nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
@@ -333,6 +335,8 @@ public:
 
     virtual long long EvalInteger(const Token* errTok);
 
+    ArithmType* Promote(Parser* parser, const Token* errTok);
+
 protected:
     UnaryOp(MemPool* pool, int op, Expr* operand, Type* type = nullptr)
         : Expr(pool, type), _op(op), _operand(operand) {}
@@ -357,6 +361,8 @@ public:
     }
 
     virtual long long EvalInteger(const Token* errTok);
+
+    ArithmType* Promote(Parser* parser, const Token* errTok);
 
 protected:
     ConditionalOp(MemPool* pool, Expr* cond, Expr* exprTrue, Expr* exprFalse)

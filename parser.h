@@ -196,7 +196,7 @@ public:
     void CastOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
 
     // ConditionalOp
-    void TypeChecking(ConditionalOp* conditionalOp, const Token* errTok);
+    void TypeChecking(ConditionalOp* condOp, const Token* errTok);
     
     // FuncCall
     void TypeChecking(FuncCall* funcCall, const Token* errTok);
@@ -267,32 +267,9 @@ private:
         }
     }
 
-    /*
-    void EnsureModifiableExpr(Expr* expr) const {
-        if (!expr->IsLVal()) {
-            //TODO: error
-            Error(expr, "lvalue expression expected");
-        } else if (expr->Ty()->IsConst()) {
-            Error(expr, "can't modifiy 'const' qualified expression");
-        }
-    }
+    
 
-    void EnsureLValExpr(Expr* expr) const {
-        if (!expr->IsLVal()) {
-            Error(expr, "lvalue expected");
-        }
-    }
-
-    void EnsureScalarExpr(Expr* expr) const {
-        if (!expr->Ty()->IsScalar())
-            Error(expr, "scalar type expression expected");
-    }
-
-    void EnsureIntegerExpr(Expr* expr) const {
-        if (!expr->Ty()->IsInteger())
-            Error(expr, "integer expression expected");
-    }
-    */
+    
     void EnterBlock(void) {
         _curScope = new Scope(_curScope, S_BLOCK);
     }

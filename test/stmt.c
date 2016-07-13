@@ -1,8 +1,8 @@
 void foo(void)
 {
     int b;
-    //a = b;
-    for (int a = 0; a < 7; a++) {
+    int a = b;
+    for (a = 0; a < 7; a++) {
         if (a == b) {
             continue;
         } else {
@@ -37,4 +37,6 @@ void foo(void)
     int* y;
     unsigned* z;
     int* x = y - z;
+
+    float d = a ? b: c;
 }

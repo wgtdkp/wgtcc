@@ -112,7 +112,11 @@ public:
     bool IsInteger(void) const;
     
     bool IsArithm(void) const {
-        return (nullptr != ToArithmType());
+        return ToArithmType();
+    }
+
+    bool IsReal(void) const {
+        return IsInteger() || IsFloat();
     }
 
     virtual VoidType* ToVoidType(void) { return nullptr; }
@@ -243,12 +247,10 @@ public:
     }
 
     bool IsInteger(void) const {
-        return (_tag & T_BOOL) || \
-            (_tag & T_SHORT) || \
-            (_tag & T_INT) || \
-            (_tag & T_LONG) || \
-            (_tag & T_LONG_LONG) || \
-            (_tag & T_UNSIGNED);
+        return (_tag & T_BOOL) || (_tag & T_CHAR)
+            || (_tag & T_SHORT) || (_tag & T_INT)
+            || (_tag & T_LONG) || (_tag & T_LONG_LONG)
+            || (_tag & T_UNSIGNED);
     }
 
     bool IsFloat(void) const {
@@ -263,14 +265,16 @@ public:
         return _tag;
     }
 
+    static int CalcWidth(int tag);
+    
+    static int Spec2Tag(int spec);
+
 protected:
     explicit ArithmType(MemPool* pool, int tag)
         : Type(pool, CalcWidth(tag), true), _tag(tag) {}
 
 private:
     int _tag;
-    static int CalcWidth(int tag);
-    static int Spec2Tag(int spec);
 };
 
 
@@ -502,5 +506,7 @@ private:
 
 };
 */
+
+ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType);
 
 #endif

@@ -7,6 +7,9 @@ int main(void)
 
     a = b == 0;
 
+    int e;
+    unsigned f;
+    float* c = a == b ? &e: &f; 
 
     return 0;
 }

@@ -19,7 +19,7 @@ ConditionalOp* Parser::NewConditionalOp(const Token* tok,
     auto ret = new (_conditionalOpPool.Alloc())
             ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
 
-    TypeChecking(ret, _errTok);
+    TypeChecking(ret, tok);
     return ret;
 }
 
@@ -684,7 +684,8 @@ Expr* Parser::ParseConditionalExpr(void)
 
 Expr* Parser::ParseAssignExpr(void)
 {
-    //yes i know the lhs should be unary expression, let it handled by type checking
+    // Yes, I know the lhs should be unary expression, 
+    // let it handled by type checking
     Expr* lhs = ParseConditionalExpr();
     Expr* rhs;
 
@@ -772,7 +773,8 @@ CompoundStmt* Parser::ParseDecl(void)
         //init-declarator 的 FIRST 集合：'*', identifier, '('
         if (Test('*') || Test(Token::IDENTIFIER) || Test('(')) {
             do {
-                auto initExpr = ParseInitDeclarator(type, storageSpec, funcSpec);
+                auto initExpr = ParseInitDeclarator(
+                            type, storageSpec, funcSpec);
                 if (nullptr != initExpr)
                     stmts.push_back(initExpr);
             } while (Try(','));
@@ -1053,9 +1055,9 @@ int Parser::ParseAlignas(void)
         Expect(')');
         align = type->Align();
     } else {
-        _errTok = Peek();
+        auto tok = Peek();
         auto expr = ParseExpr();
-        align = expr->EvalInteger(_errTok);
+        align = expr->EvalInteger(tok);
         Expect(')');
         Delete(expr);
     }
@@ -1129,9 +1131,9 @@ Type* Parser::ParseEnumerator(ArithmType* type)
                     enumName.c_str());
         }
         if (Try('=')) {
-            _errTok = Peek();
+            auto tok = Peek();
             auto expr = ParseExpr();
-            val = expr->EvalInteger(_errTok);
+            val = expr->EvalInteger(tok);
             // TODO(wgtdkp): checking conflict
         }
 
@@ -1321,11 +1323,9 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
         auto retType = ParseArrayFuncDeclarator(pointerType);
         return TokenTypePair(tok, retType);
     }
-    
+
     _errTok = Peek();
-    //Error(Peek()->Coord(), "expect identifier or '(' but get '%s'",
-    //        Peek()->Str().c_str());
-    
+
     return TokenTypePair(nullptr, pointerType);
 }
 
@@ -1511,9 +1511,9 @@ int Parser::ParseArrayLength(void)
     if (!hasStatic && Try(']'))
         return -1;
     
-    _errTok = Peek();
+    auto tok = Peek();
     auto expr = ParseAssignExpr();
-    return expr->EvalInteger(_errTok);
+    return expr->EvalInteger(tok);
 }
 
 /*
@@ -1656,10 +1656,10 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
             break;
 
         if (tok->Tag() == '[') {
-            _errTok = Peek();
+            auto tok = Peek();
             auto expr = ParseExpr();
 
-            auto idx = expr->EvalInteger(_errTok);
+            auto idx = expr->EvalInteger(tok);
             idxSet.insert(idx);
 
             int offset = type->GetElementOffset(idx);
@@ -2019,11 +2019,11 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
 CompoundStmt* Parser::ParseCaseStmt(void)
 {
-    _errTok = Peek();
+    auto tok = Peek();
     auto expr = ParseExpr();
     Expect(':');
     
-    auto val = expr->EvalInteger(_errTok);
+    auto val = expr->EvalInteger(tok);
     auto labelStmt = NewLabelStmt();
     _caseLabels->push_back(std::make_pair(val, labelStmt));
     std::list<Stmt*> stmts;
@@ -2262,7 +2262,6 @@ void Parser::MultiOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
     auto lhsType = binaryOp->_lhs->Ty()->ToArithmType();
     auto rhsType = binaryOp->_rhs->Ty()->ToArithmType();
-
     if (lhsType == nullptr || rhsType == nullptr) {
         Error(errTok->Coord(), "operands should have arithmetic type");
     }
@@ -2274,8 +2273,7 @@ void Parser::MultiOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
     }
 
     //TODO: type promotion
-
-    binaryOp->_ty = binaryOp->_lhs->Ty();
+    binaryOp->_ty = binaryOp->Promote(this, errTok);
 }
 
 /*
@@ -2313,40 +2311,54 @@ void Parser::AdditiveOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
                     errTok->Str());
         }
 
-        if (lhsType->Width() < Type::_machineWord
-                && rhsType->Width() < Type::_machineWord) {
-            binaryOp->_ty = Type::NewArithmType(T_INT);
-        } else if (lhsType->Width() > rhsType->Width()) {
-            binaryOp->_ty = lhsType;
-        } else if (lhsType->Width() < rhsType->Width()) {
-            binaryOp->_ty = rhsType;
-        } else if ((lhsType->Tag() & T_FLOAT) || (rhsType->Tag() & T_FLOAT)) {
-            binaryOp->_ty = Type::NewArithmType(T_FLOAT);
-        } else {
-            binaryOp->_ty = lhsType;
-        }
+        binaryOp->_ty = binaryOp->Promote(this, errTok);
     }
 }
 
 void Parser::ShiftOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
-    //TODO: type checking
+    if (!binaryOp->_lhs->Ty()->IsInteger()
+            || !binaryOp->_rhs->Ty()->IsInteger()) {
+        Error(errTok->Coord(), "expect integers for shift operator '%s'",
+                errTok->Str());
+    }
 
+    binaryOp->Promote(this, errTok);
     binaryOp->_ty = binaryOp->_lhs->Ty();
 }
 
 void Parser::RelationalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
-    //TODO: type checking
+    if (!binaryOp->_lhs->Ty()->IsReal()
+            || !binaryOp->_rhs->Ty()->IsReal()) {
+        Error(errTok->Coord(), "expect integer/float"
+                " for relational operator '%s'", errTok->Str());
+    }
 
-    binaryOp->_ty = Type::NewArithmType(T_BOOL);    
+    binaryOp->Promote(this, errTok);
+    binaryOp->_ty = Type::NewArithmType(T_INT);    
 }
 
 void Parser::EqualityOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
-    //TODO: type checking
+    auto lhsType = binaryOp->_lhs->Ty()->ToPointerType();
+    auto rhsType = binaryOp->_rhs->Ty()->ToPointerType();
+    if (lhsType || rhsType) {
+        if (!lhsType->Compatible(*rhsType)) {
+            Error(errTok->Coord(), "incompatible pointers of operands");
+        }
+    } else {
+        auto lhsType = binaryOp->_lhs->Ty()->ToArithmType();
+        auto rhsType = binaryOp->_rhs->Ty()->ToArithmType();
+        if (lhsType == nullptr || rhsType == nullptr) {
+            Error(errTok->Coord(), "invalid operands to binary %s",
+                    errTok->Str());
+        }
 
-    binaryOp->_ty = Type::NewArithmType(T_BOOL);    
+        binaryOp->Promote(this, errTok);
+    }
+
+    binaryOp->_ty = Type::NewArithmType(T_INT);    
 }
 
 void Parser::BitwiseOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
@@ -2356,20 +2368,19 @@ void Parser::BitwiseOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
         Error(errTok->Coord(), "operands of '&' should be integer");
     }
     
-    //TODO: type promotion
-    binaryOp->_ty = Type::NewArithmType(T_INT);    
+    binaryOp->_ty = binaryOp->Promote(this, errTok);    
 }
 
 void Parser::LogicalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
-    //TODO: type checking
     if (!binaryOp->_lhs->Ty()->IsScalar()
             || !binaryOp->_rhs->Ty()->IsScalar()) {
         Error(errTok->Coord(),
                 "the operand should be arithmetic type or pointer");
     }
     
-    binaryOp->_ty = Type::NewArithmType(T_BOOL);
+    binaryOp->Promote(this, errTok);
+    binaryOp->_ty = Type::NewArithmType(T_INT);
 }
 
 void Parser::AssignOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
@@ -2379,7 +2390,9 @@ void Parser::AssignOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
     } else if (binaryOp->_lhs->Ty()->IsConst()) {
         Error(errTok->Coord(), "can't modifiy 'const' qualified expression");
     }
-
+    // The other constraints are lefted to cast operator
+    binaryOp->_rhs = NewUnaryOp(errTok,
+            Token::CAST, binaryOp->_rhs, binaryOp->_lhs->Ty());
     binaryOp->_ty = binaryOp->_lhs->Ty();
 }
 
@@ -2477,16 +2490,25 @@ void Parser::CastOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
     }
 }
 
-void Parser::TypeChecking(ConditionalOp* conditionalOp, const Token* errTok)
+void Parser::TypeChecking(ConditionalOp* condOp, const Token* errTok)
 {
-
-    //TODO: type checking
-    if (!conditionalOp->_cond->Ty()->IsScalar()) {
+    if (!condOp->_cond->Ty()->IsScalar()) {
         Error(errTok->Coord(), "scalar is required");
     }
 
-    //TODO: type evaluation
+    auto lhsType = condOp->_exprTrue->Ty();
+    auto rhsType = condOp->_exprFalse->Ty();
+    if (!lhsType->Compatible(*rhsType)) {
+        Error(errTok->Coord(), "incompatible types of true/false expression");
+    } else {
+        condOp->_ty = lhsType;
+    }
 
+    lhsType = lhsType->ToArithmType();
+    rhsType = rhsType->ToArithmType();
+    if (lhsType && rhsType) {
+        condOp->_ty = condOp->Promote(this, errTok);
+    }
 }
 
 void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
@@ -2498,19 +2520,19 @@ void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
 
     auto arg = funcCall->_args.begin();
     auto param = funcType->Params().begin();
-    for (param; param != funcType->Params().end(); param++) {
+    for (; param != funcType->Params().end(); param++) {
         if (arg == funcCall->_args.end()) {
-            Error(tok->Coord(), "too few arguments for function ''");
+            Error(errTok->Coord(), "too few arguments for function ''");
         }
 
-        if (!(*iter)->Compatible(*arg->Ty())) {
+        if (!(*param)->Compatible(*(*arg)->Ty())) {
             // TODO(wgtdkp): function name
-            Error(tok->Coord(), "incompatible type for argument 1 of ''");
+            Error(errTok->Coord(), "incompatible type for argument 1 of ''");
         }
     }
     
     if (arg != funcCall->_args.end() && !funcType->HasEllipsis()) {
-        Error(tok->Coord(), "too many arguments for function ''");
+        Error(errTok->Coord(), "too many arguments for function ''");
     }
     
     funcCall->_ty = funcType->Derived();

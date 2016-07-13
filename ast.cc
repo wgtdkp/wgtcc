@@ -121,6 +121,23 @@ long long BinaryOp::EvalInteger(const Token* errTok)
     }
 }
 
+ArithmType* BinaryOp::Promote(Parser* parser, const Token* errTok)
+{
+    // Both lhs and rhs are ensured to be have arithmetic type
+    auto lhsType = _lhs->Ty()->ToArithmType();
+    auto rhsType = _rhs->Ty()->ToArithmType();
+    
+    auto type = MaxType(lhsType, rhsType);
+    if (lhsType != type) {// Pointer comparation is enough!
+        _lhs = parser->NewUnaryOp(errTok, Token::CAST, _lhs, type);
+    }
+    if (rhsType != type) {
+        _rhs = parser->NewUnaryOp(errTok, Token::CAST, _rhs, type);
+    }
+    
+    return type;
+}
+
 /*
  * Unary Operators
  */
@@ -164,6 +181,22 @@ long long ConditionalOp::EvalInteger(const Token* errTok)
     } else {
         return _exprFalse->EvalInteger(errTok);
     }
+}
+
+ArithmType* ConditionalOp::Promote(Parser* parser, const Token* errTok)
+{
+    auto lhsType = _exprTrue->Ty()->ToArithmType();
+    auto rhsType = _exprFalse->Ty()->ToArithmType();
+    
+    auto type = MaxType(lhsType, rhsType);
+    if (lhsType != type) {// Pointer comparation is enough!
+        _exprTrue = parser->NewUnaryOp(errTok, Token::CAST, _exprTrue, type);
+    }
+    if (rhsType != type) {
+        _exprFalse = parser->NewUnaryOp(errTok, Token::CAST, _exprFalse, type);
+    }
+    
+    return type;
 }
 
 long long FuncCall::EvalInteger(const Token* errTok) {
