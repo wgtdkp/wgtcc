@@ -11,7 +11,7 @@ using namespace std;
 
 
 /*
- * Allocation
+ * Factory
  */
 ConditionalOp* Parser::NewConditionalOp(const Token* tok,
         Expr* cond, Expr* exprTrue, Expr* exprFalse)
@@ -406,7 +406,6 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
 
     list<Expr*> args;
     while (!Try(')')) {
-        auto tok = Peek();
         args.push_back(ParseAssignExpr());
         if (!Test(')'))
             Expect(',');
@@ -1168,6 +1167,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
         if (Try('{')) {
             //看见大括号，表明现在将定义该struct/union类型
             auto tagIdent = _curScope->FindTagInCurScope(tagName);
+            printf("tagIdent: %p\n", tagIdent);
             if (tagIdent == nullptr) //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
                 goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
             
@@ -1184,7 +1184,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             } else {
                 //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
                 Error(tok->Coord(), "redefinition of struct tag '%s'",
-                        tok->Str().c_str());
+                        tagName.c_str());
             }
         } else {
             /*
@@ -1232,13 +1232,15 @@ StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
     assert(type && !type->Complete());
     
     while (!Try('}')) {
-        if (Peek()->IsEOF())
+        if (Peek()->IsEOF()) {
             Error(Peek()->Coord(), "premature end of input");
-
+        }
+        
         //解析type specifier/qualifier, 不接受storage等
         auto fieldType = ParseSpecQual();
         //TODO: 解析declarator
-
+        auto ident = ParseDirectDeclarator(fieldType, 0, 0);
+        Expect(';');
     }
 
     // TODO(wgtdkp): calculate width
@@ -2126,19 +2128,38 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
  *   declaration-specifiers declarator declaration-list? compound-statement
  */
 
+/*
+ * How To Decide if it is a declaration/function definition:
+ * 1. if we see '=' before '{', then it is a declaration
+ * 2. if we see ';' without having saw '{', then it is a declaration
+ */
 bool Parser::IsFuncDef(void)
 {
     if (Test(Token::STATIC_ASSERT))	//declaration
         return false;
 
     Mark();
-    int storageSpec = 0, funcSpec = 0;
-    auto type = ParseDeclSpec(&storageSpec, &funcSpec);
-    ParseDeclarator(type);
+    //int storageSpec = 0, funcSpec = 0;
+    //auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+    //ParseDeclarator(type);
     // FIXME(wgtdkp): Memory leak
+    //bool ret = !(Test(',') || Test('=') || Test(';'));
+    
+    bool ret;
+    for (auto tok = Peek(); !tok->IsEOF(); tok = Next()) {
+        if (tok->Tag() == '=' || tok->Tag() == ';') {
+            ret = false;
+            break;
+        } else if (tok->Tag() == '{') {
+            ret = true;
+            break;
+        }
+    }
 
-    bool ret = !(Test(',') || Test('=') || Test(';'));
-    Release();
+    if (Peek()->IsEOF()) {
+        Error(Peek()->Coord(), "premature end of input");
+    }
+    Restore();
     
     return ret;
 }
