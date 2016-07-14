@@ -3,6 +3,7 @@
 #include "ast.h"
 
 #include <cassert>
+#include <iostream>
 
 
 Identifier* Scope::Find(const std::string& name)
@@ -26,9 +27,7 @@ Identifier* Scope::FindInCurScope(const std::string& name)
 
 void Scope::Insert(const std::string& name, Identifier* ident)
 {
-    assert(FindInCurScope(name) == nullptr);
-
-    _identMap[name] = ident;
+    InsertWithOutIncOffset(name, ident);
     // TODO(wgtdkp):
     // Set offset when 'ident' is an object
     Object* obj = ident->ToObject();
@@ -36,6 +35,14 @@ void Scope::Insert(const std::string& name, Identifier* ident)
         obj->SetOffset(_offset);
         _offset += obj->Ty()->Width();
     }
+}
+
+void Scope::InsertWithOutIncOffset(
+        const std::string& name, Identifier* ident)
+{
+    assert(FindInCurScope(name) == nullptr);
+
+    _identMap[name] = ident;
 }
 
 Identifier* Scope::FindTag(const std::string& name) {
@@ -67,16 +74,18 @@ std::pair<IdentMap::iterator, bool> Scope::Concat(Scope* other)
 
 void Scope::Print(void)
 {
-    printf("external symbol map:\n");
-    
+    std::cout << "scope: " << this << std::endl;
+
     auto iter = _identMap.begin();
     for (; iter != _identMap.end(); iter++) {
         auto name = iter->first;
         auto ident = iter->second;
-        if (ident->Ty()->ToFuncType()) {
-            printf("%s\t[function]\n", name.c_str());
+        if (ident->ToType()) {
+            std::cout << name << "\t[type:\t\t" << ident->Ty()->Str() << "]" << std::endl;
         } else {
-            printf("%s\t[object]\n", name.c_str());
+            std::cout << name << "\t[object(" << ident->ToObject()->Offset();
+            std::cout << "):\t" << ident->Ty()->Str() << "]" << std::endl;
         }
     }
+    std::cout << std::endl;
 }

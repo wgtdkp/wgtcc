@@ -2,9 +2,11 @@
 
 #include "ast.h"
 #include "scope.h"
+#include "token.h"
 
 #include <cassert>
 #include <algorithm>
+#include <iostream>
 
 
 /***************** Type *********************/
@@ -211,7 +213,7 @@ int ArithmType::CalcWidth(int tag) {
         assert(false);
     }
 
-    return _intWidth;
+    return _intWidth; // Make compiler happy
 }
 
 int ArithmType::Spec2Tag(int spec) {
@@ -221,6 +223,69 @@ int ArithmType::Spec2Tag(int spec) {
         spec &= ~T_INT;
     }
     return spec;
+}
+
+std::string ArithmType::Str(void) const
+{
+    std::string width = std::string(":") + std::to_string(_width);
+
+    switch (_tag) {
+    case T_BOOL:
+        return "bool" + width;
+
+    case T_CHAR:
+        return "char" + width;
+
+    case T_UNSIGNED | T_CHAR:
+        return "unsigned char" + width;
+
+    case T_SHORT:
+        return "short" + width;
+
+    case T_UNSIGNED | T_SHORT:
+        return "unsigned short" + width;
+
+    case T_INT:
+        return "int" + width;
+
+    case T_UNSIGNED:
+        return "unsigned int" + width;
+
+    case T_LONG:
+        return "long" + width;
+
+    case T_UNSIGNED | T_LONG:
+        return "unsigned long" + width;
+
+    case T_LONG_LONG:
+        return "long long" + width;
+
+    case T_UNSIGNED | T_LONG_LONG:
+        return "unsigned long long" + width;
+
+    case T_FLOAT:
+        return "float" + width;
+
+    case T_DOUBLE:
+        return "double" + width;
+
+    case T_LONG | T_DOUBLE:
+        return "long double" + width;
+
+    case T_FLOAT | T_COMPLEX:
+        return "float complex" + width;
+
+    case T_DOUBLE | T_COMPLEX:
+        return "double complex" + width;
+
+    case T_LONG | T_DOUBLE | T_COMPLEX:
+        return "long double complex" + width;
+
+    default:
+        assert(false);
+    }
+
+    return "error"; // Make compiler happy
 }
 
 /*************** PointerType *****************/
@@ -298,6 +363,21 @@ bool FuncType::Compatible(const Type& other) const
     return true;
 }
 
+std::string FuncType::Str(void) const
+{
+    auto str = _derived->Str() + "(";
+    auto iter = _params.begin();
+    for (; iter != _params.end(); iter++) {
+        str += (*iter)->Str() + ", ";
+    }
+    if (_hasEllipsis)
+        str += "...";
+    else if (_params.size())
+        str.resize(str.size() - 2);
+
+    return str + ")";
+}
+
 /*
  * StructUnionType
  */
@@ -306,10 +386,11 @@ StructUnionType::StructUnionType(MemPool* pool,
         bool isStruct, bool hasTag, Scope* parent)
         : Type(pool, 0, false), _isStruct(isStruct), _hasTag(hasTag),
           _memberMap(new Scope(parent, S_BLOCK)) {
-}
+              _memberMap->SetOffset(0);
+          }
 
 Object* StructUnionType::GetMember(const std::string& member) {
-    auto ident = _memberMap->Find(member);
+    auto ident = _memberMap->FindInCurScope(member);
     if (ident == nullptr)
         return nullptr;
     return ident->ToObject();
@@ -338,17 +419,48 @@ bool StructUnionType::Compatible(const Type& other) const {
     return *this == other;
 }
 
+// TODO(wgtdkp): more detailed representation
+std::string StructUnionType::Str(void) const
+{
+    std::string str = _isStruct ? "struct": "union";
+    return str + ":" + std::to_string(_width);
+}
+
 void StructUnionType::AddMember(const std::string& name, Object* member)
 {
-    _memberMap->Insert(name, member);
+    _memberMap->InsertWithOutIncOffset(name, member);
 
+    int offset = _memberMap->Offset();
+    member->SetOffset(offset);
     if (IsStruct()) {
+        _memberMap->SetOffset(offset + member->Ty()->Width());
         _width = _memberMap->Offset();
     } else {
-        member->SetOffset(0);
-        _width = std::max(_width, member->Offset());
+        _width = std::max(_width, member->Ty()->Width());
     }
+}
 
+// Move members of Anonymous struct/union to external struct/union
+// TODO(wgtdkp):
+// Width of struct/union is not the sum of its members
+void StructUnionType::Merge(StructUnionType* anonType)
+{
+    int offset = _memberMap->Offset();
+    std::cout << "offset: " << offset << std::endl;
+    auto iter = anonType->_memberMap->begin();
+    for (; iter != anonType->_memberMap->end(); iter++) {
+        if (GetMember(iter->first)) {
+            auto tok = iter->second->Tok();
+            Error(tok->Coord(), "duplicate member '%s'", tok->Str().c_str());
+        }
+        auto member = iter->second->ToObject();
+        
+        assert(member);
+        _memberMap->InsertWithOutIncOffset(iter->first, member);
+        member->SetOffset(offset + member->Offset());
+    }
+    _memberMap->SetOffset(offset + anonType->Width());
+    _width = _memberMap->Offset();
 }
 
 

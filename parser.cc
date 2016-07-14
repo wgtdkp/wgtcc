@@ -4,6 +4,7 @@
 #include "error.h"
 #include "type.h"
 
+#include <iostream>
 #include <set>
 #include <string>
 
@@ -227,7 +228,6 @@ void Parser::ParseTranslationUnit(void)
 {
     while (!Peek()->IsEOF()) {
         int storageSpec, funcSpec;
-        int a = 0, b=  0, c = 0;
         auto type = ParseDeclSpec(&storageSpec, &funcSpec);
         auto tokTypePair = ParseDeclarator(type);
         auto tok = tokTypePair.first;
@@ -1050,12 +1050,6 @@ end_of_loop:
     PutBack();
     switch (typeSpec) {
     case 0:
-        {
-            _curScope->Print();
-            auto ident = _curScope->Find(tok->Str());
-            if (ident)
-                printf("ident->ToObject(): %s:%d\n", tok->Str().c_str(), ident->ToObject());
-        }
         Error(tok->Coord(), "expect type specifier");
         break;
 
@@ -1295,7 +1289,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
             if (tok == nullptr) {
                 auto suType = memberType->ToStructUnionType();
                 if (suType && !suType->HasTag()) {
-                    MergeAnonymousStructUnion(type, suType);
+                    type->Merge(suType);
                 }
                 continue;
             }
@@ -1320,9 +1314,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
         } while (Try(','));
         Expect(';');;
     }
-
-    // TODO(wgtdkp): calculate width
-    type->SetWidth(_curScope->Offset());
+    _curScope->Print();
     //struct/union定义结束，设置其为完整类型
     type->SetComplete(true);
     
@@ -1331,23 +1323,6 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
     return type;
 }
 
-
-// Move members of Anonymous struct/union to external struct/union
-// TODO(wgtdkp):
-// Width of struct/union is not the sum of its members
-void Parser::MergeAnonymousStructUnion(StructUnionType* type,
-        StructUnionType* AnonType)
-{
-    auto iter = AnonType->MemberMap()->begin();
-    for (; iter != AnonType->MemberMap()->end(); iter++) {
-        if (type->GetMember(iter->first)) {
-            auto tok = iter->second->Tok();
-            Error(tok->Coord(), "duplicate member '%s'", tok->Str().c_str());
-        }
-        assert(iter->second->ToObject());
-        type->AddMember(iter->first, iter->second->ToObject());
-    }
-}
 
 int Parser::ParseQual(void)
 {

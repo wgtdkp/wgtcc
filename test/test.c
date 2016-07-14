@@ -26,13 +26,29 @@ void test_width(void)
 
 void test_struct(void)
 {
-    struct ListNode {
-        int val, hello;
-        //void foo(void);
-        struct ListNode* next;
+    typedef struct list_node list_node_t;
+    int ival;
+    struct list_node {
+        //int val;
+        struct {
+            char* name;
+            int len;
+            union {
+                int ival;
+                float fval;
+            };
+        };
+        list_node_t* next;
+    } list;
+
+    struct bb {
+        char a;
+        short b;
+        int c;
     };
 
-    printf("sizeof(struct ListNode): %u\n", sizeof(struct ListNode));
+    printf("sizeof(struct list_node): %u\n", sizeof(struct list_node));
+    printf("sizeof(struct bb): %u\n", sizeof(struct bb));
 }
 
 int main(void)

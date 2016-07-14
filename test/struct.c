@@ -1,7 +1,8 @@
-
+/*
 typedef struct list_node list_node_t;
-list_node_t* head;
+int ival;
 struct list_node {
+    //int val;
     struct {
         char* name;
         int len;
@@ -10,10 +11,8 @@ struct list_node {
             float fval;
         };
     };
-    //int val;
     list_node_t* next;
-};
-
+} list;
 
 int main(void)
 {
@@ -21,4 +20,10 @@ int main(void)
     int b = a;
     return b;
 }
+*/
 
+struct bb {
+    char a;
+    short b;
+    int c;
+} bb;

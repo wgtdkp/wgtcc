@@ -123,8 +123,6 @@ public:
     Type* ParseStructUnionSpec(bool isStruct);
     Type* ParseEnumSpec(void);
     StructUnionType* ParseStructUnionDecl(StructUnionType* type);
-    void MergeAnonymousStructUnion(StructUnionType* type,
-        StructUnionType* AnonType);
     Type* ParseEnumerator(ArithmType* type);
     //declarator
     int ParseQual(void);

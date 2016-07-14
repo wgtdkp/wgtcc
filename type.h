@@ -218,6 +218,10 @@ public:
         return true;
     }
 
+    virtual std::string Str(void) const {
+        return "void:0";
+    }
+
 protected:
     explicit VoidType(MemPool* pool): Type(pool, 0, false) {}
 };
@@ -248,6 +252,8 @@ public:
         //TODO: 
         return false;
     }
+
+    virtual std::string Str(void) const;
 
     bool IsBool(void) const {
         return T_BOOL == _tag;
@@ -336,6 +342,10 @@ public:
     
     virtual bool Compatible(const Type& other) const;
 
+    virtual std::string Str(void) const {
+        return _derived->Str() + "*:" + std::to_string(_width);
+    }
+
 protected:
     PointerType(MemPool* pool, Type* derived)
         : DerivedType(pool, derived, _intWidth << 1) {}
@@ -398,6 +408,10 @@ public:
             && _derived->Compatible(*otherArray->_derived));
     }
 
+    virtual std::string Str(void) const {
+        return _derived->Str() + "[]:" + std::to_string(_width);
+    }
+
     int GetElementOffset(int idx) const {
         return _derived->Width() * idx;
     }
@@ -430,6 +444,9 @@ public:
     virtual bool operator==(const Type& other) const;
     
     virtual bool Compatible(const Type& other) const;
+
+    virtual std::string Str(void) const;
+
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 
@@ -475,6 +492,8 @@ public:
     
     virtual bool Compatible(const Type& other) const;
 
+    virtual std::string Str(void) const;
+
     // struct/union
     void AddMember(const std::string& name, Object* member);
     
@@ -491,6 +510,8 @@ public:
     bool HasTag(void) {
         return _hasTag;
     }
+    
+    void Merge(StructUnionType* anonType);
 
 protected:
     // default is incomplete

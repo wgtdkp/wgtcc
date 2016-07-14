@@ -1,6 +1,7 @@
 #ifndef _WGTCC_SCOPE_H_
 #define _WGTCC_SCOPE_H_
 
+#include <iostream>
 #include <map>
 #include <string>
 
@@ -58,6 +59,8 @@ public:
     Identifier* FindTagInCurScope(const std::string& name);
 
     void Insert(const std::string& name, Identifier* ident);
+    
+    void InsertWithOutIncOffset(const std::string& name, Identifier* ident);
 
     void InsertTag(const std::string& name, Identifier* ident) {
         Insert(TagName(name), ident);
