@@ -551,7 +551,6 @@ enum Linkage {
     L_INTERNAL,
 };
 
-// TODO(wgtdkp): derived from Expr
 class Identifier: public Expr
 {
     friend class Parser;
@@ -593,14 +592,23 @@ public:
         _linkage = linkage;
     }
 
+    const Token* Tok(void) {
+        return _tok;
+    }
+
+    const std::string& Name(void);
+
     virtual bool operator==(const Identifier& other) const {
         return *_ty == *other._ty && _scope == other._scope;
     }
 
 protected:
-    Identifier(MemPool* pool, Type* type, ::Scope* scope, enum Linkage linkage)
-            : Expr(pool, type), _scope(scope), _linkage(linkage) {}
+    Identifier(MemPool* pool, const Token* tok, 
+            Type* type, ::Scope* scope, enum Linkage linkage)
+            : Expr(pool, type), _tok(tok), _scope(scope), _linkage(linkage) {}
     
+    const Token* _tok;
+
     // An identifier has property scope
     ::Scope* _scope;
     // An identifier has property linkage
@@ -659,9 +667,9 @@ public:
     }
 
 protected:
-    Object(MemPool* pool, Type* type, ::Scope* scope,
+    Object(MemPool* pool, const Token* tok, Type* type, ::Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE, int offset=0
-            ): Identifier(pool, type, scope, linkage),
+            ): Identifier(pool, tok, type, scope, linkage),
                _storage(0), _offset(offset) {}
 
 private:

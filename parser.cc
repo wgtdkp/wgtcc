@@ -103,18 +103,18 @@ FuncCall* Parser::NewFuncCall(const Token* tok,
 }
 
 
-Identifier* Parser::NewIdentifier(Type* type,
-        Scope* scope, enum Linkage linkage)
+Identifier* Parser::NewIdentifier(const Token* tok,
+            Type* type, Scope* scope, enum Linkage linkage)
 {
     return new (_identifierPool.Alloc())
-            Identifier(&_identifierPool, type, scope, linkage);
+            Identifier(&_identifierPool, tok, type, scope, linkage);
 }
 
-Object* Parser::NewObject(Type* type, Scope* scope,
+Object* Parser::NewObject(const Token* tok, Type* type, Scope* scope,
         int storage, enum Linkage linkage, int offset)
 {
     return new (_objectPool.Alloc())
-            Object(&_objectPool, type, scope, storage, linkage, offset);
+            Object(&_objectPool, tok, type, scope, storage, linkage, offset);
 }
 
 Constant* Parser::NewConstantInteger(ArithmType* type, long long val)
@@ -201,7 +201,7 @@ void Parser::Expect(int expect, int follow1, int follow2)
 }
 
 void Parser::EnterFunc(const char* funcName) {
-    //TODO: 添加编译器自带的 __func__ 宏
+    //TODO(wgtdkp): function scope
 }
 
 void Parser::ExitFunc(void) {
@@ -226,10 +226,44 @@ void Parser::ExitFunc(void) {
 void Parser::ParseTranslationUnit(void)
 {
     while (!Peek()->IsEOF()) {
-        if (IsFuncDef()) {
-            _unit->Add(ParseFuncDef());
-        } else {
-            _unit->Add(ParseDecl());
+        int storageSpec, funcSpec;
+        int a = 0, b=  0, c = 0;
+        auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+        auto tokTypePair = ParseDeclarator(type);
+        auto tok = tokTypePair.first;
+        type = tokTypePair.second;
+
+        if (tok == nullptr) {
+            Expect(';');
+            continue;
+        }
+
+        auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec);
+        type = ident->Ty();
+
+        if (tok && type->ToFuncType() && Try('{')) { // Function definition
+            EnterFunc(nullptr);
+            auto stmt = ParseCompoundStmt();
+            ExitFunc();
+            _unit->Add(NewFuncDef(type->ToFuncType(), stmt));
+        } else { // Declaration
+            std::list<Stmt*> stmts;
+            if (Try('=')) {
+                if (ident->ToObject() == nullptr) {
+                    Error(Peek()->Coord(), "unexpected initializer");
+                }
+                stmts.push_back(ParseInitializer(ident->ToObject()));
+            }
+
+            while (Try(',')) {
+                auto initExpr = ParseInitDeclarator(
+                            type, storageSpec, funcSpec);
+                if (initExpr) {
+                    stmts.push_back(initExpr);
+                }
+            }
+            Expect(';');
+            _unit->Add(NewCompoundStmt(stmts));
         }
     }
 
@@ -462,6 +496,11 @@ Constant* Parser::ParseSizeof(void)
     if (type->ToFuncType()) {
         Error(tok->Coord(), "sizeof operator can't act on function");
     }
+
+    if (!type->Complete()) {
+        Error(tok->Coord(), "sizeof(incomplete type)");
+    }
+
 
     auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
 
@@ -774,12 +813,12 @@ CompoundStmt* Parser::ParseDecl(void)
             do {
                 auto initExpr = ParseInitDeclarator(
                             type, storageSpec, funcSpec);
-                if (nullptr != initExpr)
+                if (initExpr) {
                     stmts.push_back(initExpr);
+                }
             } while (Try(','));
-            
-            Expect(';');
-        }
+        }            
+        Expect(';');
     }
 
     return NewCompoundStmt(stmts);
@@ -970,7 +1009,7 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
 
         case Token::STRUCT: 
         case Token::UNION:
-            if (typeSpec != 0)
+            if (typeSpec)
                 goto error; 
             type = ParseStructUnionSpec(Token::STRUCT == tok->Tag()); 
             typeSpec |= T_STRUCT_UNION;
@@ -995,7 +1034,7 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             break;
             */
         default:
-            if (0 == typeSpec && IsTypeName(tok)) {
+            if (typeSpec == 0 && IsTypeName(tok)) {
                 auto ident = _curScope->Find(tok->Str());
                 if (ident) {
                     type = ident->ToType();
@@ -1011,6 +1050,12 @@ end_of_loop:
     PutBack();
     switch (typeSpec) {
     case 0:
+        {
+            _curScope->Print();
+            auto ident = _curScope->Find(tok->Str());
+            if (ident)
+                printf("ident->ToObject(): %s:%d\n", tok->Str().c_str(), ident->ToObject());
+        }
         Error(tok->Coord(), "expect type specifier");
         break;
 
@@ -1029,8 +1074,8 @@ end_of_loop:
         break;
     }
 
-    if ((nullptr == storage || nullptr == func)) {
-        if (0 != funcSpec && 0 != storageSpec && -1 != align) {
+    if ((storage == nullptr || func == nullptr)) {
+        if (funcSpec && storageSpec && align != -1) {
             Error(tok->Coord(), "type specifier/qualifier only");
         }
     } else {
@@ -1097,7 +1142,7 @@ Type* Parser::ParseEnumSpec(void)
             }
             auto type = Type::NewArithmType(T_INT);
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
-            auto ident = NewIdentifier(type, _curScope, L_NONE);
+            auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
             _curScope->InsertTag(tagName, ident);
         }
     }
@@ -1107,7 +1152,7 @@ Type* Parser::ParseEnumSpec(void)
 enum_decl:
     auto type = Type::NewArithmType(T_INT);
     if (tagName.size() != 0) {
-        auto ident = NewIdentifier(type, _curScope, L_NONE);
+        auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
         _curScope->InsertTag(tagName, ident);
     }
     
@@ -1161,13 +1206,12 @@ Type* Parser::ParseEnumerator(ArithmType* type)
 Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
     std::string tagName;
-    auto tok = Next();
-    if (tok->IsIdentifier()) {
+    auto tok = Peek();
+    if (Try(Token::IDENTIFIER)) {
         tagName = tok->Str();
         if (Try('{')) {
             //看见大括号，表明现在将定义该struct/union类型
             auto tagIdent = _curScope->FindTagInCurScope(tagName);
-            printf("tagIdent: %p\n", tagIdent);
             if (tagIdent == nullptr) //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
                 goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
             
@@ -1180,7 +1224,8 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
              */
             if (!tagIdent->Ty()->Complete()) {
                 //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
-                return ParseStructDecl(tagIdent->Ty()->ToStructUnionType());
+                return ParseStructUnionDecl(
+                        tagIdent->Ty()->ToStructUnionType());
             } else {
                 //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
                 Error(tok->Coord(), "redefinition of struct tag '%s'",
@@ -1203,10 +1248,10 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             }
             
             //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
-            auto type = Type::NewStructUnionType(isStruct); //创建不完整的类型
+            auto type = Type::NewStructUnionType(isStruct, true, _curScope);
             
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
-            auto ident = NewIdentifier(type, _curScope, L_NONE);
+            auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
             _curScope->InsertTag(tagName, ident);
             return type;
         }
@@ -1217,38 +1262,91 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 struct_decl:
     //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
 	//所以现在是第一次开始定义一个完整的struct/union类型
-    auto type = Type::NewStructUnionType(isStruct);
+    auto type = Type::NewStructUnionType(isStruct, tagName.size(), _curScope);
     if (tagName.size() != 0) {
-        auto ident = NewIdentifier(type, _curScope, L_NONE);
+        auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
         _curScope->InsertTag(tagName, ident);
     }
     
-    return ParseStructDecl(type); //处理反大括号: '}'
+    return ParseStructUnionDecl(type); //处理反大括号: '}'
 }
 
-StructUnionType* Parser::ParseStructDecl(StructUnionType* type)
+StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
 {
     //既然是定义，那输入肯定是不完整类型，不然就是重定义了
     assert(type && !type->Complete());
     
+    auto scopeBackup = _curScope;
+    _curScope = type->MemberMap(); // Internal symbol lookup rely on _curScope
+
     while (!Try('}')) {
         if (Peek()->IsEOF()) {
             Error(Peek()->Coord(), "premature end of input");
         }
         
-        //解析type specifier/qualifier, 不接受storage等
-        auto fieldType = ParseSpecQual();
-        //TODO: 解析declarator
-        auto ident = ParseDirectDeclarator(fieldType, 0, 0);
-        Expect(';');
+        // 解析type specifier/qualifier, 不接受storage等
+
+        auto memberType = ParseSpecQual();
+        do {
+            auto tokTypePair = ParseDeclarator(memberType);
+            auto tok = tokTypePair.first;
+            memberType = tokTypePair.second;
+            
+            if (tok == nullptr) {
+                auto suType = memberType->ToStructUnionType();
+                if (suType && !suType->HasTag()) {
+                    MergeAnonymousStructUnion(type, suType);
+                }
+                continue;
+            }
+
+            auto name = tok->Str();
+            if (type->GetMember(name)) {
+                Error(tok->Coord(), "duplicate member '%s'", name.c_str());
+            }
+
+            if (!memberType->Complete()) {
+                Error(tok->Coord(),
+                        "field '%s' has incomplete type", name.c_str());
+            }
+
+            if (memberType->ToFuncType()) {
+                Error(tok->Coord(),
+                        "field '%s' declared as a function", name.c_str());
+            }
+
+            auto member = NewObject(tok, memberType, _curScope);
+            type->AddMember(name, member);
+        } while (Try(','));
+        Expect(';');;
     }
 
     // TODO(wgtdkp): calculate width
-
+    type->SetWidth(_curScope->Offset());
     //struct/union定义结束，设置其为完整类型
     type->SetComplete(true);
     
+    _curScope = scopeBackup;
+
     return type;
+}
+
+
+// Move members of Anonymous struct/union to external struct/union
+// TODO(wgtdkp):
+// Width of struct/union is not the sum of its members
+void Parser::MergeAnonymousStructUnion(StructUnionType* type,
+        StructUnionType* AnonType)
+{
+    auto iter = AnonType->MemberMap()->begin();
+    for (; iter != AnonType->MemberMap()->end(); iter++) {
+        if (type->GetMember(iter->first)) {
+            auto tok = iter->second->Tok();
+            Error(tok->Coord(), "duplicate member '%s'", tok->Str().c_str());
+        }
+        assert(iter->second->ToObject());
+        type->AddMember(iter->first, iter->second->ToObject());
+    }
 }
 
 int Parser::ParseQual(void)
@@ -1350,9 +1448,10 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             // The same declaration, simply return the prio declaration
             if (*type == *ident->Ty())
                 return ident;
+            // TODO(wgtdkp): add previous declaration information
             Error(tok->Coord(), "conflicting types for '%s'", name.c_str());
         }
-        ident = NewIdentifier(type, _curScope, L_NONE);
+        ident = NewIdentifier(tok, type, _curScope, L_NONE);
         _curScope->Insert(name, ident);
         return ident;
     }
@@ -1435,9 +1534,9 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
 
     Identifier* ret;
     if (type->ToFuncType()) {
-        ret = NewIdentifier(type, _curScope, linkage);
+        ret = NewIdentifier(tok, type, _curScope, linkage);
     } else {
-        ret = NewObject(type, _curScope, storageSpec, linkage);
+        ret = NewObject(tok, type, _curScope, storageSpec, linkage);
     }
     _curScope->Insert(name, ret);
     
@@ -1665,7 +1764,7 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
             idxSet.insert(idx);
 
             int offset = type->GetElementOffset(idx);
-            auto ele = NewObject(type->Derived(), arr->Scope());
+            auto ele = NewObject(nullptr, type->Derived(), arr->Scope());
             ele->SetOffset(offset + arr->Offset());
             ele->SetStorage(arr->Storage());
             ele->SetLinkage(arr->Linkage());
@@ -1681,7 +1780,7 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
                 defaultIdx++;
             
             int offset = type->GetElementOffset(defaultIdx);
-            auto ele = NewObject(type->Derived(), arr->Scope());
+            auto ele = NewObject(nullptr, type->Derived(), arr->Scope());
             ele->SetOffset(offset + arr->Offset());
             ele->SetStorage(arr->Storage());
             ele->SetLinkage(arr->Linkage());
@@ -2166,15 +2265,16 @@ bool Parser::IsFuncDef(void)
 
 FuncDef* Parser::ParseFuncDef(void)
 {
-    // TODO(wgtdkp): function name
-    EnterFunc(nullptr);
-    
     int storageSpec, funcSpec;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
     auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
     type = ident->Ty();
 
     Expect('{');
+    
+    // TODO(wgtdkp): function name
+    EnterFunc(nullptr);
+    
     auto stmt = ParseCompoundStmt();
     
     ExitFunc();

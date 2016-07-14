@@ -9,7 +9,7 @@ SRCS = ast.cc error.cc lexer.cc\
 	   main.cc parser.cc scope.cc\
 	   token.cc type.cc visitor.cc
 
-CFLAGS = -g -std=c++11 -Wall
+CFLAGS = -g -rdynamic -std=c++11 -Wall
 
 
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cc=.o))

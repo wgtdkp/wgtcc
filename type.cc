@@ -4,6 +4,7 @@
 #include "scope.h"
 
 #include <cassert>
+#include <algorithm>
 
 
 /***************** Type *********************/
@@ -27,9 +28,7 @@ bool Type::IsInteger(void) const {
 
 VoidType* Type::NewVoidType(void)
 {
-    auto ret = new (_voidTypePool.Alloc()) VoidType(&_voidTypePool);
-
-    return ret;
+    return new (_voidTypePool.Alloc()) VoidType(&_voidTypePool);
 }
 
 /*
@@ -130,41 +129,32 @@ ArithmType* Type::NewArithmType(int typeSpec) {
 
 ArithmType* Type::NewArithmType(int typeSpec) {
     auto tag = ArithmType::Spec2Tag(typeSpec);
-    auto ret = new (_arithmTypePool.Alloc())
+    return new (_arithmTypePool.Alloc())
             ArithmType(&_arithmTypePool, tag);
-
-    return ret;
 }
 
 ArrayType* Type::NewArrayType(long long len, Type* eleType)
 {
-    auto ret = new (_arrayTypePool.Alloc())
+    return new (_arrayTypePool.Alloc())
             ArrayType(&_arrayTypePool, len, eleType);
-    
-    return ret;
 }
 
 //static IntType* NewIntType();
 FuncType* Type::NewFuncType(Type* derived, int funcSpec,
         bool hasEllipsis, const std::list<Type*>& params) {
-    auto ret = new (_funcTypePool.Alloc())
+    return new (_funcTypePool.Alloc())
             FuncType(&_funcTypePool, derived, funcSpec, hasEllipsis, params);
-    
-    return ret;
 }
 
 PointerType* Type::NewPointerType(Type* derived) {
-    auto ret = new (_pointerTypePool.Alloc())
+    return new (_pointerTypePool.Alloc())
             PointerType(&_pointerTypePool, derived);
-
-    return ret;
 }
 
-StructUnionType* Type::NewStructUnionType(bool isStruct) {
-    auto ret = new (_structUnionTypePool.Alloc())
-            StructUnionType(&_structUnionTypePool, isStruct);
-    
-    return ret;
+StructUnionType* Type::NewStructUnionType(
+        bool isStruct, bool hasTag, Scope* parent) {
+    return new (_structUnionTypePool.Alloc())
+            StructUnionType(&_structUnionTypePool, isStruct, hasTag, parent);
 }
 
 /*
@@ -185,43 +175,43 @@ int ArithmType::CalcWidth(int tag) {
 
     case T_SHORT:
     case T_UNSIGNED | T_SHORT:
-        return _machineWord >> 1;
+        return _intWidth >> 1;
 
     case T_INT:
     case T_UNSIGNED:
-        return _machineWord;
+        return _intWidth;
 
     case T_LONG:
     case T_UNSIGNED | T_LONG:
-        return _machineWord << 1;
+        return _intWidth << 1;
 
     case T_LONG_LONG:
     case T_UNSIGNED | T_LONG_LONG:
-        return _machineWord << 1;
+        return _intWidth << 1;
 
     case T_FLOAT:
-        return _machineWord;
+        return _intWidth;
 
     case T_DOUBLE:
-        return _machineWord << 1;
+        return _intWidth << 1;
 
     case T_LONG | T_DOUBLE:
-        return _machineWord << 2;
+        return _intWidth << 2;
 
     case T_FLOAT | T_COMPLEX:
-        return _machineWord << 1;
+        return _intWidth << 1;
 
     case T_DOUBLE | T_COMPLEX:
-        return _machineWord << 2;
+        return _intWidth << 2;
 
     case T_LONG | T_DOUBLE | T_COMPLEX:
-        return _machineWord << 3;
+        return _intWidth << 3;
 
     default:
         assert(false);
     }
 
-    return _machineWord;
+    return _intWidth;
 }
 
 int ArithmType::Spec2Tag(int spec) {
@@ -312,9 +302,10 @@ bool FuncType::Compatible(const Type& other) const
  * StructUnionType
  */
 
-StructUnionType::StructUnionType(MemPool* pool, bool isStruct)
-        :  Type(pool, 0, false), _isStruct(isStruct),
-           _memberMap(new Scope(nullptr, S_BLOCK)) {
+StructUnionType::StructUnionType(MemPool* pool,
+        bool isStruct, bool hasTag, Scope* parent)
+        : Type(pool, 0, false), _isStruct(isStruct), _hasTag(hasTag),
+          _memberMap(new Scope(parent, S_BLOCK)) {
 }
 
 Object* StructUnionType::GetMember(const std::string& member) {
@@ -351,9 +342,13 @@ void StructUnionType::AddMember(const std::string& name, Object* member)
 {
     _memberMap->Insert(name, member);
 
-    if (!IsStruct()) {
+    if (IsStruct()) {
+        _width = _memberMap->Offset();
+    } else {
         member->SetOffset(0);
+        _width = std::max(_width, member->Offset());
     }
+
 }
 
 

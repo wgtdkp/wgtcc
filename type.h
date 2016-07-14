@@ -67,7 +67,7 @@ enum {
 class Type
 {
 public:
-    static const int _machineWord = 4;
+    static const int _intWidth = 4;
 
     bool operator!=(const Type& other) const { return !(*this == other); }
 
@@ -79,9 +79,16 @@ public:
     virtual bool Compatible(const Type& ohter) const = 0;
     virtual ~Type(void) {}
 
-    int Width(void) const { return _width; }
+    // For Debugging
+    virtual std::string Str(void) const = 0; 
+
+    int Width(void) const {
+        return _width;
+    }
     
-    void SetWidth(int width) { _width = width; }
+    void SetWidth(int width) {
+        _width = width;
+    }
     
     int Align(void) const {
         // TOD(wgtdkp):
@@ -162,7 +169,7 @@ public:
     
     static PointerType* NewPointerType(Type* derived);
     
-    static StructUnionType* NewStructUnionType(bool isStruct);
+    static StructUnionType* NewStructUnionType(bool isStruct, bool hasTag, Scope* parent);
     
     //static EnumType* NewEnumType();
     static ArithmType* NewArithmType(int typeSpec);
@@ -331,7 +338,7 @@ public:
 
 protected:
     PointerType(MemPool* pool, Type* derived)
-        : DerivedType(pool, derived, _machineWord) {}
+        : DerivedType(pool, derived, _intWidth << 1) {}
 };
 
 /*
@@ -477,9 +484,17 @@ public:
 
     Object* GetMember(const std::string& member);
 
+    Scope* MemberMap(void) {
+        return _memberMap;
+    }
+
+    bool HasTag(void) {
+        return _hasTag;
+    }
+
 protected:
     // default is incomplete
-    StructUnionType(MemPool* pool, bool isStruct);
+    StructUnionType(MemPool* pool, bool isStruct, bool hasTag, Scope* parent);
     
     StructUnionType(const StructUnionType& other);
 
@@ -487,6 +502,7 @@ private:
     void CalcWidth(void);
 
     bool _isStruct;
+    bool _hasTag;
     Scope* _memberMap;
 };
 
@@ -501,7 +517,7 @@ virtual const EnumType* ToEnumType(void) const { return this; }
 virtual bool operator==(const Type& other) const;
 virtual bool Compatible(const Type& other) const;
 protected:
-EnumType(void) : Type(_machineWord, false) {}
+EnumType(void) : Type(_intWidth, false) {}
 private:
 
 };

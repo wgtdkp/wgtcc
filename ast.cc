@@ -210,6 +210,10 @@ long long Identifier::EvalInteger(const Token* errTok) {
     return 0;   // Make compiler happy
 }
 
+const std::string& Identifier::Name(void) {
+    return _tok->Str();
+}
+
 long long Constant::EvalInteger(const Token* errTok) {
     if (_ty->IsFloat()) {
         Error(errTok->Coord(), "expect integer, but get floating");

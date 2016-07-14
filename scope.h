@@ -16,10 +16,12 @@ enum ScopeType {
 class Scope
 {
     friend class StructUnionType;
-    
+    typedef std::map<std::string, Identifier*> IdentMap;
+
 public:
     explicit Scope(Scope* parent, enum ScopeType type)
-            : _parent(parent), _offset(0), _type(type) {}
+            : _parent(parent), _type(type),
+              _offset(parent?parent->Offset():0) {}
     
     ~Scope(void) {}
 
@@ -33,6 +35,14 @@ public:
 
     enum ScopeType Type(void) const {
         return _type;
+    }
+
+    int Offset(void) const {
+        return _offset;
+    }
+
+    void SetOffset(int offset) {
+        _offset = offset;
     }
     
     std::string TagName(const std::string& name) {
@@ -59,16 +69,22 @@ public:
         return _identMap == other._identMap;
     }
 
+    IdentMap::iterator begin(void) {
+        return _identMap.begin();
+    }
+
+    IdentMap::iterator end(void) {
+        return _identMap.end();
+    }
+
 private:
     const Scope& operator=(const Scope& other);
     Scope(const Scope& scope);
-
-    typedef std::map<std::string, Identifier*> IdentMap;
     //typedef std::map<std::string, Type*> TagMap;
 
     Scope* _parent;
-    int _offset;
     enum ScopeType _type;
+    int _offset;
 
     IdentMap _identMap;
 };

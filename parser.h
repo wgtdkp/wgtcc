@@ -35,14 +35,17 @@ public:
     BinaryOp* NewBinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs);
     BinaryOp* NewMemberRefOp(const Token* tok,
             Expr* lhs, const std::string& rhsName);
+
     ConditionalOp* NewConditionalOp(const Token* tok,
             Expr* cond, Expr* exprTrue, Expr* exprFalse);
     
     FuncCall* NewFuncCall(const Token* tok,
             Expr* designator, const std::list<Expr*>& args);
     
-    Identifier* NewIdentifier(Type* type, Scope* scope, enum Linkage linkage);
-    Object* NewObject(Type* type, Scope* scope,
+    Identifier* NewIdentifier(const Token* tok,
+            Type* type, Scope* scope, enum Linkage linkage);
+
+    Object* NewObject(const Token* tok, Type* type, Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE, int offset=0);
 
     Constant* NewConstantInteger(ArithmType* type, long long val);
@@ -119,12 +122,13 @@ public:
     int ParseAlignas(void);
     Type* ParseStructUnionSpec(bool isStruct);
     Type* ParseEnumSpec(void);
-    StructUnionType* ParseStructDecl(StructUnionType* type);
+    StructUnionType* ParseStructUnionDecl(StructUnionType* type);
+    void MergeAnonymousStructUnion(StructUnionType* type,
+        StructUnionType* AnonType);
     Type* ParseEnumerator(ArithmType* type);
     //declarator
     int ParseQual(void);
     Type* ParsePointer(Type* typePointedTo);
-    //Identifier* ParseDeclaratorAndDo(Type* base, int storageSpec, int funcSpec);
     TokenTypePair ParseDeclarator(Type* type);
     Type* ParseArrayFuncDeclarator(Type* base);
     int ParseArrayLength(void);
@@ -225,7 +229,7 @@ private:
     void Mark(void) { _buf.push(Peek()); }
 
     //�ص�����һ��Mark�ĵط�
-    Token* Release(void) {
+    Token* Restore(void) {
         assert(!_buf.empty());
         while (Peek() != _buf.top()) {
             PutBack();

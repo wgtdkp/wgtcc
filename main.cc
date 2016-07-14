@@ -20,14 +20,6 @@ int main(int argc, char* argv[])
 
     Lexer lexer(argv[1]);
     lexer.Tokenize();
-    
-    /*
-    auto tok = lexer.Get();
-    while (tok->Tag() != Token::END) {
-        std::cout << tok->Val() << std::endl;
-        tok = lexer.Get();
-    }
-    */
 
     Parser parser(&lexer);
     parser.ParseTranslationUnit();

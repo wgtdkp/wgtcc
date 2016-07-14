@@ -24,9 +24,23 @@ void test_width(void)
     printf("sizeof(long double complex): %d\n", sizeof(long double complex));
 }
 
+void test_struct(void)
+{
+    struct ListNode {
+        int val, hello;
+        //void foo(void);
+        struct ListNode* next;
+    };
+
+    printf("sizeof(struct ListNode): %u\n", sizeof(struct ListNode));
+}
+
 int main(void)
 {
-    test_promotion();
-    test_width();
+    int;
+    char;
+    //test_promotion();
+    //test_width();
+    test_struct();
     return 0;
 }
