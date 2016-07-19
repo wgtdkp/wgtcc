@@ -36,7 +36,8 @@ void MemPoolImp<T>::Clear(void)
 {
     for (auto iter = _blocks.begin(); iter != _blocks.end(); iter++)
         delete *iter;
-        
+
+    _blocks.resize(0);
     _root = nullptr;
     _allocated = 0;
 }
