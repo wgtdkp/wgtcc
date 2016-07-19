@@ -146,7 +146,7 @@ public:
 
     /************* Statements ***************/
     Stmt* ParseStmt(void);
-    CompoundStmt* ParseCompoundStmt(void);
+    CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
     IfStmt* ParseIfStmt(void);
     CompoundStmt* ParseSwitchStmt(void);
     CompoundStmt* ParseWhileStmt(void);
@@ -272,9 +272,8 @@ private:
     
 
     
-    void EnterBlock(void) {
-        _curScope = new Scope(_curScope, S_BLOCK);
-    }
+    void EnterBlock(FuncType* funcType=nullptr);
+    
     void ExitBlock(void) {
         _curScope = _curScope->Parent();
     }

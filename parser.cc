@@ -224,6 +224,23 @@ void Parser::ExitFunc(void) {
     _curLabels.clear();	//清空 label map
 }
 
+void Parser::EnterBlock(FuncType* funcType)
+{
+    if (funcType) {
+        auto paramScope = _curScope;
+        _curScope = new Scope(_curScope->Parent(), S_BLOCK);
+        
+        // Merge elements in param scope into current block scope
+        auto iter = paramScope->begin();
+        for (; iter != paramScope->end(); iter++) {
+            _curScope->Insert(iter->first, iter->second);
+        }
+    } else {
+        _curScope = new Scope(_curScope, S_BLOCK);
+    }
+}
+
+
 void Parser::ParseTranslationUnit(void)
 {
     while (!Peek()->IsEOF()) {
@@ -1829,11 +1846,11 @@ Stmt* Parser::ParseStmt(void)
     return expr;
 }
 
-CompoundStmt* Parser::ParseCompoundStmt(void)
+CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
 {
     EnterBlock();
     std::list<Stmt*> stmts;
-    
+
     while (!Try('}')) {
         if (Peek()->IsEOF()) {
             Error(Peek()->Coord(), "premature end of input");
