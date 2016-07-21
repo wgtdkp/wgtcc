@@ -6,19 +6,41 @@
 
 #include <cassert>
 #include <cstring>
-#include <unordered_map>
+#include <iostream>
 #include <list>
-#include <cstring>
+#include <unordered_map>
 
+class Parser;
 
-class Token
+struct Token
 {
-    friend class Lexer;
+    friend class Parser;
     
 public:
-    Token(int tag, const Coordinate& coord)
-            :  _tag(tag), _coord(coord) {}
+    Token(void): _tag(Token::END), _fileName(nullptr),
+            _line(1), _column(1), _lineBegin(nullptr),
+            _begin(nullptr), _end(nullptr) {}
+
+    //Token(int tag, const char* fileName, int line,
+    //        int column, char* lineBegin, StrPair& str)
+    //        : _tag(tag), _fileName(fileName), _line(line),
+    //          _column(column), _lineBegin(lineBegin), _str(str) {}
     
+    Token(const Token& other) {
+        *this = other;
+    }
+
+    const Token& operator=(const Token& other) {
+        _fileName = other._fileName;
+        _line = other._line;
+        _column = other._column;
+        _lineBegin = other._lineBegin;
+        _begin = other._begin;
+        _end = other._end;
+
+        return *this;
+    }
+
     virtual ~Token(void) {}
     
     // Do nothing
@@ -176,15 +198,13 @@ public:
     int Tag(void) const {
         return _tag;
     }
-    
-    const std::string& Str(void) const {
-        if (_str.size() == 0)
-            _str = std::string(_coord.begin, _coord.end);
-        return _str;
-    }
 
-    const Coordinate& Coord(void) const {
-        return _coord;
+    size_t Size(void) const {
+        return _end - _begin;
+    }
+    
+    std::string Str(void) const {
+    	return std::string(_begin, _end);
     }
 
     static bool IsKeyWord(int tag) {
@@ -230,18 +250,29 @@ public:
             
         return iter->second;
     }
-
-private:
-    int _tag;
-    Coordinate _coord;
-    mutable std::string _str;
     
+    int _tag;
+    //Coordinate _coord;
+
+    const char* _fileName;
+    
+    // Line index of the begin
+    int _line;
+    
+    // Column index of the begin
+    int _column;
+
+    char* _lineBegin;
+
+    char* _begin;
+
+    char* _end;
+
+    //bool _needFree;
+
     static const std::unordered_map<std::string, int> _kwTypeMap;
     static const std::unordered_map<int, const char*> _TagLexemeMap;
     //static const char* _tokenTable[TOKEN_NUM - OFFSET - 1];
-    
-    Token(const Token& other);
-    const Token& operator=(const Token& other);	
 };
 
 #endif

@@ -90,134 +90,137 @@ static inline bool IsBlank(char ch)
     return ' ' == ch || '\t' == ch || '\v' == ch || '\f' == ch;
 }
 
-void Lexer::Tokenize(void)
+void Lexer::Tokenize(TokenList& tokList)
 {
     char* p = _text;
-    Coordinate coord;
-    coord.line = 1,
-    coord.column = 1,
-    coord.lineBegin = _text;
-    coord.begin = _text,
-    coord.end = _text,
-    coord.fileName = ParseName(_path);
     
-    for (; ;) {
+    Token tok;
+    tok._tag = Token::END,
+    tok._fileName = _fileName,
+    tok._line = 1,
+    tok._column = 1,
+    tok._lineBegin = _text,
+    tok._begin = _text,
+    tok._end = _text;
+
+    while (true) {
         while (IsBlank(p[0]) || '\n' == p[0]) {
             if ('\n' == p[0]) {
                 if ('\r' == p[1]) {
                     ++p;
                 }
-                coord.lineBegin = p + 1;
-                ++coord.line;
+                tok._lineBegin = p + 1;
+                ++tok._line;
             }
             ++p;
         }
 
-        if (0 == p[0]) {
-            coord.end = p;
-            _tokBuf.push_back(NewToken(Token::END, coord));
+        if (p[0] == 0) {
+            tok._end = p;
+            tok._tag = Token::END;
+            tokList.push_back(tok);
             return;
         }
         
-        int tag = Token::END;
+        tok._tag = Token::END;
         
-        coord.begin = p;
+        tok._begin = p;
         switch (p[0]) {
         case '-':
             if ('>' == p[1]) {
-                tag = Token::PTR_OP; ++p;
+                tok._tag = Token::PTR_OP; ++p;
             } else if ('-' == p[1]) {
-                tag = Token::DEC_OP; ++p;
+                tok._tag = Token::DEC_OP; ++p;
             } else if ('=' == p[1]) {
-                tag = Token::SUB_ASSIGN; ++p;
+                tok._tag = Token::SUB_ASSIGN; ++p;
             } else {
-                tag = Token::SUB;
+                tok._tag = Token::SUB;
             }
             ++p; break;
 
         case '+':
             if ('+' == p[1]) {
-                tag = Token::INC_OP; ++p;
+                tok._tag = Token::INC_OP; ++p;
             } else if ('=' == p[1]) {
-                tag = Token::ADD_ASSIGN; ++p;
+                tok._tag = Token::ADD_ASSIGN; ++p;
             } else {
-                tag = Token::ADD;
+                tok._tag = Token::ADD;
             }
             ++p; break;
 
         case '<':
             if ('<' == p[1]) {
                 if ('=' == p[2]) {
-                    tag = Token::LEFT_ASSIGN; ++p; ++p;
+                    tok._tag = Token::LEFT_ASSIGN; ++p; ++p;
                 } else {
-                    tag = Token::LEFT_OP; ++p;
+                    tok._tag = Token::LEFT_OP; ++p;
                 }
             } else if ('=' == p[1]) {
-                tag = Token::LE_OP; ++p;
+                tok._tag = Token::LE_OP; ++p;
             } else if (':' == p[1]) {
-                tag = '['; ++p;
+                tok._tag = '['; ++p;
             } else if ('%' == p[1]) {
-                tag = '{'; ++p;
+                tok._tag = '{'; ++p;
             } else {
-                tag = Token::LESS;
+                tok._tag = Token::LESS;
             }
             ++p; break;
 
         case '>':
             if ('>' == p[1]) {
                 if ('=' == p[2]) {
-                    tag = Token::RIGHT_ASSIGN; ++p; ++p;
+                    tok._tag = Token::RIGHT_ASSIGN; ++p; ++p;
                 } else {
-                    tag = Token::RIGHT_OP; ++p;
+                    tok._tag = Token::RIGHT_OP; ++p;
                 }
             } else if ('=' == p[1]) {
-                tag = Token::GE_OP; ++p;
+                tok._tag = Token::GE_OP; ++p;
             } else {
-                tag = Token::GREATER;
+                tok._tag = Token::GREATER;
             }
             ++p; break;
 
         case '=':
             if ('=' == p[1]) {
-                tag = Token::EQ_OP; ++p;
+                tok._tag = Token::EQ_OP; ++p;
             } else {
-                tag = Token::EQUAL;
+                tok._tag = Token::EQUAL;
             }
             ++p; break;
 
         case '!':
             if ('=' == p[1]) {
-                tag = Token::NE_OP; ++p;
+                tok._tag = Token::NE_OP; ++p;
             } else {
-                tag = Token::NOT;
+                tok._tag = Token::NOT;
             }
             ++p; break;
 
         case '&':
             if ('&' == p[1]) {
-                tag = Token::AND_OP; ++p;
+                tok._tag = Token::AND_OP; ++p;
             } else if ('=' == p[1]) {
-                tag = Token::AND_ASSIGN; ++p;
+                tok._tag = Token::AND_ASSIGN; ++p;
             } else {
-                tag = Token::AND;
+                tok._tag = Token::AND;
             }
             ++p; break;
 
         case '|':
             if ('|' == p[1]) {
-                tag = Token::OR_OP; ++p;
+                tok._tag = Token::OR_OP; ++p;
             } else if ('=' == p[1]) {
-                tag = Token::OR_ASSIGN; ++p;
+                tok._tag = Token::OR_ASSIGN; ++p;
             } else {
-                tag = Token::OR;
+                tok._tag = Token::OR;
             }
             ++p; break;
 
         case '*':
             if ('=' == p[1]) {
-                tag = Token::MUL_ASSIGN; ++p;
+                tok._tag = Token::MUL_ASSIGN; ++p;
             } else {
-                tag = Token::MUL;
+                tok._tag = Token::MUL;
             }
             ++p; break;
 
@@ -226,48 +229,48 @@ void Lexer::Tokenize(void)
                 while ('\n' != p[0])
                     ++p;
                     
-                tag = Token::IGNORE;
-                coord.lineBegin = p + 1;
-                ++coord.line;
+                tok._tag = Token::IGNORE;
+                tok._lineBegin = p + 1;
+                ++tok._line;
                 ++p;
                 continue;
             } else if ('*' == p[1]) {
                 for (p += 2; !('*' == p[0] && '/' == p[1]); p++) {
                     if ('\n' == p[0]) {
-                        coord.lineBegin = p + 1;
-                        ++coord.line;
+                        tok._lineBegin = p + 1;
+                        ++tok._line;
                     }
                 }
-                tag = Token::IGNORE; ++p; ++p;
+                tok._tag = Token::IGNORE; ++p; ++p;
                 continue;
             } else if ('=' == p[1]) {
-                tag = Token::DIV_ASSIGN; ++p;
+                tok._tag = Token::DIV_ASSIGN; ++p;
             } else {
-                tag = Token::DIV;
+                tok._tag = Token::DIV;
             }
             ++p; break;
 
         case '%':
             if ('=' == p[1]) {
-                tag = Token::MOD_ASSIGN; ++p;
+                tok._tag = Token::MOD_ASSIGN; ++p;
             } else if ('>' == p[1]) {
-                tag = '}'; ++p;
+                tok._tag = '}'; ++p;
             } else if (':' == p[1]) {
                 if ('%' == p[2] && ':' == p[3]) {
-                    tag = Token::DSHARP; p += 3;
+                    tok._tag = Token::DSHARP; p += 3;
                 } else {
-                    tag = '#'; ++p;
+                    tok._tag = '#'; ++p;
                 }
             } else {
-                tag = Token::MOD;
+                tok._tag = Token::MOD;
             }
             ++p; break;
 
         case '^':
             if ('=' == p[1]) {
-                tag = Token::XOR_ASSIGN; ++p;
+                tok._tag = Token::XOR_ASSIGN; ++p;
             } else {
-                tag = Token::XOR;
+                tok._tag = Token::XOR;
             }
             ++p; break;
 
@@ -275,16 +278,16 @@ void Lexer::Tokenize(void)
             if ('.' == p[1]) {
                 if ('.' == p[2]) {
                     //ellipsis
-                    tag = Token::ELLIPSIS; ++p; ++p;
+                    tok._tag = Token::ELLIPSIS; ++p; ++p;
                 } else {
-                    coord.end = p;
-                    coord.column = coord.begin - coord.lineBegin + 1;
-                    Error(coord, "illegal identifier '..'");
+                    tok._end = p;
+                    tok._column = tok._begin - tok._lineBegin + 1;
+                    Error(&tok, "illegal identifier '..'");
                 }
             } else if (isdigit(p[1])) {	// for float constant like: '.123'
                 goto constant_handler;
             } else {
-                tag =  Token::DOT;
+                tok._tag =  Token::DOT;
             }
             ++p; break;
 
@@ -293,13 +296,13 @@ void Lexer::Tokenize(void)
         case 'L':
             //character constant
             if ('\'' == p[1]) {
-                coord.begin = p; ++p;
+                tok._begin = p; ++p;
                 goto char_handler;
             } else if ('"' == p[1]) {
-                coord.begin = p; ++p;
+                tok._begin = p; ++p;
                 goto string_handler;
             } else if ('u' == p[0] && '8' == p[1] && '"' == p[2]) {
-                coord.begin = p; ++p, ++p;
+                tok._begin = p; ++p, ++p;
                 goto string_handler;
             } else {
                 goto letter_handler;
@@ -308,17 +311,17 @@ void Lexer::Tokenize(void)
 
         case '#': 
             if ('#' == p[1]) {
-                tag = Token::DSHARP; ++p;
+                tok._tag = Token::DSHARP; ++p;
             } else {
-                tag = '#';
+                tok._tag = '#';
             }
             ++p; break;
 
         case ':':
             if ('>' == p[1]) {
-                tag = ']'; ++p;
+                tok._tag = ']'; ++p;
             } else {
-                tag = ':';
+                tok._tag = ':';
             }
             ++p; break;
 
@@ -332,87 +335,85 @@ void Lexer::Tokenize(void)
         case '}':
         case '~':
         case ';':
-            tag = p[0]; 
+            tok._tag = p[0]; 
             ++p; break;
 
         case '\'':
-            coord.begin = p;
+            tok._begin = p;
         char_handler:
             for (++p; '\'' != p[0] && 0 != p[0]; p++) {
                 if ('\\' == p[0])
                     ++p;
             }
             
-            tag = Token::CONSTANT;
+            tok._tag = Token::CONSTANT;
             
-            coord.end = p + 1; //keep the prefix and postfix('\'')
-            coord.column = coord.begin - coord.lineBegin + 1; 
-            _tokBuf.push_back(NewToken(tag, coord));
-            ++p; continue;
+            tok._end = ++p; //keep the prefix and postfix('\'')
+            tok._column = tok._begin - tok._lineBegin + 1; 
+            tokList.push_back(tok);
+            break;
 
         case '"':
-            coord.begin = p;
+            tok._begin = p;
         string_handler:
             for (++p; '"' != p[0] && 0 != p[0]; p++) {
                 if ('\\' == p[0]) ++p;
             }
             
-            tag = Token::STRING_LITERAL;
+            tok._tag = Token::STRING_LITERAL;
             
-            coord.end = p + 1; //do not trim the '"' at begin and end
-            coord.column = coord.begin - coord.lineBegin + 1;
-            _tokBuf.push_back(NewToken(tag, coord));
-            ++p; continue;
+            tok._end = ++p; //do not trim the '"' at begin and end
+            tok._column = tok._begin - tok._lineBegin + 1;
+            tokList.push_back(tok);
+            break;
             
         default:
-            letter_handler:
+        letter_handler:
             if (isalpha(p[0]) || p[0] == '_') {
-                coord.begin = p;
+                tok._begin = p;
                 while (isalnum(p[0]) || p[0] == '_') {
                     ++p;
                 }
                 
-                coord.end = p;
-                coord.column = coord.begin - coord.lineBegin + 1;
+                tok._end = p;
+                tok._column = tok._begin - tok._lineBegin + 1;
                 
-                tag = Token::KeyWordTag(coord.begin, coord.end);
-                if (!Token::IsKeyWord(tag)) {
-                    tag = Token::IDENTIFIER;
-                    _tokBuf.push_back(NewToken(tag, coord));
+                tok._tag = Token::KeyWordTag(tok._begin, tok._end);
+                if (!Token::IsKeyWord(tok._tag)) {
+                    tok._tag = Token::IDENTIFIER;
+                    tokList.push_back(tok);
                 } else {
-                    _tokBuf.push_back(NewToken(tag, coord));
+                    tokList.push_back(tok);
                 }
-                continue;
             } else if (isdigit(p[0])) {
-            constant_handler:
-                coord.begin = p;
+        constant_handler:
+                tok._begin = p;
                 auto isInteger = ReadConstant(p);
-                coord.end = p;
-                coord.column = coord.begin - coord.lineBegin + 1;
+                tok._end = p;
+                tok._column = tok._begin - tok._lineBegin + 1;
                 
-                tag = isInteger? Token::I_CONSTANT: Token::F_CONSTANT;
-                _tokBuf.push_back(NewToken(tag, coord));
-                continue;
+                tok._tag = isInteger ? Token::I_CONSTANT: Token::F_CONSTANT;
+                tokList.push_back(tok);
             } else {
-                coord.end = p;
-                coord.column = coord.begin - coord.lineBegin + 1;
-                Error(coord, "invalid character '%c'", p[0]);
+                tok._end = p;
+                tok._column = tok._begin - tok._lineBegin + 1;
+                Error(&tok, "invalid character '%c'", p[0]);
             }
             ++p; break;
         }
-        
-        coord.end = p;
-        coord.column = coord.begin - coord.lineBegin + 1;
-        _tokBuf.push_back(NewToken(tag, coord));
+
+        tok._end = p;
+        tok._column = tok._begin - tok._lineBegin + 1;
+        tokList.push_back(tok);
     }
 }
 
-void Lexer::ReadFile(const char* filePath)
+void Lexer::ReadFile(const char* fileName)
 {
     //assert(nullptr != fileName);
-    FILE* fp = fopen(filePath, "r");
+    FILE* fp = fopen(fileName, "r");
     if (nullptr == fp) {
-        fprintf(stderr, "open file '%s' failed", filePath);
+        fprintf(stderr, "open file '%s' failed", fileName);
         exit(0);
     }
 
@@ -423,20 +424,29 @@ void Lexer::ReadFile(const char* filePath)
     fseek(fp, 0, SEEK_SET);
     
     if (fileSize > _maxSize) {
-        fprintf(stderr, "source file '%s' is too big", filePath);
+        fprintf(stderr, "source file '%s' is too big", fileName);
         exit(0);
     }
 
     //在tokenizer过程中需要最多向前看的步数
-    static const int max_predict = 4;
-    auto text = new char[fileSize + 1 + max_predict];
+    auto text = new char[fileSize + 1 + _maxPredict];
     fileSize = fread((void*)text, sizeof(char), fileSize, fp);
     //text[fileSize] = 0;
-    memset(&text[fileSize], 0, 1 + max_predict);
+    memset(&text[fileSize], 0, 1 + _maxPredict);
 
-    _tokBuf.reserve(fileSize / 8);
     _text = text;
-    //printf("%s\n", _text);
+    _fileName = fileName;
+}
+
+// Make a copy of input string
+void Lexer::ReadStr(const std::string& str)
+{
+    size_t len = str.size();
+    auto text = new char[len + 1 + _maxPredict];
+    memcpy(text, &str[0], len);
+    memset(&text[len], 0, 1 + _maxPredict);
+
+    _text = text;
 }
 
 const char* Lexer::ParseName(const char* path)

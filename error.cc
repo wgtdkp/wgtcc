@@ -16,10 +16,10 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 
-void Error(const Coordinate& coord, const char* format, ...)
+void Error(const Token* tok, const char* format, ...)
 {
     fprintf(stderr,  "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-            coord.fileName, coord.line, coord.column);
+            tok->_fileName, tok->_line, tok->_column);
     
     va_list args;
     va_start(args, format);
@@ -30,7 +30,7 @@ void Error(const Coordinate& coord, const char* format, ...)
 
     bool sawNoSpace = false;
     int nspaces = 0;
-    for (auto p = coord.lineBegin; *p != '\n' && *p != 0; p++) {
+    for (auto p = tok->_lineBegin; *p != '\n' && *p != 0; p++) {
         if (!sawNoSpace && (*p == ' ' || *p == '\t'))
             nspaces++;
         else {
@@ -41,7 +41,7 @@ void Error(const Coordinate& coord, const char* format, ...)
     
     fprintf(stderr, "\n    ");
 
-    for (int i = 1; i + nspaces < coord.column; i++)
+    for (int i = 1; i + nspaces < tok->_column; i++)
         fputc(' ', stderr);
     
     fprintf(stderr, ANSI_COLOR_GREEN "^\n");

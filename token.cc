@@ -47,7 +47,6 @@ const unordered_map<string, int> Token::_kwTypeMap = {
     { "_Noreturn", NORETURN },
     { "_Static_assert", STATIC_ASSERT },
     { "_Thread_local", THREAD },
-    //{ "__func__", FUNC_NAME },
 };
 
 const unordered_map<int, const char*> Token::_TagLexemeMap = {
@@ -151,3 +150,25 @@ const unordered_map<int, const char*> Token::_TagLexemeMap = {
     { Token::CONSTANT, "(constant)" },
     { Token::STRING_LITERAL, "(string literal)" },
 };
+
+/*
+void Token::Concat(Token& other, bool coordDecidedOnThis)
+{
+    if (!coordDecidedOnThis) {
+        _fileName = other._fileName;
+        _line = other._line;
+        _column = other._column;
+        _lineBegin = other._lineBegin;
+    }
+
+    size_t thisLen = _str.Len();
+    size_t otherLen = other._str.Len();
+    size_t len = thisLen + otherLen;
+    
+    char* begin = new char[len];
+    memcpy(begin, _str._begin, thisLen);
+    memcpy(begin + thisLen, other._str._begin, otherLen);
+    
+    _str = StrPair(begin, len, true);
+}
+*/

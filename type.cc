@@ -451,7 +451,7 @@ void StructUnionType::Merge(StructUnionType* anonType)
     for (; iter != anonType->_memberMap->end(); iter++) {
         if (GetMember(iter->first)) {
             auto tok = iter->second->Tok();
-            Error(tok->Coord(), "duplicate member '%s'", tok->Str().c_str());
+            Error(tok, "duplicate member '%s'", tok->Str().c_str());
         }
         auto member = iter->second->ToObject();
         

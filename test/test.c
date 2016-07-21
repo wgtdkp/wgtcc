@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include <complex.h>
 
+#define ADD2(a, b) ((a)+*(b))
+#define ADD3(a, b, c) (ADD2(ADD2((a), (b)), (c)))
+
+
 void test_promotion(void)
 {
+    int d = ADD3(1, 2, 3);
     char a = 'a';
     short b = 'b';
 

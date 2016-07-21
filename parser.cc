@@ -190,14 +190,13 @@ void Parser::Delete(ASTNode* node)
 /*
  * Recursive descent parser
  */
-void Parser::Expect(int expect, int follow1, int follow2)
+void Parser::Expect(int expect)
 {
     auto tok = Next();
     if (tok->Tag() != expect) {
         PutBack();
-        Error(tok->Coord(), "'%s' expected, but got '%s'",
+        Error(tok, "'%s' expected, but got '%s'",
                 Token::Lexeme(expect), tok->Str().c_str());
-        Panic(follow1, follow2);
     }
 }
 
@@ -213,7 +212,7 @@ void Parser::ExitFunc(void) {
         auto label = iter->first;
         auto labelStmt = FindLabel(label->Str());
         if (labelStmt == nullptr) {
-            Error(label->Coord(), "label '%s' used but not defined",
+            Error(label, "label '%s' used but not defined",
                     label->Str().c_str());
         }
         
@@ -267,7 +266,7 @@ void Parser::ParseTranslationUnit(void)
             std::list<Stmt*> stmts;
             if (Try('=')) {
                 if (ident->ToObject() == nullptr) {
-                    Error(Peek()->Coord(), "unexpected initializer");
+                    Error(Peek(), "unexpected initializer");
                 }
                 stmts.push_back(ParseInitializer(ident->ToObject()));
             }
@@ -324,7 +323,7 @@ Expr* Parser::ParsePrimaryExpr(void)
         auto ident = _curScope->Find(tok->Str());
         /* if (ident == nullptr || ident->ToObject() == nullptr) { */
         if (ident == nullptr) {
-            Error(tok->Coord(), "undefined symbol '%s'", 
+            Error(tok, "undefined symbol '%s'", 
                     tok->Str().c_str());
         }
         return ident;
@@ -336,7 +335,7 @@ Expr* Parser::ParsePrimaryExpr(void)
         return ParseGeneric();
     } 
 
-    Error(tok->Coord(), "Expect expression");
+    Error(tok, "Expect expression");
     return nullptr; // Make compiler happy
 }
 
@@ -379,7 +378,7 @@ Expr* Parser::ParsePostfixExpr(void)
     if ('(' == tok->Tag() && IsTypeName(Peek())) {
         // TODO(wgtdkp):
         //compound literals
-        Error(tok->Coord(), "compound literals not supported yet");
+        Error(tok, "compound literals not supported yet");
         //return ParseCompLiteral();
     }
 
@@ -511,11 +510,11 @@ Constant* Parser::ParseSizeof(void)
     }
 
     if (type->ToFuncType()) {
-        Error(tok->Coord(), "sizeof operator can't act on function");
+        Error(tok, "sizeof operator can't act on function");
     }
 
     if (!type->Complete()) {
-        Error(tok->Coord(), "sizeof(incomplete type)");
+        Error(tok, "sizeof(incomplete type)");
     }
 
 
@@ -1067,7 +1066,7 @@ end_of_loop:
     PutBack();
     switch (typeSpec) {
     case 0:
-        Error(tok->Coord(), "expect type specifier");
+        Error(tok, "expect type specifier");
         break;
 
     case T_VOID:
@@ -1087,7 +1086,7 @@ end_of_loop:
 
     if ((storage == nullptr || func == nullptr)) {
         if (funcSpec && storageSpec && align != -1) {
-            Error(tok->Coord(), "type specifier/qualifier only");
+            Error(tok, "type specifier/qualifier only");
         }
     } else {
         *storage = storageSpec;
@@ -1097,7 +1096,7 @@ end_of_loop:
     return type;
 
 error:
-    Error(tok->Coord(), "type speficier/qualifier/storage error");
+    Error(tok, "type speficier/qualifier/storage error");
     return nullptr;	// Make compiler happy
 }
 
@@ -1142,7 +1141,7 @@ Type* Parser::ParseEnumSpec(void)
             if (!tagIdent->Ty()->Complete()) {
                 return ParseEnumerator(tagIdent->Ty()->ToArithmType());
             } else {
-                Error(tok->Coord(), "redefinition of enumeration tag '%s'",
+                Error(tok, "redefinition of enumeration tag '%s'",
                         tagName.c_str());
             }
         } else {
@@ -1177,12 +1176,12 @@ Type* Parser::ParseEnumerator(ArithmType* type)
     do {
         auto tok = Peek();
         if (!tok->IsIdentifier())
-            Error(tok->Coord(), "enumration constant expected");
+            Error(tok, "enumration constant expected");
         
         auto enumName = tok->Str();
         auto ident = _curScope->FindInCurScope(enumName);
         if (ident) {
-            Error(tok->Coord(), "redefinition of enumerator '%s'",
+            Error(tok, "redefinition of enumerator '%s'",
                     enumName.c_str());
         }
         if (Try('=')) {
@@ -1239,7 +1238,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
                         tagIdent->Ty()->ToStructUnionType());
             } else {
                 //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
-                Error(tok->Coord(), "redefinition of struct tag '%s'",
+                Error(tok, "redefinition of struct tag '%s'",
                         tagName.c_str());
             }
         } else {
@@ -1292,7 +1291,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
 
     while (!Try('}')) {
         if (Peek()->IsEOF()) {
-            Error(Peek()->Coord(), "premature end of input");
+            Error(Peek(), "premature end of input");
         }
         
         // 解析type specifier/qualifier, 不接受storage等
@@ -1313,23 +1312,23 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
 
             auto name = tok->Str();
             if (type->GetMember(name)) {
-                Error(tok->Coord(), "duplicate member '%s'", name.c_str());
+                Error(tok, "duplicate member '%s'", name.c_str());
             }
 
             if (!memberType->Complete()) {
-                Error(tok->Coord(),
+                Error(tok,
                         "field '%s' has incomplete type", name.c_str());
             }
 
             if (memberType->ToFuncType()) {
-                Error(tok->Coord(),
+                Error(tok,
                         "field '%s' declared as a function", name.c_str());
             }
 
             auto member = NewObject(tok, memberType, _curScope);
             type->AddMember(name, member);
         } while (Try(','));
-        Expect(';');;
+        Expect(';');
     }
     _curScope->Print();
     //struct/union定义结束，设置其为完整类型
@@ -1412,6 +1411,8 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
         return TokenTypePair(tokenTypePair.first, retType);
     } else if (Peek()->IsIdentifier()) {
         auto tok = Next();
+        std::cout << tok->Tag() << std::endl;
+        std::cout << tok->Str() << std::endl;
         auto retType = ParseArrayFuncDeclarator(pointerType);
         return TokenTypePair(tok, retType);
     }
@@ -1441,7 +1442,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             if (*type == *ident->Ty())
                 return ident;
             // TODO(wgtdkp): add previous declaration information
-            Error(tok->Coord(), "conflicting types for '%s'", name.c_str());
+            Error(tok, "conflicting types for '%s'", name.c_str());
         }
         ident = NewIdentifier(tok, type, _curScope, L_NONE);
         _curScope->Insert(name, ident);
@@ -1449,18 +1450,18 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     }
 
     if (type->ToVoidType()) {
-        Error(tok->Coord(), "variable or field '%s' declared void",
+        Error(tok, "variable or field '%s' declared void",
                 name.c_str());
     }
 
     if (!type->Complete()) {
-        Error(tok->Coord(), "storage size of '%s' isn’t known",
+        Error(tok, "storage size of '%s' isn’t known",
                 name.c_str());
     }
 
     if (type->ToFuncType() && _curScope->Type() != S_FILE
             && (storageSpec & S_STATIC)) {
-        Error(tok->Coord(), "invalid storage class for function '%s'",
+        Error(tok, "invalid storage class for function '%s'",
                 name.c_str());
     }
 
@@ -1480,24 +1481,27 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         linkage = L_EXTERNAL;
     }
 
+    _curScope->Print();
     ident = _curScope->FindInCurScope(name);
     if (ident) { // There is prio declaration in the same scope
         if (*type != *ident->Ty()) {
-            Error(tok->Coord(), "conflicting types for '%s'", name.c_str());
+            Error(tok, "conflicting types for '%s'", name.c_str());
         }
 
         // The same scope prio declaration has no linkage,
         // there is a redeclaration error
+        std::cout << name << std::endl;
+        std::cout << ident->Name() << std::endl;
         if (linkage == L_NONE) {
-            Error(tok->Coord(), "redeclaration of '%s' with no linkage",
+            Error(tok, "redeclaration of '%s' with no linkage",
                     name.c_str());
         } else if (linkage == L_EXTERNAL) {
             if (ident->Linkage() == L_NONE) {
-                Error(tok->Coord(), "conflicting linkage for '%s'", name.c_str());
+                Error(tok, "conflicting linkage for '%s'", name.c_str());
             }
         } else {
             if (ident->Linkage() != L_INTERNAL) {
-                Error(tok->Coord(), "conflicting linkage for '%s'", name.c_str());
+                Error(tok, "conflicting linkage for '%s'", name.c_str());
             }
         }
         // The same redeclaration, simply return the prio declaration 
@@ -1506,7 +1510,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         ident = _curScope->Find(name);
         if (ident) {
             if (*type != *ident->Ty()) {
-            	Error(tok->Coord(), "conflicting types for '%s'",
+            	Error(tok, "conflicting types for '%s'",
                         name.c_str());
             }
             if (ident->Linkage() != L_NONE) {
@@ -1516,7 +1520,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             ident = _externalSymbols->FindInCurScope(name);
             if (ident) {
                 if (*type != *ident->Ty()) {
-                    Error(tok->Coord(), "conflicting types for '%s'",
+                    Error(tok, "conflicting types for '%s'",
                             name.c_str());
                 }
                 // Don't return
@@ -1543,12 +1547,12 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
 {
     if (Try('[')) {
         if (nullptr != base->ToFuncType()) {
-            Error(Peek()->Coord(), "the element of array can't be a function");
+            Error(Peek(), "the element of array can't be a function");
         }
 
         auto len = ParseArrayLength();
         if (0 == len) {
-            Error(Peek()->Coord(), "can't declare an array of length 0");
+            Error(Peek(), "can't declare an array of length 0");
         }
         Expect(']');
         base = ParseArrayFuncDeclarator(base);
@@ -1556,17 +1560,17 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         return Type::NewArrayType(len, base);
     } else if (Try('(')) {	//function declaration
         if (base->ToFuncType()) {
-            Error(Peek()->Coord(),
+            Error(Peek(),
                     "the return value of function can't be function");
         } else if (nullptr != base->ToArrayType()) {
-            Error(Peek()->Coord(),
+            Error(Peek(),
                     "the return value of function can't be array");
         }
 
         std::list<Type*> params;
-        EnterBlock();
+        EnterProto();
         bool hasEllipsis = ParseParamList(params);
-        ExitBlock();
+        ExitProto();
         
         Expect(')');
         base = ParseArrayFuncDeclarator(base);
@@ -1631,7 +1635,7 @@ bool Parser::ParseParamList(std::list<Type*>& params)
         auto tok = Peek();
         paramType = ParseParamDecl();
         if (paramType->ToVoidType()) {
-            Error(tok->Coord(), "'void' must be the only parameter");
+            Error(tok, "'void' must be the only parameter");
         }
 
         params.push_back(paramType);
@@ -1667,7 +1671,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
     auto tok = tokenTypePair.first;
     type = tokenTypePair.second;
     if (tok) { // Not a abstract declarator!
-        Error(tok->Coord(), "unexpected identifier '%s'",
+        Error(tok, "unexpected identifier '%s'",
                 tok->Str().c_str());
     }
     return type;
@@ -1691,7 +1695,7 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
     auto tok = tokenTypePair.first;
     type = tokenTypePair.second;
     if (tok == nullptr) {
-        Error(_errTok->Coord(), "expect identifier or '('");
+        Error(_errTok, "expect identifier or '('");
     }
 
     return ProcessDeclarator(tok, type, storageSpec, funcSpec);
@@ -1706,7 +1710,7 @@ Stmt* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
     
     if (Try('=')) {
         if (ident->ToObject() == nullptr) {
-            Error(Peek()->Coord(), "unexpected initializer");
+            Error(Peek(), "unexpected initializer");
         }
         return ParseInitializer(ident->ToObject());
     }
@@ -1783,7 +1787,7 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
         // Needless comma at the end is allowed
         if (!Try(',')) {
             if (Peek()->Tag() != '}') {
-                Error(Peek()->Coord(), "expect ',' or '}'");
+                Error(Peek(), "expect ',' or '}'");
             }
         }
     }
@@ -1805,7 +1809,7 @@ Stmt* Parser::ParseStmt(void)
 {
     auto tok = Next();
     if (tok->IsEOF())
-        Error(tok->Coord(), "premature end of input");
+        Error(tok, "premature end of input");
 
     switch (tok->Tag()) {
     case ';':
@@ -1853,7 +1857,7 @@ CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
 
     while (!Try('}')) {
         if (Peek()->IsEOF()) {
-            Error(Peek()->Coord(), "premature end of input");
+            Error(Peek(), "premature end of input");
         }
 
         if (IsType(Peek())) {
@@ -1874,7 +1878,7 @@ IfStmt* Parser::ParseIfStmt(void)
     auto tok = Peek();
     auto cond = ParseExpr();
     if (!cond->Ty()->IsScalar()) {
-        Error(tok->Coord(), "expect scalar");
+        Error(tok, "expect scalar");
     }
     Expect(')');
 
@@ -1984,7 +1988,7 @@ CompoundStmt* Parser::ParseWhileStmt(void)
     Expect(')');
 
     if (!condExpr->Ty()->IsScalar()) {
-        Error(tok->Coord(), "scalar expression expected");
+        Error(tok, "scalar expression expected");
     }
 
     auto condLabel = NewLabelStmt();
@@ -2075,7 +2079,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
     Expect(')');
 
     if (!expr->Ty()->IsInteger()) {
-        Error(tok->Coord(), "switch quantity not an integer");
+        Error(tok, "switch quantity not an integer");
     }
 
     auto testLabel = NewLabelStmt();
@@ -2131,7 +2135,7 @@ CompoundStmt* Parser::ParseDefaultStmt(void)
     auto tok = Peek();
     Expect(':');
     if (_defaultLabel != nullptr) { // There is a 'default' stmt
-        Error(tok->Coord(), "multiple default labels in one switch");
+        Error(tok, "multiple default labels in one switch");
     }
     auto labelStmt = NewLabelStmt();
     _defaultLabel = labelStmt;
@@ -2148,7 +2152,7 @@ JumpStmt* Parser::ParseContinueStmt(void)
     auto tok = Peek();
     Expect(';');
     if (_continueDest == nullptr) {
-        Error(tok->Coord(), "'continue' is allowed only in loop");
+        Error(tok, "'continue' is allowed only in loop");
     }
     
     return NewJumpStmt(_continueDest);
@@ -2160,7 +2164,7 @@ JumpStmt* Parser::ParseBreakStmt(void)
     Expect(';');
     // ERROR(wgtdkp):
     if (_breakDest == nullptr) {
-        Error(tok->Coord(), "'break' is allowed only in switch/loop");
+        Error(tok, "'break' is allowed only in switch/loop");
     }
     
     return NewJumpStmt(_breakDest);
@@ -2202,7 +2206,7 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
     auto labelStr = label->Str();
     auto stmt = ParseStmt();
     if (nullptr != FindLabel(labelStr)) {
-        Error(label->Coord(), "redefinition of label '%s'", labelStr.c_str());
+        Error(label, "redefinition of label '%s'", labelStr.c_str());
     }
 
     auto labelStmt = NewLabelStmt();
@@ -2224,6 +2228,8 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
  * 1. if we see '=' before '{', then it is a declaration
  * 2. if we see ';' without having saw '{', then it is a declaration
  */
+
+/*
 bool Parser::IsFuncDef(void)
 {
     if (Test(Token::STATIC_ASSERT))	//declaration
@@ -2248,13 +2254,15 @@ bool Parser::IsFuncDef(void)
     }
 
     if (Peek()->IsEOF()) {
-        Error(Peek()->Coord(), "premature end of input");
+        Error(Peek(), "premature end of input");
     }
     Restore();
     
     return ret;
 }
+*/
 
+/*
 FuncDef* Parser::ParseFuncDef(void)
 {
     int storageSpec, funcSpec;
@@ -2274,6 +2282,8 @@ FuncDef* Parser::ParseFuncDef(void)
     assert(type->ToFuncType());
     return NewFuncDef(type->ToFuncType(), stmt);
 }
+*/
+
 
 /*
  * Type checking
@@ -2330,10 +2340,10 @@ void Parser::SubScriptingOpTypeChecking(
 {
     auto lhsType = binaryOp->_lhs->Ty()->ToPointerType();
     if (nullptr == lhsType) {
-        Error(errTok->Coord(), "an pointer expected");
+        Error(errTok, "an pointer expected");
     }
     if (!binaryOp->_rhs->Ty()->IsInteger()) {
-        Error(errTok->Coord(), "the operand of [] should be intger");
+        Error(errTok, "the operand of [] should be intger");
     }
 
     // The type of [] operator is the derived type
@@ -2347,16 +2357,16 @@ void Parser::MemberRefOpTypeChecking(BinaryOp* binaryOp,
     if (binaryOp->_op == Token::PTR_OP) {
         auto pointer = binaryOp->_lhs->Ty()->ToPointerType();
         if (pointer == nullptr) {
-            Error(errTok->Coord(), "pointer expected for operator '->'");
+            Error(errTok, "pointer expected for operator '->'");
         } else {
             structUnionType = pointer->Derived()->ToStructUnionType();
             if (structUnionType == nullptr)
-                Error(errTok->Coord(), "pointer to struct/union expected");
+                Error(errTok, "pointer to struct/union expected");
         }
     } else {
         structUnionType = binaryOp->_lhs->Ty()->ToStructUnionType();
         if (structUnionType == nullptr)
-            Error(errTok->Coord(), "an struct/union expected");
+            Error(errTok, "an struct/union expected");
     }
 
     if (structUnionType == nullptr)
@@ -2364,7 +2374,7 @@ void Parser::MemberRefOpTypeChecking(BinaryOp* binaryOp,
 
     binaryOp->_rhs = structUnionType->GetMember(rhsName);
     if (binaryOp->_rhs == nullptr) {
-        Error(errTok->Coord(), "'%s' is not a member of '%s'",
+        Error(errTok, "'%s' is not a member of '%s'",
                 rhsName, "[obj]");
     }
 
@@ -2376,13 +2386,13 @@ void Parser::MultiOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
     auto lhsType = binaryOp->_lhs->Ty()->ToArithmType();
     auto rhsType = binaryOp->_rhs->Ty()->ToArithmType();
     if (lhsType == nullptr || rhsType == nullptr) {
-        Error(errTok->Coord(), "operands should have arithmetic type");
+        Error(errTok, "operands should have arithmetic type");
     }
 
     if ('%' == binaryOp->_op && 
             !(binaryOp->_lhs->Ty()->IsInteger()
               && binaryOp->_rhs->Ty()->IsInteger())) {
-        Error(errTok->Coord(), "operands of '%%' should be integers");
+        Error(errTok, "operands of '%%' should be integers");
     }
 
     //TODO: type promotion
@@ -2404,23 +2414,23 @@ void Parser::AdditiveOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
         if (binaryOp->_op == Token::MINUS) {
             if ((rhsType && *lhsType != *rhsType)
                     || !binaryOp->_rhs->Ty()->IsInteger()) {
-                Error(errTok->Coord(), "invalid operands to binary -");
+                Error(errTok, "invalid operands to binary -");
             }
         } else if (!binaryOp->_rhs->Ty()->IsInteger()) {
-            Error(errTok->Coord(), "invalid operands to binary -");
+            Error(errTok, "invalid operands to binary -");
         }
         binaryOp->_ty = binaryOp->_lhs->Ty();
     } else if (rhsType) {
         if (binaryOp->_op != Token::ADD
                 || !binaryOp->_lhs->Ty()->IsInteger()) {
-            Error(errTok->Coord(), "invalid operands to binary +");
+            Error(errTok, "invalid operands to binary +");
         }
         binaryOp->_ty = binaryOp->_rhs->Ty();
     } else {
         auto lhsType = binaryOp->_lhs->Ty()->ToArithmType();
         auto rhsType = binaryOp->_rhs->Ty()->ToArithmType();
         if (lhsType == nullptr || rhsType == nullptr) {
-            Error(errTok->Coord(), "invalid operands to binary %s",
+            Error(errTok, "invalid operands to binary %s",
                     errTok->Str());
         }
 
@@ -2432,7 +2442,7 @@ void Parser::ShiftOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
     if (!binaryOp->_lhs->Ty()->IsInteger()
             || !binaryOp->_rhs->Ty()->IsInteger()) {
-        Error(errTok->Coord(), "expect integers for shift operator '%s'",
+        Error(errTok, "expect integers for shift operator '%s'",
                 errTok->Str());
     }
 
@@ -2444,7 +2454,7 @@ void Parser::RelationalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
     if (!binaryOp->_lhs->Ty()->IsReal()
             || !binaryOp->_rhs->Ty()->IsReal()) {
-        Error(errTok->Coord(), "expect integer/float"
+        Error(errTok, "expect integer/float"
                 " for relational operator '%s'", errTok->Str());
     }
 
@@ -2458,13 +2468,13 @@ void Parser::EqualityOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
     auto rhsType = binaryOp->_rhs->Ty()->ToPointerType();
     if (lhsType || rhsType) {
         if (!lhsType->Compatible(*rhsType)) {
-            Error(errTok->Coord(), "incompatible pointers of operands");
+            Error(errTok, "incompatible pointers of operands");
         }
     } else {
         auto lhsType = binaryOp->_lhs->Ty()->ToArithmType();
         auto rhsType = binaryOp->_rhs->Ty()->ToArithmType();
         if (lhsType == nullptr || rhsType == nullptr) {
-            Error(errTok->Coord(), "invalid operands to binary %s",
+            Error(errTok, "invalid operands to binary %s",
                     errTok->Str());
         }
 
@@ -2478,7 +2488,7 @@ void Parser::BitwiseOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
     if (binaryOp->_lhs->Ty()->IsInteger() 
             || binaryOp->_rhs->Ty()->IsInteger()) {
-        Error(errTok->Coord(), "operands of '&' should be integer");
+        Error(errTok, "operands of '&' should be integer");
     }
     
     binaryOp->_ty = binaryOp->Promote(this, errTok);    
@@ -2488,7 +2498,7 @@ void Parser::LogicalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
     if (!binaryOp->_lhs->Ty()->IsScalar()
             || !binaryOp->_rhs->Ty()->IsScalar()) {
-        Error(errTok->Coord(),
+        Error(errTok,
                 "the operand should be arithmetic type or pointer");
     }
     
@@ -2499,9 +2509,9 @@ void Parser::LogicalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 void Parser::AssignOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
     if (!binaryOp->_lhs->IsLVal()) {
-        Error(errTok->Coord(), "lvalue expression expected");
+        Error(errTok, "lvalue expression expected");
     } else if (binaryOp->_lhs->Ty()->IsConst()) {
-        Error(errTok->Coord(), "can't modifiy 'const' qualified expression");
+        Error(errTok, "can't modifiy 'const' qualified expression");
     }
     // The other constraints are lefted to cast operator
     binaryOp->_rhs = NewUnaryOp(errTok,
@@ -2542,9 +2552,9 @@ void Parser::TypeChecking(UnaryOp* unaryOp, const Token* errTok)
 void Parser::IncDecOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
 {
     if (!unaryOp->_operand->IsLVal()) {
-        Error(errTok->Coord(), "lvalue expression expected");
+        Error(errTok, "lvalue expression expected");
     } else if (unaryOp->_operand->Ty()->IsConst()) {
-        Error(errTok->Coord(), "can't modifiy 'const' qualified expression");
+        Error(errTok, "can't modifiy 'const' qualified expression");
     }
 
     unaryOp->_ty = unaryOp->_operand->Ty();
@@ -2554,7 +2564,7 @@ void Parser::AddrOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
 {
     FuncType* funcType = unaryOp->_operand->Ty()->ToFuncType();
     if (funcType == nullptr && !unaryOp->_operand->IsLVal()) {
-        Error(errTok->Coord(),
+        Error(errTok,
                 "expression must be an lvalue or function designator");
     }
     
@@ -2565,7 +2575,7 @@ void Parser::DerefOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
 {
     auto pointerType = unaryOp->_operand->Ty()->ToPointerType();
     if (pointerType == nullptr) {
-        Error(errTok->Coord(), "pointer expected for deref operator '*'");
+        Error(errTok, "pointer expected for deref operator '*'");
     }
 
     unaryOp->_ty = pointerType->Derived();    
@@ -2575,12 +2585,12 @@ void Parser::UnaryArithmOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
 {
     if (Token::PLUS == unaryOp->_op || Token::MINUS == unaryOp->_op) {
         if (!unaryOp->_operand->Ty()->IsArithm())
-            Error(errTok->Coord(), "Arithmetic type expected");
+            Error(errTok, "Arithmetic type expected");
     } else if ('~' == unaryOp->_op) {
         if (!unaryOp->_operand->Ty()->IsInteger())
-            Error(errTok->Coord(), "integer expected for operator '~'");
+            Error(errTok, "integer expected for operator '~'");
     } else if (!unaryOp->_operand->Ty()->IsScalar()) {
-        Error(errTok->Coord(),
+        Error(errTok,
                 "arithmetic type or pointer expected for operator '!'");
     }
 
@@ -2591,28 +2601,28 @@ void Parser::CastOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
 {
     // The _ty has been initiated to dest type
     if (!unaryOp->_ty->IsScalar()) {
-        Error(errTok->Coord(),
+        Error(errTok,
                 "the cast type should be arithemetic type or pointer");
     }
 
     if (unaryOp->_ty->IsFloat() && unaryOp->_operand->Ty()->ToPointerType()) {
-        Error(errTok->Coord(), "can't cast a pointer to floating");
+        Error(errTok, "can't cast a pointer to floating");
     } else if (unaryOp->_ty->ToPointerType()
             && unaryOp->_operand->Ty()->IsFloat()) {
-        Error(errTok->Coord(), "can't cast a floating to pointer");
+        Error(errTok, "can't cast a floating to pointer");
     }
 }
 
 void Parser::TypeChecking(ConditionalOp* condOp, const Token* errTok)
 {
     if (!condOp->_cond->Ty()->IsScalar()) {
-        Error(errTok->Coord(), "scalar is required");
+        Error(errTok, "scalar is required");
     }
 
     auto lhsType = condOp->_exprTrue->Ty();
     auto rhsType = condOp->_exprFalse->Ty();
     if (!lhsType->Compatible(*rhsType)) {
-        Error(errTok->Coord(), "incompatible types of true/false expression");
+        Error(errTok, "incompatible types of true/false expression");
     } else {
         condOp->_ty = lhsType;
     }
@@ -2628,24 +2638,24 @@ void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
 {
     auto funcType = funcCall->_designator->Ty()->ToFuncType();
     if (funcType == nullptr) {
-        Error(errTok->Coord(), "'%s' is not a function", errTok->Str());
+        Error(errTok, "'%s' is not a function", errTok->Str());
     }
 
     auto arg = funcCall->_args.begin();
     auto param = funcType->Params().begin();
     for (; param != funcType->Params().end(); param++) {
         if (arg == funcCall->_args.end()) {
-            Error(errTok->Coord(), "too few arguments for function ''");
+            Error(errTok, "too few arguments for function ''");
         }
 
         if (!(*param)->Compatible(*(*arg)->Ty())) {
             // TODO(wgtdkp): function name
-            Error(errTok->Coord(), "incompatible type for argument 1 of ''");
+            Error(errTok, "incompatible type for argument 1 of ''");
         }
     }
     
     if (arg != funcCall->_args.end() && !funcType->HasEllipsis()) {
-        Error(errTok->Coord(), "too many arguments for function ''");
+        Error(errTok, "too many arguments for function ''");
     }
     
     funcCall->_ty = funcType->Derived();

@@ -2,6 +2,7 @@
 #define _WGTCC_AST_H_
 
 #include "error.h"
+#include "string_pair.h"
 #include "type.h"
 
 #include <cassert>
@@ -37,42 +38,45 @@ class FuncDef;
 
 class TranslationUnit;
 
-
+/*
 struct Coordinate
 {
-    Coordinate(void): line(0), column(0),
-            lineBegin(nullptr), begin(nullptr), end(nullptr) {}
+    Coordinate(void): _fileName(nullptr), _line(0), _column(0),
+            _lineBegin(nullptr), needFree(false) {}
     
     Coordinate(const Coordinate& other) {
-        fileName = other.fileName;
-        line = other.line;
-        column = other.column;
-        lineBegin = other.lineBegin;
-        begin = other.begin;
-        end = other.end;
+        *this = other;
     }
+
+    const Coordinate& operator=(const Coordinate& other) {
+        _fileName = other._fileName;
+        _line = other._line;
+        _column = other._column;
+        _lineBegin = other._lineBegin;
+        _strPair = other._strPair;
+    }
+
+    ~Coordinate(void) {}
 
     Coordinate operator+(const Coordinate& other) const {
-        Coordinate errTok(*this);
-        errTok.end = other.end;
-        return errTok;
+        Coordinate tok(*this);
+        tok.end = other.end;
+        return tok;
     }
 
-    const char* fileName;
+    const char* _fileName;
     
     // Line index of the begin
-    int line;
+    int _line;
     
     // Column index of the begin
-    int column;
+    int _column;
 
-    char* lineBegin;
+    StrPair _strPair;
 
-    char* begin;
-    
-    char* end;
+    char* _lineBegin;
 };
-
+*/
 
 /*
  * AST Node
@@ -596,7 +600,7 @@ public:
         return _tok;
     }
 
-    const std::string& Name(void);
+    const std::string Name(void);
 
     virtual bool operator==(const Identifier& other) const {
         return *_ty == *other._ty && _scope == other._scope;

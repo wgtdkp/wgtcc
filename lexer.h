@@ -10,58 +10,35 @@
 #include <string>
 
 
+typedef std::list<Token> TokenList;
+
 class Lexer
 {
 public:
-    Lexer(const char* path): _path(path) {
-        ReadFile(_path);
-        _tokTop = 0;
-    }
+    static const int _maxPredict = 4;
+
+    Lexer(void): _fileName(nullptr) {}
 
     virtual ~Lexer(void) {
-        auto iter = _tokBuf.begin();
-        for (; iter != _tokBuf.end(); iter++)
-            delete *iter;
         delete[] _text;
     }
 
-    void Tokenize(void);
+    void Tokenize(TokenList& tokList);
 
-    Token* Get(void) {
-        assert(_tokTop < _tokBuf.size());
-        return _tokBuf[_tokTop++];
-    }
+    void ReadFile(const char* fileName);
+    
+    void ReadStr(const std::string& str);
 
-    Token* Peek(void) {
-        return _tokBuf[_tokTop];
-    }
-
-    void Unget(void) {
-        assert(_tokTop > 0);
-        --_tokTop;
-    }
+    const char* ParseName(const char* path);
 
 private:
     static const int _maxSize = 1024 * 1024 * 64;
-    
-    const char* _path;
-    
+    const char* _fileName;
     char* _text;
-
-    size_t _tokTop;
-    std::vector<Token*> _tokBuf;
 
     Lexer(const Lexer& other);
     
     const Lexer& operator=(const Lexer& other);
-    
-    void ReadFile(const char* fileName);
-    
-    const char* ParseName(const char* path);
-    
-    Token* NewToken(int tag, const Coordinate& coord) {
-        return new Token(tag, coord);
-    }
 };
 
 #endif

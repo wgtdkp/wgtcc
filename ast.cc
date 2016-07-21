@@ -163,7 +163,7 @@ long long UnaryOp::EvalInteger(const Token* errTok)
     case Token::CAST:
         return VAL;
     default:
-        Error(errTok->Coord(), "expect constant integer");
+        Error(errTok, "expect constant integer");
     }
 
     return 0;   // Make compiler happy
@@ -200,29 +200,29 @@ ArithmType* ConditionalOp::Promote(Parser* parser, const Token* errTok)
 }
 
 long long FuncCall::EvalInteger(const Token* errTok) {
-    Error(errTok->Coord(),
+    Error(errTok,
             "function call is not allowed in constant expression");
     return 0;   // Make compiler happy
 }
 
 long long Identifier::EvalInteger(const Token* errTok) {
-    Error(errTok->Coord(), "identifier in constant expression");
+    Error(errTok, "identifier in constant expression");
     return 0;   // Make compiler happy
 }
 
-const std::string& Identifier::Name(void) {
+const std::string Identifier::Name(void) {
     return _tok->Str();
 }
 
 long long Constant::EvalInteger(const Token* errTok) {
     if (_ty->IsFloat()) {
-        Error(errTok->Coord(), "expect integer, but get floating");
+        Error(errTok, "expect integer, but get floating");
     }
     return _ival;
 }
 
 long long TempVar::EvalInteger(const Token* errTok) {
-    Error(errTok->Coord(),
+    Error(errTok,
             "function call is not allowed in constant expression");
     return 0;   // Make compiler happy
 }

@@ -17,12 +17,14 @@ typedef std::pair<Token*, Type*> TokenTypePair;
 class Parser
 {
 public:
-    explicit Parser(Lexer* lexer) 
+    explicit Parser(TokenList* tokList) 
         : _unit(TranslationUnit::NewTranslationUnit()),
-          _inEnumeration(false), _lexer(lexer),
+          _inEnumeration(false), _tokList(tokList),
+          _cur(tokList->begin()),
           _externalSymbols(new Scope(nullptr, S_BLOCK)),
-          _curScope(new Scope(nullptr, S_FILE)),
           _errTok(nullptr),
+          _curScope(new Scope(nullptr, S_FILE)),
+          
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -163,8 +165,8 @@ public:
     /*
      * Function Definition
      */
-    bool IsFuncDef(void);
-    FuncDef* ParseFuncDef(void);
+    //bool IsFuncDef(void);
+    //FuncDef* ParseFuncDef(void);
 
     Identifier* ProcessDeclarator(Token* tok, Type* type,
             int storageSpec, int funcSpec);
@@ -203,37 +205,30 @@ public:
     // FuncCall
     void TypeChecking(FuncCall* funcCall, const Token* errTok);
 
-private:
-    //������ǰtoken���ϲ���������true,��consumeһ��token
-    //������tokTag�������򷵻�false�����Ҳ�consume token
+protected:
     bool Try(int tokTag) {
-        auto tok = Next();
-        if (tok->Tag() == tokTag)
+        if (Next()->Tag() == tokTag)
             return true;
         PutBack();
         return false;
     }
 
-    //���ص�ǰtoken����ǰ��
-    Token* Next(void) { return _lexer->Get(); }
-    void PutBack(void) { _lexer->Unget(); }
+    Token* Next(void) {
+        assert(_cur != _tokList->end());
+        return &(*_cur++);
+    }
 
-    //���ص�ǰtoken�����ǲ�ǰ��
-    Token* Peek(void) { return _lexer->Peek(); }
-    const Token* Peek(void) const{ return _lexer->Peek(); }
-    bool Test(int tag) const { return Peek()->Tag() == tag; }
+    Token* Peek(void) {
+        return &(*_cur);
+    }
 
-    //��¼��ǰtokenλ��
-    void Mark(void) { _buf.push(Peek()); }
+    bool Test(int tag) {
+        return Peek()->Tag() == tag;
+    }
 
-    //�ص�����һ��Mark�ĵط�
-    Token* Restore(void) {
-        assert(!_buf.empty());
-        while (Peek() != _buf.top()) {
-            PutBack();
-        }
-        _buf.pop();
-        return Peek();
+    void PutBack(void) {
+        assert(_cur != _tokList->begin());
+        --_cur;
     }
 
     bool IsTypeName(Token* tok) const{
@@ -260,21 +255,19 @@ private:
         return false;
     }
 
-    void Expect(int expect, int follow1 = ',', int follow2 = ';');
-
-    void Panic(int follow1, int follow2) {
-        for (const Token* tok = Next(); !tok->IsEOF(); tok = Next()) {
-            if (tok->Tag() == follow1 || tok->Tag() == follow2)
-                return PutBack();
-        }
-    }
-
-    
-
+    void Expect(int expect);
     
     void EnterBlock(FuncType* funcType=nullptr);
     
     void ExitBlock(void) {
+        _curScope = _curScope->Parent();
+    }
+
+    void EnterProto(void) {
+        _curScope = new Scope(_curScope, S_PROTO);
+    }
+
+    void ExitProto(void) {
         _curScope = _curScope->Parent();
     }
 
@@ -294,28 +287,32 @@ private:
         _curLabels[label] = labelStmt;
     }
 
+private:
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
     typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
     typedef std::map<std::string, LabelStmt*> LabelMap;
 
-private:
     // The root of the AST
     TranslationUnit* _unit;
     
     bool _inEnumeration;
-    
-    Lexer* _lexer;
+
+    TokenList* _tokList;
+    TokenList::iterator _cur;
 
     // It is not the real scope,
     // it contains all external symbols(resolved and not resolved)
     Scope* _externalSymbols;
     
+    Token* _errTok;
+    //std::stack<Token*> _buf;
+
     Scope* _curScope;
     LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;
-    std::stack<Token*> _buf;
+    
 
-    Token* _errTok;
+    
 
     LabelStmt* _breakDest;
     LabelStmt* _continueDest;

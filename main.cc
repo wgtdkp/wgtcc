@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "parser.h"
 
+#include <cstdio>
 #include <iostream>
 
 
@@ -18,10 +19,12 @@ int main(int argc, char* argv[])
         Usage();
     }
 
-    Lexer lexer(argv[1]);
-    lexer.Tokenize();
+    Lexer lexer;
+    TokenList tokList;
+    lexer.ReadFile(argv[1]);
+    lexer.Tokenize(tokList);
 
-    Parser parser(&lexer);
+    Parser parser(&tokList);
     parser.ParseTranslationUnit();
     
     return 0;
