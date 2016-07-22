@@ -12,14 +12,17 @@
 
 class Parser;
 
+typedef std::list<Token> TokenList;
+
+
 struct Token
 {
     friend class Parser;
     
 public:
-    Token(void): _tag(Token::END), _fileName(nullptr),
-            _line(1), _column(1), _lineBegin(nullptr),
-            _begin(nullptr), _end(nullptr) {}
+    explicit Token(int tag=Token::END): _tag(tag),
+            _fileName(nullptr), _line(1), _column(1),
+            _lineBegin(nullptr), _begin(nullptr), _end(nullptr) {}
 
     //Token(int tag, const char* fileName, int line,
     //        int column, char* lineBegin, StrPair& str)
@@ -31,6 +34,8 @@ public:
     }
 
     const Token& operator=(const Token& other) {
+        _tag = other._tag;
+
         _fileName = other._fileName;
         _line = other._line;
         _column = other._column;
@@ -187,7 +192,22 @@ public:
         PLUS,
         MINUS,
         CAST,
-            
+
+        // For preprocessor
+        PP_IF,
+        PP_IFDEF,
+        PP_IFNDEF,
+        PP_ELIF,
+        PP_ELSE,
+        PP_ENDIF,
+        PP_INCLUDE,
+        PP_DEFINE,
+        PP_UNDEF,
+        PP_LINE,
+        PP_ERROR,
+        PP_PRAGMA,
+        PP_EMPTY,
+
         IGNORE,
         INVALID,
         END,
@@ -273,6 +293,103 @@ public:
     static const std::unordered_map<std::string, int> _kwTypeMap;
     static const std::unordered_map<int, const char*> _TagLexemeMap;
     //static const char* _tokenTable[TOKEN_NUM - OFFSET - 1];
+};
+
+
+struct TokenSeq
+{
+public:
+    TokenSeq(void): _tokList(new TokenList()),
+            _begin(_tokList->begin()), _end(_tokList->end()) {}
+
+    explicit TokenSeq(TokenList* tokList): _tokList(tokList),
+            _begin(tokList->begin()), _end(tokList->end()) {}
+
+    TokenSeq(TokenList* tokList,
+            TokenList::iterator begin, TokenList::iterator end)
+            : _tokList(tokList), _begin(begin), _end(end) {}
+    
+    ~TokenSeq(void) {}
+
+    TokenSeq(const TokenSeq& other) {
+        *this = other;
+    }
+
+    const TokenSeq& operator=(const TokenSeq& other) {
+        _tokList = other._tokList;
+        _begin = other._begin;
+        _end = other._end;
+
+        return *this;
+    }
+
+    Token& Front(void) {
+        return *_begin;
+    }
+
+    Token& Second(void) {
+        auto pos = _begin;
+        return *(++pos);
+    }
+
+    Token& Back(void) {
+        auto pos = _end;
+        return *(--pos);
+    }
+
+    void Forward(void) {
+        ++_begin;
+    }
+
+    void Backward(void) {
+        --_begin;
+    }
+
+    // Could be costly
+    size_t Size(void) {
+        size_t size = 0;
+        for (auto iter = _begin; iter != _end; iter++)
+            ++size;
+        return size;
+    }
+
+    bool Empty(void) {
+        return _begin == _end;
+    }
+
+    void InsertBack(const TokenSeq& seq) {
+        //assert(_tokList == seq._tokList);
+        auto size = _tokList->size();
+        auto pos = _tokList->insert(_end, seq._begin, seq._end);
+        if (size == 0) {
+            _begin = pos;
+        }
+    }
+
+    void InsertBack(const Token& tok) {
+        //assert(_tokList == seq._tokList);
+        auto size = _tokList->size();
+        auto pos = _tokList->insert(_end, tok);
+        if (size == 0) {
+            _begin = pos;
+        }
+    }
+
+    void InsertFront(const TokenSeq& seq) {
+        _begin = _tokList->insert(_begin, seq._begin, seq._end);
+    }
+
+    void InsertFront(const Token& tok) {
+        //assert(_tokList == seq._tokList);
+        _begin = _tokList->insert(_begin, tok);
+        
+    }
+
+    bool IsBeginOfLine(void) const;
+
+    TokenList* _tokList;
+    TokenList::iterator _begin;
+    TokenList::iterator _end;
 };
 
 #endif

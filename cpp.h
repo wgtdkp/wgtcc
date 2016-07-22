@@ -8,105 +8,38 @@
 #include <list>
 #include <map>
 #include <set>
+#include <stack>
 #include <string>
 
 class Lexer;
 class Macro;
-class TokenSeq;
 
 typedef std::map<std::string, Macro> MacroMap; 
 typedef std::list<std::string> ParamList;
 typedef std::map<std::string, TokenSeq> ParamMap;
 typedef std::set<std::string> HideSet;
+typedef std::stack<std::pair<int, int>> PPCondStack;
+typedef std::list<std::string> PathList;
 
-
-struct TokenSeq
-{
-public:
-    explicit TokenSeq(TokenList* tokList): _tokList(tokList),
-            _begin(tokList->begin()), _end(tokList->end()) {}
-
-    TokenSeq(TokenList* tokList,
-            TokenList::iterator begin, TokenList::iterator end)
-            : _tokList(tokList), _begin(begin), _end(end) {}
-    
-    ~TokenSeq(void) {}
-
-    TokenSeq(const TokenSeq& other) {
-        *this = other;
-    }
-
-    const TokenSeq& operator=(const TokenSeq& other) {
-        _tokList = other._tokList;
-        _begin = other._begin;
-        _end = other._end;
-
-        return *this;
-    }
-
-    Token& Front(void) {
-        return *_begin;
-    }
-
-    Token& Second(void) {
-        auto pos = _begin;
-        return *(++pos);
-    }
-
-    Token& Back(void) {
-        auto pos = _end;
-        return *(--pos);
-    }
-
-    void Forward(void) {
-        ++_begin;
-    }
-
-    bool Empty(void) {
-        return _begin == _end;
-    }
-
-    void InsertBack(const TokenSeq& seq) {
-        //assert(_tokList == seq._tokList);
-        _tokList->insert(_end, seq._begin, seq._end);
-    }
-
-    void InsertBack(const Token& tok) {
-        //assert(_tokList == seq._tokList);
-        _tokList->insert(_end, tok);
-    }
-
-    void InsertFront(const TokenSeq& seq) {
-        _tokList->insert(_begin, seq._begin, seq._end);
-        _begin = seq._begin;
-    }
-
-    void InsertFront(const Token& tok) {
-        //assert(_tokList == seq._tokList);
-        _tokList->insert(_begin, tok);
-        --_begin;
-    }
-
-    TokenList* _tokList;
-    TokenList::iterator _begin;
-    TokenList::iterator _end;
-};
 
 
 class Macro
 {
 public:
-    Macro(Token* tok, TokenSeq& repSeq)
-            : _tok(tok), _funcLike(false), _repSeq(repSeq) {}
+    Macro(TokenSeq& repSeq, bool preDef=false)
+            : _funcLike(false), _preDef(preDef),_repSeq(repSeq) {}
 
-    Macro(Token* tok, ParamList& params, TokenSeq& repSeq)
-            : _tok(tok), _funcLike(true), _params(params), _repSeq(repSeq) {}
+    Macro(ParamList& params, TokenSeq& repSeq, bool preDef=false)
+            : _funcLike(true), _preDef(preDef), _params(params),
+              _repSeq(repSeq) {}
     
     ~Macro(void) {}
 
+    /*
     std::string Name(void) {
         return _tok->Str();
     }
+    */
 
     bool FuncLike(void) {
         return _funcLike;
@@ -125,8 +58,9 @@ public:
     }
 
 private:
-    Token* _tok;
+    //Token* _tok;
     bool _funcLike;
+    bool _preDef;
     ParamList _params;
     TokenSeq _repSeq;
 
@@ -136,13 +70,15 @@ private:
 class Preprocessor
 {
 public:
-    Preprocessor(void) {}
+    Preprocessor(void) {
+        Init();
+    }
 
     ~Preprocessor(void) {}
 
     void GenTokList(void);
 
-    void Process(TokenList& ol, TokenList& il);
+    void Process(TokenSeq& os, TokenSeq& is);
 
     void Expand(TokenSeq& os, TokenSeq& is);
 
@@ -156,15 +92,42 @@ public:
 
     void ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap);
 
+    int GetDirective(TokenSeq& is);
+
+    TokenSeq GetLine(TokenSeq& is);
+
+    void ParseDirective(TokenSeq& is, int directive);
+
+    void ParseIf(TokenSeq& is);
+    void ParseIfdef(TokenSeq& is);
+    void ParseIfndef(TokenSeq& is);
+    void ParseElif(TokenSeq& is);
+    void ParseElse(TokenSeq& is);
+    void ParseEndif(TokenSeq& is);
+    void ParseInclude(TokenSeq& is);
+
+    void IncludeFile(TokenSeq& is, const std::string& fileName);
+
+
     TokenList* TokList(void) {
         return _tokList;
     }
 
     Macro* FindMacro(const std::string& name) {
-        auto res = _macros.find(name);
-        if (res == _macros.end())
+        auto res = _macroMap.find(name);
+        if (res == _macroMap.end())
             return nullptr;
         return &res->second;
+    }
+
+    void AddMacro(const std::string& name, const Macro& macro) {
+        _macroMap.insert(std::make_pair(name, macro));
+    }
+
+    std::string SearchFile(const std::string& name, bool libHeader=false);
+
+    void AddSearchPath(const std::string& path) {
+        _searchPathList.push_back(path);
     }
 
     bool Hidden(const std::string& name) {
@@ -172,9 +135,14 @@ public:
     }
 
 private:
+    void Init(void);
+
     TokenList* _tokList;
-    MacroMap _macros;
     HideSet _hs;
+    PPCondStack _ppCondStack;
+    
+    MacroMap _macroMap;
+    PathList _searchPathList;
 };
 
 #endif

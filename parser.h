@@ -2,29 +2,27 @@
 #define _PARSER_H_
 
 #include "ast.h"
-#include "scope.h"
 #include "error.h"
-#include "lexer.h"
 #include "mem_pool.h"
+#include "scope.h"
+#include "token.h"
 
 #include <cassert>
 #include <memory>
 #include <stack>
 
+class Preprocessor;
 
 typedef std::pair<Token*, Type*> TokenTypePair;
 
 class Parser
 {
 public:
-    explicit Parser(TokenList* tokList) 
+    explicit Parser(const TokenSeq& tokSeq, Preprocessor* cpp=nullptr) 
         : _unit(TranslationUnit::NewTranslationUnit()),
-          _inEnumeration(false), _tokList(tokList),
-          _cur(tokList->begin()),
+          _inEnumeration(false), _cpp(cpp), _tokSeq(tokSeq),
           _externalSymbols(new Scope(nullptr, S_BLOCK)),
-          _errTok(nullptr),
-          _curScope(new Scope(nullptr, S_FILE)),
-          
+          _errTok(nullptr), _curScope(new Scope(nullptr, S_FILE)),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -205,7 +203,9 @@ public:
     // FuncCall
     void TypeChecking(FuncCall* funcCall, const Token* errTok);
 
-protected:
+
+    Token* Expect(int expect);
+
     bool Try(int tokTag) {
         if (Next()->Tag() == tokTag)
             return true;
@@ -214,21 +214,21 @@ protected:
     }
 
     Token* Next(void) {
-        assert(_cur != _tokList->end());
-        return &(*_cur++);
+        assert(!_tokSeq.Empty());
+        auto ret = Peek();
+        _tokSeq.Forward();
+        return ret;
     }
 
-    Token* Peek(void) {
-        return &(*_cur);
-    }
+    Token* Peek(void);
 
     bool Test(int tag) {
         return Peek()->Tag() == tag;
     }
 
     void PutBack(void) {
-        assert(_cur != _tokList->begin());
-        --_cur;
+        assert(_tokSeq._begin != _tokSeq._tokList->begin());
+        _tokSeq.Backward();
     }
 
     bool IsTypeName(Token* tok) const{
@@ -255,8 +255,6 @@ protected:
         return false;
     }
 
-    void Expect(int expect);
-    
     void EnterBlock(FuncType* funcType=nullptr);
     
     void ExitBlock(void) {
@@ -296,9 +294,8 @@ private:
     TranslationUnit* _unit;
     
     bool _inEnumeration;
-
-    TokenList* _tokList;
-    TokenList::iterator _cur;
+    Preprocessor* _cpp;
+    TokenSeq _tokSeq;
 
     // It is not the real scope,
     // it contains all external symbols(resolved and not resolved)

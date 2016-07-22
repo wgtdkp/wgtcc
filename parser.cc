@@ -1,7 +1,8 @@
 #include "parser.h"
 
-#include "scope.h"
+#include "cpp.h"
 #include "error.h"
+#include "scope.h"
 #include "type.h"
 
 #include <iostream>
@@ -10,6 +11,19 @@
 
 using namespace std;
 
+Token* Parser::Peek(void)
+{
+    static Token eof;
+    if (_tokSeq.Empty()) {
+        auto back = _tokSeq.Back();
+        eof = back;
+        eof._tag = Token::END;
+        eof._begin = back._end;
+        eof._end = eof._begin + 1;
+        return &eof;
+    }
+    return &_tokSeq.Front();
+}
 
 /*
  * Factory
@@ -190,7 +204,7 @@ void Parser::Delete(ASTNode* node)
 /*
  * Recursive descent parser
  */
-void Parser::Expect(int expect)
+Token* Parser::Expect(int expect)
 {
     auto tok = Next();
     if (tok->Tag() != expect) {
@@ -198,6 +212,7 @@ void Parser::Expect(int expect)
         Error(tok, "'%s' expected, but got '%s'",
                 Token::Lexeme(expect), tok->Str().c_str());
     }
+    return tok;
 }
 
 void Parser::EnterFunc(const char* funcName) {
@@ -320,6 +335,20 @@ Expr* Parser::ParsePrimaryExpr(void)
     }
 
     if (tok->IsIdentifier()) {
+        if (_cpp) {
+            // We are in preprocessing phase
+            if (tok->Str() == "defined") {
+                bool hasPar = Try('(');
+                auto ident = Expect(Token::IDENTIFIER);
+                if (hasPar) {
+                    Expect(')');
+                }
+                int val = _cpp->FindMacro(ident->Str()) != nullptr;
+                return NewConstantInteger(Type::NewArithmType(T_INT), val);
+            }
+        }
+
+
         auto ident = _curScope->Find(tok->Str());
         /* if (ident == nullptr || ident->ToObject() == nullptr) { */
         if (ident == nullptr) {

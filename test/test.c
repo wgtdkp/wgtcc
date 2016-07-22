@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <complex.h>
+#include "haha.h"
 
-#define ADD2(a, b) ((a)+*(b))
+
+#define ADD2(a, b) ((a)+(b) + MOD)
 #define ADD3(a, b, c) (ADD2(ADD2((a), (b)), (c)))
 
 

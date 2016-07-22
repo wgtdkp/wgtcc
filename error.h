@@ -3,6 +3,7 @@
 
 class Token;
 
+void Error(const char* format, ...);
 void Error(const Token* tok, const char* format, ...);
 
 #endif

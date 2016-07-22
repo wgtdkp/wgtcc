@@ -10,8 +10,6 @@
 #include <string>
 
 
-typedef std::list<Token> TokenList;
-
 class Lexer
 {
 public:
@@ -23,7 +21,7 @@ public:
         delete[] _text;
     }
 
-    void Tokenize(TokenList& tokList);
+    void Tokenize(TokenSeq& tokSeq);
 
     void ReadFile(const char* fileName);
     

@@ -90,7 +90,7 @@ static inline bool IsBlank(char ch)
     return ' ' == ch || '\t' == ch || '\v' == ch || '\f' == ch;
 }
 
-void Lexer::Tokenize(TokenList& tokList)
+void Lexer::Tokenize(TokenSeq& tokSeq)
 {
     char* p = _text;
     
@@ -118,7 +118,7 @@ void Lexer::Tokenize(TokenList& tokList)
         if (p[0] == 0) {
             tok._end = p;
             tok._tag = Token::END;
-            tokList.push_back(tok);
+            tokSeq.InsertBack(tok);
             return;
         }
         
@@ -350,8 +350,8 @@ void Lexer::Tokenize(TokenList& tokList)
             
             tok._end = ++p; //keep the prefix and postfix('\'')
             tok._column = tok._begin - tok._lineBegin + 1; 
-            tokList.push_back(tok);
-            break;
+            tokSeq.InsertBack(tok);
+            ++p; continue;
 
         case '"':
             tok._begin = p;
@@ -364,8 +364,8 @@ void Lexer::Tokenize(TokenList& tokList)
             
             tok._end = ++p; //do not trim the '"' at begin and end
             tok._column = tok._begin - tok._lineBegin + 1;
-            tokList.push_back(tok);
-            break;
+            tokSeq.InsertBack(tok);
+            ++p; continue;
             
         default:
         letter_handler:
@@ -381,10 +381,11 @@ void Lexer::Tokenize(TokenList& tokList)
                 tok._tag = Token::KeyWordTag(tok._begin, tok._end);
                 if (!Token::IsKeyWord(tok._tag)) {
                     tok._tag = Token::IDENTIFIER;
-                    tokList.push_back(tok);
+                    tokSeq.InsertBack(tok);
                 } else {
-                    tokList.push_back(tok);
+                    tokSeq.InsertBack(tok);
                 }
+                continue;
             } else if (isdigit(p[0])) {
         constant_handler:
                 tok._begin = p;
@@ -393,7 +394,8 @@ void Lexer::Tokenize(TokenList& tokList)
                 tok._column = tok._begin - tok._lineBegin + 1;
                 
                 tok._tag = isInteger ? Token::I_CONSTANT: Token::F_CONSTANT;
-                tokList.push_back(tok);
+                tokSeq.InsertBack(tok);
+                continue;
             } else {
                 tok._end = p;
                 tok._column = tok._begin - tok._lineBegin + 1;
@@ -404,7 +406,7 @@ void Lexer::Tokenize(TokenList& tokList)
 
         tok._end = p;
         tok._column = tok._begin - tok._lineBegin + 1;
-        tokList.push_back(tok);
+        tokSeq.InsertBack(tok);
     }
 }
 

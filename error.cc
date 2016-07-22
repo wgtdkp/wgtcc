@@ -1,5 +1,6 @@
 #include "error.h"
 
+#include "main.h"
 #include "token.h"
 
 #include <cstdarg>
@@ -15,9 +16,25 @@
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
+void Error(const char* format, ...)
+{
+    fprintf(stderr,  "%s: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
+            program.c_str());
+    
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    
+    fprintf(stderr, "\n");
+
+    exit(0);
+}
 
 void Error(const Token* tok, const char* format, ...)
 {
+    assert(tok->_fileName);
+
     fprintf(stderr,  "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
             tok->_fileName, tok->_line, tok->_column);
     
