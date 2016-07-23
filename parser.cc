@@ -1317,7 +1317,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
         } while (_ts.Try(','));
         _ts.Expect(';');
     }
-    _curScope->Print();
+    //_curScope->Print();
     //struct/union定义结束，设置其为完整类型
     type->SetComplete(true);
     
@@ -1398,8 +1398,6 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
         return TokenTypePair(tokenTypePair.first, retType);
     } else if (_ts.Peek()->IsIdentifier()) {
         auto tok = _ts.Next();
-        std::cout << tok->Tag() << std::endl;
-        std::cout << tok->Str() << std::endl;
         auto retType = ParseArrayFuncDeclarator(pointerType);
         return TokenTypePair(tok, retType);
     }
@@ -1468,7 +1466,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         linkage = L_EXTERNAL;
     }
 
-    _curScope->Print();
+    //_curScope->Print();
     ident = _curScope->FindInCurScope(name);
     if (ident) { // There is prio declaration in the same scope
         if (*type != *ident->Ty()) {
@@ -1477,8 +1475,6 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
 
         // The same scope prio declaration has no linkage,
         // there is a redeclaration error
-        std::cout << name << std::endl;
-        std::cout << ident->Name() << std::endl;
         if (linkage == L_NONE) {
             Error(tok, "redeclaration of '%s' with no linkage",
                     name.c_str());

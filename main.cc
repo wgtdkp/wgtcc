@@ -87,9 +87,7 @@ int main(int argc, char* argv[])
     lexer.ReadFile(fileName);
     lexer.Tokenize(tokSeq);
 
-    PrintTokSeq(tokSeq);
     cpp.Process(ppTokSeq, tokSeq);
-    PrintTokSeq(ppTokSeq);
 
     Parser parser(ppTokSeq);
     parser.ParseTranslationUnit();

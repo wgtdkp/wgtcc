@@ -23,7 +23,6 @@ typedef std::stack<std::pair<int, int>> PPCondStack;
 typedef std::list<std::string> PathList;
 
 
-
 class Macro
 {
 public:
@@ -92,7 +91,7 @@ public:
 
     void Process(TokenSeq& os, TokenSeq& is);
 
-    void Expand(TokenSeq& os, TokenSeq& is, bool line=false);
+    void Expand(TokenSeq& os, TokenSeq& is);
 
     void Subst(TokenSeq& os, TokenSeq& is, HideSet& hs, ParamMap& params);
 
@@ -100,7 +99,7 @@ public:
 
     void Glue(TokenSeq& os, Token* tok);
 
-    Token* Stringize(TokenSeq& ts);
+    void Stringize(std::string& str, TokenSeq& is);
 
     void ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap);
 

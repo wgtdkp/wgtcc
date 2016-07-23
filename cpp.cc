@@ -29,14 +29,11 @@ static const DirectiveMap directiveMap = {
  *     is: input token sequence
  *     os: output token sequence
  */
-void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool line)
+void Preprocessor::Expand(TokenSeq& os, TokenSeq& is)
 {
     Macro* macro = nullptr;
     int direcitve;
     while (!is.Empty()) {
-        if (line && is.IsBeginOfLine())
-            break;
-
         auto name = is.Peek()->Str();
         if ((direcitve = GetDirective(is)) != Token::INVALID) {
             // TODO(wgtdkp):
@@ -102,9 +99,9 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
         return;
     } else if (is.Test('#')
             && (ap = FindActualParam(params, is.Peek2()->Str()))) {
-        is.Next();
-        is.Next();
-        os.InsertBack(Stringize(*ap));
+        is.Next(); is.Next();
+        // TODO(wgtdkp):
+        //os.InsertBack(Stringize(*ap));
         Subst(os, is, hs, params);
     } else if (is.Test(Token::DSHARP)
             && (ap = FindActualParam(params, is.Peek2()->Str()))) {
@@ -204,15 +201,34 @@ void Preprocessor::Glue(TokenSeq& os, TokenSeq& is)
     os.InsertBack(is);
 }
 
-Token* Preprocessor::Stringize(TokenSeq& ts)
-{
-    // FIXME: meory leakage
-    auto tok = new Token();
-    tok->_tag = Token::STRING_LITERAL;
-    // TODO(wgtdkp):
 
-    // FIXME(wgtdkp): memory leakage
-    return tok;
+void Preprocessor::Stringize(std::string& str, TokenSeq& is)
+{
+    auto ts = is; // Make a copy
+    int line = 1;
+    int maxLine = 1;
+    int column = 1; 
+    while (!ts.Empty()) {
+        auto tok = ts.Peek();
+        
+        if (ts.IsBeginOfLine()) {
+            if (tok->_line > maxLine) {
+                str.push_back('\n');
+                column = 1;
+                maxLine = tok->_line;
+            }
+        }
+
+        line = tok->_line;
+        column = tok->_column;
+        while (!ts.Empty() && ts.Peek()->_line == line) {
+            tok = ts.Next();
+            str.append(tok->_column - column, ' ');
+            column = tok->_column;
+            str.append(tok->_begin, tok->_end - tok->_begin);
+            column += tok->_end - tok->_begin;
+        }
+    }
 }
 
 void HSAdd(TokenSeq& ts, HideSet& hs)
@@ -226,8 +242,18 @@ void HSAdd(TokenSeq& ts, HideSet& hs)
 // TODO(wgtdkp): add predefined macros
 void Preprocessor::Process(TokenSeq& os, TokenSeq& is)
 {
+    std::string str;
+
+    Stringize(str, is);
+    std::cout << str << std::endl;
 
     Expand(os, is);
+
+    str.resize(0);
+    Stringize(str, os);
+    std::cout << std::endl << "###### Preprocessed ######" << std::endl;
+    std::cout << str << std::endl << std::endl;
+    std::cout << std::endl << "###### End ######" << std::endl;
 }
 
 
@@ -328,20 +354,16 @@ TokenSeq Preprocessor::GetLine(TokenSeq& is)
 
 int Preprocessor::GetDirective(TokenSeq& is)
 {
-    if (!is.Test('#')) {
-        if (is.IsBeginOfLine()) {
-            return Token::PP_EMPTY;
-        }
+    if (!is.Test('#') || !is.IsBeginOfLine())
         return Token::INVALID;
-    }
 
     is.Next();
 
+    if (is.IsBeginOfLine())
+        return Token::PP_EMPTY;
+
     auto tag = is.Peek()->_tag;
     if (tag == Token::IDENTIFIER || Token::IsKeyWord(tag)) {
-        if (is.IsBeginOfLine())
-            return Token::PP_EMPTY;
-        
         auto str = is.Peek()->Str();
         auto res = directiveMap.find(str);
         if (res == directiveMap.end()) {
@@ -406,8 +428,9 @@ void Preprocessor::ParseError(TokenSeq& is)
     auto ls = GetLine(is);
     ls.Next();
     
-    auto msg = Stringize(ls);
-    Error(ls.Peek(), "%s", msg->Str().c_str());
+    std::string msg;
+    Stringize(msg, ls);
+    Error(ls.Peek(), "%s", msg.c_str());
 }
 
 void Preprocessor::ParseLine(TokenSeq& is)
@@ -442,12 +465,13 @@ void Preprocessor::ParseLine(TokenSeq& is)
 void Preprocessor::ParseIf(TokenSeq& is)
 {   
     auto ls = GetLine(is);
-    ls.Next(); // Skip the directive
 
     TokenSeq ts;
     ReplaceDefOp(ls);
-    Expand(ts, ls, true);
+    Expand(ts, ls);
     ReplaceIdent(ts);
+
+    ts.Next(); // Skip the directive
 
     auto begin = ts.Peek();
     Parser parser(ts);
@@ -489,12 +513,14 @@ void Preprocessor::ParseElif(TokenSeq& is)
     auto directive = is.Peek();
 
     auto ls = GetLine(is);
-    ls.Next(); // Skip the directive 
+    //ls.Next();  
 
     TokenSeq ts;
     ReplaceDefOp(ls);
-    Expand(ts, ls, true);
+    Expand(ts, ls);
     ReplaceIdent(ts);
+
+    ts.Next(); // Skip the directive
 
     auto begin = ts.Peek();
     Parser parser(ts);
