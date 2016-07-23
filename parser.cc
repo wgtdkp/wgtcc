@@ -322,7 +322,7 @@ Expr* Parser::ParsePrimaryExpr(void)
         return ParseGeneric();
     } 
 
-    Error(tok, "Expect expression");
+    Error(tok, "unexpected expect '%s'", tok->Str().c_str());
     return nullptr; // Make compiler happy
 }
 

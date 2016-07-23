@@ -47,34 +47,38 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is)
             is.Next();
         } else if ((macro = FindMacro(name))) {
             is.Next();
+            _hs.insert(name);
             if (macro->ObjLike()) {
-                TokenSeq& repSeq = macro->RepSeq();
+                // Make a copy, as subst will change repSeq
+                TokenSeq repSeq = macro->RepSeq();
 
                 TokenList tokList;
                 TokenSeq repSeqSubsted(&tokList);
-                
-                _hs.insert(name);
                 ParamMap paramMap;
+                // TODO(wgtdkp): hideset is not right
                 Subst(repSeqSubsted, repSeq, _hs, paramMap);
 
                 is.InsertFront(repSeqSubsted);
             } else if (is.Test('(')) {
-                // TODO(wgtdkp): Check params and ')'
-                // Then, substitute and expand
                 is.Next();
-
+                
                 ParamMap paramMap;
+                ParseActualParam(is, macro, paramMap);
+
+                // Make a copy, as subst will change repSeq
+                TokenSeq repSeq = macro->RepSeq();
+                
                 TokenList tokList;
                 TokenSeq repSeqSubsted(&tokList);
-
-                ParseActualParam(is, macro, paramMap);
+                
                 // TODO(wgtdkp): hideset is not right
-                _hs.insert(name);
                 Subst(repSeqSubsted, macro->RepSeq(), _hs, paramMap);
                 is.InsertFront(repSeqSubsted);
             } else {
-                // TODO(wgtdkp): error
+                Error(is.Peek(), "expect '(' for func-like macro '%s'",
+                        name.c_str());
             }
+            _hs.erase(name);
         } else {
             os.InsertBack(is.Peek());
             is.Next();
@@ -141,7 +145,7 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
         }
     } else if ((ap = FindActualParam(params, is.Peek()->Str()))) {
         is.Next();
-        Expand(os, is);
+        Expand(os, *ap);
         Subst(os, is, hs, params);
     } else {
         os.InsertBack(is.Peek());
@@ -278,9 +282,11 @@ void Preprocessor::ParseActualParam(TokenSeq& is,
             ap._end = is._begin;
 
             if (fp == macro->Params().end()) {
-                // TODO(wgtdkp): error
+                Error(is.Peek(), "too many params");
             }
+            
             paramMap.insert(std::make_pair(*fp, ap));
+            ++fp;
 
             ap._begin = ++ap._end;  
         }
@@ -290,6 +296,7 @@ void Preprocessor::ParseActualParam(TokenSeq& is,
 
     if (fp != macro->Params().end()) {
         // TODO(wgtdkp): error
+        Error(is.Peek(), "too few params");
     }
 }
 
@@ -473,7 +480,11 @@ void Preprocessor::ParseLine(TokenSeq& is)
 void Preprocessor::ParseIf(TokenSeq& is)
 {   
     auto ls = GetLine(is);
-    ls.Next(); // Skip the directive
+    auto tok = ls.Next(); // Skip the directive
+
+    if (ls.Empty()) {
+        Error(tok, "expect expression in 'if' directive");
+    }
 
     TokenSeq ts;
     ReplaceDefOp(ls);
@@ -522,7 +533,11 @@ void Preprocessor::ParseElif(TokenSeq& is)
     auto directive = is.Peek();
 
     auto ls = GetLine(is);
-    ls.Next(); // Skip the directive 
+    auto tok = ls.Next(); // Skip the directive
+
+    if (ls.Empty()) {
+        Error(tok, "expect expression in 'elif' directive");
+    }
 
     TokenSeq ts;
     ReplaceDefOp(ls);
@@ -680,6 +695,8 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSeq& is)
         } else if (tok->_tag != Token::IDENTIFIER) {
             Error(tok, "expect indentifier");
         }
+        
+        params.push_back(tok->Str());
 
         if (!is.Try(',')) {
             is.Expect(')');
