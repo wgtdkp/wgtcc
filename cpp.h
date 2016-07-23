@@ -5,6 +5,7 @@
 #include "token.h"
 #include "lexer.h"
 
+#include <cstdio>
 #include <list>
 #include <map>
 #include <set>
@@ -27,9 +28,11 @@ class Macro
 {
 public:
     Macro(TokenSeq& repSeq, bool preDef=false)
-            : _funcLike(false), _preDef(preDef),_repSeq(repSeq) {}
+            : _funcLike(false), _variadic(false),
+              _preDef(preDef),_repSeq(repSeq) {}
 
-    Macro(ParamList& params, TokenSeq& repSeq, bool preDef=false)
+    Macro(bool variadic, ParamList& params,
+            TokenSeq& repSeq, bool preDef=false)
             : _funcLike(true), _preDef(preDef), _params(params),
               _repSeq(repSeq) {}
     
@@ -49,6 +52,14 @@ public:
         return !FuncLike();
     }
 
+    bool Variadic(void) {
+        return _variadic;
+    }
+
+    bool PreDef(void) {
+        return _preDef;
+    }
+
     ParamList& Params(void) {
         return _params;
     }
@@ -60,6 +71,7 @@ public:
 private:
     //Token* _tok;
     bool _funcLike;
+    bool _variadic;
     bool _preDef;
     ParamList _params;
     TokenSeq _repSeq;
@@ -80,22 +92,23 @@ public:
 
     void Process(TokenSeq& os, TokenSeq& is);
 
-    void Expand(TokenSeq& os, TokenSeq& is);
+    void Expand(TokenSeq& os, TokenSeq& is, bool line=false);
 
     void Subst(TokenSeq& os, TokenSeq& is, HideSet& hs, ParamMap& params);
 
     void Glue(TokenSeq& os, TokenSeq& is);
 
-    void Glue(TokenSeq& os, Token& tok);
+    void Glue(TokenSeq& os, Token* tok);
 
-    Token Stringize(TokenSeq* ts);
+    Token* Stringize(TokenSeq& ts);
 
     void ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap);
 
     int GetDirective(TokenSeq& is);
 
     TokenSeq GetLine(TokenSeq& is);
-
+    void ReplaceDefOp(TokenSeq& is);
+    void ReplaceIdent(TokenSeq& is);
     void ParseDirective(TokenSeq& is, int directive);
 
     void ParseIf(TokenSeq& is);
@@ -105,13 +118,14 @@ public:
     void ParseElse(TokenSeq& is);
     void ParseEndif(TokenSeq& is);
     void ParseInclude(TokenSeq& is);
+    void ParseDef(TokenSeq& is);
+    bool ParseIdentList(ParamList& params, TokenSeq& is);
+    void ParseUndef(TokenSeq& is);
+    void ParseLine(TokenSeq& is);
+    void ParseError(TokenSeq& is);
+    void ParsePragma(TokenSeq& is);
 
     void IncludeFile(TokenSeq& is, const std::string& fileName);
-
-
-    TokenList* TokList(void) {
-        return _tokList;
-    }
 
     Macro* FindMacro(const std::string& name) {
         auto res = _macroMap.find(name);
@@ -124,7 +138,16 @@ public:
         _macroMap.insert(std::make_pair(name, macro));
     }
 
-    std::string SearchFile(const std::string& name, bool libHeader=false);
+    void RemoveMacro(const std::string& name) {
+        auto res = _macroMap.find(name);
+        if (res == _macroMap.end())
+            return;
+        if(res->second.PreDef()) // can't undef predefined macro
+            return;
+        _macroMap.erase(res);
+    }
+
+    std::string* SearchFile(const std::string& name, bool libHeader=false);
 
     void AddSearchPath(const std::string& path) {
         _searchPathList.push_back(path);
@@ -137,9 +160,10 @@ public:
 private:
     void Init(void);
 
-    TokenList* _tokList;
     HideSet _hs;
     PPCondStack _ppCondStack;
+    int _curLine;
+    StrPair _curFileName;
     
     MacroMap _macroMap;
     PathList _searchPathList;

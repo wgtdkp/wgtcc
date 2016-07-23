@@ -172,3 +172,53 @@ void Token::Concat(Token& other, bool coordDecidedOnThis)
     _str = StrPair(begin, len, true);
 }
 */
+
+void PrintTokSeq(TokenSeq& tokSeq)
+{
+    auto iter = tokSeq._begin;
+    for (; iter != tokSeq._end; iter++) {
+        std::cout << iter->_tag << "\t";
+        std::cout << iter->Str() << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+/*
+ * If this seq starts from the begin of a line
+ */ 
+bool TokenSeq::IsBeginOfLine(void) const
+{
+    if (_begin == _tokList->begin())
+        return true;
+
+    auto pre = _begin;
+    --pre;
+
+    return (_begin->_fileName != pre->_fileName
+            ||  _begin->_line > pre->_line);
+}
+
+Token* TokenSeq::Peek(void)
+{
+    static Token eof;
+    if (Empty()) {
+        auto back = Back();
+        eof = *back;
+        eof._tag = Token::END;
+        eof._begin = back->_end;
+        eof._end = eof._begin + 1;
+        return &eof;
+    }
+    return &(*_begin);
+}
+
+Token* TokenSeq::Expect(int expect)
+{
+    auto tok = Next();
+    if (tok->Tag() != expect) {
+        PutBack();
+        Error(tok, "'%s' expected, but got '%s'",
+                Token::Lexeme(expect), tok->Str().c_str());
+    }
+    return tok;
+}

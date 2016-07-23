@@ -20,16 +20,6 @@ void Usage(void)
     exit(0);
 }
 
-void PrintTokSeq(TokenSeq& tokSeq)
-{
-    auto iter = tokSeq._begin;
-    for (; iter != tokSeq._end; iter++) {
-        std::cout << iter->_tag << "\t";
-        std::cout << iter->Str() << std::endl;
-    }
-    std::cout << std::endl;
-}
-
 void ParseDef(Preprocessor& cpp, const char* def)
 {
     auto p = def;
@@ -54,6 +44,7 @@ int main(int argc, char* argv[])
     if (argc < 2) {
         Usage();
     }
+    program = std::string(argv[0]);
 
     Preprocessor cpp;
     const char* fileName = nullptr;

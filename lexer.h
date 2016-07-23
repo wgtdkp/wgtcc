@@ -6,6 +6,7 @@
 #include "token.h"
 
 #include <cassert>
+#include <cstdio>
 #include <vector>
 #include <string>
 
@@ -18,13 +19,15 @@ public:
     Lexer(void): _fileName(nullptr) {}
 
     virtual ~Lexer(void) {
-        delete[] _text;
+        // TODO(wgtdkp):
+        //delete[] _text; // You can't do it!!!
     }
 
     void Tokenize(TokenSeq& tokSeq);
 
     void ReadFile(const char* fileName);
-    
+    //void ReadFile(FILE* fp);
+
     void ReadStr(const std::string& str);
 
     const char* ParseName(const char* path);

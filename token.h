@@ -227,6 +227,17 @@ public:
     	return std::string(_begin, _end);
     }
 
+    std::string Literal(void) const {
+        assert(_tag == STRING_LITERAL);
+        const char* p = _begin;
+        const char* q = _end - 1;
+        while (*p != '"')
+            ++p;
+        while (*q != '"')
+            --q;
+        return std::string(p + 1, q);
+    }
+
     static bool IsKeyWord(int tag) {
         return CONST <= tag && tag <= STATIC_ASSERT;
     }
@@ -323,66 +334,82 @@ public:
         return *this;
     }
 
-    Token& Front(void) {
-        return *_begin;
+    Token* Expect(int expect);
+
+    bool Try(int tag) {
+        if (Next()->Tag() == tag)
+            return true;
+        PutBack();
+        return false;
     }
 
-    Token& Second(void) {
-        auto pos = _begin;
-        return *(++pos);
+    bool Test(int tag) {
+        return Peek()->Tag() == tag;
     }
 
-    Token& Back(void) {
-        auto pos = _end;
-        return *(--pos);
+    Token* Next(void) {
+        auto ret = Peek();
+        if (!ret->IsEOF())
+            ++_begin;
+        return ret;
     }
 
-    void Forward(void) {
-        ++_begin;
-    }
-
-    void Backward(void) {
+    void PutBack(void) {
+        assert(_begin != _tokList->begin());
         --_begin;
     }
 
+    Token* Peek(void);
+
+    Token* Peek2(void) {
+        assert(!Empty());
+        Next();
+        auto ret = Peek();
+        PutBack();
+        return ret;
+    }
+
+    Token* Back(void) {
+        auto back = _end;
+        return &(*--back);
+    }
+
     // Could be costly
+    /*
     size_t Size(void) {
         size_t size = 0;
         for (auto iter = _begin; iter != _end; iter++)
             ++size;
         return size;
     }
+    */
 
     bool Empty(void) {
         return _begin == _end;
     }
 
-    void InsertBack(const TokenSeq& seq) {
+    void InsertBack(const TokenSeq& ts) {
         //assert(_tokList == seq._tokList);
-        auto size = _tokList->size();
-        auto pos = _tokList->insert(_end, seq._begin, seq._end);
-        if (size == 0) {
+        auto pos = _tokList->insert(_end, ts._begin, ts._end);
+        if (_begin == _end) {
             _begin = pos;
         }
     }
 
-    void InsertBack(const Token& tok) {
-        //assert(_tokList == seq._tokList);
-        auto size = _tokList->size();
-        auto pos = _tokList->insert(_end, tok);
-        if (size == 0) {
+    void InsertBack(const Token* tok) {
+        auto pos = _tokList->insert(_end, *tok);
+        if (_begin == _end) {
             _begin = pos;
         }
     }
 
-    void InsertFront(const TokenSeq& seq) {
-        _begin = _tokList->insert(_begin, seq._begin, seq._end);
+    void InsertFront(const TokenSeq& ts) {
+        _begin = _tokList->insert(_begin, ts._begin, ts._end);
     }
 
-    void InsertFront(const Token& tok) {
+    void InsertFront(const Token* tok) {
         //assert(_tokList == seq._tokList);
-        _begin = _tokList->insert(_begin, tok);
-        
+        _begin = _tokList->insert(_begin, *tok);
     }
 
     bool IsBeginOfLine(void) const;
@@ -391,5 +418,7 @@ public:
     TokenList::iterator _begin;
     TokenList::iterator _end;
 };
+
+void PrintTokSeq(TokenSeq& tokSeq);
 
 #endif

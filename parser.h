@@ -18,9 +18,9 @@ typedef std::pair<Token*, Type*> TokenTypePair;
 class Parser
 {
 public:
-    explicit Parser(const TokenSeq& tokSeq, Preprocessor* cpp=nullptr) 
+    explicit Parser(const TokenSeq& ts) 
         : _unit(TranslationUnit::NewTranslationUnit()),
-          _inEnumeration(false), _cpp(cpp), _tokSeq(tokSeq),
+          _inEnumeration(false), _ts(ts),
           _externalSymbols(new Scope(nullptr, S_BLOCK)),
           _errTok(nullptr), _curScope(new Scope(nullptr, S_FILE)),
           _breakDest(nullptr), _continueDest(nullptr),
@@ -203,34 +203,6 @@ public:
     // FuncCall
     void TypeChecking(FuncCall* funcCall, const Token* errTok);
 
-
-    Token* Expect(int expect);
-
-    bool Try(int tokTag) {
-        if (Next()->Tag() == tokTag)
-            return true;
-        PutBack();
-        return false;
-    }
-
-    Token* Next(void) {
-        assert(!_tokSeq.Empty());
-        auto ret = Peek();
-        _tokSeq.Forward();
-        return ret;
-    }
-
-    Token* Peek(void);
-
-    bool Test(int tag) {
-        return Peek()->Tag() == tag;
-    }
-
-    void PutBack(void) {
-        assert(_tokSeq._begin != _tokSeq._tokList->begin());
-        _tokSeq.Backward();
-    }
-
     bool IsTypeName(Token* tok) const{
         if (tok->IsTypeSpecQual())
             return true;
@@ -294,8 +266,7 @@ private:
     TranslationUnit* _unit;
     
     bool _inEnumeration;
-    Preprocessor* _cpp;
-    TokenSeq _tokSeq;
+    TokenSeq _ts;
 
     // It is not the real scope,
     // it contains all external symbols(resolved and not resolved)
