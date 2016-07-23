@@ -14,11 +14,15 @@ CFLAGS = -g -std=c++11 -Wall
 
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cc=.o))
 
+all:
+	mkdir -p $(OBJS_DIR)
+	make $(TARGET)
+
 $(TARGET): $(OBJS)
 	$(CC) -o $(OBJS_DIR)$@ $^
 
 $(OBJS_DIR)%.o: %.cc
-	mkdir -p $(dir $@)
+#	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 .PHONY: clean

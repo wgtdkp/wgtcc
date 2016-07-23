@@ -257,7 +257,8 @@ void Preprocessor::Process(TokenSeq& os, TokenSeq& is)
 }
 
 
-void Preprocessor::ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap)
+void Preprocessor::ParseActualParam(TokenSeq& is,
+        Macro* macro, ParamMap& paramMap)
 {
     //TokenSeq ts(is);
     TokenSeq ap(is);
@@ -294,37 +295,44 @@ void Preprocessor::ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramM
 
 void Preprocessor::ReplaceDefOp(TokenSeq& is)
 {
-#define INC(iter)                                       \
-    ++iter;                                             \
+    //assert(is._begin == is._tokList->begin()
+    //        && is._end == is._tokList->end());
+
+#define ERASE(iter) {                                   \
+    auto tmp = iter;                                    \
+    iter = is._tokList->erase(iter);                    \
+    if (tmp == is._begin) {                             \
+        is._begin = iter;                               \
+    }                                                   \
     if (iter == is._end) {                              \
-        Error(&(*--iter), "unexpected end of line");    \
-    };
+        Error(&(*tmp), "unexpected end of line");       \
+    }                                                   \
+}
 
     for (auto iter = is._begin; iter != is._end; iter++) {
         if (iter->_tag== Token::IDENTIFIER && iter->Str() == "defined") {
-            auto tmp = iter;
-            INC(iter);
+            ERASE(iter);
             bool hasPar = false;
             if (iter->_tag == '(') {
                 hasPar = true;
-                INC(iter);
+                ERASE(iter);
             }
+
             if (iter->_tag != Token::IDENTIFIER) {
                 Error(&(*iter), "expect identifer in 'defined' operator");
             }
+            
             auto name = iter->Str();
 
             if (hasPar) {
-                INC(iter);
+                ERASE(iter);
                 if (iter->_tag != ')') {
                     Error(&(*iter), "expect ')'");
                 }
             }
 
-            is._tokList->erase(tmp, iter);
-
             iter->_tag = Token::I_CONSTANT;
-            *iter->_begin = FindMacro(name) ? '1': '0';
+            iter->_begin = const_cast<char*>(FindMacro(name) ? "1": "0");
             iter->_end = iter->_begin + 1;
         }
     }
@@ -465,13 +473,14 @@ void Preprocessor::ParseLine(TokenSeq& is)
 void Preprocessor::ParseIf(TokenSeq& is)
 {   
     auto ls = GetLine(is);
+    ls.Next(); // Skip the directive
 
     TokenSeq ts;
     ReplaceDefOp(ls);
     Expand(ts, ls);
     ReplaceIdent(ts);
 
-    ts.Next(); // Skip the directive
+    
 
     auto begin = ts.Peek();
     Parser parser(ts);
@@ -513,14 +522,14 @@ void Preprocessor::ParseElif(TokenSeq& is)
     auto directive = is.Peek();
 
     auto ls = GetLine(is);
-    //ls.Next();  
+    ls.Next(); // Skip the directive 
 
     TokenSeq ts;
     ReplaceDefOp(ls);
     Expand(ts, ls);
     ReplaceIdent(ts);
 
-    ts.Next(); // Skip the directive
+    
 
     auto begin = ts.Peek();
     Parser parser(ts);
@@ -742,7 +751,7 @@ void Preprocessor::Init(void)
     
 
 
-    // Predefined macros
+    // TODO(wgtdkp): Predefined macros
     /*
     AddMacro("__FILE__", );
     AddMacro("__LINE__", );

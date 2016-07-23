@@ -87,25 +87,14 @@ public:
 
     ~Preprocessor(void) {}
 
-    void GenTokList(void);
-
     void Process(TokenSeq& os, TokenSeq& is);
-
     void Expand(TokenSeq& os, TokenSeq& is);
-
     void Subst(TokenSeq& os, TokenSeq& is, HideSet& hs, ParamMap& params);
-
     void Glue(TokenSeq& os, TokenSeq& is);
-
     void Glue(TokenSeq& os, Token* tok);
-
     void Stringize(std::string& str, TokenSeq& is);
-
     void ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap);
-
     int GetDirective(TokenSeq& is);
-
-    TokenSeq GetLine(TokenSeq& is);
     void ReplaceDefOp(TokenSeq& is);
     void ReplaceIdent(TokenSeq& is);
     void ParseDirective(TokenSeq& is, int directive);
@@ -123,8 +112,9 @@ public:
     void ParseLine(TokenSeq& is);
     void ParseError(TokenSeq& is);
     void ParsePragma(TokenSeq& is);
-
     void IncludeFile(TokenSeq& is, const std::string& fileName);
+
+    TokenSeq GetLine(TokenSeq& is);
 
     Macro* FindMacro(const std::string& name) {
         auto res = _macroMap.find(name);
@@ -134,6 +124,11 @@ public:
     }
 
     void AddMacro(const std::string& name, const Macro& macro) {
+        auto res = _macroMap.find(name);
+        if (res != _macroMap.end()) {
+            // TODO(wgtdkp): give warning
+            _macroMap.erase(res);
+        }
         _macroMap.insert(std::make_pair(name, macro));
     }
 
