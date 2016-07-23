@@ -105,7 +105,14 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
             && (ap = FindActualParam(params, is.Peek2()->Str()))) {
         is.Next(); is.Next();
         // TODO(wgtdkp):
-        //os.InsertBack(Stringize(*ap));
+        auto tok = *ap->Peek();
+        tok._tag = Token::STRING_LITERAL;
+        auto str = new std::string();
+        Stringize(*str, *ap);
+        tok._begin = const_cast<char*>(str->c_str());
+        tok._end = tok._begin + str->size();
+
+        os.InsertBack(&tok);
         Subst(os, is, hs, params);
     } else if (is.Test(Token::DSHARP)
             && (ap = FindActualParam(params, is.Peek2()->Str()))) {
@@ -120,20 +127,21 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
         }
     } else if (is.Test(Token::DSHARP)) {
         is.Next();
-        auto tok = is.Peek();
-        is.Next();
+        auto tok = is.Next();
 
         Glue(os, tok);
         //os.push_back(is.Peek());
-        is.Next();
+        //is.Next();
         Subst(os, is, hs, params);
     } else if (is.Peek2()->_tag == Token::DSHARP 
             && (ap = FindActualParam(params, is.Peek()->Str()))) {
+        
         is.Next();
+
         if (ap->Empty()) {
             is.Next();
-
             if ((ap = FindActualParam(params, is.Peek()->Str()))) {
+                is.Next();
                 os.InsertBack(*ap);
                 Subst(os, is, hs, params);
             } else {
@@ -176,7 +184,7 @@ void Preprocessor::Glue(TokenSeq& os, TokenSeq& is)
     lexer.ReadStr(str);
     lexer.Tokenize(ts);
     
-    --os._end;
+    //--os._end;
     is.Next();
 
     if (ts.Empty()) {
@@ -186,16 +194,16 @@ void Preprocessor::Glue(TokenSeq& os, TokenSeq& is)
 
     } else {
         // FIXME(wgtdkp): memory leakage
-        Token* tok = new Token(*lhs);
+        //Token* tok = new Token(*lhs);
         Token* newTok = ts.Next();
 
-        tok->_tag = newTok->_tag;
+        lhs->_tag = newTok->_tag;
         auto len = newTok->Size();
-        tok->_begin = new char[len];
-        memcpy(tok->_begin, newTok->_begin, len);
-        tok->_end = tok->_begin + len;
+        lhs->_begin = new char[len];
+        memcpy(lhs->_begin, newTok->_begin, len);
+        lhs->_end = lhs->_begin + len;
 
-        os.InsertBack(tok); // Copy once again in InsertBack() 
+        //os.InsertBack(tok); // Copy once again in InsertBack() 
     }
 
     if (!ts.Empty()) {
@@ -211,7 +219,9 @@ void Preprocessor::Stringize(std::string& str, TokenSeq& is)
     auto ts = is; // Make a copy
     int line = 1;
     int maxLine = 1;
-    int column = 1; 
+    int column = 1;
+
+    str.push_back('"');
     while (!ts.Empty()) {
         auto tok = ts.Peek();
         
@@ -227,12 +237,24 @@ void Preprocessor::Stringize(std::string& str, TokenSeq& is)
         column = tok->_column;
         while (!ts.Empty() && ts.Peek()->_line == line) {
             tok = ts.Next();
-            str.append(tok->_column - column, ' ');
+            str.append(std::max(0, std::min(1, tok->_column - column)), ' ');
             column = tok->_column;
-            str.append(tok->_begin, tok->_end - tok->_begin);
+            
+            if (tok->_tag == Token::IDENTIFIER) {
+                for (auto p = tok->_begin; p != tok->_end; p++) {
+                    if (*p == '"' || *p == '\\') {
+                        str.push_back('\\');
+                        ++column;
+                    }
+                    str.push_back(*p);
+                }
+            } else {
+                str.append(tok->_begin, tok->_end - tok->_begin);
+            }
             column += tok->_end - tok->_begin;
         }
     }
+    str.push_back('"');
 }
 
 void HSAdd(TokenSeq& ts, HideSet& hs)
