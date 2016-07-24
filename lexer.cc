@@ -92,6 +92,11 @@ static inline bool IsBlank(char ch)
 
 void Lexer::Tokenize(TokenSeq& tokSeq)
 {
+// ERROR:
+#define ADD_TOKEN(seq, tok)                                         \
+tok->_ws = (!seq.Empty() && tok->_begin > seq.Back()->_end);        \
+seq.InsertBack(tok);
+
     char* p = _text;
     
     Token tok;
@@ -118,7 +123,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
         if (p[0] == 0) {
             //tok._end = p;
             //tok._tag = Token::END;
-            //tokSeq.InsertBack(&tok);
+            //ADD_TOKEN(tokSeq, (&tok));
             return;
         }
         
@@ -360,7 +365,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
             
             tok._end = ++p; //keep the prefix and postfix('\'')
             tok._column = tok._begin - tok._lineBegin + 1; 
-            tokSeq.InsertBack(&tok);
+            ADD_TOKEN(tokSeq, (&tok));
             ++p; continue;
 
         case '"':
@@ -374,7 +379,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
             
             tok._end = p + 1; //do not trim the '"' at begin and end
             tok._column = tok._begin - tok._lineBegin + 1;
-            tokSeq.InsertBack(&tok);
+            ADD_TOKEN(tokSeq, (&tok));
             ++p; continue;
             
         default:
@@ -391,9 +396,9 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
                 tok._tag = Token::KeyWordTag(tok._begin, tok._end);
                 if (!Token::IsKeyWord(tok._tag)) {
                     tok._tag = Token::IDENTIFIER;
-                    tokSeq.InsertBack(&tok);
+                    ADD_TOKEN(tokSeq, (&tok));
                 } else {
-                    tokSeq.InsertBack(&tok);
+                    ADD_TOKEN(tokSeq, (&tok));
                 }
                 continue;
             } else if (isdigit(p[0])) {
@@ -404,7 +409,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
                 tok._column = tok._begin - tok._lineBegin + 1;
                 
                 tok._tag = isInteger ? Token::I_CONSTANT: Token::F_CONSTANT;
-                tokSeq.InsertBack(&tok);
+                ADD_TOKEN(tokSeq, (&tok));
                 continue;
             } else {
             error_handler:
@@ -417,8 +422,10 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
 
         tok._end = p;
         tok._column = tok._begin - tok._lineBegin + 1;
-        tokSeq.InsertBack(&tok);
+        ADD_TOKEN(tokSeq, (&tok));
     }
+
+#undef ADD_TOKEN
 }
 
 void Lexer::ReadFile(const char* fileName)

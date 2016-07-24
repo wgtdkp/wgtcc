@@ -104,13 +104,10 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
     } else if (is.Test('#')
             && (ap = FindActualParam(params, is.Peek2()->Str()))) {
         is.Next(); is.Next();
-        // TODO(wgtdkp):
+
         auto tok = *ap->Peek();
         tok._tag = Token::STRING_LITERAL;
-        auto str = new std::string();
-        Stringize(*str, *ap);
-        tok._begin = const_cast<char*>(str->c_str());
-        tok._end = tok._begin + str->size();
+        Stringize(tok._begin, tok._end, *ap);
 
         os.InsertBack(&tok);
         Subst(os, is, hs, params);
@@ -118,10 +115,10 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
             && (ap = FindActualParam(params, is.Peek2()->Str()))) {
         is.Next();
         is.Next();
+        
         if (ap->Empty()) {
             Subst(os, is, hs, params);
         } else {
-            // TODO(wgtdkp): glue()
             Glue(os, *ap);
             Subst(os, is, hs, params);
         }
@@ -130,12 +127,9 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
         auto tok = is.Next();
 
         Glue(os, tok);
-        //os.push_back(is.Peek());
-        //is.Next();
         Subst(os, is, hs, params);
     } else if (is.Peek2()->_tag == Token::DSHARP 
             && (ap = FindActualParam(params, is.Peek()->Str()))) {
-        
         is.Next();
 
         if (ap->Empty()) {
@@ -178,7 +172,6 @@ void Preprocessor::Glue(TokenSeq& os, TokenSeq& is)
 
     std::string str(lhs->Str() + rhs->Str());
 
-
     Lexer lexer;
     TokenSeq ts;
     lexer.ReadStr(str);
@@ -213,19 +206,54 @@ void Preprocessor::Glue(TokenSeq& os, TokenSeq& is)
     os.InsertBack(is);
 }
 
-
-void Preprocessor::Stringize(std::string& str, TokenSeq& is)
+/*
+ * This is For the '#' operator in func-like macro
+ */
+void Preprocessor::Stringize(char*& begin, char*& end, TokenSeq is)
 {
-    auto ts = is; // Make a copy
+    auto str = new std::string();
+    
+    str->push_back('"');
+    
+    int column;
+    if (!is.Empty()) {
+
+    }
+
+    while (!is.Empty()) {
+        auto tok = is.Next();
+        // FIXME(wgtckp): how to calc the number of white space ???
+        str->append(tok->_ws, ' ');
+        if (tok->_tag == Token::STRING_LITERAL) {
+            for (auto p = tok->_begin; p != tok->_end; p++) {
+                if (*p == '"' || *p == '\\')
+                    str->push_back('\\');
+                str->push_back(*p);
+            }
+        } else {
+            str->append(tok->_begin, tok->Size());
+        }
+        column = tok->_column + tok->Size();
+    }
+    str->push_back('"');
+
+    begin = const_cast<char*>(str->c_str());
+    end = begin + str->size();
+}
+
+/*
+ * For debug: print a token sequence
+ */
+void Preprocessor::Stringize(std::string& str, TokenSeq is)
+{
     int line = 1;
     int maxLine = 1;
     int column = 1;
 
-    str.push_back('"');
-    while (!ts.Empty()) {
-        auto tok = ts.Peek();
+    while (!is.Empty()) {
+        auto tok = is.Peek();
         
-        if (ts.IsBeginOfLine()) {
+        if (is.IsBeginOfLine()) {
             if (tok->_line > maxLine) {
                 str.push_back('\n');
                 column = 1;
@@ -235,26 +263,15 @@ void Preprocessor::Stringize(std::string& str, TokenSeq& is)
 
         line = tok->_line;
         column = tok->_column;
-        while (!ts.Empty() && ts.Peek()->_line == line) {
-            tok = ts.Next();
-            str.append(std::max(0, std::min(1, tok->_column - column)), ' ');
+        while (!is.Empty() && is.Peek()->_line == line) {
+            tok = is.Next();
+            str.append(tok->_ws, ' ');
             column = tok->_column;
-            
-            if (tok->_tag == Token::IDENTIFIER) {
-                for (auto p = tok->_begin; p != tok->_end; p++) {
-                    if (*p == '"' || *p == '\\') {
-                        str.push_back('\\');
-                        ++column;
-                    }
-                    str.push_back(*p);
-                }
-            } else {
-                str.append(tok->_begin, tok->_end - tok->_begin);
-            }
-            column += tok->_end - tok->_begin;
+
+            str.append(tok->_begin, tok->Size());
+            column = tok->_column + tok->Size();
         }
     }
-    str.push_back('"');
 }
 
 void HSAdd(TokenSeq& ts, HideSet& hs)
@@ -365,7 +382,7 @@ void Preprocessor::ReplaceDefOp(TokenSeq& is)
             iter->_end = iter->_begin + 1;
         }
     }
-#undef INC
+#undef ERASE
 }
 
 void Preprocessor::ReplaceIdent(TokenSeq& is)

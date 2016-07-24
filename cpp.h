@@ -92,7 +92,8 @@ public:
     void Subst(TokenSeq& os, TokenSeq& is, HideSet& hs, ParamMap& params);
     void Glue(TokenSeq& os, TokenSeq& is);
     void Glue(TokenSeq& os, Token* tok);
-    void Stringize(std::string& str, TokenSeq& is);
+    void Stringize(char*& begin, char*& end, TokenSeq is);
+    void Stringize(std::string& str, TokenSeq is);
     void ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap);
     int GetDirective(TokenSeq& is);
     void ReplaceDefOp(TokenSeq& is);

@@ -284,14 +284,22 @@ public:
     
     int _tag;
     //Coordinate _coord;
-
+    
     const char* _fileName;
     
     // Line index of the begin
     int _line;
     
     // Column index of the begin
-    int _column;
+    struct {
+        /*
+         * _ws standards for weither there is preceding white space
+         * This is to simplify the '#' operator(stringize) in macro expansion
+         */
+        int _ws: 1;
+        int _column: 31;
+    };
+
 
     char* _lineBegin;
 
