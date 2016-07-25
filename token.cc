@@ -143,35 +143,12 @@ const unordered_map<int, const char*> Token::_TagLexemeMap = {
     { Token::NORETURN, "_Noreturn" },
     { Token::STATIC_ASSERT, "_Static_assert" },
     { Token::THREAD, "_Thread_local" },
-    //{ FUNC_NAME, "__func__" },
 
     { Token::END, "(eof)" },
     { Token::IDENTIFIER, "(identifier)" },
     { Token::CONSTANT, "(constant)" },
     { Token::STRING_LITERAL, "(string literal)" },
 };
-
-/*
-void Token::Concat(Token& other, bool coordDecidedOnThis)
-{
-    if (!coordDecidedOnThis) {
-        _fileName = other._fileName;
-        _line = other._line;
-        _column = other._column;
-        _lineBegin = other._lineBegin;
-    }
-
-    size_t thisLen = _str.Len();
-    size_t otherLen = other._str.Len();
-    size_t len = thisLen + otherLen;
-    
-    char* begin = new char[len];
-    memcpy(begin, _str._begin, thisLen);
-    memcpy(begin + thisLen, other._str._begin, otherLen);
-    
-    _str = StrPair(begin, len, true);
-}
-*/
 
 void PrintTokSeq(TokenSeq& tokSeq)
 {
@@ -184,7 +161,8 @@ void PrintTokSeq(TokenSeq& tokSeq)
 }
 
 /*
- * If this seq starts from the begin of a line
+ * If this seq starts from the begin of a line.
+ * Called only after we have saw '#' in the token sequence.
  */ 
 bool TokenSeq::IsBeginOfLine(void) const
 {

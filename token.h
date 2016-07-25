@@ -370,7 +370,8 @@ public:
     Token* Peek(void);
 
     Token* Peek2(void) {
-        assert(!Empty());
+        if (Empty())
+            return Peek(); // Return the Token::END
         Next();
         auto ret = Peek();
         PutBack();
