@@ -1,10 +1,22 @@
-#define THREE (3)
-#define PI  (THREE + (.1415926))
-#define SUM(a, b) ((a) + (b##5))
-float sum = THREE + SUM(PI, );
+//#include <features.h>
+#include <stdio.h>
+#include <stdarg.h>
+#if 0
+#if 0
+    #if 1
+        int a = "hello world1";
+    #else
+        int a = "Hello World1";
+    #endif
+#else
+    #if 0
+        int a = "hello world2";
+    #else
+        int a = "Hello World2";
+    #endif
+#endif
 
-#define hash_hash # ## #
-#define mkstr(a) # a
-#define in_between(a) mkstr(a)
-#define join(c, d) in_between(c hash_hash d)
-char p[10] = join(x, y);
+#if 1
+int c = "cccc";
+#endif
+#endif

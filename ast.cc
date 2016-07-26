@@ -73,11 +73,12 @@ void TranslationUnit::Accept(Visitor* v) {
 
 long long BinaryOp::EvalInteger(const Token* errTok)
 {
-    // TypeChecking should make sure of this constrains
-    assert(_ty->IsInteger());
-
 #define L   _lhs->EvalInteger(errTok)
 #define R   _rhs->EvalInteger(errTok)
+
+    if (!_ty->IsInteger()) {
+        Error(errTok, "expect constant integer expression");
+    }
 
     //bool res = true;
     switch (_op) {
@@ -92,8 +93,8 @@ long long BinaryOp::EvalInteger(const Token* errTok)
         {
             int l = L, r = R;
             if (r == 0)
-                ;//Error(this, "division by zero");
-            return _op == '%'? (l % r): (l / r);
+                Error(errTok, "division by zero");
+            return _op == '%' ? (l % r): (l / r);
         }
     case '<':
         return L < R;
@@ -113,9 +114,21 @@ long long BinaryOp::EvalInteger(const Token* errTok)
         return L && R;
     case Token::OR_OP:
         return L || R;
+    case Token::EQ_OP:
+        return L == R;
+    case Token::NE_OP:
+        return L != R;
+    case Token::LE_OP:
+        return L <= R;
+    case Token::GE_OP:
+        return L >= R; 
     case '=':  
     case ',':
         return R;
+    case '[':
+    case '.':
+    case Token::PTR_OP:
+        Error(errTok, "expect constant expression"); 
     default:
         assert(0);
     }
@@ -163,7 +176,7 @@ long long UnaryOp::EvalInteger(const Token* errTok)
     case Token::CAST:
         return VAL;
     default:
-        Error(errTok, "expect constant integer");
+        Error(errTok, "expect constant expression");
     }
 
     return 0;   // Make compiler happy
@@ -200,8 +213,7 @@ ArithmType* ConditionalOp::Promote(Parser* parser, const Token* errTok)
 }
 
 long long FuncCall::EvalInteger(const Token* errTok) {
-    Error(errTok,
-            "function call is not allowed in constant expression");
+    Error(errTok, "function call in constant expression");
     return 0;   // Make compiler happy
 }
 
@@ -222,8 +234,8 @@ long long Constant::EvalInteger(const Token* errTok) {
 }
 
 long long TempVar::EvalInteger(const Token* errTok) {
-    Error(errTok,
-            "function call is not allowed in constant expression");
+    assert(false);
+    Error(errTok, "function call in constant expression");
     return 0;   // Make compiler happy
 }
 

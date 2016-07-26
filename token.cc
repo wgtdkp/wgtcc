@@ -160,6 +160,13 @@ void PrintTokSeq(TokenSeq& tokSeq)
     std::cout << std::endl;
 }
 
+void PrintTokList(TokenList& tokList)
+{
+    TokenSeq tokSeq(&tokList);
+    PrintTokSeq(tokSeq);
+}
+
+
 /*
  * If this seq starts from the begin of a line.
  * Called only after we have saw '#' in the token sequence.

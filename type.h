@@ -249,8 +249,8 @@ public:
     }
 
     virtual bool Compatible(const Type& other) const {
-        //TODO: 
-        return false;
+        // Compatible if both are arithmetic type
+        return other.ToArithmType();
     }
 
     virtual std::string Str(void) const;

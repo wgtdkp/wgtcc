@@ -36,7 +36,7 @@ void Error(const Token* tok, const char* format, ...)
     assert(tok->_fileName);
 
     fprintf(stderr,  "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-            tok->_fileName, tok->_line, tok->_column);
+            tok->_fileName->c_str(), tok->_line, tok->_column);
     
     va_list args;
     va_start(args, format);

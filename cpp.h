@@ -14,12 +14,13 @@
 
 class Lexer;
 class Macro;
+struct CondDirective;
 
 typedef std::map<std::string, Macro> MacroMap; 
 typedef std::list<std::string> ParamList;
 typedef std::map<std::string, TokenSeq> ParamMap;
 typedef std::set<std::string> HideSet;
-typedef std::stack<std::pair<int, int>> PPCondStack;
+typedef std::stack<CondDirective> PPCondStack;
 typedef std::list<std::string> PathList;
 
 
@@ -77,17 +78,24 @@ private:
 
 };
 
+struct CondDirective
+{
+    int _tag;
+    bool _enabled;
+    bool _cond;
+};
 
 class Preprocessor
 {
 public:
-    Preprocessor(void) {
+    Preprocessor(const std::string* fileName)
+            : _curFileName(fileName), _curLine(1), _curCond(true) {
         Init();
     }
 
     ~Preprocessor(void) {}
 
-    void Process(TokenSeq& os, TokenSeq& is);
+    void Process(TokenSeq& os);
     void Expand(TokenSeq& os, TokenSeq& is);
     void Subst(TokenSeq& os, TokenSeq& is, HideSet& hs, ParamMap& params);
     void Glue(TokenSeq& os, TokenSeq& is);
@@ -98,24 +106,24 @@ public:
     int GetDirective(TokenSeq& is);
     void ReplaceDefOp(TokenSeq& is);
     void ReplaceIdent(TokenSeq& is);
-    void ParseDirective(TokenSeq& is, int directive);
-
-    void ParseIf(TokenSeq& is);
-    void ParseIfdef(TokenSeq& is);
-    void ParseIfndef(TokenSeq& is);
-    void ParseElif(TokenSeq& is);
-    void ParseElse(TokenSeq& is);
-    void ParseEndif(TokenSeq& is);
-    void ParseInclude(TokenSeq& is);
-    void ParseDef(TokenSeq& is);
-    bool ParseIdentList(ParamList& params, TokenSeq& is);
-    void ParseUndef(TokenSeq& is);
-    void ParseLine(TokenSeq& is);
-    void ParseError(TokenSeq& is);
-    void ParsePragma(TokenSeq& is);
-    void IncludeFile(TokenSeq& is, const std::string& fileName);
-
+    void ParseDirective(TokenSeq& os, TokenSeq& is, int directive);
+    
     TokenSeq GetLine(TokenSeq& is);
+    void ParseIf(TokenSeq ls);
+    void ParseIfdef(TokenSeq ls);
+    void ParseIfndef(TokenSeq ls);
+    void ParseElif(TokenSeq ls);
+    void ParseElse(TokenSeq ls);
+    void ParseEndif(TokenSeq ls);
+    void ParseInclude(TokenSeq& is, TokenSeq ls);
+    void ParseDef(TokenSeq ls);
+    void ParseUndef(TokenSeq ls);
+    void ParseLine(TokenSeq ls);
+    void ParseError(TokenSeq ls);
+    void ParsePragma(TokenSeq ls);
+    void IncludeFile(TokenSeq& is, const std::string* fileName);
+    bool ParseIdentList(ParamList& params, TokenSeq& is);
+    
 
     Macro* FindMacro(const std::string& name) {
         auto res = _macroMap.find(name);
@@ -123,6 +131,9 @@ public:
             return nullptr;
         return &res->second;
     }
+
+    void AddMacro(const std::string& name,
+            std::string* text, bool preDef=false);
 
     void AddMacro(const std::string& name, const Macro& macro) {
         auto res = _macroMap.find(name);
@@ -152,13 +163,24 @@ public:
         return _hs.find(name) != _hs.end();
     }
 
+    bool NeedExpand(void) const {
+        if (_ppCondStack.empty())
+            return true;
+        auto top = _ppCondStack.top();
+        return top._enabled && top._cond;
+    }
+
 private:
     void Init(void);
 
     HideSet _hs;
     PPCondStack _ppCondStack;
+    const std::string* _curFileName;
     int _curLine;
-    StrPair _curFileName;
+    int _lineLine;
+    bool _curCond;
+    
+    
     
     MacroMap _macroMap;
     PathList _searchPathList;

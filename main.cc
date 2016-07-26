@@ -20,48 +20,29 @@ void Usage(void)
     exit(0);
 }
 
-void ParseDef(Preprocessor& cpp, const char* def)
-{
-    auto p = def;
-    while (*p != '\0' && *p != '=')
-        ++p;
-    std::string name(def, p);
-    std::string rep;
-    if (*p == '=') {
-        rep = std::string(++p);
-    }
-
-    Lexer lexer;
-    lexer.ReadStr(rep);
-    TokenSeq tokSeq;
-    lexer.Tokenize(tokSeq);
-    
-    cpp.AddMacro(name, Macro(tokSeq));
-}
-
 int main(int argc, char* argv[])
 {
     if (argc < 2) {
         Usage();
     }
     program = std::string(argv[0]);
-
-    Preprocessor cpp;
-    const char* fileName = nullptr;
+    std::string* fileName = nullptr;
 
     for (auto i = 1; i < argc; i++) {
         if (argv[i][0] != '-') {
-            fileName = argv[i];
+            fileName = new std::string(argv[i]);
             break;
             continue;
         }
 
         switch (argv[i][1]) {
         case 'I':
-            cpp.AddSearchPath(std::string(&argv[i][2]));
+            assert(0);
+            //cpp.AddSearchPath(std::string(&argv[i][2]));
             break;
         case 'D':
-            ParseDef(cpp, &argv[i][2]);
+            assert(0);
+            //ParseDef(cpp, &argv[i][2]);
             break;
         case '-': // --
             switch (argv[i][2]) {
@@ -81,16 +62,12 @@ int main(int argc, char* argv[])
     if (fileName == nullptr) {
         Usage();
     }
+    Preprocessor cpp(fileName);
+    TokenSeq tokSeq;
+    cpp.Process(tokSeq);
 
-    Lexer lexer;
-    TokenSeq tokSeq, ppTokSeq;
-    lexer.ReadFile(fileName);
-    lexer.Tokenize(tokSeq);
-
-    cpp.Process(ppTokSeq, tokSeq);
-
-    Parser parser(ppTokSeq);
-    parser.ParseTranslationUnit();
+    //Parser parser(ppTokSeq);
+    //parser.ParseTranslationUnit();
     
     return 0;
 }

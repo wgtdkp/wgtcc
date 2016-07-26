@@ -3,9 +3,11 @@
 #include "error.h"
 
 #include <cctype>
+#include <fstream>
+#include <streambuf>
 #include <set>
-
-using namespace std;
+#include <string>
+#include <vector>
 
 
 /*
@@ -90,23 +92,26 @@ static inline bool IsBlank(char ch)
     return ' ' == ch || '\t' == ch || '\v' == ch || '\f' == ch;
 }
 
+static void inline AddToken(TokenSeq& tokSeq, Token& tok)
+{
+    tok._ws = (!tokSeq.Empty() && tok._column > 1
+            && tok._begin > tokSeq.Back()->_end);
+    tokSeq.InsertBack(&tok);
+}
+
 void Lexer::Tokenize(TokenSeq& tokSeq)
 {
-// ERROR:
-#define ADD_TOKEN(seq, tok)                                         \
-tok->_ws = (!seq.Empty() && tok->_begin > seq.Back()->_end);        \
-seq.InsertBack(tok);
+    ProcessBackSlash();
 
-    char* p = _text;
-    
+    char* p = const_cast<char*>(_text->c_str());
     Token tok;
-    tok._tag = Token::END,
-    tok._fileName = _fileName,
-    tok._line = 1,
-    tok._column = 1,
-    tok._lineBegin = _text,
-    tok._begin = _text,
-    tok._end = _text;
+    tok._tag = Token::END;
+    tok._fileName = _fileName;
+    tok._line = _line;
+    tok._column = 1;
+    tok._lineBegin = p;
+    tok._begin = p;
+    tok._end = p;
 
     while (true) {
         while (IsBlank(p[0]) || '\n' == p[0]) {
@@ -121,9 +126,6 @@ seq.InsertBack(tok);
         }
 
         if (p[0] == 0) {
-            //tok._end = p;
-            //tok._tag = Token::END;
-            //ADD_TOKEN(tokSeq, (&tok));
             return;
         }
         
@@ -329,7 +331,7 @@ seq.InsertBack(tok);
                 tok._tag = ':';
             }
             ++p; break;
-        
+        /*
         case '\\':
             if ('\n' == p[1]) {
                 if ('\r' == p[2])
@@ -339,7 +341,7 @@ seq.InsertBack(tok);
                 goto error_handler;
             }
             continue;
-
+        */
         case '(':
         case ')':
         case '[':
@@ -365,7 +367,7 @@ seq.InsertBack(tok);
             
             tok._end = ++p; //keep the prefix and postfix('\'')
             tok._column = tok._begin - tok._lineBegin + 1; 
-            ADD_TOKEN(tokSeq, (&tok));
+            AddToken(tokSeq, tok);
             ++p; continue;
 
         case '"':
@@ -379,7 +381,7 @@ seq.InsertBack(tok);
             
             tok._end = p + 1; //do not trim the '"' at begin and end
             tok._column = tok._begin - tok._lineBegin + 1;
-            ADD_TOKEN(tokSeq, (&tok));
+            AddToken(tokSeq, tok);
             ++p; continue;
             
         default:
@@ -393,13 +395,15 @@ seq.InsertBack(tok);
                 tok._end = p;
                 tok._column = tok._begin - tok._lineBegin + 1;
                 
-                tok._tag = Token::KeyWordTag(tok._begin, tok._end);
-                if (!Token::IsKeyWord(tok._tag)) {
-                    tok._tag = Token::IDENTIFIER;
-                    ADD_TOKEN(tokSeq, (&tok));
-                } else {
-                    ADD_TOKEN(tokSeq, (&tok));
-                }
+                tok._tag = Token::IDENTIFIER;
+                AddToken(tokSeq, tok);
+                //tok._tag = Token::KeyWordTag(tok._begin, tok._end);
+                //if (!Token::IsKeyWord(tok._tag)) {
+                //    tok._tag = Token::IDENTIFIER;
+                //    AddToken(tokSeq, tok);
+                //} else {
+                //    AddToken(tokSeq, tok);
+                //}
                 continue;
             } else if (isdigit(p[0])) {
         constant_handler:
@@ -409,10 +413,10 @@ seq.InsertBack(tok);
                 tok._column = tok._begin - tok._lineBegin + 1;
                 
                 tok._tag = isInteger ? Token::I_CONSTANT: Token::F_CONSTANT;
-                ADD_TOKEN(tokSeq, (&tok));
+                AddToken(tokSeq, tok);
                 continue;
             } else {
-            error_handler:
+            /*error_handler:*/
                 tok._end = p;
                 tok._column = tok._begin - tok._lineBegin + 1;
                 Error(&tok, "invalid character '%c'", p[0]);
@@ -422,59 +426,56 @@ seq.InsertBack(tok);
 
         tok._end = p;
         tok._column = tok._begin - tok._lineBegin + 1;
-        ADD_TOKEN(tokSeq, (&tok));
+        AddToken(tokSeq, tok);
     }
-
-#undef ADD_TOKEN
 }
 
-void Lexer::ReadFile(const char* fileName)
+std::string* ReadFile(const std::string& fileName)
 {
-    //assert(nullptr != fileName);
-    FILE* fp = fopen(fileName, "r");
-    if (fp == nullptr) {
-        Error("open file '%s' failed", fileName);
-    }
-
-    long long fileSize = 0LL;
-    //fseek(fp, 0, SEEK_SET);
-    fseek(fp, 0, SEEK_END);
-    fileSize = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
+    auto text = new std::string;
     
-    if (fileSize > _maxSize) {
-        Error("source file '%s' is too big", fileName);
+    std::ifstream file(fileName);
+    if (!file.good()) {
+        Error("open file '%s' failed", fileName.c_str());
     }
 
-    //在tokenizer过程中需要最多向前看的步数
-    auto text = new char[fileSize + 1 + _maxPredict];
-    fileSize = fread((void*)text, sizeof(char), fileSize, fp);
-    //text[fileSize] = 0;
-    memset(&text[fileSize], 0, 1 + _maxPredict);
+    file.seekg(0, std::ios::end);
+    text->reserve(file.tellg());
+    file.seekg(0, std::ios::beg);
 
-    _text = text;
-    _fileName = fileName;
+    text->assign((std::istreambuf_iterator<char>(file)),
+            std::istreambuf_iterator<char>());
+    return text;
 }
 
-// Make a copy of input string
-void Lexer::ReadStr(const std::string& str)
+void Lexer::ProcessBackSlash(void)
 {
-    size_t len = str.size();
-    auto text = new char[len + 1 + _maxPredict];
-    memcpy(text, &str[0], len);
-    memset(&text[len], 0, 1 + _maxPredict);
-
-    _text = text;
-}
-
-const char* Lexer::ParseName(const char* path)
-{
-    const char* name = path;
-    while (0 != *path) {
-        if ('\\' == *path || '/' == *path)
-            name = path + 1;
-        ++path;
+    std::string& text = *_text;
+    for (size_t i = 0; i + 1 < text.size(); i++) {
+        if (text[i] == '\\' && text[i + 1] == '\n') {
+            std::vector<int> poss;
+            auto j = i;
+            for (; j + 1 < text.size() && text[j] != '\n'; j++) {
+                if (text[j] == '\\' && text[j + 1] == '\n') {
+                    poss.push_back(j);
+                    ++j;
+                }
+            }
+            poss.push_back(j + 1);
+            size_t offset = 0;
+            for (size_t k = 0; k + 1 < poss.size(); k++) {
+                memcpy(&text[poss[k] - offset], &text[poss[k] + 2],
+                        poss[k + 1] - poss[k]);
+                offset += 2;
+            }
+            auto p = &text[j + 1];
+            for (size_t k = 0; k + 1 < poss.size(); k++) {
+                p -= 2;
+                p[0] = '\n';
+                p[1] = ' ';
+            }
+        }
     }
-    
-    return name;
+
+    text.append(3, '\0'); // guards
 }

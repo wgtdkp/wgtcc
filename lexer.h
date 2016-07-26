@@ -7,7 +7,6 @@
 
 #include <cassert>
 #include <cstdio>
-#include <vector>
 #include <string>
 
 
@@ -15,31 +14,26 @@ class Lexer
 {
 public:
     static const int _maxPredict = 4;
-
-    Lexer(void): _fileName(nullptr) {}
-
-    virtual ~Lexer(void) {
-        // TODO(wgtdkp):
-        //delete[] _text; // You can't do it!!!
-    }
+    
+    explicit Lexer(std::string* text, const std::string* fileName=nullptr,
+            unsigned line=1): _text(text), _fileName(fileName), _line(line) {}
+    
+    virtual ~Lexer(void) {}
+    
+    Lexer(const Lexer& other)=delete;
+    
+    Lexer& operator=(const Lexer& other)=delete;
 
     void Tokenize(TokenSeq& tokSeq);
 
-    void ReadFile(const char* fileName);
-    //void ReadFile(FILE* fp);
-
-    void ReadStr(const std::string& str);
-
-    const char* ParseName(const char* path);
-
 private:
-    static const int _maxSize = 1024 * 1024 * 64;
-    const char* _fileName;
-    char* _text;
+    std::string* _text;
+    const std::string* _fileName;
+    int _line;
 
-    Lexer(const Lexer& other);
-    
-    const Lexer& operator=(const Lexer& other);
+    void ProcessBackSlash(void);
 };
+
+std::string* ReadFile(const std::string& fileName);
 
 #endif

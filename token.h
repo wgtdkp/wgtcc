@@ -10,9 +10,12 @@
 #include <list>
 #include <unordered_map>
 
-class Parser;
-
 typedef std::list<Token> TokenList;
+class Parser;
+class TokenSeq;
+
+void PrintTokSeq(TokenSeq& tokSeq);
+void PrintTokList(TokenList& tokList);
 
 
 struct Token
@@ -35,9 +38,9 @@ public:
 
     const Token& operator=(const Token& other) {
         _tag = other._tag;
-
         _fileName = other._fileName;
         _line = other._line;
+        _ws = other._ws;
         _column = other._column;
         _lineBegin = other._lineBegin;
         _begin = other._begin;
@@ -285,10 +288,10 @@ public:
     int _tag;
     //Coordinate _coord;
     
-    const char* _fileName;
+    const std::string* _fileName;
     
     // Line index of the begin
-    int _line;
+    unsigned _line;
     
     // Column index of the begin
     struct {
@@ -296,8 +299,8 @@ public:
          * _ws standards for weither there is preceding white space
          * This is to simplify the '#' operator(stringize) in macro expansion
          */
-        int _ws: 1;
-        int _column: 31;
+        unsigned _ws: 1;
+        unsigned _column: 31;
     };
 
 
@@ -320,6 +323,11 @@ struct TokenSeq
 public:
     TokenSeq(void): _tokList(new TokenList()),
             _begin(_tokList->begin()), _end(_tokList->end()) {}
+
+    explicit TokenSeq(const Token&& tok) {
+        TokenSeq();
+        InsertBack(&tok);
+    }
 
     explicit TokenSeq(TokenList* tokList): _tokList(tokList),
             _begin(tokList->begin()), _end(tokList->end()) {}
@@ -363,7 +371,10 @@ public:
     }
 
     void PutBack(void) {
-        assert(_begin != _tokList->begin());
+        //assert(_begin != _tokList->begin());
+        if (_begin == _tokList->begin()) {
+            PrintTokList(*_tokList);
+        }
         --_begin;
     }
 
@@ -427,7 +438,5 @@ public:
     TokenList::iterator _begin;
     TokenList::iterator _end;
 };
-
-void PrintTokSeq(TokenSeq& tokSeq);
 
 #endif
