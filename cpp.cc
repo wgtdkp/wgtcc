@@ -273,9 +273,6 @@ void HSAdd(TokenSeq& ts, HideSet& hs)
     // TODO(wgtdkp): expand hideset
 }
 
-
-
-
 // TODO(wgtdkp): add predefined macros
 void Preprocessor::Process(TokenSeq& os)
 {
@@ -287,6 +284,16 @@ void Preprocessor::Process(TokenSeq& os)
     std::cout << str << std::endl;
 
     Expand(os, is);
+
+    // TODO(wgtdkp): Identify key word
+    auto ts = os;
+    while (!ts.Empty()) {
+        auto tok = ts.Next();
+        auto tag = Token::KeyWordTag(tok->_begin, tok->_end);
+        if (Token::IsKeyWord(tag)) {
+            tok->_tag = tag;
+        }
+    }
 
     str.resize(0);
     Stringize(str, os);
