@@ -14,15 +14,12 @@ enum ScopeType {
     S_FUNC,
 };
 
+/*
 class Scope
 {
-    friend class StructUnionType;
-    typedef std::map<std::string, Identifier*> IdentMap;
-
 public:
     explicit Scope(Scope* parent, enum ScopeType type)
-            : _parent(parent), _type(type),
-              _offset(parent?parent->Offset():0) {}
+            : _parent(parent), _type(type) {}
     
     ~Scope(void) {}
 
@@ -38,12 +35,33 @@ public:
         return _type;
     }
 
-    int Offset(void) const {
-        return _offset;
+    std::string TagName(const std::string& name) {
+        return name + "@tag";
+    }
+};
+*/
+
+class Scope
+{
+    friend class StructUnionType;
+    typedef std::map<std::string, Identifier*> IdentMap;
+
+public:
+    explicit Scope(Scope* parent, enum ScopeType type)
+            : _parent(parent), _type(type) {}
+    
+    ~Scope(void) {}
+
+    Scope* Parent(void) {
+        return _parent;
     }
 
-    void SetOffset(int offset) {
-        _offset = offset;
+    void SetParent(Scope* parent) {
+        _parent = parent;
+    }
+
+    enum ScopeType Type(void) const {
+        return _type;
     }
     
     std::string TagName(const std::string& name) {
@@ -59,8 +77,6 @@ public:
     Identifier* FindTagInCurScope(const std::string& name);
 
     void Insert(const std::string& name, Identifier* ident);
-    
-    void InsertWithOutIncOffset(const std::string& name, Identifier* ident);
 
     void InsertTag(const std::string& name, Identifier* ident) {
         Insert(TagName(name), ident);
@@ -69,7 +85,7 @@ public:
     void Print(void);
 
     bool operator==(const Scope& other) const {
-        return _identMap == other._identMap;
+        return _type == other._type;
     }
 
     IdentMap::iterator begin(void) {
@@ -87,7 +103,6 @@ private:
 
     Scope* _parent;
     enum ScopeType _type;
-    int _offset;
 
     IdentMap _identMap;
 };
