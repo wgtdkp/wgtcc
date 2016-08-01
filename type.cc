@@ -33,102 +33,6 @@ VoidType* Type::NewVoidType(void)
     return new (_voidTypePool.Alloc()) VoidType(&_voidTypePool);
 }
 
-/*
-ArithmType* Type::NewArithmType(int typeSpec) {
-    static ArithmType* charType 		= new ArithmType(T_CHAR);
-    static ArithmType* ucharType 		= new ArithmType(T_UNSIGNED | T_CHAR);
-    static ArithmType* shortType 		= new ArithmType(T_SHORT);
-    static ArithmType* ushortType 		= new ArithmType(T_UNSIGNED | T_SHORT);
-    static ArithmType* intType 			= new ArithmType(T_INT);
-    static ArithmType* uintType 		= new ArithmType(T_UNSIGNED | T_INT);
-    static ArithmType* longType 		= new ArithmType(T_LONG);
-    static ArithmType* ulongType 		= new ArithmType(T_UNSIGNED | T_LONG);
-    static ArithmType* longlongType 	= new ArithmType(T_LONG_LONG);
-    static ArithmType* ulonglongType 	= new ArithmType(T_UNSIGNED | T_LONG_LONG);
-    static ArithmType* floatType 		= new ArithmType(T_FLOAT);
-    static ArithmType* doubleType 		= new ArithmType(T_DOUBLE);
-    static ArithmType* longdoubleType 	= new ArithmType(T_LONG | T_DOUBLE);
-    static ArithmType* boolType 		= new ArithmType(T_BOOL);
-    static ArithmType* complexType 		= new ArithmType(T_FLOAT | T_COMPLEX);
-    static ArithmType* doublecomplexType = new ArithmType(T_DOUBLE | T_COMPLEX);
-    static ArithmType* longdoublecomplexType = new ArithmType(T_LONG | T_DOUBLE | T_COMPLEX);
-
-    switch (typeSpec) {
-    case T_CHAR:
-    case T_SIGNED | T_CHAR:
-        return charType;
-
-    case T_UNSIGNED | T_CHAR:
-        return ucharType;
-
-    case T_SHORT:
-    case T_SIGNED | T_SHORT:
-    case T_SHORT | T_INT:
-    case T_SIGNED | T_SHORT | T_INT:
-        return shortType;
-
-    case T_UNSIGNED | T_SHORT:
-    case T_UNSIGNED | T_SHORT | T_INT:
-        return ushortType;
-
-    case T_INT:
-    case T_SIGNED:
-    case T_SIGNED | T_INT:
-        return intType;
-
-    case T_UNSIGNED:
-    case T_UNSIGNED | T_INT:
-        return uintType;
-
-    case T_LONG:
-    case T_SIGNED | T_LONG:
-    case T_LONG | T_INT:
-    case T_SIGNED | T_LONG | T_INT:
-        return longType;
-
-    case T_UNSIGNED | T_LONG:
-    case T_UNSIGNED | T_LONG | T_INT:
-        return ulongType;
-
-    case T_LONG_LONG:
-    case T_SIGNED | T_LONG_LONG:
-    case T_LONG_LONG | T_INT:
-    case T_SIGNED | T_LONG_LONG | T_INT:
-        return longlongType;
-
-    case T_UNSIGNED | T_LONG_LONG:
-    case T_UNSIGNED | T_LONG_LONG | T_INT:
-        return ulonglongType;
-
-    case T_FLOAT:
-        return floatType;
-
-    case T_DOUBLE:
-        return doubleType;
-
-    case T_LONG | T_DOUBLE:
-        return longdoubleType;
-
-    case T_BOOL:
-        return boolType;
-
-    case T_FLOAT | T_COMPLEX:
-        return complexType;
-
-    case T_DOUBLE | T_COMPLEX:
-        return doublecomplexType;
-
-    case T_LONG | T_DOUBLE | T_COMPLEX:
-        return longdoublecomplexType;
-
-    default:
-        assert(0);
-    }
-
-    return nullptr; // make compiler happy
-}
-*/
-
 ArithmType* Type::NewArithmType(int typeSpec) {
     auto tag = ArithmType::Spec2Tag(typeSpec);
     return new (_arithmTypePool.Alloc())
@@ -385,9 +289,7 @@ std::string FuncType::Str(void) const
 StructUnionType::StructUnionType(MemPool* pool,
         bool isStruct, bool hasTag, Scope* parent)
         : Type(pool, 0, false), _isStruct(isStruct), _hasTag(hasTag),
-          _memberMap(new Scope(parent, S_BLOCK)) {
-              _memberMap->SetOffset(0);
-          }
+          _memberMap(new Scope(parent, S_BLOCK)) {}
 
 Object* StructUnionType::GetMember(const std::string& member) {
     auto ident = _memberMap->FindInCurScope(member);
@@ -401,7 +303,7 @@ void StructUnionType::CalcWidth(void)
     _width = 0;
     auto iter = _memberMap->_identMap.begin();
     for (; iter != _memberMap->_identMap.end(); iter++) {
-        _width += iter->second->Ty()->Width();
+        _width += iter->second->Type()->Width();
     }
 }
 
@@ -428,16 +330,21 @@ std::string StructUnionType::Str(void) const
 
 void StructUnionType::AddMember(const std::string& name, Object* member)
 {
+    auto overlap = !_isStruct;
+    _memberList.push_back(std::make_pair(member, overlap));
+    _memberMap->Insert(name, member);
+    /*
     _memberMap->InsertWithOutIncOffset(name, member);
 
     int offset = _memberMap->Offset();
     member->SetOffset(offset);
     if (IsStruct()) {
-        _memberMap->SetOffset(offset + member->Ty()->Width());
+        _memberMap->SetOffset(offset + member->Type()->Width());
         _width = _memberMap->Offset();
     } else {
-        _width = std::max(_width, member->Ty()->Width());
+        _width = std::max(_width, member->Type()->Width());
     }
+    */
 }
 
 // Move members of Anonymous struct/union to external struct/union
@@ -445,6 +352,19 @@ void StructUnionType::AddMember(const std::string& name, Object* member)
 // Width of struct/union is not the sum of its members
 void StructUnionType::Merge(StructUnionType* anonType)
 {
+    auto iter = anonType->_memberList.begin();
+    for (; iter != anonType->_memberList.end(); iter++) {
+        _memberList.push_back(*iter);
+        
+        auto name = iter->first->Name();
+        if (GetMember(name)) {
+            auto tok = iter->first->Tok();
+            Error(tok, "duplicate member '%s'", name.c_str());
+        }
+        _memberMap->Insert(name, iter->first);
+    }
+
+    /*
     int offset = _memberMap->Offset();
     std::cout << "offset: " << offset << std::endl;
     auto iter = anonType->_memberMap->begin();
@@ -461,6 +381,7 @@ void StructUnionType::Merge(StructUnionType* anonType)
     }
     _memberMap->SetOffset(offset + anonType->Width());
     _width = _memberMap->Offset();
+    */
 }
 
 

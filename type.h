@@ -525,6 +525,9 @@ private:
     bool _isStruct;
     bool _hasTag;
     Scope* _memberMap;
+    
+    typedef std::list<std::pair<Identifier*, bool>> MemberList;
+    MemberList _memberList;
 };
 
 /*
