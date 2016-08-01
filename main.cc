@@ -66,8 +66,8 @@ int main(int argc, char* argv[])
     TokenSeq tokSeq;
     cpp.Process(tokSeq);
 
-    //Parser parser(ppTokSeq);
-    //parser.ParseTranslationUnit();
+    Parser parser(tokSeq);
+    parser.ParseTranslationUnit();
     
     return 0;
 }

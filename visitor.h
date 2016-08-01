@@ -58,42 +58,4 @@ private:
     const Visitor& operator=(const Visitor& other);
 };
 
-class ConstantEvaluator : Visitor
-{
-public:
-    ConstantEvaluator(void) : _val(0) {}
-    virtual ~ConstantEvaluator(void) {}
-    //Expression
-    virtual void VisitBinaryOp(BinaryOp* binaryOp);
-    virtual void VisitUnaryOp(UnaryOp* unaryOp);
-    virtual void VisitConditionalOp(ConditionalOp* condOp);
-    virtual void VisitFuncCall(FuncCall* funcCall);
-    virtual void VisitVariable(Variable* var);
-    virtual void VisitConstant(Constant* cons);
-    virtual void VisitTempVar(TempVar* tempVar);
-
-    //statement
-    virtual void VisitStmt(Stmt* stmt);
-    virtual void VisitIfStmt(IfStmt* ifStmt);
-    virtual void VisitJumpStmt(JumpStmt* jumpStmt);
-    virtual void VisitReturnStmt(ReturnStmt* returnStmt);
-    virtual void VisitLabelStmt(LabelStmt* labelStmt);
-    virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
-    virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
-
-    //Function Definition
-    virtual void VisitFuncDef(FuncDef* funcDef);
-
-    //Translation Unit
-    virtual void VisitTranslationUnit(TranslationUnit* transUnit);
-
-    int64_t Val(void) const { return _val; }
-    //static ConstantEvaluator* NewConstantEvaluator(void) {
-    //	return new ConstantEvaluator();
-    //}
-
-private:
-    int64_t _val;
-};
-
 #endif

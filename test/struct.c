@@ -1,8 +1,8 @@
-/*
+
 typedef struct list_node list_node_t;
 int ival;
 struct list_node {
-    //int val;
+    int val;
     struct {
         char* name;
         int len;
@@ -20,7 +20,7 @@ int main(void)
     int b = a;
     return b;
 }
-*/
+
 
 struct bb {
     char a;
