@@ -76,7 +76,7 @@ long long BinaryOp::EvalInteger(const Token* errTok)
 #define L   _lhs->EvalInteger(errTok)
 #define R   _rhs->EvalInteger(errTok)
 
-    if (!_ty->IsInteger()) {
+    if (!_type->IsInteger()) {
         Error(errTok, "expect constant integer expression");
     }
 
@@ -137,8 +137,8 @@ long long BinaryOp::EvalInteger(const Token* errTok)
 ArithmType* BinaryOp::Promote(Parser* parser, const Token* errTok)
 {
     // Both lhs and rhs are ensured to be have arithmetic type
-    auto lhsType = _lhs->Ty()->ToArithmType();
-    auto rhsType = _rhs->Ty()->ToArithmType();
+    auto lhsType = _lhs->Type()->ToArithmType();
+    auto rhsType = _rhs->Type()->ToArithmType();
     
     auto type = MaxType(lhsType, rhsType);
     if (lhsType != type) {// Pointer comparation is enough!
@@ -198,8 +198,8 @@ long long ConditionalOp::EvalInteger(const Token* errTok)
 
 ArithmType* ConditionalOp::Promote(Parser* parser, const Token* errTok)
 {
-    auto lhsType = _exprTrue->Ty()->ToArithmType();
-    auto rhsType = _exprFalse->Ty()->ToArithmType();
+    auto lhsType = _exprTrue->Type()->ToArithmType();
+    auto rhsType = _exprFalse->Type()->ToArithmType();
     
     auto type = MaxType(lhsType, rhsType);
     if (lhsType != type) {// Pointer comparation is enough!
@@ -227,7 +227,7 @@ const std::string Identifier::Name(void) {
 }
 
 long long Constant::EvalInteger(const Token* errTok) {
-    if (_ty->IsFloat()) {
+    if (_type->IsFloat()) {
         Error(errTok, "expect integer, but get floating");
     }
     return _ival;

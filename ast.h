@@ -242,8 +242,9 @@ private:
  *      UnaryOp
  *      ConditionalOp
  *      FuncCall
- *      Variable
- *          Constant
+ *      Constant
+ *      Identifier
+ *          Object
  *      TempVar
  */
 
@@ -254,12 +255,8 @@ class Expr : public Stmt
 public:
     virtual ~Expr(void) {}
     
-    Type* Ty(void) {
-        return _ty;
-    }
-
-    const Type* Ty(void) const {
-        return _ty;
+    ::Type* Type(void) {
+        return _type;
     }
 
     virtual bool IsLVal(void) const = 0;
@@ -271,9 +268,9 @@ protected:
      * You can construct a expression without specifying a type,
      * then the type should be evaluated in TypeChecking()
      */
-    Expr(MemPool* pool, Type* type): Stmt(pool), _ty(type) {}
+    Expr(MemPool* pool, ::Type* type): Stmt(pool), _type(type) {}
 
-    Type* _ty;
+    ::Type* _type;
 };
 
 
@@ -342,7 +339,7 @@ public:
     ArithmType* Promote(Parser* parser, const Token* errTok);
 
 protected:
-    UnaryOp(MemPool* pool, int op, Expr* operand, Type* type = nullptr)
+    UnaryOp(MemPool* pool, int op, Expr* operand, ::Type* type = nullptr)
         : Expr(pool, type), _op(op), _operand(operand) {}
 
     int _op;
@@ -476,7 +473,7 @@ public:
     virtual long long EvalInteger(const Token* errTok);
 
 protected:
-    TempVar(MemPool* pool, Type* type)
+    TempVar(MemPool* pool, ::Type* type)
             : Expr(pool, type), _tag(GenTag()) {}
     
 private:
@@ -497,6 +494,11 @@ class FuncDef : public ExtDecl
 
 public:
     virtual ~FuncDef(void) {}
+    
+    virtual FuncType* Type(void) {
+        return _type;
+    }
+    
     virtual void Accept(Visitor* v);
 
 protected:
@@ -508,12 +510,6 @@ private:
     CompoundStmt* _stmt;
 };
 
-/*
-class Decl : public ExtDecl
-{
-
-};
-*/
 
 class TranslationUnit : public ASTNode
 {
@@ -555,6 +551,7 @@ enum Linkage {
     L_INTERNAL,
 };
 
+
 class Identifier: public Expr
 {
     friend class Parser;
@@ -578,10 +575,10 @@ public:
      * An identifer can be:
      *     object, sturct/union/enum tag, typedef name, function, label.
      */
-    virtual Type* ToType(void) {
+    virtual ::Type* ToType(void) {
         if (ToObject())
             return nullptr;
-        return this->Ty();
+        return this->Type();
     }
 
     ::Scope* Scope(void) {
@@ -603,12 +600,12 @@ public:
     const std::string Name(void);
 
     virtual bool operator==(const Identifier& other) const {
-        return *_ty == *other._ty && _scope == other._scope;
+        return *_type == *other._type && _scope == other._scope;
     }
 
 protected:
     Identifier(MemPool* pool, const Token* tok, 
-            Type* type, ::Scope* scope, enum Linkage linkage)
+            ::Type* type, ::Scope* scope, enum Linkage linkage)
             : Expr(pool, type), _tok(tok), _scope(scope), _linkage(linkage) {}
     
     const Token* _tok;
@@ -638,14 +635,6 @@ public:
         return this;
     }
 
-    int Offset(void) const {
-        return _offset;
-    }
-        
-    void SetOffset(int offset) {
-        _offset = offset;
-    }
-    
     int Storage(void) const {
         return _storage;
     }
@@ -662,8 +651,8 @@ public:
     */
 
     bool operator==(const Object& other) const {
-        return _offset == other._offset
-            && *_ty == *other._ty;
+        // TODO(wgtdkp): Not implemented
+        assert(0);
     }
 
     bool operator!=(const Object& other) const {
@@ -671,16 +660,12 @@ public:
     }
 
 protected:
-    Object(MemPool* pool, const Token* tok, Type* type, ::Scope* scope,
-            int storage=0, enum Linkage linkage=L_NONE, int offset=0
-            ): Identifier(pool, tok, type, scope, linkage),
-               _storage(0), _offset(offset) {}
+    Object(MemPool* pool, const Token* tok, ::Type* type, ::Scope* scope,
+            int storage=0, enum Linkage linkage=L_NONE)
+            : Identifier(pool, tok, type, scope, linkage), _storage(0) {}
 
 private:
     int _storage;
-
-    //the relative address
-    int _offset;
 };
 
 #endif
