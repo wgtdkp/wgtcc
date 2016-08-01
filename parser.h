@@ -46,7 +46,7 @@ public:
             Type* type, Scope* scope, enum Linkage linkage);
 
     Object* NewObject(const Token* tok, Type* type, Scope* scope,
-            int storage=0, enum Linkage linkage=L_NONE, int offset=0);
+            int storage=0, enum Linkage linkage=L_NONE);
 
     Constant* NewConstantInteger(ArithmType* type, long long val);
     Constant* NewConstantFloat(ArithmType* type, double val);
@@ -56,7 +56,7 @@ public:
     /*
      * Statement
      */
-    EmptyStmt* NewEmptyStmt(void);
+    EmptyStmt* NewEmptyStmt(void); // Avoid checking null stmt
     IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
     JumpStmt* NewJumpStmt(LabelStmt* label);
     ReturnStmt* NewReturnStmt(Expr* expr);
@@ -269,7 +269,7 @@ private:
     TokenSeq _ts;
 
     // It is not the real scope,
-    // it contains all external symbols(resolved and not resolved)
+    // It contains all external symbols(resolved and not resolved)
     Scope* _externalSymbols;
     
     Token* _errTok;
@@ -279,9 +279,6 @@ private:
     LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;
     
-
-    
-
     LabelStmt* _breakDest;
     LabelStmt* _continueDest;
     CaseLabelList* _caseLabels;
