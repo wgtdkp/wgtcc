@@ -1291,7 +1291,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
             if (tok == nullptr) {
                 auto suType = memberType->ToStructUnionType();
                 if (suType && !suType->HasTag()) {
-                    type->Merge(suType);
+                    type->MergeAnony(suType);
                 }
                 continue;
             }
@@ -1316,7 +1316,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
         } while (_ts.Try(','));
         _ts.Expect(';');
     }
-    //_curScope->Print();
+    
     //struct/union定义结束，设置其为完整类型
     type->SetComplete(true);
     

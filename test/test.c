@@ -1,15 +1,10 @@
-#include <          stdio.h                >
+#include <stdio.h>
 #include <complex.h>
-#include "haha.h"
-
-
-#define ADD2(a, b) ((a)+(b) + MOD)
-#define ADD3(a, b, c) (ADD2(ADD2((a), (b)), (c)))
 
 
 void test_promotion(void)
 {
-    int d = ADD3(1, 2, 3);
+    //int d = ADD3(1, 2, 3);
     char a = 'a';
     short b = 'b';
 
@@ -58,12 +53,135 @@ void test_struct(void)
     printf("sizeof(struct bb): %u\n", sizeof(struct bb));
 }
 
+typedef union {
+    char a;
+    struct {
+        int h;
+        long double b;
+    };
+    char c;
+    int d;
+} foo0_t;
+
+typedef struct {
+    char a;
+    short b;
+    char c;
+} foo1_t;
+
+typedef struct {
+    char a;
+    union {
+        int h;
+        long double b;
+    };
+    char c;
+    int d;
+} foo2_t;
+
+typedef int Type;
+typedef int SourceLoc;
+typedef int Vector;
+typedef struct Node {
+    int kind;
+    Type *ty;
+    SourceLoc *sourceLoc;
+    union {
+        // Char, int, or long
+        long ival;
+        // Float or double
+        struct {
+            double fval;
+            char *flabel;
+        };
+        // String
+        struct {
+            char *sval;
+            char *slabel;
+        };
+        // Local/global variable
+        struct {
+            char *varname;
+            // local
+            int loff;
+            Vector *lvarinit;
+            // global
+            char *glabel;
+        };
+        // Binary operator
+        struct {
+            struct Node *left;
+            struct Node *right;
+        };
+        // Unary operator
+        struct {
+            struct Node *operand;
+        };
+        // Function call or function declaration
+        struct {
+            char *fname;
+            // Function call
+            Vector *args;
+            struct Type *ftype;
+            // Function pointer or function designator
+            struct Node *fptr;
+            // Function declaration
+            Vector *params;
+            Vector *localvars;
+            struct Node *body;
+        };
+        // Declaration
+        struct {
+            struct Node *declvar;
+            Vector *declinit;
+        };
+        // Initializer
+        struct {
+            struct Node *initval;
+            int initoff;
+            Type *totype;
+        };
+        // If statement or ternary operator
+        struct {
+            struct Node *cond;
+            struct Node *then;
+            struct Node *els;
+        };
+        // Goto and label
+        struct {
+            char *label;
+            char *newlabel;
+        };
+        // Return statement
+        struct Node *retval;
+        // Compound statement
+        Vector *stmts;
+        // Struct reference
+        struct {
+            struct Node *struc;
+            char *field;
+            Type *fieldtype;
+        };
+    };
+} Node;
+
+void test_ld(void)
+{
+    printf("sizeof(foo0_t): %u\n", sizeof(foo0_t));
+    printf("sizeof(foo1_t): %u\n", sizeof(foo1_t));
+    printf("sizeof(foo2_t): %u\n", sizeof(foo2_t));
+    printf("sizeof(struct Node): %u\n", sizeof(struct Node));
+
+    printf("sizeof(long double): %u\n", sizeof(long double));
+}
+
 int main(void)
 {
     int;
     char;
     //test_promotion();
     //test_width();
-    test_struct();
+    //test_struct();
+    test_ld();
     return 0;
 }

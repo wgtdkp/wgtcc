@@ -1,135 +1,144 @@
-#include <stdio.h>
-
-
-struct bar_t {
-    int a;
-    int b;
-    int c;
+typedef union {
+    char a;
+    struct {
+        int h;
+        long double b;
+    };
+    char c;
     int d;
-} bar;
+} foo0_t;
+
+typedef struct {
+    char a;
+    short b;
+    char c;
+} foo1_t;
+
+typedef struct {
+    char a;
+    union {
+        int h;
+        long double b;
+    };
+    char c;
+    int d;
+} foo2_t;
+
+typedef struct {
+    short a;
+    struct {
+        double b;
+        float c;
+    };
+    char d;
+} foo3_t;
+
+typedef union {
+    short a;
+    union {
+        double b;
+        float c;
+    };
+    char d;
+} foo3_t;
 
 
-int g = 0;
-struct bar_t foo(void)
+typedef int Type;
+typedef int SourceLoc;
+typedef int Vector;
+typedef struct Node {
+    int kind;
+    Type *ty;
+    SourceLoc *sourceLoc;
+    union {
+        // Char, int, or long
+        long ival;
+        // Float or double
+        struct {
+            double fval;
+            char *flabel;
+        };
+        // String
+        struct {
+            char *sval;
+            char *slabel;
+        };
+        // Local/global variable
+        struct {
+            char *varname;
+            // local
+            int loff;
+            Vector *lvarinit;
+            // global
+            char *glabel;
+        };
+        // Binary operator
+        struct {
+            struct Node *left;
+            struct Node *right;
+        };
+        // Unary operator
+        struct {
+            struct Node *operand;
+        };
+        // Function call or function declaration
+        struct {
+            char *fname;
+            // Function call
+            Vector *args;
+            struct Type *ftype;
+            // Function pointer or function designator
+            struct Node *fptr;
+            // Function declaration
+            Vector *params;
+            Vector *localvars;
+            struct Node *body;
+        };
+        // Declaration
+        struct {
+            struct Node *declvar;
+            Vector *declinit;
+        };
+        // Initializer
+        struct {
+            struct Node *initval;
+            int initoff;
+            Type *totype;
+        };
+        // If statement or ternary operator
+        struct {
+            struct Node *cond;
+            struct Node *then;
+            struct Node *els;
+        };
+        // Goto and label
+        struct {
+            char *label;
+            char *newlabel;
+        };
+        // Return statement
+        struct Node *retval;
+        // Compound statement
+        Vector *stmts;
+        // Struct reference
+        struct {
+            struct Node *struc;
+            char *field;
+            Type *fieldtype;
+        };
+    };
+} Node;
+
+
+void test_foo0(foo0_t foo)
 {
-    int a = 0;
-    char b = 1;
-    int c = 2;
-    char d = 3;
-    int e = 4;
-
-    {
-        char f = 5;
-        int g = 6;
-        long long h = 7;
-    }
-
-    {
-        char f = 8;
-        int g = 9;
-        long long h = 10;
-    }
-
-    {
-        char f = 5;
-        int g = 6;
-        long long h = 7;
-    }
-
-    {
-        char f = 8;
-        int g = 9;
-        long long h = 10;
-    }
-
-    {
-        char f = 5;
-        int g = 6;
-        long long h = 7;
-    }
-
-    {
-        char f = 8;
-        int g = 9;
-        long long h = 10;
-    }
-
-    {
-        char f = 5;
-        int g = 6;
-        long long h = 7;
-    }
-
-    {
-        char f = 8;
-        int g = 9;
-        long long h = 10;
-    }
-
-
-    return bar;
 }
-
-
-int* gp;
-int hello(int par)
-{
-    int a, d;
-    int* b;
-    int** c;
-    //a = 3;
-    a = *b;
-    a = *gp;
-    char bo = (char)a;
-    a = -d;
-    //printf("%d\n", *b);
-    return 0;
-}
-
-
-void test_param(int a, int b, int c, int d,
-        int e, int f, int g, int h, int i, int j , int k)
-{
-
-    a = 0;
-    b = 1;
-    c = 2;
-    d = 3;
-    e = 4;
-    f = 5;
-    g = 6;
-    h = 7;
-    i = 8;
-    j = 9;
-    k = 10;
-
-    return;
-}
-
-
-void test_ld(long double ld)
-{
-    ld = 45.0;
-}
-
-void test_arr(int arr[100])
-{
-
-}
-
 
 int world(void)
 {
-    int p1, p2, p3, p4, p5;
-    test_param(10, 11, 12, 13, 14, 15, p1, p2, p3, p4, p5);
+    foo0_t foo;
+    test_foo0(foo);
 
-    long double ld;
-    test_ld(ld);
-
-    int arr[100];
-    test_arr(arr);
-
+    //test_flt(1, 2, 3, 4);
     return 0;
 }
-
-

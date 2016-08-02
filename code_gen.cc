@@ -11,6 +11,7 @@ enum class ParamClass
     PC_SSE,
     PC_SSEUP,
     PC_X87,
+    PC_X87_UP,
     PC_COMPLEX_X87,
     PC_NO_CLASS,
     PC_MEMORY
@@ -21,36 +22,86 @@ static ParamClass ClassifyParam(Type* paramType)
     if (paramType->IsInteger() || paramType->ToPointerType()
             || paramType->ToArrayType()) {
         return PC_INTEGER;
-    } else if (paramType->ToArithmType()) {
+    }
+    
+    if (paramType->ToArithmType()) {
         auto type = paramType->ToArithmType();
-        if (type->Tag() == T_FLOAT || type->Tag() == T_DOUBLE) {
+        if (type->Tag() == T_FLOAT || type->Tag() == T_DOUBLE)
             return PC_SSE;
-        } else if (type->Tag() == (T_LONG | T_DOUBLE)) {
+        if (type->Tag() == (T_LONG | T_DOUBLE)) {
             return PC_X87;
-        } else {
-            // It is complex
-            if ((type->Tag() & T_LONG) && (type->Tag() & T_DOUBLE))     return COMPLEX_X87;
-            // TODO(wgtdkp):
-        }
-    } else {
-        auto type = paramType->ToStructUnionType();
-        assert(type);
+        
+        // It is complex
+        if ((type->Tag() & T_LONG) && (type->Tag() & T_DOUBLE))
+            return COMPLEX_X87;
+        // TODO(wgtdkp):
+    }
 
-        if (paramType->Width() > 4 * 8)
+    auto type = paramType->ToStructUnionType();
+    assert(type);
+
+    if (type->Width() > 4 * 8)
+        return PC_MEMORY;
+
+    std::vector<ParamClass> classes;
+    int cnt = (type->Width() + 7) / 8;
+    for (int i = 0; i < cnt; i++) {
+        auto  types = FieldsIn8Bytes(type, i);
+        assert(types.size() > 0);
+        
+        auto fieldClass = (types.size() == 1)
+                ? PC_NO_CLASS: FieldClass(types, 0);
+        classes.push_back(fieldClass);
+    }
+
+    bool sawX87 = false;
+    for (int i = 0; i < classes.size(); i++) {
+        if (classes[i] == PC_MEMORY)
             return PC_MEMORY;
+        if (classes[i] == PC_X87_UP && sawX87)
+            return PC_MEMORY;
+        if (classes[i] == PC_X87)
+            sawX87 = true;
         
-        ParamClass classes[4] = {
-            PC_NO_CLASS,
-            PC_NO_CLASS,
-            PC_NO_CLASS,
-            PC_NO_CLASS
-        };
-
-        
-
         
     }
+
 }
+
+static std::vector<Type*> FieldsIn8Bytes(StructUnionType* type, int idx)
+{
+
+}
+
+static ParamClass FieldClass(std::vector<Type*>& types, int begin)
+{
+    auto leftClass = ClassifyParam(types[begin++]);
+    ParamClass rightClass = (begin + 1 == types.size())
+            ? ClassifyParam(types[begin]): FieldClass(types, begin);
+    
+    if (leftClass == rightClass)
+        return leftClass;
+    
+    if (leftClass == PC_NO_CLASS)
+        return rightClass;
+    else if (rightClass == PC_NO_CLASS)
+        return leftClass;
+    
+    if (leftClass == PC_MEMORY || rightClass == PC_MEMORY)
+        return PC_MEMORY;
+
+    if (leftClass == PC_INTEGER || rightClass == PC_INTEGER)
+        return PC_INTEGER;
+
+    if (leftClass == PC_COMPLEX_X87 || rightClass == PC_COMPLEX_X87
+            || leftClass == PC_X87_UP || rightClass = PC_X87_UP)
+            || leftClass == PC_X87 || rightClass == PC_X87) {
+        return PC_MEMORY;
+    }
+    
+    return PC_SSE;
+}
+
 
 void CodeGen::EmitFunc(FuncDef* func)
 {

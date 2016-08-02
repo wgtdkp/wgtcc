@@ -643,6 +643,14 @@ public:
         _storage = storage;
     }
 
+    int Offset(void) const {
+        return _offset;
+    }
+
+    void SetOffset(int offset) {
+        _offset = offset;
+    }
+
     /*
     // of course a variable is a lvalue expression
     virtual bool IsLVal(void) const {
@@ -662,10 +670,14 @@ public:
 protected:
     Object(MemPool* pool, const Token* tok, ::Type* type, ::Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE)
-            : Identifier(pool, tok, type, scope, linkage), _storage(0) {}
+            : Identifier(pool, tok, type, scope, linkage),
+              _storage(0), _offset(0) {}
 
 private:
     int _storage;
+    
+    // For code gen
+    int _offset;
 };
 
 #endif
