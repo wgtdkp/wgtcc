@@ -5,7 +5,7 @@ TARGET = wgtcc
 
 CC = g++
 
-SRCS = ast.cc cpp.cc error.cc lexer.cc\
+SRCS = ast.cc cpp.cc code_gen.cc error.cc lexer.cc\
 	   main.cc parser.cc scope.cc\
 	   token.cc type.cc visitor.cc
 

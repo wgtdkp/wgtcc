@@ -1391,13 +1391,17 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
         //现在的 pointerType 并不是正确的 base type
         auto tokenTypePair = ParseDeclarator(pointerType);
         _ts.Expect(')');
-        auto newBase = ParseArrayFuncDeclarator(pointerType);
+
+        auto newBase = ParseArrayFuncDeclarator(
+                tokenTypePair.first, pointerType);
+        
         //修正 base type
         auto retType = ModifyBase(tokenTypePair.second, pointerType, newBase);
+        
         return TokenTypePair(tokenTypePair.first, retType);
     } else if (_ts.Peek()->IsIdentifier()) {
         auto tok = _ts.Next();
-        auto retType = ParseArrayFuncDeclarator(pointerType);
+        auto retType = ParseArrayFuncDeclarator(tok, pointerType);
         return TokenTypePair(tok, retType);
     }
 
@@ -1528,7 +1532,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     return ret;
 }
 
-Type* Parser::ParseArrayFuncDeclarator(Type* base)
+Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
 {
     if (_ts.Try('[')) {
         if (nullptr != base->ToFuncType()) {
@@ -1540,7 +1544,7 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
             Error(_ts.Peek(), "can't declare an array of length 0");
         }
         _ts.Expect(']');
-        base = ParseArrayFuncDeclarator(base);
+        base = ParseArrayFuncDeclarator(ident, base);
         
         return Type::NewArrayType(len, base);
     } else if (_ts.Try('(')) {	//function declaration
@@ -1558,9 +1562,9 @@ Type* Parser::ParseArrayFuncDeclarator(Type* base)
         ExitProto();
         
         _ts.Expect(')');
-        base = ParseArrayFuncDeclarator(base);
+        base = ParseArrayFuncDeclarator(ident, base);
         
-        return Type::NewFuncType(base, 0, hasEllipsis, params);
+        return Type::NewFuncType(base, 0, hasEllipsis, params, ident);
     }
 
     return base;
@@ -2563,8 +2567,8 @@ void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
     }
 
     auto arg = funcCall->_args.begin();
-    auto param = funcType->Params().begin();
-    for (; param != funcType->Params().end(); param++) {
+    auto param = funcType->Params()->begin();
+    for (; param != funcType->Params()->end(); param++) {
         if (arg == funcCall->_args.end()) {
             Error(errTok, "too few arguments for function ''");
         }
@@ -2577,7 +2581,7 @@ void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
         ++arg;
     }
     
-    if (arg != funcCall->_args.end() && !funcType->HasEllipsis()) {
+    if (arg != funcCall->_args.end() && !funcType->Variadic()) {
         Error(errTok, "too many arguments for function ''");
     }
     

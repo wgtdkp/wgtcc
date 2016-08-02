@@ -4,23 +4,6 @@
 #include "ast.h"
 
 
-class BinaryOp;
-class UnaryOp;
-class condOp;
-class FuncCall;
-class Variable;
-class Constant;
-class TempVar;
-
-class Stmt;
-class IfStmt;
-class JumpStmt;
-class ReturnStmt;
-class LabelStmt;
-class EmptyStmt;
-
-class TranslationUnit;
-
 class Visitor
 {
 public:
@@ -31,7 +14,7 @@ public:
     virtual void VisitUnaryOp(UnaryOp* unaryOp) = 0;
     virtual void VisitConditionalOp(ConditionalOp* condOp) = 0;
     virtual void VisitFuncCall(FuncCall* funcCall) = 0;
-    virtual void VisitVariable(Variable* var) = 0;
+    virtual void VisitObject(Object* var) = 0;
     virtual void VisitConstant(Constant* cons) = 0;
     virtual void VisitTempVar(TempVar* tempVar) = 0;
 

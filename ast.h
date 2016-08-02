@@ -381,7 +381,7 @@ private:
 class FuncCall : public Expr
 {
     friend class Parser;
-
+    typedef std::list<Expr*> ArgList;
 public:
     ~FuncCall(void) {}
     
@@ -394,12 +394,21 @@ public:
 
     virtual long long EvalInteger(const Token* errTok);
 
+    ArgList* Args(void) {
+        return &_args;
+    }
+
+    Expr* Designator(void) {
+        return _designator;
+    }
+
+
 protected:
     FuncCall(MemPool* pool, Expr* designator, std::list<Expr*> args)
         : Expr(pool, nullptr), _designator(designator), _args(args) {}
 
     Expr* _designator;
-    std::list<Expr*> _args;
+    ArgList _args;
 };
 
 
@@ -623,9 +632,9 @@ class Object : public Identifier
 
 public:
     ~Object(void) {}
-    
-    virtual void Accept(Visitor* v) {}
 
+    void Accept(Visitor* v);
+    
     virtual bool IsLVal(void) const {
         // TODO(wgtdkp): not all object is lval?
         return true;

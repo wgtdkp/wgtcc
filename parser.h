@@ -128,7 +128,7 @@ public:
     int ParseQual(void);
     Type* ParsePointer(Type* typePointedTo);
     TokenTypePair ParseDeclarator(Type* type);
-    Type* ParseArrayFuncDeclarator(Type* base);
+    Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
     int ParseArrayLength(void);
     bool ParseParamList(std::list<Type*>& params);
     Type* ParseParamDecl(void);

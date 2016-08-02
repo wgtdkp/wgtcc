@@ -12,6 +12,7 @@
 
 /********* Type System ***********/
 class Scope;
+class Token;
 
 class Type;
 class VoidType;
@@ -167,7 +168,7 @@ public:
     static ArrayType* NewArrayType(long long len, Type* eleType);
     
     static FuncType* NewFuncType(Type* derived, int funcSpec, \
-        bool hasEllipsis, const std::list<Type*>& params=std::list<Type*>());
+        bool hasEllipsis, const std::list<Type*>& params, Token* tok);
     
     static PointerType* NewPointerType(Type* derived);
     
@@ -491,32 +492,39 @@ public:
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 
-    std::list<Type*>& Params(void) {
-        return _params;
+    std::list<Type*>* Params(void) {
+        return &_params;
     }
 
-    bool HasEllipsis(void) {
-        return _hasEllipsis;
+    bool Variadic(void) {
+        return _variadic;
     }
+
+    Token* Tok(void) {
+        return _tok;
+    }
+
+    std::string Name(void);
 
 protected:
     //a function does not has the width property
-    FuncType(MemPool* pool, Type* derived, int inlineReturn, bool hasEllipsis,
-            const std::list<Type*>& params=std::list<Type*>())
+    FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
+            const std::list<Type*>& params, Token* tok)
         : DerivedType(pool, derived, -1), _inlineNoReturn(inlineReturn),
-          _hasEllipsis(hasEllipsis), _params(params) {
-    }
+          _variadic(variadic), _params(params), _tok(tok) {}
 
 private:
     int _inlineNoReturn;
-    bool _hasEllipsis;
+    bool _variadic;
     std::list<Type*> _params;
+    Token* _tok;
 };
 
 
 class StructUnionType : public Type
 {
     friend class Type;
+    typedef std::list<Object*> MemberList;
 
 public:
     ~StructUnionType(void) {/*TODO: delete _env ?*/ }
@@ -556,6 +564,14 @@ public:
         return _memberMap;
     }
 
+    MemberList::iterator Begin(void) {
+        return _memberList.begin();
+    }
+
+    MemberList::iterator End(void) {
+        return _memberList.end();
+    }
+
     bool HasTag(void) {
         return _hasTag;
     }
@@ -574,8 +590,7 @@ private:
     bool _isStruct;
     bool _hasTag;
     Scope* _memberMap;
-    
-    typedef std::list<Object*> MemberList;
+
     MemberList _memberList;
     int _offset;
     int _width;

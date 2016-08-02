@@ -49,11 +49,11 @@ void ConditionalOp::Accept(Visitor* v) {
 void FuncCall::Accept(Visitor* v) { 
     v->VisitFuncCall(this);
 }
-/*
-void Variable::Accept(Visitor* v) {
-    v->VisitVariable(this);
+
+void Object::Accept(Visitor* v) {
+    v->VisitObject(this);
 }
-*/
+
 void Constant::Accept(Visitor* v) {
     v->VisitConstant(this);
 }

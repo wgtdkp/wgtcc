@@ -1,42 +1,77 @@
 #include "code_gen.h"
 
 #include "ast.h"
+#include "type.h"
 
 #include <cassert>
+#include <cstdarg>
 #include <cstdio>
 
-enum class ParamClass
-{
-    PC_INTEGER,
-    PC_SSE,
-    PC_SSEUP,
-    PC_X87,
-    PC_X87_UP,
-    PC_COMPLEX_X87,
-    PC_NO_CLASS,
-    PC_MEMORY
+#include <iterator>
+
+Register Register::_regs[N_REG] {
+    Register("rax"), Register("rbx"),
+    Register("rcx"), Register("rdx"),
+    Register("rsi"), Register("rdi"),
+    Register("rbp"), Register("rsp"),
+    Register("r8"), Register("r9"),
+    Register("r10"), Register("r11"),
+    Register("r12"), Register("r13"),
+    Register("r14"), Register("r15"),
+    Register("xmm0"), Register("xmm1"),
+    Register("xmm2"), Register("xmm3"),
+    Register("xmm4"), Register("xmm5"),
+    Register("xmm6"), Register("xmm7")
 };
 
-static ParamClass ClassifyParam(Type* paramType)
+Register* Generator::_argRegs[N_ARG_REG] = {
+    Register::Get(Register::RDI),
+    Register::Get(Register::RSI),
+    Register::Get(Register::RDX),
+    Register::Get(Register::RCX),
+    Register::Get(Register::R8),
+    Register::Get(Register::R9)
+};
+
+Register* Generator::_argVecRegs[N_ARG_VEC_REG] = {
+    Register::Get(Register::XMM0),
+    Register::Get(Register::XMM1),
+    Register::Get(Register::XMM2),
+    Register::Get(Register::XMM3),
+    Register::Get(Register::XMM4),
+    Register::Get(Register::XMM5),
+    Register::Get(Register::XMM6),
+    Register::Get(Register::XMM7)
+};
+
+
+static ParamClass Classify(Type* paramType, int offset=0)
 {
     if (paramType->IsInteger() || paramType->ToPointerType()
             || paramType->ToArrayType()) {
-        return PC_INTEGER;
+        return ParamClass::INTEGER;
     }
     
     if (paramType->ToArithmType()) {
         auto type = paramType->ToArithmType();
         if (type->Tag() == T_FLOAT || type->Tag() == T_DOUBLE)
-            return PC_SSE;
+            return ParamClass::SSE;
         if (type->Tag() == (T_LONG | T_DOUBLE)) {
-            return PC_X87;
+            // TODO(wgtdkp):
+            assert(false); 
+            return ParamClass::X87;
+        }
         
+        // TODO(wgtdkp):
+        assert(false);
         // It is complex
         if ((type->Tag() & T_LONG) && (type->Tag() & T_DOUBLE))
-            return COMPLEX_X87;
-        // TODO(wgtdkp):
+            return ParamClass::COMPLEX_X87;
+        
     }
 
+    assert(false);
+    /*
     auto type = paramType->ToStructUnionType();
     assert(type);
 
@@ -52,6 +87,7 @@ static ParamClass ClassifyParam(Type* paramType)
         auto fieldClass = (types.size() == 1)
                 ? PC_NO_CLASS: FieldClass(types, 0);
         classes.push_back(fieldClass);
+        
     }
 
     bool sawX87 = false;
@@ -62,22 +98,33 @@ static ParamClass ClassifyParam(Type* paramType)
             return PC_MEMORY;
         if (classes[i] == PC_X87)
             sawX87 = true;
-        
-        
     }
-
+    */
+    return ParamClass::NO_CLASS; // Make compiler happy
 }
 
-static std::vector<Type*> FieldsIn8Bytes(StructUnionType* type, int idx)
+/*
+static void FieldsIn8Bytes(std::vector<ParamClass>& res,
+        StructUnionType* type, int idx)
 {
+    auto offset = idx * 8;
+    auto p = type->Begin();
+    auto q = std::next(p, 1);
+    for (; q != type->End(); q++) {
+        if (p->Offset() <= offset && q->Offset() > offset) {
 
+        }
+        p++;
+    }
 }
+*/
 
-static ParamClass FieldClass(std::vector<Type*>& types, int begin)
+/*
+static ParamClass FieldClass(std::vector<ParamClass>& classes, int begin)
 {
-    auto leftClass = ClassifyParam(types[begin++]);
+    auto leftClass = classes[begin++];
     ParamClass rightClass = (begin + 1 == types.size())
-            ? ClassifyParam(types[begin]): FieldClass(types, begin);
+            ? leftClass: FieldClass(types, begin);
     
     if (leftClass == rightClass)
         return leftClass;
@@ -101,27 +148,10 @@ static ParamClass FieldClass(std::vector<Type*>& types, int begin)
     
     return PC_SSE;
 }
+*/
 
 
-void CodeGen::EmitFunc(FuncDef* func)
-{
-    Emit("push %rbp");
-    Emit("movq %rsp, %rbp");
-
-
-
-    Emit("pop %rbp");
-    Emit("ret");
-}
-
-
-void CodeGen::EmitFuncCall(FuncCall* funcCall)
-{
-
-}
-
-
-void CodeGen::Emit(const char* format, ...)
+void Generator::Emit(const char* format, ...)
 {
     printf("    ");
 
@@ -134,103 +164,134 @@ void CodeGen::Emit(const char* format, ...)
 }
 
 
-void CodeGen::EmitLabel(LabelStmt* label)
+//Expression
+void Generator::VisitBinaryOp(BinaryOp* binaryOp)
 {
-    fprintf(_outFile, ".L%d:\n", label->Tag());
+
 }
 
-
-void CodeGen::EmitExpr(BinaryOp* binaryOp)
+void Generator::VisitUnaryOp(UnaryOp* unaryOp)
 {
-    switch (binaryOp->_op) {
-    case '[':
-        return EmitSubScriptingOp(binaryOp);
-    case '*':
-        return EmitMulOp(binaryOp);
-    case '/':
-        return EmitDivOp(binaryOp);
-    case '%':
-        return EmitModOp(binaryOp);
-    case '+':
-        return EmitAddOp(binaryOp);
-    case '-':
-        return EmitSubOp(binaryOp);
-    case Token::LEFT_OP:
-    case Token::RIGHT_OP:
-        return EmitShiftOp(binaryOP);
-    case '<':
-        return EmitLTOp(binaryOp);
-    case '>':
-        return EmitGTOp(binaryOp);
-    case Token::LE_OP:
-        return EmitLEOp(binaryOp);
-    case Token::GE_OP:
-        return EmitGEOp(binaryOp);
-    case Token::EQ_OP:
-        return EmitEQOp(binaryOp);
-    case Token::NE_OP:
-        return EmitNEOp(binaryOp);
-    case '&':
-        return EmitBitAndOp(binaryOp);
-    case '^':
-        return EmitBitXorOp(binaryOp);
-    case '|':
-        return EmitBitOrOp(binaryOp);
-    case Token::AND_OP:
-        return EmitAndOp(binaryOp);
-    case Token::OR_OP:
-        return EmitOrOp(binaryOp);
-    case '=':
-        return EmitAssignOp(binaryOp);
-    default:
-        assert(0); 
+
+}
+
+void Generator::VisitConditionalOp(ConditionalOp* condOp)
+{
+
+}
+
+void Generator::VisitFuncCall(FuncCall* funcCall)
+{
+    auto args = funcCall->Args();
+    //auto params = funcCall->Designator()->Params();
+    auto funcType = funcCall->Designator()->Type()->ToFuncType();
+
+    // Prepare arguments
+    for (auto arg: *args) {
+        //arg->Accept(this);
+        //PushFuncArg(arg);
+        auto cls = Classify(arg->Type());
+        SetupFuncArg(arg, cls);
+    }
+
+    if (funcType->Variadic()) {
+        // Setup %al to vector register used
+    }
+
+    Emit("call %s", funcType->Name());
+
+
+}
+
+void Generator::SetupFuncArg(Expr* arg, ParamClass cls)
+{
+    if (cls == ParamClass::INTEGER) {
+        auto reg = AllocArgReg();
+        if (!reg) {
+            // Push the argument on the stack
+        } else {
+            SetDesReg(reg);
+            arg->Accept(this);
+        }
+    } else if (cls == ParamClass::SSE) {
+        auto reg = AllocArgVecReg();
+        if (!reg) {
+            // Push the argument on the stack
+        } else {
+            SetDesReg(reg);
+            arg->Accept(this);
+        }
+    } else if (cls == ParamClass::MEMORY) {
+        // Push the argument on the stack
+        // ERROR(wgtdkp): the argument should be pushed by reversed order
+    } else {
+        assert(false);
     }
 }
 
-
-void CodeGen::EmitExpr(UnaryOp* unaryOp)
-{
-    switch (unaryOp->_op) {
-    case Token::PREFIX_INC:
-        return EmitPreIncOp(unaryOp);
-    case Token::PREFIX_DEC:
-        return EmitPreDecOp(unaryOp);
-    case Token::POSTFIX_INC:
-        return EmitPostIncOp(unaryOp);
-    case Token::POSTFIX_DEC:
-        return EmitPostDecOp(unaryOp);
-    case Token::ADDR:
-        return EmitAddrOp(unaryOp);
-    
-    }
-}
-
-
-void CodeGen::EmitExpr(ConditionalOp* condOp)
+void Generator::VisitObject(Object* obj)
 {
 
 }
 
-
-void CodeGen::EmitExpr(FuncCall* funcCall)
+void Generator::VisitConstant(Constant* cons)
 {
 
 }
 
-
-void CodeGen::EmitExpr(Constant* cons)
+void Generator::VisitTempVar(TempVar* tempVar)
 {
 
 }
 
-
-void CodeGen::EmitExpr(Object* obj)
+//statement
+void Generator::VisitStmt(Stmt* stmt)
 {
 
 }
 
+void Generator::VisitIfStmt(IfStmt* ifStmt)
+{
 
-void CodeGen::EmitExpr(TempVar* tempVar)
+}
+
+void Generator::VisitJumpStmt(JumpStmt* jumpStmt)
+{
+
+}
+
+void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
+{
+
+}
+
+void Generator::VisitLabelStmt(LabelStmt* labelStmt)
+{
+    fprintf(_outFile, ".L%d:\n", labelStmt->Tag());
+}
+
+void Generator::VisitEmptyStmt(EmptyStmt* emptyStmt)
+{
+
+}
+
+void Generator::VisitCompoundStmt(CompoundStmt* compoundStmt)
+{
+
+}
+
+//Function Definition
+void Generator::VisitFuncDef(FuncDef* funcDef)
+{
+    Emit("push %rbp");
+    Emit("movq %rsp, %rbp");
+
+    Emit("pop %rbp");
+    Emit("ret");
+}
+
+//Translation Unit
+void Generator::VisitTranslationUnit(TranslationUnit* transUnit)
 {
 
 }
