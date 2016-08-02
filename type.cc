@@ -5,6 +5,7 @@
 #include "token.h"
 
 #include <cassert>
+
 #include <algorithm>
 #include <iostream>
 
@@ -129,6 +130,44 @@ int ArithmType::Spec2Tag(int spec) {
     return spec;
 }
 
+int ArithmType::Align(void) const
+{
+    switch (_tag) {
+    case T_BOOL:
+    case T_CHAR:
+    case T_UNSIGNED | T_CHAR:
+        return 1;
+    case T_SHORT:
+    case T_UNSIGNED | T_SHORT:
+        return 2;
+    case T_INT:
+    case T_UNSIGNED:
+        return 4;
+    case T_LONG:
+    case T_UNSIGNED | T_LONG:
+        return 4;
+    case T_LONG_LONG:
+    case T_UNSIGNED | T_LONG_LONG:
+        return 8;
+    case T_FLOAT:
+        return 4;
+    case T_DOUBLE: 
+        return 8;
+    case T_LONG | T_DOUBLE:
+        return 16;
+    case T_FLOAT | T_COMPLEX:
+        return 8;
+    case T_DOUBLE | T_COMPLEX:
+        return 16;
+    case T_LONG | T_DOUBLE | T_COMPLEX:
+        return 32;
+    default:
+        assert(0);    
+    }
+
+    return 0; // Make compiler happy
+}
+
 std::string ArithmType::Str(void) const
 {
     std::string width = std::string(":") + std::to_string(_width);
@@ -209,10 +248,10 @@ bool PointerType::Compatible(const Type& other) const {
     auto otherType = other.ToPointerType();
     if (otherType == nullptr)
         return false;
-    if ((otherType->Derived()->ToVoidType() && !_derived->ToFuncType())
-            || (_derived->ToVoidType() && !otherType->Derived()->ToFuncType()))
+    if ((otherType->_derived->ToVoidType() && !_derived->ToFuncType())
+            || (_derived->ToVoidType() && !otherType->_derived->ToFuncType()))
         return true;
-    return _derived->Compatible(*otherType->Derived());
+    return _derived->Compatible(*otherType->_derived);
 }
 
 
@@ -289,7 +328,9 @@ std::string FuncType::Str(void) const
 StructUnionType::StructUnionType(MemPool* pool,
         bool isStruct, bool hasTag, Scope* parent)
         : Type(pool, 0, false), _isStruct(isStruct), _hasTag(hasTag),
-          _memberMap(new Scope(parent, S_BLOCK)) {}
+          _memberMap(new Scope(parent, S_BLOCK)),
+          _offset(0), _width(0), _align(0) {}
+
 
 Object* StructUnionType::GetMember(const std::string& member) {
     auto ident = _memberMap->FindInCurScope(member);
@@ -316,10 +357,12 @@ bool StructUnionType::operator==(const Type& other) const
     return *_memberMap == *structUnionType->_memberMap;
 }
 
+
 bool StructUnionType::Compatible(const Type& other) const {
     // TODO: 
     return *this == other;
 }
+
 
 // TODO(wgtdkp): more detailed representation
 std::string StructUnionType::Str(void) const
@@ -328,60 +371,52 @@ std::string StructUnionType::Str(void) const
     return str + ":" + std::to_string(_width);
 }
 
+
 void StructUnionType::AddMember(const std::string& name, Object* member)
 {
-    auto overlap = !_isStruct;
-    _memberList.push_back(std::make_pair(member, overlap));
-    _memberMap->Insert(name, member);
-    /*
-    _memberMap->InsertWithOutIncOffset(name, member);
-
-    int offset = _memberMap->Offset();
+    auto offset = MakeAlign(_offset, member->Type()->Align());
     member->SetOffset(offset);
-    if (IsStruct()) {
-        _memberMap->SetOffset(offset + member->Type()->Width());
-        _width = _memberMap->Offset();
+    
+    _memberList.push_back(member);
+    _memberMap->Insert(name, member);
+
+    _align = std::max(_align, member->Type()->Align());
+
+    if (_isStruct) {
+        _offset = offset + member->Type()->Width();
+        _width = MakeAlign(_offset, _align);
     } else {
+        assert(_offset == 0);
         _width = std::max(_width, member->Type()->Width());
     }
-    */
 }
+
 
 // Move members of Anonymous struct/union to external struct/union
 // TODO(wgtdkp):
 // Width of struct/union is not the sum of its members
-void StructUnionType::Merge(StructUnionType* anonType)
-{
-    auto iter = anonType->_memberList.begin();
-    for (; iter != anonType->_memberList.end(); iter++) {
-        _memberList.push_back(*iter);
-        
-        auto name = iter->first->Name();
+void StructUnionType::MergeAnony(StructUnionType* anonType)
+{   
+    auto offset = MakeAlign(_offset, anonType->Align());
+    for (auto member: anonType->_memberList) {
+        member->SetOffset(offset + member->Offset());
+
+        auto name = member->Name();
         if (GetMember(name)) {
-            auto tok = iter->first->Tok();
-            Error(tok, "duplicate member '%s'", name.c_str());
+            Error(member->Tok(), "duplicated member '%s'", name.c_str());
         }
-        _memberMap->Insert(name, iter->first);
+        _memberList.push_back(member);
+        _memberMap->Insert(name, member);
     }
 
-    /*
-    int offset = _memberMap->Offset();
-    std::cout << "offset: " << offset << std::endl;
-    auto iter = anonType->_memberMap->begin();
-    for (; iter != anonType->_memberMap->end(); iter++) {
-        if (GetMember(iter->first)) {
-            auto tok = iter->second->Tok();
-            Error(tok, "duplicate member '%s'", tok->Str().c_str());
-        }
-        auto member = iter->second->ToObject();
-        
-        assert(member);
-        _memberMap->InsertWithOutIncOffset(iter->first, member);
-        member->SetOffset(offset + member->Offset());
+    _align = std::max(_align, anonType->Align());
+    if (_isStruct) {
+        _offset = offset + anonType->Width();
+        _width = MakeAlign(_offset, _align);
+    } else {
+        assert(_offset == 0);
+        _width = std::max(_width, anonType->Width());
     }
-    _memberMap->SetOffset(offset + anonType->Width());
-    _width = _memberMap->Offset();
-    */
 }
 
 

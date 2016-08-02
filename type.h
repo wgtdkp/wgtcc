@@ -4,6 +4,8 @@
 #include "mem_pool.h"
 #include "scope.h"
 
+#include <cassert>
+
 #include <algorithm>
 #include <list>
 
@@ -82,25 +84,25 @@ public:
     // For Debugging
     virtual std::string Str(void) const = 0; 
 
-    int Width(void) const {
-        return _width;
-    }
+    virtual int Width(void) const = 0;
     
-    void SetWidth(int width) {
-        _width = width;
-    }
-    
-    int Align(void) const {
-        // TOD(wgtdkp):
-        //return _align;
-        return std::max(_align, _width);
-    }
+    virtual int Align(void) const = 0;
 
-    void SetAlign(int align) { _align = align; }
+    static int MakeAlign(int offset, int align) {
+        if (offset % align) {
+            return offset + align - (offset % align);
+        }
+        return offset;
+    } 
+
+
+    int Qual(void) const {
+        return _qual;
+    }
     
-    int Qual(void) const { return _qual; }
-    
-    void SetQual(int qual) { _qual = qual; }
+    void SetQual(int qual) {
+        _qual = qual;
+    }
     
     bool Complete(void) const { 
         return _complete;
@@ -218,6 +220,16 @@ public:
         return true;
     }
 
+    virtual int Width(void) const {
+        assert(0);
+        return 0;
+    }
+
+    virtual int Align(void) const {
+        assert(0);
+        return 0;
+    }
+
     virtual std::string Str(void) const {
         return "void:0";
     }
@@ -252,6 +264,12 @@ public:
         // Compatible if both are arithmetic type
         return other.ToArithmType();
     }
+
+    virtual int Width(void) const {
+        return CalcWidth(_tag);
+    }
+
+    virtual int Align(void) const;
 
     virtual std::string Str(void) const;
 
@@ -299,10 +317,6 @@ public:
         return _derived;
     }
     
-    const Type* Derived(void) const {
-        return _derived;
-    }
-    
     void SetDerived(Type* derived) {
         _derived = derived;
     }
@@ -341,6 +355,14 @@ public:
     virtual bool operator==(const Type& other) const;
     
     virtual bool Compatible(const Type& other) const;
+
+    virtual int Width(void) const {
+        return 8;
+    }
+
+    virtual int Align(void) const {
+        return Width();
+    }
 
     virtual std::string Str(void) const {
         return _derived->Str() + "*:" + std::to_string(_width);
@@ -408,6 +430,14 @@ public:
             && _derived->Compatible(*otherArray->_derived));
     }
 
+    virtual int Width(void) const {
+        return _derived->Width() * _len;
+    }
+
+    virtual int Align(void) const {
+        return _derived->Align();
+    }
+
     virtual std::string Str(void) const {
         return _derived->Str() + "[]:" + std::to_string(_width);
     }
@@ -418,11 +448,12 @@ public:
 
 protected:
     ArrayType(MemPool* pool, long long len, Type* derived)
-            : PointerType(pool, derived) {
-        SetComplete(len > 0);	//����len < 0,��ô�����Ͳ�����
-        SetWidth(len > 0 ? len * derived->Width() : 0);
+            : PointerType(pool, derived), _len(len) {
+        SetComplete(len > 0);
         SetQual(Q_CONST);
     }
+
+    int _len;
 };
 
 
@@ -444,6 +475,16 @@ public:
     virtual bool operator==(const Type& other) const;
     
     virtual bool Compatible(const Type& other) const;
+
+    virtual int Width(void) const {
+        assert(0);
+        return 0;
+    }
+
+    virtual int Align(void) const {
+        assert(0);
+        return 0;
+    }
 
     virtual std::string Str(void) const;
 
@@ -492,6 +533,14 @@ public:
     
     virtual bool Compatible(const Type& other) const;
 
+    virtual int Width(void) const {
+        return _width;
+    }
+
+    virtual int Align(void) const {
+        return _align;
+    }
+
     virtual std::string Str(void) const;
 
     // struct/union
@@ -511,7 +560,7 @@ public:
         return _hasTag;
     }
     
-    void Merge(StructUnionType* anonType);
+    void MergeAnony(StructUnionType* anonType);
 
 protected:
     // default is incomplete
@@ -526,8 +575,11 @@ private:
     bool _hasTag;
     Scope* _memberMap;
     
-    typedef std::list<std::pair<Identifier*, bool>> MemberList;
+    typedef std::list<Object*> MemberList;
     MemberList _memberList;
+    int _offset;
+    int _width;
+    int _align;
 };
 
 /*
