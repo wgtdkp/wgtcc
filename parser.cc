@@ -1511,11 +1511,14 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     }
 
     Identifier* ret;
-    if (type->ToFuncType()) {
-        ret = NewIdentifier(tok, type, _curScope, linkage);
-    } else {
-        ret = NewObject(tok, type, _curScope, storageSpec, linkage);
-    }
+    // TODO(wgtdkp): Treat function as object ?
+    //if (type->ToFuncType()) {
+    //    ret = NewIdentifier(tok, type, _curScope, linkage);
+    //} else {
+    //    ret = NewObject(tok, type, _curScope, storageSpec, linkage);
+    //}
+    ret = NewObject(tok, type, _curScope, storageSpec, linkage);
+
     _curScope->Insert(name, ret);
     
     if (linkage == L_EXTERNAL && ident == nullptr) {
@@ -2570,6 +2573,8 @@ void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
             // TODO(wgtdkp): function name
             Error(errTok, "incompatible type for argument 1 of ''");
         }
+
+        ++arg;
     }
     
     if (arg != funcCall->_args.end() && !funcType->HasEllipsis()) {
