@@ -9,14 +9,15 @@
 #include <list>
 #include <memory>
 
+
+class Operand;
+class Generator;
+
 class Scope;
-
 class Parser;
-
 class ASTNode;
-class Visitor;
-
 class Token;
+
 //Expression
 class Expr;
 class BinaryOp;
@@ -33,50 +34,9 @@ class JumpStmt;
 class LabelStmt;
 class EmptyStmt;
 class CompoundStmt;
-
 class FuncDef;
-
 class TranslationUnit;
 
-/*
-struct Coordinate
-{
-    Coordinate(void): _fileName(nullptr), _line(0), _column(0),
-            _lineBegin(nullptr), needFree(false) {}
-    
-    Coordinate(const Coordinate& other) {
-        *this = other;
-    }
-
-    const Coordinate& operator=(const Coordinate& other) {
-        _fileName = other._fileName;
-        _line = other._line;
-        _column = other._column;
-        _lineBegin = other._lineBegin;
-        _strPair = other._strPair;
-    }
-
-    ~Coordinate(void) {}
-
-    Coordinate operator+(const Coordinate& other) const {
-        Coordinate tok(*this);
-        tok.end = other.end;
-        return tok;
-    }
-
-    const char* _fileName;
-    
-    // Line index of the begin
-    int _line;
-    
-    // Column index of the begin
-    int _column;
-
-    StrPair _strPair;
-
-    char* _lineBegin;
-};
-*/
 
 /*
  * AST Node
@@ -89,7 +49,7 @@ class ASTNode
 public:
     virtual ~ASTNode(void) {}
     
-    virtual void Accept(Visitor* v) = 0;
+    virtual Operand* Accept(Generator* g) = 0;
 
     //virtual Coordinate Coord(void) = 0;
     
@@ -126,7 +86,7 @@ class EmptyStmt : public Stmt
 public:
     virtual ~EmptyStmt(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
 
 protected:
     EmptyStmt(MemPool* pool): Stmt(pool) {}
@@ -141,7 +101,7 @@ class LabelStmt : public Stmt
 public:
     ~LabelStmt(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
     int Tag(void) const {
         return Tag();
@@ -168,7 +128,7 @@ class IfStmt : public Stmt
 public:
     virtual ~IfStmt(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
 
 protected:
     IfStmt(MemPool* pool, Expr* cond, Stmt* then, Stmt* els = nullptr)
@@ -188,7 +148,7 @@ class JumpStmt : public Stmt
 public:
     virtual ~JumpStmt(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
     void SetLabel(LabelStmt* label) { _label = label; }
 
@@ -207,7 +167,7 @@ class ReturnStmt: public Stmt
 public:
     virtual ~ReturnStmt(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
 protected:
     ReturnStmt(MemPool* pool, Expr* expr)
@@ -224,7 +184,7 @@ class CompoundStmt : public Stmt
 public:
     virtual ~CompoundStmt(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
 
 protected:
     CompoundStmt(MemPool* pool, const std::list<Stmt*>& stmts)
@@ -289,7 +249,7 @@ class BinaryOp : public Expr
 public:
     virtual ~BinaryOp(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
     //like member ref operator is a lvalue
     virtual bool IsLVal(void) const {
@@ -329,7 +289,7 @@ class UnaryOp : public Expr
 public:
     virtual ~UnaryOp(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
 
     //TODO: like '*p' is lvalue, but '~i' is not lvalue
     virtual bool IsLVal(void) const;
@@ -355,7 +315,7 @@ class ConditionalOp : public Expr
 public:
     virtual ~ConditionalOp(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
 
     virtual bool IsLVal(void) const {
         return false;
@@ -385,7 +345,7 @@ class FuncCall : public Expr
 public:
     ~FuncCall(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
 
     //a function call is ofcourse not lvalue
     virtual bool IsLVal(void) const {
@@ -423,7 +383,7 @@ class Constant : public Expr
 public:
     ~Constant(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
     virtual bool IsLVal(void) const {
         return false;
@@ -473,7 +433,7 @@ class TempVar : public Expr
 public:
     virtual ~TempVar(void) {}
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
     virtual bool IsLVal(void) const {
         return true;
@@ -508,7 +468,7 @@ public:
         return _type;
     }
     
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
 
 protected:
     FuncDef(MemPool* pool, FuncType* type, CompoundStmt* stmt)
@@ -529,7 +489,7 @@ public:
             delete *iter;
     }
 
-    virtual void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
     void Add(ExtDecl* extDecl) {
         _extDecls.push_back(extDecl);
@@ -568,7 +528,9 @@ class Identifier: public Expr
 public:
     virtual ~Identifier(void) {}
 
-    virtual void Accept(Visitor* v) {}
+    virtual Operand* Accept(Generator* g) {
+        return nullptr;
+    }
 
     virtual bool IsLVal(void) const {
         return false;
@@ -633,7 +595,7 @@ class Object : public Identifier
 public:
     ~Object(void) {}
 
-    void Accept(Visitor* v);
+    virtual Operand* Accept(Generator* g);
     
     virtual bool IsLVal(void) const {
         // TODO(wgtdkp): not all object is lval?

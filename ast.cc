@@ -3,71 +3,80 @@
 #include "error.h"
 #include "parser.h"
 #include "token.h"
-#include "visitor.h"
+#include "code_gen.h"
 
 
 /*
  * Accept
  */
 
-void EmptyStmt::Accept(Visitor* v) {
-    v->VisitEmptyStmt(this);
+Operand* EmptyStmt::Accept(Generator* g) {
+    assert(false);
+    g->GenEmptyStmt(this);
+    return nullptr;
 }
 
-void LabelStmt::Accept(Visitor* v) {
-    v->VisitLabelStmt(this);
+Operand* LabelStmt::Accept(Generator* g) {
+    g->GenLabelStmt(this);
+    return nullptr;
 }
 
-void IfStmt::Accept(Visitor* v) {
-    v->VisitIfStmt(this);
+Operand* IfStmt::Accept(Generator* g) {
+    g->GenIfStmt(this);
+    return nullptr;
 }
 
-void JumpStmt::Accept(Visitor* v) {
-    v->VisitJumpStmt(this);
+Operand* JumpStmt::Accept(Generator* g) {
+    g->GenJumpStmt(this);
+    return nullptr;
 }
 
-void ReturnStmt::Accept(Visitor* v) {
-    v->VisitReturnStmt(this);
+Operand* ReturnStmt::Accept(Generator* g) {
+    g->GenReturnStmt(this);
+    return nullptr;
 }
 
-void CompoundStmt::Accept(Visitor* v) {
-    v->VisitCompoundStmt(this);
+Operand* CompoundStmt::Accept(Generator* g) {
+    g->GenCompoundStmt(this);
+    return nullptr;
 }
 
-void BinaryOp::Accept(Visitor* v) {
-    v->VisitBinaryOp(this);
+Operand* BinaryOp::Accept(Generator* g) {
+    return g->GenBinaryOp(this);
 }
 
-void UnaryOp::Accept(Visitor* v) {
-    v->VisitUnaryOp(this);
+Operand* UnaryOp::Accept(Generator* g) {
+    return g->GenUnaryOp(this);
 }
 
-void ConditionalOp::Accept(Visitor* v) {
-    v->VisitConditionalOp(this);
+Operand* ConditionalOp::Accept(Generator* g) {
+    return g->GenConditionalOp(this);
 }
 
-void FuncCall::Accept(Visitor* v) { 
-    v->VisitFuncCall(this);
+Operand* FuncCall::Accept(Generator* g) { 
+    return g->GenFuncCall(this);
 }
 
-void Object::Accept(Visitor* v) {
-    v->VisitObject(this);
+Operand* Object::Accept(Generator* g) {
+    return g->GenObject(this);
 }
 
-void Constant::Accept(Visitor* v) {
-    v->VisitConstant(this);
+Operand* Constant::Accept(Generator* g) {
+    return g->GenConstant(this);
 }
 
-void TempVar::Accept(Visitor* v) {
-    v->VisitTempVar(this);
+Operand* TempVar::Accept(Generator* g) {
+    return g->GenTempVar(this);
 }
 
-void FuncDef::Accept(Visitor* v) {
-    v->VisitFuncDef(this);
+Operand* FuncDef::Accept(Generator* g) {
+    g->GenFuncDef(this);
+    return nullptr;
 }
 
-void TranslationUnit::Accept(Visitor* v) {
-    v->VisitTranslationUnit(this);
+Operand* TranslationUnit::Accept(Generator* g) {
+    g->GenTranslationUnit(this);
+    return nullptr;
 }
 
 
