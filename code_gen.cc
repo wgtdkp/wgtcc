@@ -9,20 +9,12 @@
 
 #include <iterator>
 
-Register Register::_regs[N_REG] {
-    Register("rax"), Register("rbx"),
-    Register("rcx"), Register("rdx"),
-    Register("rsi"), Register("rdi"),
-    Register("rbp"), Register("rsp"),
-    Register("r8"), Register("r9"),
-    Register("r10"), Register("r11"),
-    Register("r12"), Register("r13"),
-    Register("r14"), Register("r15"),
-    Register("xmm0"), Register("xmm1"),
-    Register("xmm2"), Register("xmm3"),
-    Register("xmm4"), Register("xmm5"),
-    Register("xmm6"), Register("xmm7")
-};
+
+/*
+ * Register
+ */
+
+Register Register::_regs[N_REG];
 
 Register* Generator::_argRegs[N_ARG_REG] = {
     Register::Get(Register::RDI),
@@ -43,6 +35,34 @@ Register* Generator::_argVecRegs[N_ARG_VEC_REG] = {
     Register::Get(Register::XMM6),
     Register::Get(Register::XMM7)
 };
+
+std::string Register::Repr(void) const
+{
+    assert(0);
+    return "";
+}
+
+
+/*
+ * Immediate
+ */
+
+std::string Immediate::Repr(void) const
+{
+    assert(0);
+    return "";
+}
+
+
+/*
+ * Memory
+ */
+
+std::string Memory::Repr(void) const
+{
+    assert(0);
+    return "";
+}
 
 
 static ParamClass Classify(Type* paramType, int offset=0)
@@ -70,6 +90,7 @@ static ParamClass Classify(Type* paramType, int offset=0)
         
     }
 
+    // TODO(wgtdkp): Support agrregate type 
     assert(false);
     /*
     auto type = paramType->ToStructUnionType();
@@ -165,52 +186,87 @@ void Generator::Emit(const char* format, ...)
 
 
 //Expression
-void Generator::VisitBinaryOp(BinaryOp* binaryOp)
+Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
 {
-
+    // TODO(wgtdkp):
+    return nullptr;
 }
 
-void Generator::VisitUnaryOp(UnaryOp* unaryOp)
+Operand* Generator::GenUnaryOp(UnaryOp* unaryOp)
 {
-
+    // TODO(wgtdkp):
+    return nullptr;
 }
 
-void Generator::VisitConditionalOp(ConditionalOp* condOp)
+Operand* Generator::GenConditionalOp(ConditionalOp* condOp)
 {
-
+    // TODO(wgtdkp):
+    return nullptr;
 }
 
-void Generator::VisitFuncCall(FuncCall* funcCall)
+Register* Generator::GenFuncCall(FuncCall* funcCall)
 {
     auto args = funcCall->Args();
     //auto params = funcCall->Designator()->Params();
     auto funcType = funcCall->Designator()->Type()->ToFuncType();
+
+    Register* desReg = nullptr;
+
+    // Prepare return value
+    // TODO(wgtdkp): Tell the Caller where is the return value,
+    // or the caller find it by himself?
+    auto cls = Classify(funcCall->Type());
+    if (cls == ParamClass::MEMORY) {
+        // TODO(wgtdkp):
+        // Alloc the return value on the stack
+        auto addr = AllocArgStack();
+        auto reg = AllocArgReg();
+        // Address of the return value 
+        // should be treated as the first hidden param
+        assert(reg->Is(Register::RDI));
+        PushReturnAddr(addr, reg);
+
+        desReg = Register::Get(Register::RAX);
+    } else if (cls == ParamClass::SSE) {
+        desReg = Register::Get(Register::XMM0);
+    } else if (cls == ParamClass::INTEGER) {
+        desReg = Register::Get(Register::RAX);
+    } else {
+        assert(false);
+    }
+
 
     // Prepare arguments
     for (auto arg: *args) {
         //arg->Accept(this);
         //PushFuncArg(arg);
         auto cls = Classify(arg->Type());
-        SetupFuncArg(arg, cls);
+        PushFuncArg(arg, cls);
     }
 
     if (funcType->Variadic()) {
         // Setup %al to vector register used
+        Emit("mov $%d, %%al", _argVecRegUsed);
     }
-
     Emit("call %s", funcType->Name());
 
-
+   return desReg;
 }
 
-void Generator::SetupFuncArg(Expr* arg, ParamClass cls)
+
+void Generator::PushReturnAddr(int addr, Register* reg)
+{
+    Emit("mov %daddr(%%rbp), %%rdi");
+}
+
+void Generator::PushFuncArg(Expr* arg, ParamClass cls)
 {
     if (cls == ParamClass::INTEGER) {
         auto reg = AllocArgReg();
         if (!reg) {
             // Push the argument on the stack
         } else {
-            SetDesReg(reg);
+            // TODO(wgtdkp): Tell it which register to use
             arg->Accept(this);
         }
     } else if (cls == ParamClass::SSE) {
@@ -218,7 +274,7 @@ void Generator::SetupFuncArg(Expr* arg, ParamClass cls)
         if (!reg) {
             // Push the argument on the stack
         } else {
-            SetDesReg(reg);
+            // TODO(wgtdkp): Tell it which register to use
             arg->Accept(this);
         }
     } else if (cls == ParamClass::MEMORY) {
@@ -229,69 +285,76 @@ void Generator::SetupFuncArg(Expr* arg, ParamClass cls)
     }
 }
 
-void Generator::VisitObject(Object* obj)
+Memory* Generator::GenObject(Object* obj)
 {
-
+    // TODO(wgtdkp):
+    return nullptr;
 }
 
-void Generator::VisitConstant(Constant* cons)
+Immediate* Generator::GenConstant(Constant* cons)
 {
-
+    // TODO(wgtdkp):
+    return nullptr;
 }
 
-void Generator::VisitTempVar(TempVar* tempVar)
+Register* Generator::GenTempVar(TempVar* tempVar)
 {
-
+    // TODO(wgtdkp):
+    return nullptr;
 }
 
 //statement
-void Generator::VisitStmt(Stmt* stmt)
+void Generator::GenStmt(Stmt* stmt)
 {
 
 }
 
-void Generator::VisitIfStmt(IfStmt* ifStmt)
+void Generator::GenIfStmt(IfStmt* ifStmt)
 {
 
 }
 
-void Generator::VisitJumpStmt(JumpStmt* jumpStmt)
+void Generator::GenJumpStmt(JumpStmt* jumpStmt)
 {
 
 }
 
-void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
+void Generator::GenReturnStmt(ReturnStmt* returnStmt)
 {
 
 }
 
-void Generator::VisitLabelStmt(LabelStmt* labelStmt)
+void Generator::GenLabelStmt(LabelStmt* labelStmt)
 {
     fprintf(_outFile, ".L%d:\n", labelStmt->Tag());
 }
 
-void Generator::VisitEmptyStmt(EmptyStmt* emptyStmt)
+void Generator::GenEmptyStmt(EmptyStmt* emptyStmt)
 {
 
 }
 
-void Generator::VisitCompoundStmt(CompoundStmt* compoundStmt)
+void Generator::GenCompoundStmt(CompoundStmt* compoundStmt)
 {
 
 }
 
 //Function Definition
-void Generator::VisitFuncDef(FuncDef* funcDef)
+void Generator::GenFuncDef(FuncDef* funcDef)
 {
-    Emit("push %rbp");
-    Emit("movq %rsp, %rbp");
+    Emit("push %%rbp");
+    Emit("mov %%rsp, %%rbp");
 
-    Emit("pop %rbp");
+    // Copy Params
+    // Init the offset of objects on stack
+
+
+    Emit("pop %%rbp");
     Emit("ret");
 }
 
 //Translation Unit
-void Generator::VisitTranslationUnit(TranslationUnit* transUnit)
+void Generator::GenTranslationUnit(TranslationUnit* transUnit)
 {
 
 }

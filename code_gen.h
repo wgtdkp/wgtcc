@@ -8,8 +8,33 @@
 #include <cassert>
 #include <cstdio>
 
+#include <string>
+
 
 class Parser;
+
+class Memory;
+class Register;
+class Immediate;
+
+class Operand
+{
+public:
+    virtual std::string Repr(void) const = 0;
+
+    virtual Immediate* ToImmediate(void) {
+        return nullptr;
+    }
+
+    virtual Register* ToRegister(void) {
+        return nullptr;
+    }
+
+    virtual Memory* ToMemory(void) {
+        return nullptr;
+    }
+};
+
 
 enum class ParamClass
 {
@@ -24,7 +49,7 @@ enum class ParamClass
 };
 
 
-class Register
+class Register: public Operand
 {
     friend class Generator;
 
@@ -41,47 +66,75 @@ public:
 
     ~Register(void) {}
 
-    bool Using(void) const {
-        return _expr != nullptr;
+    virtual std::string Repr(void) const;
+
+    bool  Is(int tag) const {
+        return this == Get(tag);
     }
 
-    const char* Name(void) const {
-        return _name;
-    }
-
-    void Bind(Expr* expr) {
-        _expr = expr;
-    }
-
-    void Release(void) {
-        _expr = nullptr;
-    }
-    
     static Register* Get(int tag) {
+        assert(0 <= tag && tag < N_REG);
+
         return &_regs[tag];
     }
 
-    static Register* Get(const char* name) {
-        for (int i = 0; i < N_REG; i++) {
-            if (std::string(name) == _regs[i]._name)
-                return &_regs[i];
-        }
-        assert(false);
-        return nullptr; // Make Compiler happy
-    }
-
 private:
-    explicit Register(const char* name)
-            : _name(name), _expr(nullptr) {}
-
-    const char* _name;
-    Expr* _expr;
+    explicit Register(void) {}
 
     static Register _regs[N_REG];
 };
 
 
-class Generator: public Visitor
+class Immediate: public Operand
+{
+public:
+    explicit Immediate(Constant* cons): _cons(cons) {}
+
+    virtual std::string Repr(void) const;
+
+    virtual Immediate* ToImmediate(void) {
+        return this;
+    }
+
+private:
+    Constant* _cons;
+};
+
+
+/*
+ * Direct   // Often just symbolic name for a location of 
+ *          // data section(static object) or code section(function)
+ * Indirect // 
+ * Base + displacement
+ * (index * scale) + displacement
+ * Base + index + displacement
+ * Base + (index * scale) + displacement
+ */
+class Memory: public Operand
+{
+public:
+    Memory(Register* base, int disp, Register* index=nullptr, int scale=0)
+            : _base(base), _index(index), _scale(scale), _disp(disp) {}
+    
+    //Memory()
+
+    virtual std::string Repr(void) const;
+
+    virtual Memory* ToMemory(void) {
+        return this;
+    }
+
+
+
+private:
+    Register* _base;
+    Register* _index;
+    int _scale;
+    int _disp;
+};
+
+
+class Generator
 {
 public:
     Generator(Parser* parser, FILE* outFile)
@@ -91,30 +144,31 @@ public:
               _argStackOffset(-8) {}
     
     //Expression
-    virtual void VisitBinaryOp(BinaryOp* binaryOp);
-    virtual void VisitUnaryOp(UnaryOp* unaryOp);
-    virtual void VisitConditionalOp(ConditionalOp* condOp);
-    virtual void VisitFuncCall(FuncCall* funcCall);
-    virtual void VisitObject(Object* obj);
-    virtual void VisitConstant(Constant* cons);
-    virtual void VisitTempVar(TempVar* tempVar);
+    virtual Operand* GenBinaryOp(BinaryOp* binaryOp);
+    virtual Operand* GenUnaryOp(UnaryOp* unaryOp);
+    virtual Operand* GenConditionalOp(ConditionalOp* condOp);
+    virtual Register* GenFuncCall(FuncCall* funcCall);
+    virtual Memory* GenObject(Object* obj);
+    virtual Immediate* GenConstant(Constant* cons);
+    virtual Register* GenTempVar(TempVar* tempVar);
 
     //statement
-    virtual void VisitStmt(Stmt* stmt);
-    virtual void VisitIfStmt(IfStmt* ifStmt);
-    virtual void VisitJumpStmt(JumpStmt* jumpStmt);
-    virtual void VisitReturnStmt(ReturnStmt* returnStmt);
-    virtual void VisitLabelStmt(LabelStmt* labelStmt);
-    virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
-    virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
+    virtual void GenStmt(Stmt* stmt);
+    virtual void GenIfStmt(IfStmt* ifStmt);
+    virtual void GenJumpStmt(JumpStmt* jumpStmt);
+    virtual void GenReturnStmt(ReturnStmt* returnStmt);
+    virtual void GenLabelStmt(LabelStmt* labelStmt);
+    virtual void GenEmptyStmt(EmptyStmt* emptyStmt);
+    virtual void GenCompoundStmt(CompoundStmt* compoundStmt);
 
     //Function Definition
-    virtual void VisitFuncDef(FuncDef* funcDef);
+    virtual void GenFuncDef(FuncDef* funcDef);
 
     //Translation Unit
-    virtual void VisitTranslationUnit(TranslationUnit* transUnit);
+    virtual void GenTranslationUnit(TranslationUnit* transUnit);
 
-    void SetupFuncArg(Expr* arg, ParamClass cls);
+    void PushFuncArg(Expr* arg, ParamClass cls);
+    void PushReturnAddr(int addr, Register* reg);
 
     void Emit(const char* format, ...);
 
@@ -123,7 +177,7 @@ public:
             return nullptr;
 
         auto ret = _argRegs[_argRegUsed++];
-        assert(!ret->Using());
+        //assert(!ret->Using());
         return ret;
     }
 
@@ -132,7 +186,7 @@ public:
             return nullptr;
         
         auto ret = _argVecRegs[_argVecRegUsed++];
-        assert(!ret->Using());
+        //assert(!ret->Using());
         return ret;
     }
 
@@ -142,7 +196,7 @@ public:
     }
 
     void SetDesReg(Register* desReg) {
-        assert(!desReg->Using());
+        //assert(!desReg->Using());
         _desReg = desReg;
     }
 
@@ -151,6 +205,7 @@ private:
     FILE* _outFile;
 
     // The destination register for current expression
+    // Setted after translation of the expression
     Register* _desReg;
 
     // The number of argument passing register used
