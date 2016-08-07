@@ -86,7 +86,7 @@ public:
     Expr* ParsePostfixExpr(void);
     Expr* ParsePostfixExprTail(Expr* primExpr);
     Expr* ParseSubScripting(Expr* pointer);
-    Expr* ParseMemberRef(const Token* tok, Expr* lhs);
+    BinaryOp* ParseMemberRef(const Token* tok, Expr* lhs);
     UnaryOp* ParsePostfixIncDec(const Token* tok, Expr* operand);
     FuncCall* ParseFuncCall(Expr* caller);
 

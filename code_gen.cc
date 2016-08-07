@@ -172,6 +172,18 @@ static ParamClass FieldClass(std::vector<ParamClass>& classes, int begin)
 */
 
 
+Immediate* Generator::NewImmediate(Constant* cons)
+{
+    return new (_immediatePool.Alloc()) Immediate(cons);
+}
+    
+Memory* Generator::NewMemory(Register* base, int disp,
+        Register* index, int scale)
+{
+    return new (_memoryPool.Alloc()) Memory(base, disp, index, scale);
+}
+
+
 void Generator::Emit(const char* format, ...)
 {
     printf("    ");
@@ -189,8 +201,120 @@ void Generator::Emit(const char* format, ...)
 Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
 {
     // TODO(wgtdkp):
-    return nullptr;
+    // Evaluate from left to right
+    auto op = binaryOp->_op;
+    auto lhs = binaryOp->_lhs->Accept(this);
+    auto rhs = binaryOp->_rhs->Accept(this);
+
+    // Most complicate part
+    // Operator '.'
+    if (op == '.') {
+        return GenMemberRefOp(lhs, rhs->ToMemory());
+    } else if (op == '[') {
+        auto type = binaryOp->_lhs->Type()->ToArrayType();
+        return GenSubScriptingOp(lhs, rhs, type->Derived()->Width());
+    }
+
+    if (!lhs->ToRegister() && !rhs->ToRegister()) {
+        auto reg = AllocReg();
+        Move(lhs, reg);
+        lhs = reg;
+    } else if (!lhs->ToRegister()) {
+        // Operators obey commutative law
+        if (rhs->ToRegister() && (op == '+'
+                || op == '*' || op == '|' 
+                || op == '&' || op == '^'
+                || op == Token::EQ_OP
+                || op == Token::NE_OP)) {
+            std::swap(lhs, rhs);
+        } else {
+            auto reg = AllocReg();
+            Move(lhs, reg);
+            lhs = reg;
+        }
+    }
+
+    return lhs;
 }
+
+
+Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
+{
+    int disp;
+    Register* index;
+
+    if (rhs->ToMemory()) {
+        index = AllocReg();
+        Move(rhs, index);
+    } else if (rhs->ToRegister()){
+        index = rhs->ToRegister();
+    } else {
+        disp = rhs->ToImmediate()->_cons->IVal() * scale;
+    }
+
+    if (lhs->ToRegister()) {
+        // The register has the address of lhs
+        if (rhs->ToImmediate()) {
+            return NewMemory(lhs->ToRegister(), disp);
+        }
+        return NewMemory(lhs->ToRegister(), 0, index, scale);
+    }
+
+    if (rhs->ToImmediate()) {
+        lhs->ToMemory()->_disp += disp;
+        return lhs;
+    }
+
+    auto base = AllocReg();
+    Lea(lhs->ToMemory(), base);
+    return NewMemory(base, 0, index, scale);
+}
+
+// Generate no assembly code
+Operand* Generator::GenMemberRefOp(Operand* lhs, Memory* rhs)
+{
+    assert(rhs);
+
+    if (lhs->ToRegister()) {
+        // Expression: int c = a->b;
+        // Translation:
+        //     leaq a(%rbp), %rax
+        //     movl b(%rax), %eax
+        //     movl %eax, c(%rbp)
+        return NewMemory(lhs->ToRegister(), rhs->_disp);
+    } else if (lhs->ToMemory()) {
+        // Expression: int c = a.b;
+        // Translation:
+        //     movl b+a(%rbp), %eax
+        //     movl %eax, c(%rbp)
+        auto operand = lhs->ToMemory();
+        operand->_disp += rhs->_disp;
+        return operand;
+    }
+
+    assert(false);
+    return nullptr; // Make compiler happy
+}
+
+/*
+Operand* Generator::GenAddOp(Expr* lhsExpr, Expr* rhsExpr)
+{
+    // Evaluate from left to right
+
+    if (!lhsOperand->ToRegister() && !rhsOperand->ToRegister()) {
+        auto reg = AllocReg();
+        Move(lhsOperand, reg);
+        lhsOperand = reg;
+    } else if (rhsOperand->ToRegister() && !lhsOperand->ToRegister()) {
+        // Instruction 'add' obeys commutative law
+        std::swap(lhsOperand, rhsOperand);
+    }
+
+    Emit("add", rhsOperand, lhsOperand);
+
+    return lhsOperand; // Must be a register
+}
+*/
 
 Operand* Generator::GenUnaryOp(UnaryOp* unaryOp)
 {

@@ -69,12 +69,18 @@ BinaryOp* Parser::NewMemberRefOp( const Token* tok,
         Expr* lhs, const std::string& rhsName)
 {
     auto op = tok->Tag();
-    assert('.' == op || Token::PTR_OP == op);
+    assert(op == '.' || op == Token::PTR_OP);
     
+    if (op == Token::PTR_OP) {
+        lhs = NewUnaryOp(tok, Token::DEREF, lhs);
+        op = '.';
+    }
+
     //the initiation of rhs is lefted in type checking
     auto ret = new (_binaryOpPool.Alloc())
             BinaryOp(&_binaryOpPool, op, lhs, nullptr);
-    TypeChecking(ret, tok);
+
+    MemberRefOpTypeChecking(ret, tok, rhsName);
     return ret;
 }
 
@@ -418,11 +424,11 @@ Expr* Parser::ParseSubScripting(Expr* pointer)
 }
 
 
-Expr* Parser::ParseMemberRef(const Token* tok, Expr* lhs)
+BinaryOp* Parser::ParseMemberRef(const Token* tok, Expr* lhs)
 {
     auto memberName = _ts.Peek()->Str();
     _ts.Expect(Token::IDENTIFIER);
-    
+
     return  NewMemberRefOp(tok, lhs, memberName);
 }
 
@@ -2217,6 +2223,9 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
 void Parser::TypeChecking(BinaryOp* binaryOp, const Token* errTok)
 {
     switch (binaryOp->_op) {
+    // Check seperately
+    //case '.':
+    //    return MemberRefOpTypeChecking(binaryOp, errTok);
     case '[':
         return SubScriptingOpTypeChecking(binaryOp, errTok);
 
@@ -2279,23 +2288,11 @@ void Parser::MemberRefOpTypeChecking(BinaryOp* binaryOp,
             const Token* errTok, const std::string& rhsName)
 {
     StructUnionType* structUnionType;
-    if (binaryOp->_op == Token::PTR_OP) {
-        auto pointer = binaryOp->_lhs->Type()->ToPointerType();
-        if (pointer == nullptr) {
-            Error(errTok, "pointer expected for operator '->'");
-        } else {
-            structUnionType = pointer->Derived()->ToStructUnionType();
-            if (structUnionType == nullptr)
-                Error(errTok, "pointer to struct/union expected");
-        }
-    } else {
-        structUnionType = binaryOp->_lhs->Type()->ToStructUnionType();
-        if (structUnionType == nullptr)
-            Error(errTok, "an struct/union expected");
-    }
 
-    if (structUnionType == nullptr)
-        return; // The _rhs is lefted nullptr
+    structUnionType = binaryOp->_lhs->Type()->ToStructUnionType();
+    if (structUnionType == nullptr) {
+        Error(errTok, "an struct/union expected");
+    }
 
     binaryOp->_rhs = structUnionType->GetMember(rhsName);
     if (binaryOp->_rhs == nullptr) {

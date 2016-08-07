@@ -2,7 +2,6 @@
 #define _WGTCC_TOKEN_H_
 
 #include "ast.h"
-#include "visitor.h"
 
 #include <cassert>
 #include <cstring>
@@ -10,9 +9,12 @@
 #include <list>
 #include <unordered_map>
 
-typedef std::list<Token> TokenList;
+class Generator;
 class Parser;
 class TokenSeq;
+
+typedef std::list<Token> TokenList;
+
 
 void PrintTokSeq(TokenSeq& tokSeq);
 void PrintTokList(TokenList& tokList);
@@ -52,7 +54,7 @@ public:
     virtual ~Token(void) {}
     
     // Do nothing
-    virtual void Accept(Visitor* v) {}
+    virtual void Accept(Generator* g) {}
     
     //Token::NOTOK represents not a kw.
     static int KeyWordTag(const char* begin, const char* end) {

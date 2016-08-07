@@ -2,8 +2,9 @@
 #define _WGTCC_CODE_GEN_H_
 
 #include "ast.h"
+#include "mem_pool.h"
+#include "token.h"
 #include "type.h"
-#include "visitor.h"
 
 #include <cassert>
 #include <cstdio>
@@ -87,8 +88,10 @@ private:
 
 class Immediate: public Operand
 {
+    friend class Generator;
+
 public:
-    explicit Immediate(Constant* cons): _cons(cons) {}
+    ~Immediate(void) {}
 
     virtual std::string Repr(void) const;
 
@@ -97,6 +100,8 @@ public:
     }
 
 private:
+    explicit Immediate(Constant* cons): _cons(cons) {}
+
     Constant* _cons;
 };
 
@@ -112,11 +117,10 @@ private:
  */
 class Memory: public Operand
 {
+    friend class Generator;
+
 public:
-    Memory(Register* base, int disp, Register* index=nullptr, int scale=0)
-            : _base(base), _index(index), _scale(scale), _disp(disp) {}
-    
-    //Memory()
+    ~Memory(void) {}
 
     virtual std::string Repr(void) const;
 
@@ -124,13 +128,17 @@ public:
         return this;
     }
 
-
-
 private:
+    Memory(Register* base, int disp, Register* index=nullptr, int scale=0)
+            : _base(base), _index(index), _scale(scale), _disp(disp) {}
+
+    //Memory()
+
     Register* _base;
     Register* _index;
     int _scale;
     int _disp;
+    std::string _symb;
 };
 
 
@@ -143,6 +151,11 @@ public:
               _argRegUsed(0), _argVecRegUsed(0),
               _argStackOffset(-8) {}
     
+    Immediate* NewImmediate(Constant* cons);
+    
+    Memory* NewMemory(Register* base, int disp,
+            Register* index=nullptr, int scale=0);
+
     //Expression
     virtual Operand* GenBinaryOp(BinaryOp* binaryOp);
     virtual Operand* GenUnaryOp(UnaryOp* unaryOp);
@@ -151,6 +164,9 @@ public:
     virtual Memory* GenObject(Object* obj);
     virtual Immediate* GenConstant(Constant* cons);
     virtual Register* GenTempVar(TempVar* tempVar);
+
+    Operand* GenMemberRefOp(Operand* lhs, Memory* rhs);
+    Operand* GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale);
 
     //statement
     virtual void GenStmt(Stmt* stmt);
@@ -200,6 +216,13 @@ public:
         _desReg = desReg;
     }
 
+    // TODO(wgtdkp):
+    Register* AllocReg(void) {
+        return nullptr;
+    }
+
+    void Move(Operand* operand, Register* reg) {}
+    void Lea(Memory* mem, Register* reg) {}
 private:
     Parser* _parser;
     FILE* _outFile;
@@ -222,6 +245,9 @@ private:
 
     static const int N_ARG_VEC_REG = 8;
     static Register* _argVecRegs[N_ARG_VEC_REG];
+
+    MemPoolImp<Immediate>   _immediatePool;
+    MemPoolImp<Memory>      _memoryPool;
 };
 
 #endif

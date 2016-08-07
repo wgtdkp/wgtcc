@@ -1,6 +1,5 @@
 #include "error.h"
 
-#include "main.h"
 #include "token.h"
 
 #include <cstdarg>
@@ -15,6 +14,8 @@
 #define ANSI_COLOR_MAGENTA "\x1b[35m"
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
+
+extern std::string program;
 
 void Error(const char* format, ...)
 {

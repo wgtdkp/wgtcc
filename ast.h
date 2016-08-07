@@ -45,6 +45,7 @@ class TranslationUnit;
 class ASTNode
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~ASTNode(void) {}
@@ -82,6 +83,7 @@ protected:
 class EmptyStmt : public Stmt
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~EmptyStmt(void) {}
@@ -97,6 +99,7 @@ protected:
 class LabelStmt : public Stmt
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     ~LabelStmt(void) {}
@@ -124,6 +127,7 @@ private:
 class IfStmt : public Stmt
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~IfStmt(void) {}
@@ -144,6 +148,7 @@ private:
 class JumpStmt : public Stmt
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~JumpStmt(void) {}
@@ -163,6 +168,7 @@ private:
 class ReturnStmt: public Stmt
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~ReturnStmt(void) {}
@@ -180,6 +186,7 @@ private:
 class CompoundStmt : public Stmt
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~CompoundStmt(void) {}
@@ -211,6 +218,7 @@ private:
 class Expr : public Stmt
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~Expr(void) {}
@@ -239,12 +247,13 @@ protected:
 '=',(复合赋值运算符被拆分为两个运算)
 '==', '!=', '<=', '>=',
 '&&', '||'
-'['(下标运算符), '.'(成员运算符), '->'(成员运算符)
+'['(下标运算符), '.'(成员运算符)
 ','(逗号运算符),
 *************************************************************/
 class BinaryOp : public Expr
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~BinaryOp(void) {}
@@ -285,6 +294,7 @@ protected:
 class UnaryOp : public Expr
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~UnaryOp(void) {}
@@ -311,6 +321,7 @@ protected:
 class ConditionalOp : public Expr
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~ConditionalOp(void) {}
@@ -341,7 +352,9 @@ private:
 class FuncCall : public Expr
 {
     friend class Parser;
+    friend class Generator;
     typedef std::list<Expr*> ArgList;
+
 public:
     ~FuncCall(void) {}
     
@@ -379,6 +392,7 @@ protected:
 class Constant : public Expr
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     ~Constant(void) {}
@@ -429,6 +443,7 @@ private:
 class TempVar : public Expr
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~TempVar(void) {}
@@ -460,6 +475,7 @@ private:
 class FuncDef : public ExtDecl
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     virtual ~FuncDef(void) {}
@@ -482,12 +498,10 @@ private:
 
 class TranslationUnit : public ASTNode
 {
+    friend class Generator;
+
 public:
-    virtual ~TranslationUnit(void) {
-        auto iter = _extDecls.begin();
-        for (; iter != _extDecls.end(); iter++)
-            delete *iter;
-    }
+    virtual ~TranslationUnit(void) {}
 
     virtual Operand* Accept(Generator* g);
     
@@ -505,14 +519,6 @@ private:
     std::list<ExtDecl*> _extDecls;
 };
 
-/*
-class ASTVisitor
-{
-public:
-    virtual void Visit(ASTNode* node) = 0;
-};
-*/
-
 
 enum Linkage {
     L_NONE,
@@ -524,6 +530,7 @@ enum Linkage {
 class Identifier: public Expr
 {
     friend class Parser;
+    friend class Generator;
     
 public:
     virtual ~Identifier(void) {}
@@ -591,6 +598,7 @@ protected:
 class Object : public Identifier
 {
     friend class Parser;
+    friend class Generator;
 
 public:
     ~Object(void) {}
