@@ -194,11 +194,13 @@ public:
     virtual Operand* Accept(Generator* g);
 
 protected:
-    CompoundStmt(MemPool* pool, const std::list<Stmt*>& stmts)
-        : Stmt(pool), _stmts(stmts) {}
+    CompoundStmt(MemPool* pool, const std::list<Stmt*>& stmts,
+            Scope* scope=nullptr)
+            : Stmt(pool), _stmts(stmts), _scope(scope) {}
 
 private:
     std::list<Stmt*> _stmts;
+    Scope* _scope;
 };
 
 

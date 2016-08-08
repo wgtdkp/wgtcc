@@ -1,6 +1,7 @@
 #include "code_gen.h"
 
 #include "ast.h"
+#include "parser.h"
 #include "type.h"
 
 #include <cassert>
@@ -176,6 +177,12 @@ Immediate* Generator::NewImmediate(Constant* cons)
 {
     return new (_immediatePool.Alloc()) Immediate(cons);
 }
+
+Immediate* Generator::NewImmediate(int tag, long long val)
+{
+    auto cons = _parser->NewConstantInteger(tag, val);
+    return NewImmediate(cons);
+}
     
 Memory* Generator::NewMemory(Register* base, int disp,
         Register* index, int scale)
@@ -196,6 +203,31 @@ void Generator::Emit(const char* format, ...)
     printf("\n");  
 }
 
+/*
+ * Operaotr/Instruction mapping:
+ * +  add
+ * -  sub
+ * *  mul
+ * /  div
+ * %  div
+ * << sal
+ * >> sar
+ * |  or
+ * &  and
+ * ^  xor
+ * =  mov
+ * <  cmp, setl, movzbl
+ * >  cmp, setg, movzbl
+ * <= cmp, setle, movzbl
+ * >= cmp, setle, movzbl
+ * == cmp, sete, movzbl
+ * != cmp, setne, movzbl
+ * && GenAndOp
+ * || GenOrOp
+ * [  GenSubScriptingOp
+ * .  GenMemberRefOp
+ */
+ 
 
 //Expression
 Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
@@ -203,8 +235,28 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
     // TODO(wgtdkp):
     // Evaluate from left to right
     auto op = binaryOp->_op;
+
+    if (op == Token::AND_OP) {
+        return GenAndOp(binaryOp->_lhs, binaryOp->_rhs);
+    } else if (op == Token::OR_OP) {
+        return GenOrOp(binaryOp->_lhs, binaryOp->_rhs);
+    }
+
     auto lhs = binaryOp->_lhs->Accept(this);
     auto rhs = binaryOp->_rhs->Accept(this);
+
+    switch (op) {
+    case '.':
+        return GenMemberRefOp(lhs, rhs->ToMemory());
+    case '[': {
+        auto type = binaryOp->_lhs->Type()->ToArrayType();
+        return GenSubScriptingOp(lhs, rhs, type->Derived()->Width());
+    }
+    case '+':
+        ;//return GenAddOp(binaryOp->_lhs, binaryOp->_rhs);
+    case '-':
+        ;//return GenSubOp(binaryOp->_lhs, binaryOp->_rhs);
+    }
 
     // Most complicate part
     // Operator '.'
@@ -217,7 +269,7 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
 
     if (!lhs->ToRegister() && !rhs->ToRegister()) {
         auto reg = AllocReg();
-        Move(lhs, reg);
+        EmitMOV(lhs, reg);
         lhs = reg;
     } else if (!lhs->ToRegister()) {
         // Operators obey commutative law
@@ -229,12 +281,120 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
             std::swap(lhs, rhs);
         } else {
             auto reg = AllocReg();
-            Move(lhs, reg);
+            EmitMOV(lhs, reg);
             lhs = reg;
         }
     }
 
     return lhs;
+}
+
+
+/*
+ * Expression a && b
+ *     cmp $0, a
+ *     je .L1
+ *     cmp $0, b
+ *     je .L1
+ *     mov $1, %eax
+ *     jmp .L2
+ *.L1: mov $0, %eax
+ *.L2:
+ */
+
+// TODO(wgtdkp):
+// 1. both operands are constant
+// 2. one of the operands is constant
+Operand* Generator::GenAndOp(Expr* lhsExpr, Expr* rhsExpr)
+{
+    LabelStmt* labelFalse = nullptr;
+
+    auto lhs = lhsExpr->Accept(this);
+    if (lhs->ToImmediate()) {
+        auto imm = lhs->ToImmediate();
+        auto cond = imm->_cons->IVal();
+        if (cond == 0)
+            return _immFalse;
+    } else {
+        EmitCMP(_immFalse, lhs);
+        EmitJE(labelFalse = _parser->NewLabelStmt());
+    }
+
+    auto ret = AllocReg();
+
+    auto labelTrue = _parser->NewLabelStmt();
+
+    auto rhs = rhsExpr->Accept(this);
+    if (rhs->ToImmediate()) {
+        auto imm = rhs->ToImmediate();
+        auto cond = imm->_cons->IVal();
+        if (cond == 0) {
+            // Do nothing
+        } else {
+            EmitMOV(_immTrue, ret);
+            EmitJMP(labelTrue);
+        }
+    } else {
+        EmitCMP(_immFalse, rhs);
+        if (labelFalse == nullptr)
+            labelFalse = _parser->NewLabelStmt();
+        EmitJE(labelFalse);
+
+        EmitMOV(_immTrue, ret);
+        EmitJMP(labelTrue);
+    }
+
+    EmitLabel(labelFalse);
+    EmitMOV(_immFalse, ret);
+    EmitLabel(labelTrue);
+
+    return ret;
+}
+
+
+Operand* Generator::GenOrOp(Expr* lhsExpr, Expr* rhsExpr)
+{
+    LabelStmt* labelTrue = nullptr;
+    auto lhs = lhsExpr->Accept(this);
+    if (lhs->ToImmediate()) {
+        auto imm = lhs->ToImmediate();
+        auto cond = imm->_cons->IVal();
+        if (cond)
+            return _immTrue;
+    } else {
+        EmitCMP(_immFalse, lhs);
+        EmitJNE(labelTrue = _parser->NewLabelStmt());
+    }
+
+    auto ret = AllocReg();
+
+    auto labelFalse = _parser->NewLabelStmt();
+
+    auto rhs = rhsExpr->Accept(this);
+    if (rhs->ToImmediate()) {
+        auto imm = rhs->ToImmediate();
+        auto cond = imm->_cons->IVal();
+        if (cond) {
+            // Do nothing
+        } else {
+            EmitMOV(_immFalse, ret);
+            EmitJMP(labelFalse);
+        }
+    } else {
+        EmitCMP(_immFalse, rhs);
+        if (labelTrue == nullptr)
+            labelTrue = _parser->NewLabelStmt();
+        EmitJNE(labelTrue);
+
+        EmitMOV(_immFalse, ret);
+        EmitJMP(labelFalse);
+    }
+
+    EmitLabel(labelTrue);
+    EmitMOV(_immTrue, ret);
+    EmitLabel(labelFalse);
+
+    return ret;
 }
 
 
@@ -245,7 +405,7 @@ Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
 
     if (rhs->ToMemory()) {
         index = AllocReg();
-        Move(rhs, index);
+        EmitMOV(rhs, index);
     } else if (rhs->ToRegister()){
         index = rhs->ToRegister();
     } else {
@@ -266,7 +426,7 @@ Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
     }
 
     auto base = AllocReg();
-    Lea(lhs->ToMemory(), base);
+    EmitLEA(lhs->ToMemory(), base);
     return NewMemory(base, 0, index, scale);
 }
 
@@ -303,7 +463,7 @@ Operand* Generator::GenAddOp(Expr* lhsExpr, Expr* rhsExpr)
 
     if (!lhsOperand->ToRegister() && !rhsOperand->ToRegister()) {
         auto reg = AllocReg();
-        Move(lhsOperand, reg);
+        EmitMOV(lhsOperand, reg);
         lhsOperand = reg;
     } else if (rhsOperand->ToRegister() && !lhsOperand->ToRegister()) {
         // Instruction 'add' obeys commutative law
@@ -466,15 +626,7 @@ void Generator::GenCompoundStmt(CompoundStmt* compoundStmt)
 //Function Definition
 void Generator::GenFuncDef(FuncDef* funcDef)
 {
-    Emit("push %%rbp");
-    Emit("mov %%rsp, %%rbp");
-
-    // Copy Params
-    // Init the offset of objects on stack
-
-
-    Emit("pop %%rbp");
-    Emit("ret");
+    
 }
 
 //Translation Unit

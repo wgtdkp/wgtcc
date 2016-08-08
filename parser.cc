@@ -125,8 +125,9 @@ Object* Parser::NewObject(const Token* tok, Type* type, Scope* scope,
             Object(&_objectPool, tok, type, scope, storage, linkage);
 }
 
-Constant* Parser::NewConstantInteger(ArithmType* type, long long val)
+Constant* Parser::NewConstantInteger(int tag, long long val)
 {
+    auto type = Type::NewArithmType(tag);
     return new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
 }
 
@@ -156,10 +157,10 @@ IfStmt* Parser::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
     return new (_ifStmtPool.Alloc()) IfStmt(&_ifStmtPool, cond, then, els);
 }
 
-CompoundStmt* Parser::NewCompoundStmt(std::list<Stmt*>& stmts)
+CompoundStmt* Parser::NewCompoundStmt(std::list<Stmt*>& stmts, Scope* scope)
 {
     return new (_compoundStmtPool.Alloc())
-            CompoundStmt(&_compoundStmtPool, stmts);
+            CompoundStmt(&_compoundStmtPool, stmts, scope);
 }
 
 JumpStmt* Parser::NewJumpStmt(LabelStmt* label)
@@ -195,6 +196,8 @@ void Parser::Delete(ASTNode* node)
 
 void Parser::EnterFunc(const char* funcName) {
     //TODO(wgtdkp): function scope
+    _curProtoScope->SetParent(_curScope);
+    _curScope = _curProtoScope;
 }
 
 void Parser::ExitFunc(void) {
@@ -214,6 +217,8 @@ void Parser::ExitFunc(void) {
     
     _unresolvedJumps.clear();	//清空未定的 jump 动作
     _curLabels.clear();	//清空 label map
+
+    _curScope = _curScope->Parent();
 }
 
 void Parser::EnterBlock(FuncType* funcType)
@@ -252,7 +257,7 @@ void Parser::ParseTranslationUnit(void)
 
         if (tok && type->ToFuncType() && _ts.Try('{')) { // Function definition
             EnterFunc(nullptr);
-            auto stmt = ParseCompoundStmt();
+            auto stmt = ParseCompoundStmt(type->ToFuncType());
             ExitFunc();
             _unit->Add(NewFuncDef(type->ToFuncType(), stmt));
         } else { // Declaration
@@ -338,8 +343,7 @@ Constant* Parser::ParseConstant(const Token* tok)
 
     if (tok->Tag() == Token::I_CONSTANT) {
         auto ival = atoi(tok->Str().c_str());
-        auto type = Type::NewArithmType(T_SIGNED | T_INT);
-        return NewConstantInteger(type, ival);
+        return NewConstantInteger(T_INT, ival);
     } else {
         auto fval = atoi(tok->Str().c_str());
         auto type = Type::NewArithmType(T_DOUBLE);
@@ -510,10 +514,7 @@ Constant* Parser::ParseSizeof(void)
         Error(tok, "sizeof(incomplete type)");
     }
 
-
-    auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
-
-    return NewConstantInteger(intType, type->Width());
+    return NewConstantInteger(T_UNSIGNED | T_LONG, type->Width());
 }
 
 Constant* Parser::ParseAlignof(void)
@@ -521,9 +522,8 @@ Constant* Parser::ParseAlignof(void)
     _ts.Expect('(');
     auto type = ParseTypeName();
     _ts.Expect(')');
-    auto intType = Type::NewArithmType(T_UNSIGNED | T_LONG);
-    
-    return NewConstantInteger(intType, type->Align());
+
+    return NewConstantInteger(T_UNSIGNED | T_LONG, type->Align());
 }
 
 UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
@@ -1185,8 +1185,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
 
         // TODO(wgtdkp):
         /*
-        auto Constant = NewConstantInteger(
-                Type::NewArithmType(T_INT), val++);
+        auto Constant = NewConstantInteger(T_INT, val++);
 
         _curScope->InsertConstant(enumName, Constant);
         */
@@ -1848,8 +1847,10 @@ Stmt* Parser::ParseStmt(void)
 }
 
 CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
-{
-    EnterBlock();
+{   
+    if (!funcType)
+        EnterBlock();
+
     std::list<Stmt*> stmts;
 
     while (!_ts.Try('}')) {
@@ -1864,9 +1865,9 @@ CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
         }
     }
 
-    ExitBlock();
-    
-    return NewCompoundStmt(stmts);
+    auto scope = funcType ? _curScope: ExitBlock();
+
+    return NewCompoundStmt(stmts, scope);
 }
 
 IfStmt* Parser::ParseIfStmt(void)
@@ -2095,8 +2096,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
     for (auto iter = caseLabels.begin();
             iter != caseLabels.end(); iter++) {
-        auto rhs = NewConstantInteger(
-                Type::NewArithmType(T_INT), iter->first);
+        auto rhs = NewConstantInteger(T_INT, iter->first);
         auto cond = NewBinaryOp(tok, Token::EQ_OP, t, rhs);
         auto then = NewJumpStmt(iter->second);
         auto ifStmt = NewIfStmt(cond, then, nullptr);

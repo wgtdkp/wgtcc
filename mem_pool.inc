@@ -34,8 +34,8 @@ void MemPoolImp<T>::Free(void* addr)
 template <class T>
 void MemPoolImp<T>::Clear(void)
 {
-    for (auto iter = _blocks.begin(); iter != _blocks.end(); iter++)
-        delete *iter;
+    for (auto block: _blocks)
+        delete block;
 
     _blocks.resize(0);
     _root = nullptr;

@@ -149,9 +149,13 @@ public:
             : _parser(parser), _outFile(outFile),
               _desReg(Register::Get(Register::RAX)),
               _argRegUsed(0), _argVecRegUsed(0),
-              _argStackOffset(-8) {}
+              _argStackOffset(-8),
+              _immFalse(NewImmediate(T_INT, 0)),
+              _immTrue(NewImmediate(T_INT, 1)) {}
     
     Immediate* NewImmediate(Constant* cons);
+    Immediate* NewImmediate(int tag, long long val);
+
     
     Memory* NewMemory(Register* base, int disp,
             Register* index=nullptr, int scale=0);
@@ -167,6 +171,10 @@ public:
 
     Operand* GenMemberRefOp(Operand* lhs, Memory* rhs);
     Operand* GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale);
+    Operand* GenAndOp(Expr* lhsExpr, Expr* rhsExpr);
+    Operand* GenOrOp(Expr* lhsExpr, Expr* rhsExpr);
+    Register* GenAddOp(Expr* lhsExpr, Expr* rhsExpr);
+    Register* GenSubOp(Expr* lhsExpr, Expr* rhsExpr);
 
     //statement
     virtual void GenStmt(Stmt* stmt);
@@ -185,8 +193,6 @@ public:
 
     void PushFuncArg(Expr* arg, ParamClass cls);
     void PushReturnAddr(int addr, Register* reg);
-
-    void Emit(const char* format, ...);
 
     Register* AllocArgReg(void) {
         if (_argRegUsed >= N_ARG_REG)
@@ -221,8 +227,15 @@ public:
         return nullptr;
     }
 
-    void Move(Operand* operand, Register* reg) {}
-    void Lea(Memory* mem, Register* reg) {}
+    void Emit(const char* format, ...);
+    void EmitMOV(Operand* operand, Register* reg) {}
+    void EmitLEA(Memory* mem, Register* reg) {}
+    void EmitJE(LabelStmt* label) {}
+    void EmitJNE(LabelStmt* label) {}
+    void EmitJMP(LabelStmt* label) {}
+    void EmitCMP(Immediate* lhs, Operand* rhs) {}
+    void EmitLabel(LabelStmt* label) {}
+
 private:
     Parser* _parser;
     FILE* _outFile;
@@ -239,6 +252,9 @@ private:
 
     // The stack pointer after pushed arguments on the stack 
     int _argStackOffset;
+
+    Immediate* const _immFalse;
+    Immediate* const _immTrue;
 
     static const int N_ARG_REG = 6;
     static Register* _argRegs[N_ARG_REG];

@@ -23,6 +23,7 @@ public:
           _inEnumeration(false), _ts(ts),
           _externalSymbols(new Scope(nullptr, S_BLOCK)),
           _errTok(nullptr), _curScope(new Scope(nullptr, S_FILE)),
+          _curProtoScope(nullptr),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -48,7 +49,7 @@ public:
     Object* NewObject(const Token* tok, Type* type, Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE);
 
-    Constant* NewConstantInteger(ArithmType* type, long long val);
+    Constant* NewConstantInteger(int tag, long long val);
     Constant* NewConstantFloat(ArithmType* type, double val);
     TempVar* NewTempVar(Type* type);
     UnaryOp* NewUnaryOp(const Token* tok,
@@ -61,7 +62,7 @@ public:
     JumpStmt* NewJumpStmt(LabelStmt* label);
     ReturnStmt* NewReturnStmt(Expr* expr);
     LabelStmt* NewLabelStmt(void);
-    CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts);
+    CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts, Scope* scope=nullptr);
 
     /*
      * Function Definition
@@ -229,12 +230,15 @@ public:
 
     void EnterBlock(FuncType* funcType=nullptr);
     
-    void ExitBlock(void) {
+    Scope* ExitBlock(void) {
+        auto scope = _curScope;
         _curScope = _curScope->Parent();
+        return scope;
     }
 
     void EnterProto(void) {
         _curScope = new Scope(_curScope, S_PROTO);
+        _curProtoScope = _curScope;
     }
 
     void ExitProto(void) {
@@ -276,6 +280,7 @@ private:
     //std::stack<Token*> _buf;
 
     Scope* _curScope;
+    Scope* _curProtoScope;
     LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;
     
