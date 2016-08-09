@@ -12,188 +12,6 @@
 using namespace std;
 
 
-/*
- * Factory
- */
-ConditionalOp* Parser::NewConditionalOp(const Token* tok,
-        Expr* cond, Expr* exprTrue, Expr* exprFalse)
-{
-    auto ret = new (_conditionalOpPool.Alloc())
-            ConditionalOp(&_conditionalOpPool, cond, exprTrue, exprFalse);
-
-    TypeChecking(ret, tok);
-    return ret;
-}
-
-BinaryOp* Parser::NewBinaryOp(const Token* tok, Expr* lhs, Expr* rhs)
-{
-    return NewBinaryOp(tok, tok->Tag(), lhs, rhs);
-}
-
-BinaryOp* Parser::NewBinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs)
-{
-    switch (op) {
-    case '=': 
-    case '[':
-    case '*':
-    case '/':
-    case '%':
-    case '+':
-    case '-':
-    case '&':
-    case '^':
-    case '|':
-    case '<':
-    case '>':
-    case Token::LEFT_OP:
-    case Token::RIGHT_OP:
-    case Token::LE_OP:
-    case Token::GE_OP:
-    case Token::EQ_OP:
-    case Token::NE_OP: 
-    case Token::AND_OP:
-    case Token::OR_OP:
-        break;
-
-    default:
-        assert(0);
-    }
-
-    auto ret = new (_binaryOpPool.Alloc())
-            BinaryOp(&_binaryOpPool, op, lhs, rhs);
-    TypeChecking(ret, tok);
-    return ret;
-}
-
-BinaryOp* Parser::NewMemberRefOp( const Token* tok, 
-        Expr* lhs, const std::string& rhsName)
-{
-    auto op = tok->Tag();
-    assert(op == '.' || op == Token::PTR_OP);
-    
-    if (op == Token::PTR_OP) {
-        lhs = NewUnaryOp(tok, Token::DEREF, lhs);
-        op = '.';
-    }
-
-    //the initiation of rhs is lefted in type checking
-    auto ret = new (_binaryOpPool.Alloc())
-            BinaryOp(&_binaryOpPool, op, lhs, nullptr);
-
-    MemberRefOpTypeChecking(ret, tok, rhsName);
-    return ret;
-}
-
-/*
-UnaryOp* Parser::NewUnaryOp(const Token* tok, Expr* operand, Type* type)
-{
-    return NewUnaryOp(tok, tok->Tag(), operand, type);
-}
-*/
-
-UnaryOp* Parser::NewUnaryOp(const Token* tok,
-        int op, Expr* operand, Type* type)
-{
-    auto ret = new (_unaryOpPool.Alloc())
-            UnaryOp(&_unaryOpPool, op, operand, type);
-    TypeChecking(ret, tok);
-    return ret;
-}
-
-
-FuncCall* Parser::NewFuncCall(const Token* tok,
-        Expr* designator, const std::list<Expr*>& args)
-{
-    auto ret = new (_funcCallPool.Alloc())
-            FuncCall(&_funcCallPool, designator, args);
-    TypeChecking(ret, tok);
-    return ret;
-}
-
-
-Identifier* Parser::NewIdentifier(const Token* tok,
-            Type* type, Scope* scope, enum Linkage linkage)
-{
-    return new (_identifierPool.Alloc())
-            Identifier(&_identifierPool, tok, type, scope, linkage);
-}
-
-Object* Parser::NewObject(const Token* tok, Type* type, Scope* scope,
-        int storage, enum Linkage linkage)
-{
-    return new (_objectPool.Alloc())
-            Object(&_objectPool, tok, type, scope, storage, linkage);
-}
-
-Constant* Parser::NewConstantInteger(int tag, long long val)
-{
-    auto type = Type::NewArithmType(tag);
-    return new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
-}
-
-Constant* Parser::NewConstantFloat(ArithmType* type, double val)
-{
-    return new (_constantPool.Alloc()) Constant(&_constantPool, type, val);
-}
-
-
-TempVar* Parser::NewTempVar(Type* type)
-{
-    return new (_tempVarPool.Alloc()) TempVar(&_tempVarPool, type);
-}
-
-
-/********** Statement ***********/
-
-//��Ȼ��stmtֻ��Ҫһ��
-EmptyStmt* Parser::NewEmptyStmt(void)
-{
-    return new (_emptyStmtPool.Alloc()) EmptyStmt(&_emptyStmtPool);
-}
-
-//else stmt Ĭ���� null
-IfStmt* Parser::NewIfStmt(Expr* cond, Stmt* then, Stmt* els)
-{
-    return new (_ifStmtPool.Alloc()) IfStmt(&_ifStmtPool, cond, then, els);
-}
-
-CompoundStmt* Parser::NewCompoundStmt(std::list<Stmt*>& stmts, Scope* scope)
-{
-    return new (_compoundStmtPool.Alloc())
-            CompoundStmt(&_compoundStmtPool, stmts, scope);
-}
-
-JumpStmt* Parser::NewJumpStmt(LabelStmt* label)
-{
-    return new (_jumpStmtPool.Alloc()) JumpStmt(&_jumpStmtPool, label);
-}
-
-ReturnStmt* Parser::NewReturnStmt(Expr* expr)
-{
-    return new (_returnStmtPool.Alloc())
-            ReturnStmt(&_returnStmtPool, expr);
-}
-
-LabelStmt* Parser::NewLabelStmt(void)
-{
-    return new (_labelStmtPool.Alloc()) LabelStmt(&_labelStmtPool);
-}
-
-FuncDef* Parser::NewFuncDef(FuncType* type, CompoundStmt* stmt)
-{
-    return new (_funcDefPool.Alloc()) FuncDef(&_funcDefPool, type, stmt);
-}
-
-void Parser::Delete(ASTNode* node)
-{
-    if (node == nullptr)
-        return;
-
-    MemPool* pool = node->_pool;
-    node->~ASTNode();
-    pool->Free(node);
-}
-
 void Parser::EnterFunc(const char* funcName) {
     //TODO(wgtdkp): function scope
     _curProtoScope->SetParent(_curScope);
@@ -259,7 +77,7 @@ void Parser::ParseTranslationUnit(void)
             EnterFunc(nullptr);
             auto stmt = ParseCompoundStmt(type->ToFuncType());
             ExitFunc();
-            _unit->Add(NewFuncDef(type->ToFuncType(), stmt));
+            _unit->Add(FuncDef::New(type->ToFuncType(), stmt));
         } else { // Declaration
             std::list<Stmt*> stmts;
             if (_ts.Try('=')) {
@@ -277,7 +95,7 @@ void Parser::ParseTranslationUnit(void)
                 }
             }
             _ts.Expect(';');
-            _unit->Add(NewCompoundStmt(stmts));
+            _unit->Add(CompoundStmt::New(stmts));
         }
     }
 
@@ -295,7 +113,7 @@ Expr* Parser::ParseCommaExpr(void)
     auto tok = _ts.Peek();
     while (_ts.Try(',')) {
         auto rhs = ParseAssignExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Peek();
     }
@@ -343,11 +161,11 @@ Constant* Parser::ParseConstant(const Token* tok)
 
     if (tok->Tag() == Token::I_CONSTANT) {
         auto ival = atoi(tok->Str().c_str());
-        return NewConstantInteger(T_INT, ival);
+        return Constant::New(T_INT, ival);
     } else {
         auto fval = atoi(tok->Str().c_str());
         auto type = Type::NewArithmType(T_DOUBLE);
-        return NewConstantFloat(type, fval);
+        return Constant::New(type, fval);
     }
 }
 
@@ -399,10 +217,11 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
         case '(':
             lhs = ParseFuncCall(lhs);
             break;
-
-        case '.':
+        
         case Token::PTR_OP:
-            lhs = ParseMemberRef(tok, lhs);
+            lhs = UnaryOp::New(tok, Token::DEREF, lhs);    
+        case '.':
+            lhs = ParseMemberRef(tok, '.', lhs);
             break;
 
         case Token::INC_OP:
@@ -424,16 +243,27 @@ Expr* Parser::ParseSubScripting(Expr* pointer)
     auto tok = _ts.Peek();
     _ts.Expect(']');
 
-    return NewBinaryOp(tok, pointer, indexExpr);
+    return BinaryOp::New(tok, pointer, indexExpr);
 }
 
 
-BinaryOp* Parser::ParseMemberRef(const Token* tok, Expr* lhs)
+BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs)
 {
     auto memberName = _ts.Peek()->Str();
     _ts.Expect(Token::IDENTIFIER);
 
-    return  NewMemberRefOp(tok, lhs, memberName);
+    auto structUnionType = lhs->Type()->ToStructUnionType();
+    if (structUnionType == nullptr) {
+        Error(tok, "an struct/union expected");
+    }
+
+    auto rhs = structUnionType->GetMember(memberName);
+    if (rhs == nullptr) {
+        Error(tok, "'%s' is not a member of '%s'",
+                memberName.c_str(), "[obj]");
+    }
+
+    return  BinaryOp::New(tok, op, lhs, rhs);
 }
 
 UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
@@ -441,7 +271,7 @@ UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
     auto op = tok->Tag() == Token::INC_OP ?
             Token::POSTFIX_INC: Token::POSTFIX_DEC;
 
-    return NewUnaryOp(tok, op, operand);
+    return UnaryOp::New(tok, op, operand);
 }
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
@@ -458,7 +288,7 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
             _ts.Expect(',');
     }
 
-    return NewFuncCall(tok, designator, args);
+    return FuncCall::New(tok, designator, args);
 }
 
 Expr* Parser::ParseUnaryExpr(void)
@@ -514,7 +344,7 @@ Constant* Parser::ParseSizeof(void)
         Error(tok, "sizeof(incomplete type)");
     }
 
-    return NewConstantInteger(T_UNSIGNED | T_LONG, type->Width());
+    return Constant::New(T_UNSIGNED | T_LONG, type->Width());
 }
 
 Constant* Parser::ParseAlignof(void)
@@ -523,7 +353,7 @@ Constant* Parser::ParseAlignof(void)
     auto type = ParseTypeName();
     _ts.Expect(')');
 
-    return NewConstantInteger(T_UNSIGNED | T_LONG, type->Align());
+    return Constant::New(T_UNSIGNED | T_LONG, type->Align());
 }
 
 UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
@@ -534,14 +364,14 @@ UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
             Token::PREFIX_INC: Token::PREFIX_DEC;
     auto operand = ParseUnaryExpr();
     
-    return NewUnaryOp(tok, op, operand);
+    return UnaryOp::New(tok, op, operand);
 }
 
 UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
 {
     auto operand = ParseCastExpr();
 
-    return NewUnaryOp(tok, op, operand);
+    return UnaryOp::New(tok, op, operand);
 }
 
 Type* Parser::ParseTypeName(void)
@@ -561,7 +391,7 @@ Expr* Parser::ParseCastExpr(void)
         _ts.Expect(')');
         auto operand = ParseCastExpr();
         
-        return NewUnaryOp(tok, Token::CAST, operand, desType);
+        return UnaryOp::New(tok, Token::CAST, operand, desType);
     }
     
     _ts.PutBack();
@@ -574,7 +404,7 @@ Expr* Parser::ParseMultiplicativeExpr(void)
     auto tok = _ts.Next();
     while (tok->Tag() == '*' || tok->Tag() == '/' || tok->Tag() == '%') {
         auto rhs = ParseCastExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Next();
     }
@@ -589,7 +419,7 @@ Expr* Parser::ParseAdditiveExpr(void)
     auto tok = _ts.Next();
     while (tok->Tag() == '+' || tok->Tag() == '-') {
         auto rhs = ParseMultiplicativeExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Next();
     }
@@ -604,7 +434,7 @@ Expr* Parser::ParseShiftExpr(void)
     auto tok = _ts.Next();
     while (tok->Tag() == Token::LEFT_OP || tok->Tag() == Token::RIGHT_OP) {
         auto rhs = ParseAdditiveExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Next();
     }
@@ -620,7 +450,7 @@ Expr* Parser::ParseRelationalExpr(void)
     while (tok->Tag() == Token::LE_OP || tok->Tag() == Token::GE_OP 
             || tok->Tag() == '<' || tok->Tag() == '>') {
         auto rhs = ParseShiftExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Next();
     }
@@ -635,7 +465,7 @@ Expr* Parser::ParseEqualityExpr(void)
     auto tok = _ts.Next();
     while (tok->Tag() == Token::EQ_OP || tok->Tag() == Token::NE_OP) {
         auto rhs = ParseRelationalExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Next();
     }
@@ -650,7 +480,7 @@ Expr* Parser::ParseBitiwiseAndExpr(void)
     auto tok = _ts.Peek();
     while (_ts.Try('&')) {
         auto rhs = ParseEqualityExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Peek();
     }
@@ -664,7 +494,7 @@ Expr* Parser::ParseBitwiseXorExpr(void)
     auto tok = _ts.Peek();
     while (_ts.Try('^')) {
         auto rhs = ParseBitiwiseAndExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Peek();
     }
@@ -678,7 +508,7 @@ Expr* Parser::ParseBitwiseOrExpr(void)
     auto tok = _ts.Peek();
     while (_ts.Try('|')) {
         auto rhs = ParseBitwiseXorExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Peek();
     }
@@ -692,7 +522,7 @@ Expr* Parser::ParseLogicalAndExpr(void)
     auto tok = _ts.Peek();
     while (_ts.Try(Token::AND_OP)) {
         auto rhs = ParseBitwiseOrExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Peek();
     }
@@ -706,7 +536,7 @@ Expr* Parser::ParseLogicalOrExpr(void)
     auto tok = _ts.Peek();
     while (_ts.Try(Token::OR_OP)) {
         auto rhs = ParseLogicalAndExpr();
-        lhs = NewBinaryOp(tok, lhs, rhs);
+        lhs = BinaryOp::New(tok, lhs, rhs);
 
         tok = _ts.Peek();
     }
@@ -723,7 +553,7 @@ Expr* Parser::ParseConditionalExpr(void)
         _ts.Expect(':');
         auto exprFalse = ParseConditionalExpr();
 
-        return NewConditionalOp(tok, cond, exprTrue, exprFalse);
+        return ConditionalOp::New(tok, cond, exprTrue, exprFalse);
     }
     
     return cond;
@@ -740,52 +570,52 @@ Expr* Parser::ParseAssignExpr(void)
     switch (tok->Tag()) {
     case Token::MUL_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '*', lhs, rhs);
+        rhs = BinaryOp::New(tok, '*', lhs, rhs);
         break;
 
     case Token::DIV_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '/', lhs, rhs);
+        rhs = BinaryOp::New(tok, '/', lhs, rhs);
         break;
 
     case Token::MOD_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '%', lhs, rhs);
+        rhs = BinaryOp::New(tok, '%', lhs, rhs);
         break;
 
     case Token::ADD_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '+', lhs, rhs);
+        rhs = BinaryOp::New(tok, '+', lhs, rhs);
         break;
 
     case Token::SUB_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '-', lhs, rhs);
+        rhs = BinaryOp::New(tok, '-', lhs, rhs);
         break;
 
     case Token::LEFT_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, Token::LEFT_OP, lhs, rhs);
+        rhs = BinaryOp::New(tok, Token::LEFT_OP, lhs, rhs);
         break;
 
     case Token::RIGHT_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, Token::RIGHT_OP, lhs, rhs);
+        rhs = BinaryOp::New(tok, Token::RIGHT_OP, lhs, rhs);
         break;
 
     case Token::AND_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '&', lhs, rhs);
+        rhs = BinaryOp::New(tok, '&', lhs, rhs);
         break;
 
     case Token::XOR_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '^', lhs, rhs);
+        rhs = BinaryOp::New(tok, '^', lhs, rhs);
         break;
 
     case Token::OR_ASSIGN:
         rhs = ParseAssignExpr();
-        rhs = NewBinaryOp(tok, '|', lhs, rhs);
+        rhs = BinaryOp::New(tok, '|', lhs, rhs);
         break;
 
     case '=':
@@ -797,7 +627,7 @@ Expr* Parser::ParseAssignExpr(void)
         return lhs; // Could be constant
     }
 
-    return NewBinaryOp(tok, '=', lhs, rhs);
+    return BinaryOp::New(tok, '=', lhs, rhs);
 }
 
 
@@ -830,7 +660,7 @@ CompoundStmt* Parser::ParseDecl(void)
         _ts.Expect(';');
     }
 
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 //for state machine
@@ -1106,7 +936,7 @@ int Parser::ParseAlignas(void)
         auto expr = ParseExpr();
         align = expr->EvalInteger(tok);
         _ts.Expect(')');
-        Delete(expr);
+        delete expr;
     }
 
     return align;
@@ -1145,7 +975,7 @@ Type* Parser::ParseEnumSpec(void)
             }
             auto type = Type::NewArithmType(T_INT);
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
-            auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
+            auto ident = Identifier::New(tok, type, _curScope, L_NONE);
             _curScope->InsertTag(tagName, ident);
         }
     }
@@ -1155,7 +985,7 @@ Type* Parser::ParseEnumSpec(void)
 enum_decl:
     auto type = Type::NewArithmType(T_INT);
     if (tagName.size() != 0) {
-        auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
+        auto ident = Identifier::New(tok, type, _curScope, L_NONE);
         _curScope->InsertTag(tagName, ident);
     }
     
@@ -1185,7 +1015,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
 
         // TODO(wgtdkp):
         /*
-        auto Constant = NewConstantInteger(T_INT, val++);
+        auto Constant = Constant::New(T_INT, val++);
 
         _curScope->InsertConstant(enumName, Constant);
         */
@@ -1252,7 +1082,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             auto type = Type::NewStructUnionType(isStruct, true, _curScope);
             
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
-            auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
+            auto ident = Identifier::New(tok, type, _curScope, L_NONE);
             _curScope->InsertTag(tagName, ident);
             return type;
         }
@@ -1265,7 +1095,7 @@ struct_decl:
 	//所以现在是第一次开始定义一个完整的struct/union类型
     auto type = Type::NewStructUnionType(isStruct, tagName.size(), _curScope);
     if (tagName.size() != 0) {
-        auto ident = NewIdentifier(tok, type, _curScope, L_NONE);
+        auto ident = Identifier::New(tok, type, _curScope, L_NONE);
         _curScope->InsertTag(tagName, ident);
     }
     
@@ -1316,7 +1146,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
                         "field '%s' declared as a function", name.c_str());
             }
 
-            auto member = NewObject(tok, memberType, _curScope);
+            auto member = Object::New(tok, memberType, _curScope);
             type->AddMember(name, member);
         } while (_ts.Try(','));
         _ts.Expect(';');
@@ -1437,7 +1267,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             // TODO(wgtdkp): add previous declaration information
             Error(tok, "conflicting types for '%s'", name.c_str());
         }
-        ident = NewIdentifier(tok, type, _curScope, L_NONE);
+        ident = Identifier::New(tok, type, _curScope, L_NONE);
         _curScope->Insert(name, ident);
         return ident;
     }
@@ -1522,11 +1352,11 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     Identifier* ret;
     // TODO(wgtdkp): Treat function as object ?
     //if (type->ToFuncType()) {
-    //    ret = NewIdentifier(tok, type, _curScope, linkage);
+    //    ret = Identifier::New(tok, type, _curScope, linkage);
     //} else {
-    //    ret = NewObject(tok, type, _curScope, storageSpec, linkage);
+    //    ret = Object::New(tok, type, _curScope, storageSpec, linkage);
     //}
-    ret = NewObject(tok, type, _curScope, storageSpec, linkage);
+    ret = Object::New(tok, type, _curScope, storageSpec, linkage);
 
     _curScope->Insert(name, ret);
     
@@ -1729,7 +1559,7 @@ Stmt* Parser::ParseInitializer(Object* obj)
     auto tok = _ts.Peek();
     Expr* rhs = ParseAssignExpr();
 
-    return NewBinaryOp(tok, '=', obj, rhs);
+    return BinaryOp::New(tok, '=', obj, rhs);
 }
 
 Stmt* Parser::ParseArrayInitializer(Object* arr)
@@ -1755,7 +1585,7 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
 
             // TODO(wgtdkp):
             //int offset = type->GetElementOffset(idx);
-            auto ele = NewObject(nullptr, type->Derived(), arr->Scope());
+            auto ele = Object::New(nullptr, type->Derived(), arr->Scope());
             //ele->SetOffset(offset + arr->Offset());
             ele->SetStorage(arr->Storage());
             ele->SetLinkage(arr->Linkage());
@@ -1772,7 +1602,7 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
             
             // TODO(wgtdkp):
             //int offset = type->GetElementOffset(defaultIdx);
-            auto ele = NewObject(nullptr, type->Derived(), arr->Scope());
+            auto ele = Object::New(nullptr, type->Derived(), arr->Scope());
             //ele->SetOffset(offset + arr->Offset());
             ele->SetStorage(arr->Storage());
             ele->SetLinkage(arr->Linkage());
@@ -1788,7 +1618,7 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
         }
     }
 
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 Stmt* Parser::ParseStructInitializer(Object* obj)
@@ -1809,7 +1639,7 @@ Stmt* Parser::ParseStmt(void)
 
     switch (tok->Tag()) {
     case ';':
-        return NewEmptyStmt();
+        return EmptyStmt::New();
     case '{':
         return ParseCompoundStmt();
     case Token::IF:
@@ -1867,7 +1697,7 @@ CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
 
     auto scope = funcType ? _curScope: ExitBlock();
 
-    return NewCompoundStmt(stmts, scope);
+    return CompoundStmt::New(stmts, scope);
 }
 
 IfStmt* Parser::ParseIfStmt(void)
@@ -1885,7 +1715,7 @@ IfStmt* Parser::ParseIfStmt(void)
     if (_ts.Try(Token::ELSE))
         els = ParseStmt();
     
-    return NewIfStmt(cond, then, els);
+    return IfStmt::New(cond, then, els);
 }
 
 /*
@@ -1939,13 +1769,13 @@ CompoundStmt* Parser::ParseForStmt(void)
         _ts.Expect(')');
     }
 
-    auto condLabel = NewLabelStmt();
-    auto stepLabel = NewLabelStmt();
-    auto endLabel = NewLabelStmt();
+    auto condLabel = LabelStmt::New();
+    auto stepLabel = LabelStmt::New();
+    auto endLabel = LabelStmt::New();
     stmts.push_back(condLabel);
     if (nullptr != condExpr) {
-        auto gotoEndStmt = NewJumpStmt(endLabel);
-        auto ifStmt = NewIfStmt(condExpr, nullptr, gotoEndStmt);
+        auto gotoEndStmt = JumpStmt::New(endLabel);
+        auto ifStmt = IfStmt::New(condExpr, nullptr, gotoEndStmt);
         stmts.push_back(ifStmt);
     }
 
@@ -1959,12 +1789,12 @@ CompoundStmt* Parser::ParseForStmt(void)
     stmts.push_back(bodyStmt);
     stmts.push_back(stepLabel);
     stmts.push_back(stepExpr);
-    stmts.push_back(NewJumpStmt(condLabel));
+    stmts.push_back(JumpStmt::New(condLabel));
     stmts.push_back(endLabel);
 
     ExitBlock();
     
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 /*
@@ -1989,10 +1819,10 @@ CompoundStmt* Parser::ParseWhileStmt(void)
         Error(tok, "scalar expression expected");
     }
 
-    auto condLabel = NewLabelStmt();
-    auto endLabel = NewLabelStmt();
-    auto gotoEndStmt = NewJumpStmt(endLabel);
-    auto ifStmt = NewIfStmt(condExpr, nullptr, gotoEndStmt);
+    auto condLabel = LabelStmt::New();
+    auto endLabel = LabelStmt::New();
+    auto gotoEndStmt = JumpStmt::New(endLabel);
+    auto ifStmt = IfStmt::New(condExpr, nullptr, gotoEndStmt);
     stmts.push_back(condLabel);
     stmts.push_back(ifStmt);
     
@@ -2002,10 +1832,10 @@ CompoundStmt* Parser::ParseWhileStmt(void)
     EXIT_LOOP_BODY()
     
     stmts.push_back(bodyStmt);
-    stmts.push_back(NewJumpStmt(condLabel));
+    stmts.push_back(JumpStmt::New(condLabel));
     stmts.push_back(endLabel);
     
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 /*
@@ -2019,9 +1849,9 @@ CompoundStmt* Parser::ParseWhileStmt(void)
  */
 CompoundStmt* Parser::ParseDoStmt(void)
 {
-    auto beginLabel = NewLabelStmt();
-    auto condLabel = NewLabelStmt();
-    auto endLabel = NewLabelStmt();
+    auto beginLabel = LabelStmt::New();
+    auto condLabel = LabelStmt::New();
+    auto endLabel = LabelStmt::New();
     
     Stmt* bodyStmt;
     ENTER_LOOP_BODY(endLabel, beginLabel)
@@ -2033,9 +1863,9 @@ CompoundStmt* Parser::ParseDoStmt(void)
     auto condExpr = ParseExpr();
     _ts.Expect(')');
 
-    auto gotoBeginStmt = NewJumpStmt(beginLabel);
-    auto gotoEndStmt = NewJumpStmt(endLabel);
-    auto ifStmt = NewIfStmt(condExpr, gotoBeginStmt, gotoEndStmt);
+    auto gotoBeginStmt = JumpStmt::New(beginLabel);
+    auto gotoEndStmt = JumpStmt::New(endLabel);
+    auto ifStmt = IfStmt::New(condExpr, gotoBeginStmt, gotoEndStmt);
 
     std::list<Stmt*> stmts;
     stmts.push_back(beginLabel);
@@ -2044,7 +1874,7 @@ CompoundStmt* Parser::ParseDoStmt(void)
     stmts.push_back(ifStmt);
     stmts.push_back(endLabel);
     
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 #define ENTER_SWITCH_BODY(breakDest, caseLabels)    \
@@ -2080,12 +1910,12 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
         Error(tok, "switch quantity not an integer");
     }
 
-    auto testLabel = NewLabelStmt();
-    auto endLabel = NewLabelStmt();
-    auto t = NewTempVar(expr->Type());
-    auto assign = NewBinaryOp(tok, '=', t, expr);
+    auto testLabel = LabelStmt::New();
+    auto endLabel = LabelStmt::New();
+    auto t = TempVar::New(expr->Type());
+    auto assign = BinaryOp::New(tok, '=', t, expr);
     stmts.push_back(assign);
-    stmts.push_back(NewJumpStmt(testLabel));
+    stmts.push_back(JumpStmt::New(testLabel));
 
     CaseLabelList caseLabels;
     ENTER_SWITCH_BODY(endLabel, caseLabels);
@@ -2096,19 +1926,19 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
     for (auto iter = caseLabels.begin();
             iter != caseLabels.end(); iter++) {
-        auto rhs = NewConstantInteger(T_INT, iter->first);
-        auto cond = NewBinaryOp(tok, Token::EQ_OP, t, rhs);
-        auto then = NewJumpStmt(iter->second);
-        auto ifStmt = NewIfStmt(cond, then, nullptr);
+        auto rhs = Constant::New(T_INT, iter->first);
+        auto cond = BinaryOp::New(tok, Token::EQ_OP, t, rhs);
+        auto then = JumpStmt::New(iter->second);
+        auto ifStmt = IfStmt::New(cond, then, nullptr);
         stmts.push_back(ifStmt);
     }
     
-    stmts.push_back(NewJumpStmt(_defaultLabel));
+    stmts.push_back(JumpStmt::New(_defaultLabel));
     EXIT_SWITCH_BODY();
 
     stmts.push_back(endLabel);
 
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 CompoundStmt* Parser::ParseCaseStmt(void)
@@ -2118,13 +1948,13 @@ CompoundStmt* Parser::ParseCaseStmt(void)
     _ts.Expect(':');
     
     auto val = expr->EvalInteger(tok);
-    auto labelStmt = NewLabelStmt();
+    auto labelStmt = LabelStmt::New();
     _caseLabels->push_back(std::make_pair(val, labelStmt));
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());
     
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 CompoundStmt* Parser::ParseDefaultStmt(void)
@@ -2134,14 +1964,14 @@ CompoundStmt* Parser::ParseDefaultStmt(void)
     if (_defaultLabel != nullptr) { // There is a 'default' stmt
         Error(tok, "multiple default labels in one switch");
     }
-    auto labelStmt = NewLabelStmt();
+    auto labelStmt = LabelStmt::New();
     _defaultLabel = labelStmt;
     
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());
     
-    return NewCompoundStmt(stmts);
+    return CompoundStmt::New(stmts);
 }
 
 JumpStmt* Parser::ParseContinueStmt(void)
@@ -2152,7 +1982,7 @@ JumpStmt* Parser::ParseContinueStmt(void)
         Error(tok, "'continue' is allowed only in loop");
     }
     
-    return NewJumpStmt(_continueDest);
+    return JumpStmt::New(_continueDest);
 }
 
 JumpStmt* Parser::ParseBreakStmt(void)
@@ -2164,7 +1994,7 @@ JumpStmt* Parser::ParseBreakStmt(void)
         Error(tok, "'break' is allowed only in switch/loop");
     }
     
-    return NewJumpStmt(_breakDest);
+    return JumpStmt::New(_breakDest);
 }
 
 ReturnStmt* Parser::ParseReturnStmt(void)
@@ -2178,7 +2008,7 @@ ReturnStmt* Parser::ParseReturnStmt(void)
         _ts.Expect(';');
     }
 
-    return NewReturnStmt(expr);
+    return ReturnStmt::New(expr);
 }
 
 JumpStmt* Parser::ParseGotoStmt(void)
@@ -2189,10 +2019,10 @@ JumpStmt* Parser::ParseGotoStmt(void)
 
     auto labelStmt = FindLabel(label->Str());
     if (labelStmt) {
-        return NewJumpStmt(labelStmt);
+        return JumpStmt::New(labelStmt);
     }
     
-    auto unresolvedJump = NewJumpStmt(nullptr);;
+    auto unresolvedJump = JumpStmt::New(nullptr);;
     _unresolvedJumps.push_back(std::make_pair(label, unresolvedJump));
     
     return unresolvedJump;
@@ -2206,381 +2036,11 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
         Error(label, "redefinition of label '%s'", labelStr.c_str());
     }
 
-    auto labelStmt = NewLabelStmt();
+    auto labelStmt = LabelStmt::New();
     AddLabel(labelStr, labelStmt);
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(stmt);
 
-    return NewCompoundStmt(stmts);
-}
-
-
-/*
- * Type checking
- */
-
-void Parser::TypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    switch (binaryOp->_op) {
-    // Check seperately
-    //case '.':
-    //    return MemberRefOpTypeChecking(binaryOp, errTok);
-    case '[':
-        return SubScriptingOpTypeChecking(binaryOp, errTok);
-
-    case '*':
-    case '/':
-    case '%':
-        return MultiOpTypeChecking(binaryOp, errTok);
-
-    case '+':
-    case '-':
-        return AdditiveOpTypeChecking(binaryOp, errTok);
-
-    case Token::LEFT_OP:
-    case Token::RIGHT_OP:
-        return ShiftOpTypeChecking(binaryOp, errTok);
-
-    case '<':
-    case '>':
-    case Token::LE_OP:
-    case Token::GE_OP:
-        return RelationalOpTypeChecking(binaryOp, errTok);
-
-    case Token::EQ_OP:
-    case Token::NE_OP:
-        return EqualityOpTypeChecking(binaryOp, errTok);
-
-    case '&':
-    case '^':
-    case '|':
-        return BitwiseOpTypeChecking(binaryOp, errTok);
-
-    case Token::AND_OP:
-    case Token::OR_OP:
-        return LogicalOpTypeChecking(binaryOp, errTok);
-
-    case '=':
-        return AssignOpTypeChecking(binaryOp, errTok);
-
-    default:
-        assert(0);
-    }
-}
-
-void Parser::SubScriptingOpTypeChecking(
-        BinaryOp* binaryOp, const Token* errTok)
-{
-    auto lhsType = binaryOp->_lhs->Type()->ToPointerType();
-    if (nullptr == lhsType) {
-        Error(errTok, "an pointer expected");
-    }
-    if (!binaryOp->_rhs->Type()->IsInteger()) {
-        Error(errTok, "the operand of [] should be intger");
-    }
-
-    // The type of [] operator is the derived type
-    binaryOp->_type = lhsType->Derived();    
-}
-
-void Parser::MemberRefOpTypeChecking(BinaryOp* binaryOp,
-            const Token* errTok, const std::string& rhsName)
-{
-    StructUnionType* structUnionType;
-
-    structUnionType = binaryOp->_lhs->Type()->ToStructUnionType();
-    if (structUnionType == nullptr) {
-        Error(errTok, "an struct/union expected");
-    }
-
-    binaryOp->_rhs = structUnionType->GetMember(rhsName);
-    if (binaryOp->_rhs == nullptr) {
-        Error(errTok, "'%s' is not a member of '%s'",
-                rhsName, "[obj]");
-    }
-
-    binaryOp->_type = binaryOp->_rhs->Type();
-}
-
-void Parser::MultiOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    auto lhsType = binaryOp->_lhs->Type()->ToArithmType();
-    auto rhsType = binaryOp->_rhs->Type()->ToArithmType();
-    if (lhsType == nullptr || rhsType == nullptr) {
-        Error(errTok, "operands should have arithmetic type");
-    }
-
-    if ('%' == binaryOp->_op && 
-            !(binaryOp->_lhs->Type()->IsInteger()
-              && binaryOp->_rhs->Type()->IsInteger())) {
-        Error(errTok, "operands of '%%' should be integers");
-    }
-
-    //TODO: type promotion
-    binaryOp->_type = binaryOp->Promote(this, errTok);
-}
-
-/*
- * Additive operator is only allowed between:
- *  1. arithmetic types (bool, interger, floating)
- *  2. pointer can be used:
- *     1. lhs of MINUS operator, and rhs must be integer or pointer;
- *     2. lhs/rhs of ADD operator, and the other operand must be integer;
- */
-void Parser::AdditiveOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    auto lhsType = binaryOp->_lhs->Type()->ToPointerType();
-    auto rhsType = binaryOp->_rhs->Type()->ToPointerType();
-    if (lhsType) {
-        if (binaryOp->_op == Token::MINUS) {
-            if ((rhsType && *lhsType != *rhsType)
-                    || !binaryOp->_rhs->Type()->IsInteger()) {
-                Error(errTok, "invalid operands to binary -");
-            }
-        } else if (!binaryOp->_rhs->Type()->IsInteger()) {
-            Error(errTok, "invalid operands to binary -");
-        }
-        binaryOp->_type = binaryOp->_lhs->Type();
-    } else if (rhsType) {
-        if (binaryOp->_op != Token::ADD
-                || !binaryOp->_lhs->Type()->IsInteger()) {
-            Error(errTok, "invalid operands to binary +");
-        }
-        binaryOp->_type = binaryOp->_rhs->Type();
-    } else {
-        auto lhsType = binaryOp->_lhs->Type()->ToArithmType();
-        auto rhsType = binaryOp->_rhs->Type()->ToArithmType();
-        if (lhsType == nullptr || rhsType == nullptr) {
-            Error(errTok, "invalid operands to binary %s",
-                    errTok->Str());
-        }
-
-        binaryOp->_type = binaryOp->Promote(this, errTok);
-    }
-}
-
-void Parser::ShiftOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    if (!binaryOp->_lhs->Type()->IsInteger()
-            || !binaryOp->_rhs->Type()->IsInteger()) {
-        Error(errTok, "expect integers for shift operator '%s'",
-                errTok->Str());
-    }
-
-    binaryOp->Promote(this, errTok);
-    binaryOp->_type = binaryOp->_lhs->Type();
-}
-
-void Parser::RelationalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    if (!binaryOp->_lhs->Type()->IsReal()
-            || !binaryOp->_rhs->Type()->IsReal()) {
-        Error(errTok, "expect integer/float"
-                " for relational operator '%s'", errTok->Str());
-    }
-
-    binaryOp->Promote(this, errTok);
-    binaryOp->_type = Type::NewArithmType(T_INT);    
-}
-
-void Parser::EqualityOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    auto lhsType = binaryOp->_lhs->Type()->ToPointerType();
-    auto rhsType = binaryOp->_rhs->Type()->ToPointerType();
-    if (lhsType || rhsType) {
-        if (!lhsType->Compatible(*rhsType)) {
-            Error(errTok, "incompatible pointers of operands");
-        }
-    } else {
-        auto lhsType = binaryOp->_lhs->Type()->ToArithmType();
-        auto rhsType = binaryOp->_rhs->Type()->ToArithmType();
-        if (lhsType == nullptr || rhsType == nullptr) {
-            Error(errTok, "invalid operands to binary %s",
-                    errTok->Str());
-        }
-
-        binaryOp->Promote(this, errTok);
-    }
-
-    binaryOp->_type = Type::NewArithmType(T_INT);    
-}
-
-void Parser::BitwiseOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    if (binaryOp->_lhs->Type()->IsInteger() 
-            || binaryOp->_rhs->Type()->IsInteger()) {
-        Error(errTok, "operands of '&' should be integer");
-    }
-    
-    binaryOp->_type = binaryOp->Promote(this, errTok);    
-}
-
-void Parser::LogicalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    if (!binaryOp->_lhs->Type()->IsScalar()
-            || !binaryOp->_rhs->Type()->IsScalar()) {
-        Error(errTok,
-                "the operand should be arithmetic type or pointer");
-    }
-    
-    binaryOp->Promote(this, errTok);
-    binaryOp->_type = Type::NewArithmType(T_INT);
-}
-
-void Parser::AssignOpTypeChecking(BinaryOp* binaryOp, const Token* errTok)
-{
-    if (!binaryOp->_lhs->IsLVal()) {
-        Error(errTok, "lvalue expression expected");
-    } else if (binaryOp->_lhs->Type()->IsConst()) {
-        Error(errTok, "can't modifiy 'const' qualified expression");
-    }
-    // The other constraints are lefted to cast operator
-    binaryOp->_rhs = NewUnaryOp(errTok,
-            Token::CAST, binaryOp->_rhs, binaryOp->_lhs->Type());
-    binaryOp->_type = binaryOp->_lhs->Type();
-}
-
-
-void Parser::TypeChecking(UnaryOp* unaryOp, const Token* errTok)
-{
-    switch (unaryOp->_op) {
-    case Token::POSTFIX_INC:
-    case Token::POSTFIX_DEC:
-    case Token::PREFIX_INC:
-    case Token::PREFIX_DEC:
-        return IncDecOpTypeChecking(unaryOp, errTok);
-
-    case Token::ADDR:
-        return AddrOpTypeChecking(unaryOp, errTok);
-
-    case Token::DEREF:
-        return DerefOpTypeChecking(unaryOp, errTok);
-
-    case Token::PLUS:
-    case Token::MINUS:
-    case '~':
-    case '!':
-        return UnaryArithmOpTypeChecking(unaryOp, errTok);
-
-    case Token::CAST:
-        return CastOpTypeChecking(unaryOp, errTok);
-
-    default:
-        assert(false);
-    }
-}
-
-void Parser::IncDecOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
-{
-    if (!unaryOp->_operand->IsLVal()) {
-        Error(errTok, "lvalue expression expected");
-    } else if (unaryOp->_operand->Type()->IsConst()) {
-        Error(errTok, "can't modifiy 'const' qualified expression");
-    }
-
-    unaryOp->_type = unaryOp->_operand->Type();
-}
-
-void Parser::AddrOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
-{
-    FuncType* funcType = unaryOp->_operand->Type()->ToFuncType();
-    if (funcType == nullptr && !unaryOp->_operand->IsLVal()) {
-        Error(errTok,
-                "expression must be an lvalue or function designator");
-    }
-    
-    unaryOp->_type = Type::NewPointerType(unaryOp->_operand->Type());
-}
-
-void Parser::DerefOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
-{
-    auto pointerType = unaryOp->_operand->Type()->ToPointerType();
-    if (pointerType == nullptr) {
-        Error(errTok, "pointer expected for deref operator '*'");
-    }
-
-    unaryOp->_type = pointerType->Derived();    
-}
-
-void Parser::UnaryArithmOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
-{
-    if (Token::PLUS == unaryOp->_op || Token::MINUS == unaryOp->_op) {
-        if (!unaryOp->_operand->Type()->IsArithm())
-            Error(errTok, "Arithmetic type expected");
-    } else if ('~' == unaryOp->_op) {
-        if (!unaryOp->_operand->Type()->IsInteger())
-            Error(errTok, "integer expected for operator '~'");
-    } else if (!unaryOp->_operand->Type()->IsScalar()) {
-        Error(errTok,
-                "arithmetic type or pointer expected for operator '!'");
-    }
-
-    unaryOp->_type = unaryOp->_operand->Type();
-}
-
-void Parser::CastOpTypeChecking(UnaryOp* unaryOp, const Token* errTok)
-{
-    // The _type has been initiated to dest type
-    if (!unaryOp->_type->IsScalar()) {
-        Error(errTok,
-                "the cast type should be arithemetic type or pointer");
-    }
-
-    if (unaryOp->_type->IsFloat() && unaryOp->_operand->Type()->ToPointerType()) {
-        Error(errTok, "can't cast a pointer to floating");
-    } else if (unaryOp->_type->ToPointerType()
-            && unaryOp->_operand->Type()->IsFloat()) {
-        Error(errTok, "can't cast a floating to pointer");
-    }
-}
-
-void Parser::TypeChecking(ConditionalOp* condOp, const Token* errTok)
-{
-    if (!condOp->_cond->Type()->IsScalar()) {
-        Error(errTok, "scalar is required");
-    }
-
-    auto lhsType = condOp->_exprTrue->Type();
-    auto rhsType = condOp->_exprFalse->Type();
-    if (!lhsType->Compatible(*rhsType)) {
-        Error(errTok, "incompatible types of true/false expression");
-    } else {
-        condOp->_type = lhsType;
-    }
-
-    lhsType = lhsType->ToArithmType();
-    rhsType = rhsType->ToArithmType();
-    if (lhsType && rhsType) {
-        condOp->_type = condOp->Promote(this, errTok);
-    }
-}
-
-void Parser::TypeChecking(FuncCall* funcCall, const Token* errTok)
-{
-    auto funcType = funcCall->_designator->Type()->ToFuncType();
-    if (funcType == nullptr) {
-        Error(errTok, "'%s' is not a function", errTok->Str());
-    }
-
-    auto arg = funcCall->_args.begin();
-    auto param = funcType->Params()->begin();
-    for (; param != funcType->Params()->end(); param++) {
-        if (arg == funcCall->_args.end()) {
-            Error(errTok, "too few arguments for function ''");
-        }
-
-        if (!(*param)->Compatible(*(*arg)->Type())) {
-            // TODO(wgtdkp): function name
-            Error(errTok, "incompatible type for argument 1 of ''");
-        }
-
-        ++arg;
-    }
-    
-    if (arg != funcCall->_args.end() && !funcType->Variadic()) {
-        Error(errTok, "too many arguments for function ''");
-    }
-    
-    funcCall->_type = funcType->Derived();
+    return CompoundStmt::New(stmts);
 }

@@ -28,49 +28,6 @@ public:
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
     ~Parser(void) {}
-    
-    /*
-     * Binary Operator
-     */
-    BinaryOp* NewBinaryOp(const Token* tok, Expr* lhs, Expr* rhs);
-    BinaryOp* NewBinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs);
-    BinaryOp* NewMemberRefOp(const Token* tok,
-            Expr* lhs, const std::string& rhsName);
-
-    ConditionalOp* NewConditionalOp(const Token* tok,
-            Expr* cond, Expr* exprTrue, Expr* exprFalse);
-    
-    FuncCall* NewFuncCall(const Token* tok,
-            Expr* designator, const std::list<Expr*>& args);
-    
-    Identifier* NewIdentifier(const Token* tok,
-            Type* type, Scope* scope, enum Linkage linkage);
-
-    Object* NewObject(const Token* tok, Type* type, Scope* scope,
-            int storage=0, enum Linkage linkage=L_NONE);
-
-    Constant* NewConstantInteger(int tag, long long val);
-    Constant* NewConstantFloat(ArithmType* type, double val);
-    TempVar* NewTempVar(Type* type);
-    UnaryOp* NewUnaryOp(const Token* tok,
-        int op, Expr* operand, Type* type=nullptr);
-    /*
-     * Statement
-     */
-    EmptyStmt* NewEmptyStmt(void); // Avoid checking null stmt
-    IfStmt* NewIfStmt(Expr* cond, Stmt* then, Stmt* els=nullptr);
-    JumpStmt* NewJumpStmt(LabelStmt* label);
-    ReturnStmt* NewReturnStmt(Expr* expr);
-    LabelStmt* NewLabelStmt(void);
-    CompoundStmt* NewCompoundStmt(std::list<Stmt*>& stmts, Scope* scope=nullptr);
-
-    /*
-     * Function Definition
-     */
-    FuncDef* NewFuncDef(FuncType* type, CompoundStmt* stmt);
-
-    void Delete(ASTNode* node);
-    
 
     Constant* ParseConstant(const Token* tok);
     Expr* ParseString(const Token* tok);
@@ -87,7 +44,7 @@ public:
     Expr* ParsePostfixExpr(void);
     Expr* ParsePostfixExprTail(Expr* primExpr);
     Expr* ParseSubScripting(Expr* pointer);
-    BinaryOp* ParseMemberRef(const Token* tok, Expr* lhs);
+    BinaryOp* ParseMemberRef(const Token* tok, int op, Expr* lhs);
     UnaryOp* ParsePostfixIncDec(const Token* tok, Expr* operand);
     FuncCall* ParseFuncCall(Expr* caller);
 
@@ -161,48 +118,8 @@ public:
     CompoundStmt* ParseCaseStmt(void);
     CompoundStmt* ParseDefaultStmt(void);
 
-    /*
-     * Function Definition
-     */
-    //bool IsFuncDef(void);
-    //FuncDef* ParseFuncDef(void);
-
     Identifier* ProcessDeclarator(Token* tok, Type* type,
             int storageSpec, int funcSpec);
-
-    /*
-     * Type checking:
-     * Do type checking and evaluating the expression type;
-     */
-    void TypeChecking(Expr* expr, const Token* errTok) {}
-    
-    // BinaryOp
-    void TypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void SubScriptingOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void MemberRefOpTypeChecking(BinaryOp* binaryOp,
-            const Token* errTok, const std::string& rhsName);
-    void MultiOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void AdditiveOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void ShiftOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void RelationalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void EqualityOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void BitwiseOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void LogicalOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-    void AssignOpTypeChecking(BinaryOp* binaryOp, const Token* errTok);
-
-    // UnaryOp
-    void TypeChecking(UnaryOp* unaryOp, const Token* errTok);
-    void IncDecOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
-    void AddrOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
-    void DerefOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
-    void UnaryArithmOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
-    void CastOpTypeChecking(UnaryOp* unaryOp, const Token* errTok);
-
-    // ConditionalOp
-    void TypeChecking(ConditionalOp* condOp, const Token* errTok);
-    
-    // FuncCall
-    void TypeChecking(FuncCall* funcCall, const Token* errTok);
 
     bool IsTypeName(Token* tok) const{
         if (tok->IsTypeSpecQual())

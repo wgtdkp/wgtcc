@@ -492,8 +492,8 @@ public:
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 
-    std::list<Type*>* Params(void) {
-        return &_params;
+    std::list<Type*>& Params(void) {
+        return _params;
     }
 
     bool Variadic(void) {

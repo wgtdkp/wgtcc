@@ -53,15 +53,11 @@ public:
     virtual Operand* Accept(Generator* g) = 0;
 
     //virtual Coordinate Coord(void) = 0;
-    
+
 protected:
-    explicit ASTNode(MemPool* pool): _pool(pool) {}
+    ASTNode(void) {}
 
-    mutable std::string _str;
-
-private:
-    //ASTNode(void);  //禁止直接创建Node
-
+    //mutable std::string _str;
     MemPool* _pool;
 };
 
@@ -73,35 +69,35 @@ typedef ASTNode ExtDecl;
 class Stmt : public ASTNode
 {
 public:
-    virtual ~Stmt(void){}
+    virtual ~Stmt(void) {}
+
+    virtual void TypeChecking( const Token* errTok) {}
 
 protected:
-    explicit Stmt(MemPool* pool) : ASTNode(pool) {}
+     Stmt(void) {}
 };
 
 
 class EmptyStmt : public Stmt
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static EmptyStmt* New(void);
+
     virtual ~EmptyStmt(void) {}
     
     virtual Operand* Accept(Generator* g);
 
 protected:
-    EmptyStmt(MemPool* pool): Stmt(pool) {}
+    EmptyStmt(void) {}
 };
 
 
 // 构建此类的目的在于，在目标代码生成的时候，能够生成相应的label
 class LabelStmt : public Stmt
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static LabelStmt* New(void);
+
     ~LabelStmt(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -111,8 +107,7 @@ public:
     }
 
 protected:
-    LabelStmt(MemPool* pool)
-            : Stmt(pool), _tag(GenTag()) {}
+    LabelStmt(void): _tag(GenTag()) {}
 
 private:
     static int GenTag(void) {
@@ -126,17 +121,16 @@ private:
 
 class IfStmt : public Stmt
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static IfStmt* New(Expr* cond, Stmt* then, Stmt* els=nullptr);
+
     virtual ~IfStmt(void) {}
     
     virtual Operand* Accept(Generator* g);
 
 protected:
-    IfStmt(MemPool* pool, Expr* cond, Stmt* then, Stmt* els = nullptr)
-            : Stmt(pool), _cond(cond), _then(then), _else(els) {}
+    IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
+            : _cond(cond), _then(then), _else(els) {}
 
 private:
     Expr* _cond;
@@ -147,10 +141,9 @@ private:
 
 class JumpStmt : public Stmt
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static JumpStmt* New(LabelStmt* label);
+
     virtual ~JumpStmt(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -158,8 +151,7 @@ public:
     void SetLabel(LabelStmt* label) { _label = label; }
 
 protected:
-    JumpStmt(MemPool* pool, LabelStmt* label)
-            : Stmt(pool), _label(label) {}
+    JumpStmt(LabelStmt* label): _label(label) {}
 
 private:
     LabelStmt* _label;
@@ -167,17 +159,15 @@ private:
 
 class ReturnStmt: public Stmt
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static ReturnStmt* New(Expr* expr);
+
     virtual ~ReturnStmt(void) {}
     
     virtual Operand* Accept(Generator* g);
     
 protected:
-    ReturnStmt(MemPool* pool, Expr* expr)
-            : Stmt(pool), _expr(expr) {}
+    ReturnStmt(Expr* expr): _expr(expr) {}
 
 private:
     Expr* _expr;
@@ -185,18 +175,16 @@ private:
 
 class CompoundStmt : public Stmt
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static CompoundStmt* New(std::list<Stmt*>& stmts, Scope* scope=nullptr);
+
     virtual ~CompoundStmt(void) {}
     
     virtual Operand* Accept(Generator* g);
 
 protected:
-    CompoundStmt(MemPool* pool, const std::list<Stmt*>& stmts,
-            Scope* scope=nullptr)
-            : Stmt(pool), _stmts(stmts), _scope(scope) {}
+    CompoundStmt(const std::list<Stmt*>& stmts, Scope* scope=nullptr)
+            : _stmts(stmts), _scope(scope) {}
 
 private:
     std::list<Stmt*> _stmts;
@@ -233,12 +221,18 @@ public:
 
     virtual long long EvalInteger(const Token* errTok) = 0;
 
+    virtual void TypeChecking(const Token* errTok) = 0;
+
+    virtual std::string Name(void) {
+        return "";
+    }
+
 protected:
     /*
      * You can construct a expression without specifying a type,
      * then the type should be evaluated in TypeChecking()
      */
-    Expr(MemPool* pool, ::Type* type): Stmt(pool), _type(type) {}
+    Expr(::Type* type): _type(type) {}
 
     ::Type* _type;
 };
@@ -258,6 +252,10 @@ class BinaryOp : public Expr
     friend class Generator;
 
 public:
+    static BinaryOp* New(const Token* tok, Expr* lhs, Expr* rhs);
+
+    static BinaryOp* New(const Token* tok, int op, Expr* lhs, Expr* rhs);
+
     virtual ~BinaryOp(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -269,11 +267,23 @@ public:
 
     virtual long long EvalInteger(const Token* errTok);
 
-    ArithmType* Promote(Parser* parser, const Token* errTok);
+    ArithmType* Promote(const Token* errTok);
+
+    virtual void TypeChecking(const Token* errTok);
+    void SubScriptingOpTypeChecking(const Token* errTok);
+    void MemberRefOpTypeChecking(const Token* errTok);
+    void MultiOpTypeChecking(const Token* errTok);
+    void AdditiveOpTypeChecking(const Token* errTok);
+    void ShiftOpTypeChecking(const Token* errTok);
+    void RelationalOpTypeChecking(const Token* errTok);
+    void EqualityOpTypeChecking(const Token* errTok);
+    void BitwiseOpTypeChecking(const Token* errTok);
+    void LogicalOpTypeChecking(const Token* errTok);
+    void AssignOpTypeChecking(const Token* errTok);
 
 protected:
-    BinaryOp(MemPool* pool, int op, Expr* lhs, Expr* rhs)
-            : Expr(pool, nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
+    BinaryOp(int op, Expr* lhs, Expr* rhs)
+            : Expr(nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
 
     int _op;
     Expr* _lhs;
@@ -299,6 +309,9 @@ class UnaryOp : public Expr
     friend class Generator;
 
 public:
+    static UnaryOp* New(const Token* tok,
+            int op, Expr* operand, ::Type* type=nullptr);
+
     virtual ~UnaryOp(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -310,9 +323,16 @@ public:
 
     ArithmType* Promote(Parser* parser, const Token* errTok);
 
+    void TypeChecking(const Token* errTok);
+    void IncDecOpTypeChecking(const Token* errTok);
+    void AddrOpTypeChecking(const Token* errTok);
+    void DerefOpTypeChecking(const Token* errTok);
+    void UnaryArithmOpTypeChecking(const Token* errTok);
+    void CastOpTypeChecking(const Token* errTok);
+
 protected:
-    UnaryOp(MemPool* pool, int op, Expr* operand, ::Type* type = nullptr)
-        : Expr(pool, type), _op(op), _operand(operand) {}
+    UnaryOp(int op, Expr* operand, ::Type* type = nullptr)
+        : Expr(type), _op(op), _operand(operand) {}
 
     int _op;
     Expr* _operand;
@@ -326,6 +346,9 @@ class ConditionalOp : public Expr
     friend class Generator;
 
 public:
+    static ConditionalOp* New(const Token* tok,
+            Expr* cond, Expr* exprTrue, Expr* exprFalse);
+    
     virtual ~ConditionalOp(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -336,11 +359,13 @@ public:
 
     virtual long long EvalInteger(const Token* errTok);
 
-    ArithmType* Promote(Parser* parser, const Token* errTok);
+    ArithmType* Promote(const Token* errTok);
+    
+    virtual void TypeChecking(const Token* errTok);
 
 protected:
-    ConditionalOp(MemPool* pool, Expr* cond, Expr* exprTrue, Expr* exprFalse)
-            : Expr(pool, nullptr), _cond(cond), 
+    ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
+            : Expr(nullptr), _cond(cond),
               _exprTrue(exprTrue), _exprFalse(exprFalse) {}
 
 private:
@@ -353,11 +378,12 @@ private:
 /************** Function Call ****************/
 class FuncCall : public Expr
 {
-    friend class Parser;
-    friend class Generator;
     typedef std::list<Expr*> ArgList;
 
 public:
+    static FuncCall* New(const Token* tok,
+            Expr* designator, const std::list<Expr*>& args);
+
     ~FuncCall(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -377,10 +403,11 @@ public:
         return _designator;
     }
 
+    virtual void TypeChecking(const Token* errTok);
 
 protected:
-    FuncCall(MemPool* pool, Expr* designator, std::list<Expr*> args)
-        : Expr(pool, nullptr), _designator(designator), _args(args) {}
+    FuncCall(Expr* designator, std::list<Expr*> args)
+        : Expr(nullptr), _designator(designator), _args(args) {}
 
     Expr* _designator;
     ArgList _args;
@@ -393,10 +420,10 @@ protected:
 //integer, character, string literal, floating
 class Constant : public Expr
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static Constant* New(int tag, long long val);
+    static Constant* New(ArithmType* type, double val);
+
     ~Constant(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -407,6 +434,8 @@ public:
 
     virtual long long EvalInteger(const Token* errTok);
     
+    virtual void TypeChecking(const Token* errTok) {}
+
     long long IVal(void) const {
         return _ival;
     }
@@ -415,14 +444,13 @@ public:
         return _fval;
     }
 
+
 protected:
-    Constant(MemPool* pool, ArithmType* type, long long val)
-            : Expr(pool, type), _ival(val) {
+    Constant(ArithmType* type, long long val): Expr(type), _ival(val) {
         assert(type->IsInteger());
     }
 
-    Constant(MemPool* pool, ArithmType* type, double val)
-            : Expr(pool, type), _fval(val) {
+    Constant(ArithmType* type, double val): Expr(type), _fval(val) {
         assert(type->IsFloat());
     }
     /*
@@ -444,10 +472,9 @@ private:
 //临时变量
 class TempVar : public Expr
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static TempVar* New(::Type* type);
+
     virtual ~TempVar(void) {}
     
     virtual Operand* Accept(Generator* g);
@@ -457,10 +484,11 @@ public:
     }
 
     virtual long long EvalInteger(const Token* errTok);
+    
+    virtual void TypeChecking(const Token* errTok) {}
 
 protected:
-    TempVar(MemPool* pool, ::Type* type)
-            : Expr(pool, type), _tag(GenTag()) {}
+    TempVar(::Type* type): Expr(type), _tag(GenTag()) {}
     
 private:
     static int GenTag(void) {
@@ -476,10 +504,9 @@ private:
 
 class FuncDef : public ExtDecl
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static FuncDef* New(FuncType* type, CompoundStmt* stmt);
+
     virtual ~FuncDef(void) {}
     
     virtual FuncType* Type(void) {
@@ -489,8 +516,8 @@ public:
     virtual Operand* Accept(Generator* g);
 
 protected:
-    FuncDef(MemPool* pool, FuncType* type, CompoundStmt* stmt)
-            : ExtDecl(pool), _type(type), _stmt(stmt) {}
+    FuncDef(FuncType* type, CompoundStmt* stmt)
+            : _type(type), _stmt(stmt) {}
 
 private:
     FuncType* _type;
@@ -500,9 +527,11 @@ private:
 
 class TranslationUnit : public ASTNode
 {
-    friend class Generator;
-
 public:
+    static TranslationUnit* New(void) {
+        return new TranslationUnit();
+    }
+
     virtual ~TranslationUnit(void) {}
 
     virtual Operand* Accept(Generator* g);
@@ -516,7 +545,7 @@ public:
     }
 
 private:
-    TranslationUnit(void): ASTNode(nullptr) {}
+    TranslationUnit(void) {}
 
     std::list<ExtDecl*> _extDecls;
 };
@@ -531,10 +560,10 @@ enum Linkage {
 
 class Identifier: public Expr
 {
-    friend class Parser;
-    friend class Generator;
-    
 public:
+    static Identifier* New(const Token* tok,
+            ::Type* type, Scope* scope, enum Linkage linkage);
+
     virtual ~Identifier(void) {}
 
     virtual Operand* Accept(Generator* g) {
@@ -577,16 +606,18 @@ public:
         return _tok;
     }
 
-    const std::string Name(void);
+    virtual std::string Name(void);
 
     virtual bool operator==(const Identifier& other) const {
         return *_type == *other._type && _scope == other._scope;
     }
 
+    virtual void TypeChecking(const Token* errTok) {}
+
 protected:
-    Identifier(MemPool* pool, const Token* tok, 
-            ::Type* type, ::Scope* scope, enum Linkage linkage)
-            : Expr(pool, type), _tok(tok), _scope(scope), _linkage(linkage) {}
+    Identifier(const Token* tok, ::Type* type,
+            ::Scope* scope, enum Linkage linkage)
+            : Expr(type), _tok(tok), _scope(scope), _linkage(linkage) {}
     
     const Token* _tok;
 
@@ -599,10 +630,10 @@ protected:
 
 class Object : public Identifier
 {
-    friend class Parser;
-    friend class Generator;
-
 public:
+    static Object* New(const Token* tok, ::Type* type, ::Scope* scope,
+            int storage=0, enum Linkage linkage=L_NONE);
+
     ~Object(void) {}
 
     virtual Operand* Accept(Generator* g);
@@ -649,9 +680,9 @@ public:
     }
 
 protected:
-    Object(MemPool* pool, const Token* tok, ::Type* type, ::Scope* scope,
+    Object(const Token* tok, ::Type* type, ::Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE)
-            : Identifier(pool, tok, type, scope, linkage),
+            : Identifier(tok, type, scope, linkage),
               _storage(0), _offset(0) {}
 
 private:

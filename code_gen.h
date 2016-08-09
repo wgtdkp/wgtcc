@@ -18,9 +18,16 @@ class Memory;
 class Register;
 class Immediate;
 
+
 class Operand
 {
 public:
+    Operand(void) {}
+
+    virtual ~Operand(void) {
+        _pool->Free(this);
+    }
+
     virtual std::string Repr(void) const = 0;
 
     virtual Immediate* ToImmediate(void) {
@@ -34,6 +41,9 @@ public:
     virtual Memory* ToMemory(void) {
         return nullptr;
     }
+
+protected:
+    MemPool* _pool;
 };
 
 
@@ -52,8 +62,6 @@ enum class ParamClass
 
 class Register: public Operand
 {
-    friend class Generator;
-
 public:
     enum {
         RAX, RBX, RCX, RDX,
@@ -76,27 +84,43 @@ public:
     static Register* Get(int tag) {
         assert(0 <= tag && tag < N_REG);
 
-        return &_regs[tag];
+        return _regs[tag];
     }
 
 private:
-    explicit Register(void) {}
+    static Register* New(void);
+    
+    Register(void) {}
 
-    static Register _regs[N_REG];
+    Expr* _expr;
+    int _width;
+
+    static Register* _regs[N_REG];
 };
 
 
 class Immediate: public Operand
 {
-    friend class Generator;
-
 public:
+    static Immediate* New(Constant* cons);
+
+    static Immediate* New(int tag, long long val) {
+        //TODO(wgtdkp):
+        //auto cons = Constant::New(tag, val);
+        //return New(cons);
+        return nullptr;
+    }
+
     ~Immediate(void) {}
 
     virtual std::string Repr(void) const;
 
     virtual Immediate* ToImmediate(void) {
         return this;
+    }
+
+    Constant* Cons(void) {
+        return _cons;
     }
 
 private:
@@ -120,6 +144,9 @@ class Memory: public Operand
     friend class Generator;
 
 public:
+    static Memory* New(Register* base, int disp,
+            Register* index=nullptr, int scale=0);
+
     ~Memory(void) {}
 
     virtual std::string Repr(void) const;
@@ -149,16 +176,7 @@ public:
             : _parser(parser), _outFile(outFile),
               _desReg(Register::Get(Register::RAX)),
               _argRegUsed(0), _argVecRegUsed(0),
-              _argStackOffset(-8),
-              _immFalse(NewImmediate(T_INT, 0)),
-              _immTrue(NewImmediate(T_INT, 1)) {}
-    
-    Immediate* NewImmediate(Constant* cons);
-    Immediate* NewImmediate(int tag, long long val);
-
-    
-    Memory* NewMemory(Register* base, int disp,
-            Register* index=nullptr, int scale=0);
+              _argStackOffset(-8) {}
 
     //Expression
     virtual Operand* GenBinaryOp(BinaryOp* binaryOp);
@@ -253,17 +271,11 @@ private:
     // The stack pointer after pushed arguments on the stack 
     int _argStackOffset;
 
-    Immediate* const _immFalse;
-    Immediate* const _immTrue;
-
     static const int N_ARG_REG = 6;
     static Register* _argRegs[N_ARG_REG];
 
     static const int N_ARG_VEC_REG = 8;
     static Register* _argVecRegs[N_ARG_VEC_REG];
-
-    MemPoolImp<Immediate>   _immediatePool;
-    MemPoolImp<Memory>      _memoryPool;
 };
 
 #endif

@@ -11,11 +11,35 @@
 #include <iterator>
 
 
+MemPoolImp<Immediate>   immediatePool;
+MemPoolImp<Memory>      memoryPool;
+MemPoolImp<Register>    registerPool;
+
+static auto immFalse = Immediate::New(T_INT, 0);
+static auto immTrue = Immediate::New(T_INT, 1);
+
 /*
  * Register
  */
 
-Register Register::_regs[N_REG];
+Register* Register::_regs[N_REG] = {
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New(),
+    Register::New()
+};
 
 Register* Generator::_argRegs[N_ARG_REG] = {
     Register::Get(Register::RDI),
@@ -37,6 +61,15 @@ Register* Generator::_argVecRegs[N_ARG_VEC_REG] = {
     Register::Get(Register::XMM7)
 };
 
+
+Register* Register::New(void)
+{
+    auto ret = new (registerPool.Alloc()) Register();
+    ret->_pool = &registerPool;
+
+    return ret;
+}
+    
 std::string Register::Repr(void) const
 {
     assert(0);
@@ -48,6 +81,14 @@ std::string Register::Repr(void) const
  * Immediate
  */
 
+Immediate* Immediate::New(Constant* cons)
+{
+    auto ret = new (immediatePool.Alloc()) Immediate(cons);
+    ret->_pool = &immediatePool;
+
+    return ret;
+}
+
 std::string Immediate::Repr(void) const
 {
     assert(0);
@@ -58,6 +99,13 @@ std::string Immediate::Repr(void) const
 /*
  * Memory
  */
+
+Memory* Memory::New(Register* base, int disp, Register* index, int scale) {
+    auto ret = new (memoryPool.Alloc()) Memory(base, disp, index, scale);
+    ret->_pool = &memoryPool;
+
+    return ret;
+}
 
 std::string Memory::Repr(void) const
 {
@@ -171,24 +219,6 @@ static ParamClass FieldClass(std::vector<ParamClass>& classes, int begin)
     return PC_SSE;
 }
 */
-
-
-Immediate* Generator::NewImmediate(Constant* cons)
-{
-    return new (_immediatePool.Alloc()) Immediate(cons);
-}
-
-Immediate* Generator::NewImmediate(int tag, long long val)
-{
-    auto cons = _parser->NewConstantInteger(tag, val);
-    return NewImmediate(cons);
-}
-    
-Memory* Generator::NewMemory(Register* base, int disp,
-        Register* index, int scale)
-{
-    return new (_memoryPool.Alloc()) Memory(base, disp, index, scale);
-}
 
 
 void Generator::Emit(const char* format, ...)
@@ -312,40 +342,40 @@ Operand* Generator::GenAndOp(Expr* lhsExpr, Expr* rhsExpr)
     auto lhs = lhsExpr->Accept(this);
     if (lhs->ToImmediate()) {
         auto imm = lhs->ToImmediate();
-        auto cond = imm->_cons->IVal();
+        auto cond = imm->Cons()->IVal();
         if (cond == 0)
-            return _immFalse;
+            return immFalse;
     } else {
-        EmitCMP(_immFalse, lhs);
-        EmitJE(labelFalse = _parser->NewLabelStmt());
+        EmitCMP(immFalse, lhs);
+        EmitJE(labelFalse = LabelStmt::New());
     }
 
     auto ret = AllocReg();
 
-    auto labelTrue = _parser->NewLabelStmt();
+    auto labelTrue = LabelStmt::New();
 
     auto rhs = rhsExpr->Accept(this);
     if (rhs->ToImmediate()) {
         auto imm = rhs->ToImmediate();
-        auto cond = imm->_cons->IVal();
+        auto cond = imm->Cons()->IVal();
         if (cond == 0) {
             // Do nothing
         } else {
-            EmitMOV(_immTrue, ret);
+            EmitMOV(immTrue, ret);
             EmitJMP(labelTrue);
         }
     } else {
-        EmitCMP(_immFalse, rhs);
+        EmitCMP(immFalse, rhs);
         if (labelFalse == nullptr)
-            labelFalse = _parser->NewLabelStmt();
+            labelFalse = LabelStmt::New();
         EmitJE(labelFalse);
 
-        EmitMOV(_immTrue, ret);
+        EmitMOV(immTrue, ret);
         EmitJMP(labelTrue);
     }
 
     EmitLabel(labelFalse);
-    EmitMOV(_immFalse, ret);
+    EmitMOV(immFalse, ret);
     EmitLabel(labelTrue);
 
     return ret;
@@ -358,40 +388,40 @@ Operand* Generator::GenOrOp(Expr* lhsExpr, Expr* rhsExpr)
     auto lhs = lhsExpr->Accept(this);
     if (lhs->ToImmediate()) {
         auto imm = lhs->ToImmediate();
-        auto cond = imm->_cons->IVal();
+        auto cond = imm->Cons()->IVal();
         if (cond)
-            return _immTrue;
+            return immTrue;
     } else {
-        EmitCMP(_immFalse, lhs);
-        EmitJNE(labelTrue = _parser->NewLabelStmt());
+        EmitCMP(immFalse, lhs);
+        EmitJNE(labelTrue = LabelStmt::New());
     }
 
     auto ret = AllocReg();
 
-    auto labelFalse = _parser->NewLabelStmt();
+    auto labelFalse = LabelStmt::New();
 
     auto rhs = rhsExpr->Accept(this);
     if (rhs->ToImmediate()) {
         auto imm = rhs->ToImmediate();
-        auto cond = imm->_cons->IVal();
+        auto cond = imm->Cons()->IVal();
         if (cond) {
             // Do nothing
         } else {
-            EmitMOV(_immFalse, ret);
+            EmitMOV(immFalse, ret);
             EmitJMP(labelFalse);
         }
     } else {
-        EmitCMP(_immFalse, rhs);
+        EmitCMP(immFalse, rhs);
         if (labelTrue == nullptr)
-            labelTrue = _parser->NewLabelStmt();
+            labelTrue = LabelStmt::New();
         EmitJNE(labelTrue);
 
-        EmitMOV(_immFalse, ret);
+        EmitMOV(immFalse, ret);
         EmitJMP(labelFalse);
     }
 
     EmitLabel(labelTrue);
-    EmitMOV(_immTrue, ret);
+    EmitMOV(immTrue, ret);
     EmitLabel(labelFalse);
 
     return ret;
@@ -409,15 +439,15 @@ Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
     } else if (rhs->ToRegister()){
         index = rhs->ToRegister();
     } else {
-        disp = rhs->ToImmediate()->_cons->IVal() * scale;
+        disp = rhs->ToImmediate()->Cons()->IVal() * scale;
     }
 
     if (lhs->ToRegister()) {
         // The register has the address of lhs
         if (rhs->ToImmediate()) {
-            return NewMemory(lhs->ToRegister(), disp);
+            return Memory::New(lhs->ToRegister(), disp);
         }
-        return NewMemory(lhs->ToRegister(), 0, index, scale);
+        return Memory::New(lhs->ToRegister(), 0, index, scale);
     }
 
     if (rhs->ToImmediate()) {
@@ -427,7 +457,7 @@ Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
 
     auto base = AllocReg();
     EmitLEA(lhs->ToMemory(), base);
-    return NewMemory(base, 0, index, scale);
+    return Memory::New(base, 0, index, scale);
 }
 
 // Generate no assembly code
@@ -441,7 +471,7 @@ Operand* Generator::GenMemberRefOp(Operand* lhs, Memory* rhs)
         //     leaq a(%rbp), %rax
         //     movl b(%rax), %eax
         //     movl %eax, c(%rbp)
-        return NewMemory(lhs->ToRegister(), rhs->_disp);
+        return Memory::New(lhs->ToRegister(), rhs->_disp);
     } else if (lhs->ToMemory()) {
         // Expression: int c = a.b;
         // Translation:
@@ -626,6 +656,10 @@ void Generator::GenCompoundStmt(CompoundStmt* compoundStmt)
 //Function Definition
 void Generator::GenFuncDef(FuncDef* funcDef)
 {
+    // Get offset to %rbp from Generator
+    // Resolve offset of all objects in _stmt->_scope;
+
+    // Save arguments passed by registers
     
 }
 
