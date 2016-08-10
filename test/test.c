@@ -182,6 +182,8 @@ int main(void)
     //test_promotion();
     //test_width();
     //test_struct();
-    test_ld();
+    //test_ld();
+
+    printf("%d\n", -3 % 4);
     return 0;
 }

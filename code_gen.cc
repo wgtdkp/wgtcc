@@ -9,6 +9,10 @@
 #include <cstdio>
 
 #include <iterator>
+#include <queue>
+
+
+#define REG(reg)    (Register::Get(Register::reg))
 
 
 MemPoolImp<Immediate>   immediatePool;
@@ -18,53 +22,61 @@ MemPoolImp<Register>    registerPool;
 static auto immFalse = Immediate::New(T_INT, 0);
 static auto immTrue = Immediate::New(T_INT, 1);
 
+
 /*
  * Register
  */
 
 Register* Register::_regs[N_REG] = {
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New(),
-    Register::New()
+    New(RAX), New(RBX), New(RCX), New(RDX),
+    New(RSI), New(RDI), New(RBP), New(RSP),
+    New(R8), New(R9), New(R10), New(R11),
+    New(R12), New(R13), New(R14), New(R15),
+    New(XMM0), New(XMM1), New(XMM2), New(XMM3),
+    New(XMM4), New(XMM5), New(XMM6), New(XMM7)
+};
+
+const char* Register::_reprs[N_REG][4] = {
+    {"al", "ax", "eax", "rax"},
+    {"bl", "bx", "ebx", "rbx"},
+    {"cl", "cx", "ecx", "rcx"},
+    {"dl", "dx", "edx", "rdx"},
+    {"dil", "di", "edx", "rdx"},
+    {"sil", "si", "esi", "rsi"},
+    {"bpl", "bp", "ebp", "rbp"},
+    {"spl", "sp", "esp", "rsp"},
+    {"r8l", "r8w", "r8d", "r8"},
+    {"r9l", "r9w", "r9d", "r9"},
+    {"r10l", "r10w", "r10d", "r10"},
+    {"11l", "r11w", "r11d", "r11"},
+    {"r12l", "r12w", "r12d", "r12"},
+    {"r13l", "r13w", "r13d", "r13"},
+    {"r14l", "r14w", "r14d", "r14"},
+    {"r15l", "r15w", "r15d", "r15"},
+    {"xmm0", "xmm0", "xmm0", "xmm0"},
+    {"xmm1", "xmm1", "xmm1", "xmm1"},
+    {"xmm2", "xmm2", "xmm2", "xmm2"},
+    {"xmm3", "xmm3", "xmm3", "xmm3"},
+    {"xmm4", "xmm4", "xmm4", "xmm4"},
+    {"xmm5", "xmm5", "xmm5", "xmm5"},
+    {"xmm6", "xmm6", "xmm6", "xmm6"},
+    {"xmm7", "xmm7", "xmm7", "xmm7"}
 };
 
 Register* Generator::_argRegs[N_ARG_REG] = {
-    Register::Get(Register::RDI),
-    Register::Get(Register::RSI),
-    Register::Get(Register::RDX),
-    Register::Get(Register::RCX),
-    Register::Get(Register::R8),
-    Register::Get(Register::R9)
+    REG(RDI), REG(RSI), REG(RDX),
+    REG(RCX), REG(R8), REG(R9)
 };
 
 Register* Generator::_argVecRegs[N_ARG_VEC_REG] = {
-    Register::Get(Register::XMM0),
-    Register::Get(Register::XMM1),
-    Register::Get(Register::XMM2),
-    Register::Get(Register::XMM3),
-    Register::Get(Register::XMM4),
-    Register::Get(Register::XMM5),
-    Register::Get(Register::XMM6),
-    Register::Get(Register::XMM7)
+    REG(XMM0), REG(XMM1), REG(XMM2), REG(XMM3),
+    REG(XMM4), REG(XMM5), REG(XMM6), REG(XMM7)
 };
 
 
-Register* Register::New(void)
+Register* Register::New(int tag, int width)
 {
-    auto ret = new (registerPool.Alloc()) Register();
+    auto ret = new (registerPool.Alloc()) Register(tag, width);
     ret->_pool = &registerPool;
 
     return ret;
@@ -72,8 +84,16 @@ Register* Register::New(void)
     
 std::string Register::Repr(void) const
 {
-    assert(0);
-    return "";
+    int idx;
+    switch (_width) {
+    case 1: idx = 0; break;
+    case 2: idx = 1; break;
+    case 4: idx = 2; break;
+    case 8: idx = 3; break;
+    default: assert(false);
+    }
+
+    return std::string("%") + _reprs[_tag][idx];
 }
 
 
@@ -91,8 +111,16 @@ Immediate* Immediate::New(Constant* cons)
 
 std::string Immediate::Repr(void) const
 {
-    assert(0);
-    return "";
+    std::string repr = "$";
+    if (_cons->Type()->IsFloat())
+        repr += std::to_string(_cons->FVal());
+    else if (_cons->Type()->IsInteger())
+        repr += std::to_string(_cons->IVal());
+    else {
+        assert(false);
+    }
+
+    return repr;
 }
 
 
@@ -100,8 +128,10 @@ std::string Immediate::Repr(void) const
  * Memory
  */
 
-Memory* Memory::New(Register* base, int disp, Register* index, int scale) {
-    auto ret = new (memoryPool.Alloc()) Memory(base, disp, index, scale);
+Memory* Memory::New(int width, Register* base, int disp,
+        Register* index, int scale) {
+    auto ret = new (memoryPool.Alloc())
+            Memory(width, base, disp, index, scale);
     ret->_pool = &memoryPool;
 
     return ret;
@@ -109,8 +139,15 @@ Memory* Memory::New(Register* base, int disp, Register* index, int scale) {
 
 std::string Memory::Repr(void) const
 {
-    assert(0);
-    return "";
+    std::string repr = std::to_string(_disp) + "(";
+    
+    repr += _base->Repr();
+    if (_index) {
+        repr += "," + _index->Repr() + std::to_string(_scale);
+    }
+    repr += ")";
+    
+    return repr;
 }
 
 
@@ -221,18 +258,6 @@ static ParamClass FieldClass(std::vector<ParamClass>& classes, int begin)
 */
 
 
-void Generator::Emit(const char* format, ...)
-{
-    printf("    ");
-
-    va_list args;
-    va_start(args, format);
-    vfprintf(_outFile, format, args);
-    va_end(args);
-
-    printf("\n");  
-}
-
 /*
  * Operaotr/Instruction mapping:
  * +  add
@@ -267,36 +292,31 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
     auto op = binaryOp->_op;
 
     if (op == Token::AND_OP) {
-        return GenAndOp(binaryOp->_lhs, binaryOp->_rhs);
+        return GenAndOp(binaryOp);
     } else if (op == Token::OR_OP) {
-        return GenOrOp(binaryOp->_lhs, binaryOp->_rhs);
+        return GenOrOp(binaryOp);
     }
 
+/*
     auto lhs = binaryOp->_lhs->Accept(this);
     auto rhs = binaryOp->_rhs->Accept(this);
+*/
 
     switch (op) {
     case '.':
-        return GenMemberRefOp(lhs, rhs->ToMemory());
+        return GenMemberRefOp(binaryOp);
     case '[': {
-        auto type = binaryOp->_lhs->Type()->ToArrayType();
-        return GenSubScriptingOp(lhs, rhs, type->Derived()->Width());
+        return GenSubScriptingOp(binaryOp);
     }
     case '+':
         ;//return GenAddOp(binaryOp->_lhs, binaryOp->_rhs);
     case '-':
         ;//return GenSubOp(binaryOp->_lhs, binaryOp->_rhs);
+    case '=':
+        return GenAssignOp(binaryOp);
     }
 
-    // Most complicate part
-    // Operator '.'
-    if (op == '.') {
-        return GenMemberRefOp(lhs, rhs->ToMemory());
-    } else if (op == '[') {
-        auto type = binaryOp->_lhs->Type()->ToArrayType();
-        return GenSubScriptingOp(lhs, rhs, type->Derived()->Width());
-    }
-
+/*
     if (!lhs->ToRegister() && !rhs->ToRegister()) {
         auto reg = AllocReg();
         EmitMOV(lhs, reg);
@@ -315,8 +335,15 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
             lhs = reg;
         }
     }
+*/
+    assert(false);
+    return nullptr;
+}
 
-    return lhs;
+Operand* Generator::GenAssignOp(BinaryOp* binaryOp)
+{
+    // TODO(wgtdkp):
+    return nullptr;
 }
 
 
@@ -335,11 +362,11 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
 // TODO(wgtdkp):
 // 1. both operands are constant
 // 2. one of the operands is constant
-Operand* Generator::GenAndOp(Expr* lhsExpr, Expr* rhsExpr)
+Operand* Generator::GenAndOp(BinaryOp* binaryOp)
 {
     LabelStmt* labelFalse = nullptr;
 
-    auto lhs = lhsExpr->Accept(this);
+    auto lhs = binaryOp->_lhs->Accept(this);
     if (lhs->ToImmediate()) {
         auto imm = lhs->ToImmediate();
         auto cond = imm->Cons()->IVal();
@@ -350,11 +377,11 @@ Operand* Generator::GenAndOp(Expr* lhsExpr, Expr* rhsExpr)
         EmitJE(labelFalse = LabelStmt::New());
     }
 
-    auto ret = AllocReg();
+    auto ret = AllocReg(binaryOp);
 
     auto labelTrue = LabelStmt::New();
 
-    auto rhs = rhsExpr->Accept(this);
+    auto rhs = binaryOp->_rhs->Accept(this);
     if (rhs->ToImmediate()) {
         auto imm = rhs->ToImmediate();
         auto cond = imm->Cons()->IVal();
@@ -382,10 +409,10 @@ Operand* Generator::GenAndOp(Expr* lhsExpr, Expr* rhsExpr)
 }
 
 
-Operand* Generator::GenOrOp(Expr* lhsExpr, Expr* rhsExpr)
+Operand* Generator::GenOrOp(BinaryOp* binaryOp)
 {
     LabelStmt* labelTrue = nullptr;
-    auto lhs = lhsExpr->Accept(this);
+    auto lhs = binaryOp->_lhs->Accept(this);
     if (lhs->ToImmediate()) {
         auto imm = lhs->ToImmediate();
         auto cond = imm->Cons()->IVal();
@@ -396,11 +423,11 @@ Operand* Generator::GenOrOp(Expr* lhsExpr, Expr* rhsExpr)
         EmitJNE(labelTrue = LabelStmt::New());
     }
 
-    auto ret = AllocReg();
+    auto ret = AllocReg(binaryOp);
 
     auto labelFalse = LabelStmt::New();
 
-    auto rhs = rhsExpr->Accept(this);
+    auto rhs = binaryOp->_rhs->Accept(this);
     if (rhs->ToImmediate()) {
         auto imm = rhs->ToImmediate();
         auto cond = imm->Cons()->IVal();
@@ -428,13 +455,17 @@ Operand* Generator::GenOrOp(Expr* lhsExpr, Expr* rhsExpr)
 }
 
 
-Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
+Operand* Generator::GenSubScriptingOp(BinaryOp* binaryOp)
 {
+    auto lhs = binaryOp->_lhs->Accept(this);
+    auto rhs = binaryOp->_rhs->Accept(this);
+    auto scale = binaryOp->_rhs->Type()->Width();
+
     int disp;
     Register* index;
 
     if (rhs->ToMemory()) {
-        index = AllocReg();
+        index = AllocReg(binaryOp->_rhs);
         EmitMOV(rhs, index);
     } else if (rhs->ToRegister()){
         index = rhs->ToRegister();
@@ -445,9 +476,9 @@ Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
     if (lhs->ToRegister()) {
         // The register has the address of lhs
         if (rhs->ToImmediate()) {
-            return Memory::New(lhs->ToRegister(), disp);
+            return Memory::New(scale, lhs->ToRegister(), disp);
         }
-        return Memory::New(lhs->ToRegister(), 0, index, scale);
+        return Memory::New(scale, lhs->ToRegister(), 0, index, scale);
     }
 
     if (rhs->ToImmediate()) {
@@ -455,14 +486,18 @@ Operand* Generator::GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale)
         return lhs;
     }
 
-    auto base = AllocReg();
+    // lhs is memory
+    auto base = AllocReg(binaryOp->_lhs, true);
     EmitLEA(lhs->ToMemory(), base);
-    return Memory::New(base, 0, index, scale);
+    return Memory::New(scale, base, 0, index, scale);
 }
 
 // Generate no assembly code
-Operand* Generator::GenMemberRefOp(Operand* lhs, Memory* rhs)
+Operand* Generator::GenMemberRefOp(BinaryOp* binaryOp)
 {
+    auto lhs = binaryOp->_lhs->Accept(this);
+    auto rhs = binaryOp->_rhs->Accept(this)->ToMemory();
+    auto width = binaryOp->_rhs->Type()->Width();
     assert(rhs);
 
     if (lhs->ToRegister()) {
@@ -471,7 +506,7 @@ Operand* Generator::GenMemberRefOp(Operand* lhs, Memory* rhs)
         //     leaq a(%rbp), %rax
         //     movl b(%rax), %eax
         //     movl %eax, c(%rbp)
-        return Memory::New(lhs->ToRegister(), rhs->_disp);
+        return Memory::New(width, lhs->ToRegister(), rhs->_disp);
     } else if (lhs->ToMemory()) {
         // Expression: int c = a.b;
         // Translation:
@@ -540,11 +575,11 @@ Register* Generator::GenFuncCall(FuncCall* funcCall)
         assert(reg->Is(Register::RDI));
         PushReturnAddr(addr, reg);
 
-        desReg = Register::Get(Register::RAX);
+        desReg = REG(RAX);
     } else if (cls == ParamClass::SSE) {
-        desReg = Register::Get(Register::XMM0);
+        desReg = REG(XMM0);
     } else if (cls == ParamClass::INTEGER) {
-        desReg = Register::Get(Register::RAX);
+        desReg = REG(RAX);
     } else {
         assert(false);
     }
@@ -653,18 +688,234 @@ void Generator::GenCompoundStmt(CompoundStmt* compoundStmt)
 
 }
 
-//Function Definition
-void Generator::GenFuncDef(FuncDef* funcDef)
+
+class Comp
 {
+public:
+    bool operator()(Object* lhs, Object* rhs) {
+        return lhs->Type()->Align() < rhs->Type()->Align();
+    }
+};
+
+//Function Definition
+Register* Generator::GenFuncDef(FuncDef* funcDef)
+{
+    Emit("%s:\n", funcDef->Type()->Name().c_str());
+
+    // Save %rbp
+    EmitPUSH(REG(RBP));
+    EmitMOV(REG(RSP), REG(RBP));
+
+
     // Get offset to %rbp from Generator
     // Resolve offset of all objects in _stmt->_scope;
 
     // Save arguments passed by registers
+    std::priority_queue<Object*, std::vector<Object*>, Comp> heap;
+
+    auto params = funcDef->Params();    
+
+    auto scope = funcDef->Body()->Scope();
     
+    // Sort all objects by alignment in descending order
+    // Except for parameters
+    auto iter = scope->begin();
+    for (; iter != scope->end(); iter++) {
+        if (!iter->second->ToObject())
+            continue;
+        for (auto param: params) {
+            if (iter->second == param)
+                goto next;
+        }
+
+        heap.push(iter->second->ToObject());
+    next:;
+    }
+
+    int offset = _stackOffset;
+    assert(offset == 0);
+
+    // Alloc memory for objects
+    while (!heap.empty()) {
+        auto obj = heap.top();
+        heap.pop();
+
+        offset -= obj->Type()->Width();
+        offset = Type::MakeAlign(offset, obj->Type()->Align());
+        obj->SetOffset(offset);
+    }
+
+    Memory* retAddrMem;
+    // Save parameters passed by register
+    for (auto param: params) {
+        auto cls = Classify(param->Type());
+        if (cls == ParamClass::INTEGER) {
+            auto reg = AllocArgReg();
+            if (reg == nullptr)
+                break;
+            
+            auto width = param->Type()->Width();
+            offset -= width;
+            offset = Type::MakeAlign(offset, param->Type()->Align());
+            param->SetOffset(offset);
+
+            auto mem = Memory::New(width, REG(RBP), offset);
+            EmitMOV(reg, mem);
+
+            // It may be the return address
+            if (reg->Is(Register::RDI))
+                retAddrMem = mem;
+        }
+    }
+
+    _stackOffset = offset;
+
+    // Gen body
+    for (auto stmt: funcDef->Body()->Stmts()) {
+        stmt->Accept(this);
+    }
+
+    // Makeup return register
+    Register* retReg = nullptr;
+    auto cls = Classify(funcDef->Type()->Derived());
+    switch (cls) {
+    case ParamClass::MEMORY:
+        EmitMOV(retAddrMem, REG(RAX));
+        retReg = REG(RAX);
+        break;
+    case ParamClass::INTEGER:
+        retReg = REG(RAX);
+        break;
+    case ParamClass::SSE:
+        retReg = REG(XMM0);
+        break;
+    default:
+        assert(false);
+    }
+
+    EmitPOP(REG(RBP));
+    return retReg;
 }
 
 //Translation Unit
-void Generator::GenTranslationUnit(TranslationUnit* transUnit)
+void Generator::GenTranslationUnit(TranslationUnit* unit)
 {
+     for (auto node: unit->ExtDecls()) {
+         node->Accept(this);
+     }
+}
 
+void Generator::Gen(void)
+{
+    GenTranslationUnit(_parser->Unit());
+}
+
+
+void Generator::Emit(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vfprintf(_outFile, format, args);
+    va_end(args);
+}
+
+void Generator::Emit(const char* inst, Operand* lhs, Operand* rhs)
+{
+    assert(lhs->Width() == rhs->Width());
+
+    Emit(inst);
+
+    // TODO(wgtdkp):
+    switch (rhs->Width()) {
+    case 1: Emit("b"); break;
+    case 2: Emit("w"); break;
+    case 4: Emit("l"); break;
+    case 8: Emit("q"); break;
+    default: assert(false);
+    }
+}
+
+void Generator::EmitMOV(Operand* src, Operand* des)
+{
+    Emit("\tmov\t%s, %s\n", src->Repr().c_str(), des->Repr().c_str());
+}
+
+void Generator::EmitLEA(Memory* mem, Register* reg)
+{
+    Emit("\tlea\t%s, %s\n", mem->Repr().c_str(), reg->Repr().c_str());
+}
+
+void Generator::EmitJE(LabelStmt* label)
+{
+    Emit("\tje\t.l%d\n", label->Tag());
+}
+
+void Generator::EmitJNE(LabelStmt* label)
+{
+    Emit("\tjne\t.l%d\n", label->Tag());
+}
+
+void Generator::EmitJMP(LabelStmt* label)
+{
+    Emit("\tjmp\t.l%d\n", label->Tag());
+}
+
+void Generator::EmitCMP(Immediate* lhs, Operand* rhs)
+{
+    Emit("\tcmp\t%s, %s\n", lhs->Repr().c_str(), rhs->Repr().c_str());
+}
+
+void Generator::EmitPUSH(Operand* operand)
+{
+    Emit("\tpush\t%s\n", operand->Repr().c_str());
+}
+
+void Generator::EmitPOP(Operand* operand)
+{
+    Emit("\tpop\t%s\n", operand->Repr().c_str());
+}
+
+void Generator::EmitLabel(LabelStmt* label)
+{
+    Emit(".l%d:\n", label->Tag());
+}
+
+Register* Generator::AllocReg(Expr* expr, bool addr)
+{
+    const static int callerSaved[] = {
+        Register::RAX, Register::RCX, Register::RDX,
+        Register::RSI, Register::RDI, Register::R8,
+        Register::R9, Register::R10, Register::R11
+    };
+
+    // TODO(wgtdkp):
+    /*
+    const static int calleeSaved[] = {
+        Register::RBX, Register::R12, Register::R13,
+        Register::R14, Register::R15, Register::RBP,
+        Register::RSP
+    };
+    */
+
+    // Get free caller saved general purpose register
+    for (auto tag: callerSaved) {
+        auto reg = Register::Get(tag);
+        if (reg->Using())
+            continue;
+        reg->Bind(expr, addr ? 8: expr->Type()->Width());
+        return reg;
+    }
+
+    // TODO(wgtdkp):
+    // Saved register to stack, and free it
+    Error("internal error: no enough register");
+    return nullptr; // Make compiler happy
+}
+
+void Generator::FreeReg(Register* reg)
+{
+    if (!reg->Using()) {
+        Error("internal error: free register than is free");
+    }
+    reg->Unbind();
 }

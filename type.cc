@@ -243,8 +243,8 @@ bool PointerType::operator==(const Type& other) const {
 
 bool PointerType::Compatible(const Type& other) const {
     //TODO: compatibility ???
-    if (other.IsInteger())
-        return true;
+    //if (other.IsInteger())
+    //    return true;
     auto otherType = other.ToPointerType();
     if (otherType == nullptr)
         return false;
@@ -265,12 +265,12 @@ bool FuncType::operator==(const Type& other) const
     // equality of two function types ??
     if (*_derived != *otherFunc->_derived)
         return false;
-    if (_params.size() != otherFunc->_params.size())
+    if (_paramTypes.size() != otherFunc->_paramTypes.size())
         return false;
 
-    auto thisIter = _params.begin();
-    auto otherIter = otherFunc->_params.begin();
-    while (thisIter != _params.end()) {
+    auto thisIter = _paramTypes.begin();
+    auto otherIter = otherFunc->_paramTypes.begin();
+    while (thisIter != _paramTypes.end()) {
         if (*(*thisIter) != *(*otherIter))
             return false;
 
@@ -285,18 +285,19 @@ bool FuncType::Compatible(const Type& other) const
 {
     auto otherFunc = other.ToFuncType();
     //the other type is not an function type
-    if (nullptr == otherFunc) return false;
+    if (nullptr == otherFunc)
+        return false;
     //TODO: do we need to check the type of return value when deciding 
     //compatibility of two function types ??
-    if (_derived->Compatible(*otherFunc->_derived))
+    if (!_derived->Compatible(*otherFunc->_derived))
         return false;
-    if (_params.size() != otherFunc->_params.size())
+    if (_paramTypes.size() != otherFunc->_paramTypes.size())
         return false;
 
-    auto thisIter = _params.begin();
-    auto otherIter = otherFunc->_params.begin();
-    while (thisIter != _params.end()) {
-        if ((*thisIter)->Compatible(*(*otherIter)))
+    auto thisIter = _paramTypes.begin();
+    auto otherIter = otherFunc->_paramTypes.begin();
+    while (thisIter != _paramTypes.end()) {
+        if (!(*thisIter)->Compatible(*(*otherIter)))
             return false;
 
         thisIter++;
@@ -313,13 +314,13 @@ std::string FuncType::Name(void) {
 std::string FuncType::Str(void) const
 {
     auto str = _derived->Str() + "(";
-    auto iter = _params.begin();
-    for (; iter != _params.end(); iter++) {
+    auto iter = _paramTypes.begin();
+    for (; iter != _paramTypes.end(); iter++) {
         str += (*iter)->Str() + ", ";
     }
     if (_variadic)
         str += "...";
-    else if (_params.size())
+    else if (_paramTypes.size())
         str.resize(str.size() - 2);
 
     return str + ")";

@@ -1,11 +1,10 @@
-
-int test(int m, int n, float x, float y)
+int main(int argc, char** argv)
 {
-    int a, b, c, d, e;
+    //f fp = (f)0;
+    short a, b, c;
     a = 1;
     b = 2;
     c = 3;
-    d = 4;
-    e = 5;
+    
     return 0;
 }

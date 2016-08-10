@@ -14,8 +14,8 @@ using namespace std;
 
 void Parser::EnterFunc(const char* funcName) {
     //TODO(wgtdkp): function scope
-    _curProtoScope->SetParent(_curScope);
-    _curScope = _curProtoScope;
+    _curParamScope->SetParent(_curScope);
+    _curScope = _curParamScope;
 }
 
 void Parser::ExitFunc(void) {
@@ -58,7 +58,9 @@ void Parser::EnterBlock(FuncType* funcType)
 
 void Parser::ParseTranslationUnit(void)
 {
-    while (!_ts.Peek()->IsEOF()) {
+    while (!_ts.Peek()->IsEOF()) {            
+        _curParamScope = nullptr;
+
         int storageSpec, funcSpec;
         auto type = ParseDeclSpec(&storageSpec, &funcSpec);
         auto tokTypePair = ParseDeclarator(type);
@@ -74,10 +76,7 @@ void Parser::ParseTranslationUnit(void)
         type = ident->Type();
 
         if (tok && type->ToFuncType() && _ts.Try('{')) { // Function definition
-            EnterFunc(nullptr);
-            auto stmt = ParseCompoundStmt(type->ToFuncType());
-            ExitFunc();
-            _unit->Add(FuncDef::New(type->ToFuncType(), stmt));
+            _unit->Add(ParseFuncDef(tok, type->ToFuncType()));
         } else { // Declaration
             std::list<Stmt*> stmts;
             if (_ts.Try('=')) {
@@ -100,6 +99,32 @@ void Parser::ParseTranslationUnit(void)
     }
 
     //_externalSymbols->Print();
+}
+
+FuncDef* Parser::ParseFuncDef(Token* tok, FuncType* funcType)
+{
+    EnterFunc(nullptr);
+
+    std::list<Object*> params;
+    std::list<Type*>& paramTypes = funcType->ParamTypes();
+    if (_curScope->size() != paramTypes.size()) {
+        Error(tok, "parameter name omitted");
+    }
+
+    for (auto paramType: paramTypes) {
+        auto iter = _curScope->begin();
+        for (; iter != _curScope->end(); iter++) {
+            if (iter->second->Type() == paramType) {
+                params.push_back(iter->second->ToObject());
+                break;
+            }
+        }
+    }
+
+    auto stmt = ParseCompoundStmt(funcType);
+    ExitFunc();
+
+    return FuncDef::New(funcType, params, stmt);
 }
 
 Expr* Parser::ParseExpr(void)
@@ -916,6 +941,7 @@ end_of_loop:
         *func = funcSpec;
     }
 
+    type->SetQual(qualSpec);
     return type;
 
 error:
@@ -1391,15 +1417,15 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
                     "the return value of function can't be array");
         }
 
-        std::list<Type*> params;
+        std::list<Type*> paramTypes;
         EnterProto();
-        bool hasEllipsis = ParseParamList(params);
+        bool hasEllipsis = ParseParamList(paramTypes);
         ExitProto();
         
         _ts.Expect(')');
         base = ParseArrayFuncDeclarator(ident, base);
         
-        return Type::NewFuncType(base, 0, hasEllipsis, params, ident);
+        return Type::NewFuncType(base, 0, hasEllipsis, paramTypes, ident);
     }
 
     return base;
@@ -1429,7 +1455,7 @@ int Parser::ParseArrayLength(void)
     }*/
 
     //不支持变长数组
-    if (!hasStatic && _ts.Try(']'))
+    if (!hasStatic && _ts.Test(']'))
         return -1;
     
     auto tok = _ts.Peek();
@@ -1440,10 +1466,10 @@ int Parser::ParseArrayLength(void)
 /*
  * Return: true, has ellipsis;
  */
-bool Parser::ParseParamList(std::list<Type*>& params)
+bool Parser::ParseParamList(std::list<Type*>& paramTypes)
 {
     auto paramType = ParseParamDecl();
-    params.push_back(paramType);
+    paramTypes.push_back(paramType);
     /*
      * The parameter list is 'void'
      */
@@ -1462,7 +1488,7 @@ bool Parser::ParseParamList(std::list<Type*>& params)
             Error(tok, "'void' must be the only parameter");
         }
 
-        params.push_back(paramType);
+        paramTypes.push_back(paramType);
     }
 
     return false;
@@ -1484,7 +1510,8 @@ Type* Parser::ParseParamDecl(void)
         return type;
     }
 
-    ProcessDeclarator(tok, type, storageSpec, funcSpec);
+    auto obj = ProcessDeclarator(tok, type, storageSpec, funcSpec);
+    assert(obj->ToObject());
 
     return type;
 }

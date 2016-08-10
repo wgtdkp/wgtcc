@@ -418,6 +418,8 @@ void BinaryOp::AssignOpTypeChecking(const Token* errTok)
         Error(errTok, "lvalue expression expected");
     } else if (_lhs->Type()->IsConst()) {
         Error(errTok, "can't modifiy 'const' qualified expression");
+    } else if (!_lhs->Type()->Compatible(*_rhs->Type())) {
+        Error(errTok, "uncompatible types");
     }
     // The other constraints are lefted to cast operator
     _rhs = UnaryOp::New(errTok,Token::CAST, _rhs, _lhs->Type());
@@ -649,12 +651,12 @@ void FuncCall::TypeChecking(const Token* errTok)
     }
 
     auto arg = _args.begin();
-    for (auto param: funcType->Params()) {
+    for (auto paramType: funcType->ParamTypes()) {
         if (arg == _args.end()) {
             Error(errTok, "too few arguments for function ''");
         }
 
-        if (!param->Compatible(*(*arg)->Type())) {
+        if (!paramType->Compatible(*(*arg)->Type())) {
             // TODO(wgtdkp): function name
             Error(errTok, "incompatible type for argument 1 of ''");
         }
@@ -771,7 +773,7 @@ IfStmt* IfStmt::New(Expr* cond, Stmt* then, Stmt* els)
     return ret;
 }
 
-CompoundStmt* CompoundStmt::New(std::list<Stmt*>& stmts, Scope* scope)
+CompoundStmt* CompoundStmt::New(std::list<Stmt*>& stmts, ::Scope* scope)
 {
     auto ret = new (compoundStmtPool.Alloc()) CompoundStmt(stmts, scope);
     ret->_pool = &compoundStmtPool;
@@ -799,9 +801,11 @@ LabelStmt* LabelStmt::New(void)
     return ret;
 }
 
-FuncDef* FuncDef::New(FuncType* type, CompoundStmt* stmt)
+FuncDef* FuncDef::New(FuncType* type,
+            const std::list<Object*>& params, CompoundStmt* stmt)
 {
-    auto ret = new (funcDefPool.Alloc()) FuncDef(type, stmt);
+    auto ret = new (funcDefPool.Alloc()) FuncDef(type, params, stmt);
     ret->_pool = &funcDefPool;
+
     return ret;
 }

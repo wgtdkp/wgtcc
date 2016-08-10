@@ -19,11 +19,11 @@ class Parser
 {
 public:
     explicit Parser(const TokenSeq& ts) 
-        : _unit(TranslationUnit::NewTranslationUnit()),
+        : _unit(TranslationUnit::New()),
           _inEnumeration(false), _ts(ts),
           _externalSymbols(new Scope(nullptr, S_BLOCK)),
           _errTok(nullptr), _curScope(new Scope(nullptr, S_FILE)),
-          _curProtoScope(nullptr),
+          _curParamScope(nullptr),
           _breakDest(nullptr), _continueDest(nullptr),
           _caseLabels(nullptr), _defaultLabel(nullptr) {}
 
@@ -34,7 +34,7 @@ public:
     Expr* ParseGeneric(void);
 
     void ParseTranslationUnit(void);
-
+    FuncDef* ParseFuncDef(Token* tok, FuncType* funcType);
     /************ Expressions ************/
     
     Expr* ParseExpr(void);
@@ -88,7 +88,7 @@ public:
     TokenTypePair ParseDeclarator(Type* type);
     Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
     int ParseArrayLength(void);
-    bool ParseParamList(std::list<Type*>& params);
+    bool ParseParamList(std::list<Type*>& paramTypes);
     Type* ParseParamDecl(void);
 
     //typename
@@ -155,7 +155,8 @@ public:
 
     void EnterProto(void) {
         _curScope = new Scope(_curScope, S_PROTO);
-        _curProtoScope = _curScope;
+        if (_curParamScope == nullptr)
+            _curParamScope = _curScope;
     }
 
     void ExitProto(void) {
@@ -178,11 +179,15 @@ public:
         _curLabels[label] = labelStmt;
     }
 
+    TranslationUnit* Unit(void) {
+        return _unit;
+    }
+
 private:
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
     typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
     typedef std::map<std::string, LabelStmt*> LabelMap;
-
+    
     // The root of the AST
     TranslationUnit* _unit;
     
@@ -197,7 +202,7 @@ private:
     //std::stack<Token*> _buf;
 
     Scope* _curScope;
-    Scope* _curProtoScope;
+    Scope* _curParamScope;
     LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;
     
@@ -205,23 +210,6 @@ private:
     LabelStmt* _continueDest;
     CaseLabelList* _caseLabels;
     LabelStmt* _defaultLabel;
-    
-    // Memory Pools
-    MemPoolImp<BinaryOp>        _binaryOpPool;
-    MemPoolImp<ConditionalOp>   _conditionalOpPool;
-    MemPoolImp<FuncCall>        _funcCallPool;
-    MemPoolImp<Object>          _objectPool;
-    MemPoolImp<Identifier>      _identifierPool;
-    MemPoolImp<Constant>        _constantPool;
-    MemPoolImp<TempVar>         _tempVarPool;
-    MemPoolImp<UnaryOp>         _unaryOpPool;
-    MemPoolImp<EmptyStmt>       _emptyStmtPool;
-    MemPoolImp<IfStmt>          _ifStmtPool;
-    MemPoolImp<JumpStmt>        _jumpStmtPool;
-    MemPoolImp<ReturnStmt>      _returnStmtPool;
-    MemPoolImp<LabelStmt>       _labelStmtPool;
-    MemPoolImp<CompoundStmt>    _compoundStmtPool;
-    MemPoolImp<FuncDef>         _funcDefPool;
 };
 
 #endif

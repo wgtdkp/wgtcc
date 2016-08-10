@@ -176,19 +176,27 @@ private:
 class CompoundStmt : public Stmt
 {
 public:
-    static CompoundStmt* New(std::list<Stmt*>& stmts, Scope* scope=nullptr);
+    static CompoundStmt* New(std::list<Stmt*>& stmts, ::Scope* scope=nullptr);
 
     virtual ~CompoundStmt(void) {}
     
     virtual Operand* Accept(Generator* g);
 
+    std::list<Stmt*>& Stmts(void) {
+        return _stmts;
+    }
+
+    ::Scope* Scope(void) {
+        return _scope;
+    }
+
 protected:
-    CompoundStmt(const std::list<Stmt*>& stmts, Scope* scope=nullptr)
+    CompoundStmt(const std::list<Stmt*>& stmts, ::Scope* scope=nullptr)
             : _stmts(stmts), _scope(scope) {}
 
 private:
     std::list<Stmt*> _stmts;
-    Scope* _scope;
+    ::Scope* _scope;
 };
 
 
@@ -505,23 +513,33 @@ private:
 class FuncDef : public ExtDecl
 {
 public:
-    static FuncDef* New(FuncType* type, CompoundStmt* stmt);
+    static FuncDef* New(FuncType* type,
+            const std::list<Object*>& params, CompoundStmt* stmt);
 
     virtual ~FuncDef(void) {}
     
     virtual FuncType* Type(void) {
         return _type;
     }
+
+    std::list<Object*>& Params(void) {
+        return _params;
+    }
+
+    CompoundStmt* Body(void) {
+        return _body;
+    }
     
     virtual Operand* Accept(Generator* g);
 
 protected:
-    FuncDef(FuncType* type, CompoundStmt* stmt)
-            : _type(type), _stmt(stmt) {}
+    FuncDef(FuncType* type, const std::list<Object*>& params,
+            CompoundStmt* stmt): _type(type), _params(params), _body(stmt) {}
 
 private:
     FuncType* _type;
-    CompoundStmt* _stmt;
+    std::list<Object*> _params;
+    CompoundStmt* _body;
 };
 
 
@@ -540,8 +558,8 @@ public:
         _extDecls.push_back(extDecl);
     }
 
-    static TranslationUnit* NewTranslationUnit(void) {
-        return new TranslationUnit();
+    std::list<ExtDecl*>& ExtDecls(void) {
+        return _extDecls;
     }
 
 private:

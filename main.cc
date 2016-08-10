@@ -1,13 +1,16 @@
+#include "code_gen.h"
+#include "cpp.h"
 #include "error.h"
 #include "lexer.h"
 #include "parser.h"
-#include "cpp.h"
 
 #include <cstdio>
 #include <iostream>
 #include <string>
 
+
 std::string program;
+
 
 void Usage(void)
 {
@@ -62,12 +65,19 @@ int main(int argc, char* argv[])
     if (fileName == nullptr) {
         Usage();
     }
+    
+    // Preprocessing
     Preprocessor cpp(fileName);
     TokenSeq tokSeq;
     cpp.Process(tokSeq);
 
+    // Parsing
     Parser parser(tokSeq);
     parser.ParseTranslationUnit();
     
+    // CodeGen
+    Generator g(&parser, stdout);
+    g.Gen();
+
     return 0;
 }

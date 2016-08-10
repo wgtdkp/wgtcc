@@ -22,8 +22,6 @@ class Immediate;
 class Operand
 {
 public:
-    Operand(void) {}
-
     virtual ~Operand(void) {
         _pool->Free(this);
     }
@@ -42,7 +40,19 @@ public:
         return nullptr;
     }
 
+    int Width(void) {
+        return _width;
+    }
+
+    void SetWidth(int width) {
+        _width = width;
+    }
+
 protected:
+    explicit Operand(int width): _width(width) {}
+
+    int _width;
+
     MemPool* _pool;
 };
 
@@ -78,7 +88,7 @@ public:
     virtual std::string Repr(void) const;
 
     bool  Is(int tag) const {
-        return this == Get(tag);
+        return _tag == tag;
     }
 
     static Register* Get(int tag) {
@@ -87,15 +97,37 @@ public:
         return _regs[tag];
     }
 
-private:
-    static Register* New(void);
-    
-    Register(void) {}
+    void Bind(::Expr* expr, int width=-1) {
+        _expr = expr;
+        if (width == -1)
+            _width = expr->Type()->Width();
+        else
+            _width = width;
+    }
 
-    Expr* _expr;
-    int _width;
+    void Unbind(void) {
+        _expr = nullptr;
+    }
+
+    ::Expr* Expr(void) {
+        return _expr;
+    }
+
+    bool Using(void) {
+        return _expr != nullptr;
+    }
+
+private:
+    static Register* New(int tag, int width=8);
+    
+    explicit Register(int tag, int width=8)
+            : Operand(width), _tag(tag) {}
+
+    ::Expr* _expr;
+    int _tag;
 
     static Register* _regs[N_REG];
+    static const char* _reprs[N_REG][4];
 };
 
 
@@ -124,7 +156,8 @@ public:
     }
 
 private:
-    explicit Immediate(Constant* cons): _cons(cons) {}
+    explicit Immediate(Constant* cons)
+            : Operand(cons->Type()->Width()), _cons(cons) {}
 
     Constant* _cons;
 };
@@ -144,7 +177,7 @@ class Memory: public Operand
     friend class Generator;
 
 public:
-    static Memory* New(Register* base, int disp,
+    static Memory* New(int width, Register* base, int disp,
             Register* index=nullptr, int scale=0);
 
     ~Memory(void) {}
@@ -156,8 +189,10 @@ public:
     }
 
 private:
-    Memory(Register* base, int disp, Register* index=nullptr, int scale=0)
-            : _base(base), _index(index), _scale(scale), _disp(disp) {}
+    Memory(int width, Register* base, int disp,
+            Register* index=nullptr, int scale=0)
+            : Operand(width), _base(base),
+              _index(index), _scale(scale), _disp(disp) {}
 
     //Memory()
 
@@ -176,7 +211,7 @@ public:
             : _parser(parser), _outFile(outFile),
               _desReg(Register::Get(Register::RAX)),
               _argRegUsed(0), _argVecRegUsed(0),
-              _argStackOffset(-8) {}
+              _argStackOffset(-8), _stackOffset(0) {}
 
     //Expression
     virtual Operand* GenBinaryOp(BinaryOp* binaryOp);
@@ -187,12 +222,13 @@ public:
     virtual Immediate* GenConstant(Constant* cons);
     virtual Register* GenTempVar(TempVar* tempVar);
 
-    Operand* GenMemberRefOp(Operand* lhs, Memory* rhs);
-    Operand* GenSubScriptingOp(Operand* lhs, Operand* rhs, int scale);
-    Operand* GenAndOp(Expr* lhsExpr, Expr* rhsExpr);
-    Operand* GenOrOp(Expr* lhsExpr, Expr* rhsExpr);
-    Register* GenAddOp(Expr* lhsExpr, Expr* rhsExpr);
-    Register* GenSubOp(Expr* lhsExpr, Expr* rhsExpr);
+    Operand* GenMemberRefOp(BinaryOp* binaryOp);
+    Operand* GenSubScriptingOp(BinaryOp* binaryOp);
+    Operand* GenAndOp(BinaryOp* binaryOp);
+    Operand* GenOrOp(BinaryOp* binaryOp);
+    Register* GenAddOp(BinaryOp* binaryOp);
+    Register* GenSubOp(BinaryOp* binaryOp);
+    Operand* GenAssignOp(BinaryOp* binaryOp);
 
     //statement
     virtual void GenStmt(Stmt* stmt);
@@ -204,10 +240,11 @@ public:
     virtual void GenCompoundStmt(CompoundStmt* compoundStmt);
 
     //Function Definition
-    virtual void GenFuncDef(FuncDef* funcDef);
+    virtual Register* GenFuncDef(FuncDef* funcDef);
 
     //Translation Unit
-    virtual void GenTranslationUnit(TranslationUnit* transUnit);
+    virtual void GenTranslationUnit(TranslationUnit* unit);
+    void Gen(void);
 
     void PushFuncArg(Expr* arg, ParamClass cls);
     void PushReturnAddr(int addr, Register* reg);
@@ -240,19 +277,21 @@ public:
         _desReg = desReg;
     }
 
-    // TODO(wgtdkp):
-    Register* AllocReg(void) {
-        return nullptr;
-    }
+    Register* AllocReg(Expr* expr, bool addr=false);
+    void FreeReg(Register* reg);
 
     void Emit(const char* format, ...);
-    void EmitMOV(Operand* operand, Register* reg) {}
-    void EmitLEA(Memory* mem, Register* reg) {}
-    void EmitJE(LabelStmt* label) {}
-    void EmitJNE(LabelStmt* label) {}
-    void EmitJMP(LabelStmt* label) {}
-    void EmitCMP(Immediate* lhs, Operand* rhs) {}
-    void EmitLabel(LabelStmt* label) {}
+    void Emit(const char* inst, Operand* lhs, Operand* rhs);
+    void EmitMOV(Operand* src, Operand* des);
+    //void EmitMOV(Register* src, Operand* des) {}
+    void EmitLEA(Memory* mem, Register* reg);
+    void EmitJE(LabelStmt* label);
+    void EmitJNE(LabelStmt* label);
+    void EmitJMP(LabelStmt* label);
+    void EmitCMP(Immediate* lhs, Operand* rhs);
+    void EmitPUSH(Operand* operand);
+    void EmitPOP(Operand* operand);
+    void EmitLabel(LabelStmt* label);
 
 private:
     Parser* _parser;
@@ -270,6 +309,8 @@ private:
 
     // The stack pointer after pushed arguments on the stack 
     int _argStackOffset;
+
+    int _stackOffset;
 
     static const int N_ARG_REG = 6;
     static Register* _argRegs[N_ARG_REG];

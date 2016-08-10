@@ -96,6 +96,10 @@ public:
         return _identMap.end();
     }
 
+    size_t size(void) const {
+        return _identMap.size();
+    }
+
 private:
     const Scope& operator=(const Scope& other);
     Scope(const Scope& scope);

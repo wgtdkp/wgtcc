@@ -90,10 +90,12 @@ public:
     virtual int Align(void) const = 0;
 
     static int MakeAlign(int offset, int align) {
-        if (offset % align) {
+        if ((offset % align) == 0)
+            return offset;
+        if (offset >= 0)
             return offset + align - (offset % align);
-        }
-        return offset;
+        else
+            return offset - align - (offset % align);
     } 
 
 
@@ -109,9 +111,13 @@ public:
         return _complete;
     }
     
-    void SetComplete(bool complete) { _complete = complete; }
+    void SetComplete(bool complete) {
+        _complete = complete;
+    }
 
-    bool IsConst(void) const { return _qual & Q_CONST; }
+    bool IsConst(void) const {
+        return _qual & Q_CONST;
+    }
     
     bool IsScalar(void) const {
         return (ToArithmType() || ToPointerType());
@@ -178,7 +184,7 @@ public:
     static ArithmType* NewArithmType(int typeSpec);
 
 protected:
-    explicit Type(MemPool* pool, int width, bool complete)
+    Type(MemPool* pool, int width, bool complete)
         : _pool(pool), _width(width), _complete(complete) {}
 
     MemPool* _pool;
@@ -492,8 +498,8 @@ public:
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 
-    std::list<Type*>& Params(void) {
-        return _params;
+    std::list<Type*>& ParamTypes(void) {
+        return _paramTypes;
     }
 
     bool Variadic(void) {
@@ -509,14 +515,14 @@ public:
 protected:
     //a function does not has the width property
     FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
-            const std::list<Type*>& params, Token* tok)
+            const std::list<Type*>& paramTypes, Token* tok)
         : DerivedType(pool, derived, -1), _inlineNoReturn(inlineReturn),
-          _variadic(variadic), _params(params), _tok(tok) {}
+          _variadic(variadic), _paramTypes(paramTypes), _tok(tok) {}
 
 private:
     int _inlineNoReturn;
     bool _variadic;
-    std::list<Type*> _params;
+    std::list<Type*> _paramTypes;
     Token* _tok;
 };
 
