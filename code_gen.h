@@ -85,6 +85,10 @@ public:
 
     ~Register(void) {}
 
+    virtual Register* ToRegister(void) {
+        return this;
+    }
+
     virtual std::string Repr(void) const;
 
     bool  Is(int tag) const {
@@ -149,11 +153,11 @@ public:
 
     ~Immediate(void) {}
 
-    virtual std::string Repr(void) const;
-
     virtual Immediate* ToImmediate(void) {
         return this;
     }
+
+    virtual std::string Repr(void) const;
 
     Constant* Cons(void) {
         return _cons;
@@ -186,11 +190,11 @@ public:
 
     ~Memory(void) {}
 
-    virtual std::string Repr(void) const;
-
     virtual Memory* ToMemory(void) {
         return this;
     }
+
+    virtual std::string Repr(void) const;
 
 private:
     Memory(int width, Register* base, int disp,
@@ -219,7 +223,7 @@ public:
 
     //Expression
     virtual Operand* GenBinaryOp(BinaryOp* binaryOp);
-    virtual Operand* GenUnaryOp(UnaryOp* unaryOp);
+    virtual Register* GenUnaryOp(UnaryOp* unaryOp);
     virtual Operand* GenConditionalOp(ConditionalOp* condOp);
     virtual Register* GenFuncCall(FuncCall* funcCall);
     virtual Register* GenObject(Object* obj);
@@ -255,14 +259,10 @@ public:
     void PushFuncArg(Expr* arg, ParamClass cls);
     void PushReturnAddr(int addr, Register* reg);
 
-    Register* AllocArgReg(void) {
-        if (_argRegUsed >= N_ARG_REG)
-            return nullptr;
+    Register* AllocArgReg(int width);
 
-        auto ret = _argRegs[_argRegUsed++];
-        //assert(!ret->Using());
-        return ret;
-    }
+    //std::vector<Register*> GetArgReg(std::vec)
+
 
     Register* AllocArgVecReg(void) {
         if (_argVecRegUsed >= N_ARG_VEC_REG)
@@ -277,6 +277,9 @@ public:
         _argStackOffset -= 8;
         return _argStackOffset;
     }
+
+    // May fail, return nullptr;
+    Register* TryAllocReg(Register* reg, int width);
 
     Register* AllocReg(int width, bool flt, Operand* except=nullptr);
     void Free(Operand* operand);
@@ -304,18 +307,24 @@ public:
     void Emit(const char* format, ...);
 
     // lhsWidth enabled only when lhs == rhs
-    void Emit(const std::string& inst, Operand* lhs, Operand* rhs, int lhsWidth=0);
+    void Emit(const std::string& inst, Register* lhs, Register* rhs);
+    void EmitCAST(const std::string& cast,
+        Register* des, Register* src, int desWidth=0);
+    void EmitLoad(Register* des, int src);
+    void EmitLoad(Register* des, Memory* src);
+    void EmitStore(Memory* des, Register* src);
+    
+    void EmitLEA(Register* des, Memory* src);
 
-    void EmitMOV(Operand* des, Operand* src) {}
-    void EmitLEA(Memory* mem, Register* reg);
     void EmitJE(LabelStmt* label);
     void EmitJNE(LabelStmt* label);
     void EmitJMP(LabelStmt* label);
+    void EmitLabel(LabelStmt* label);
+    
     //void EmitCMP(Immediate* lhs, Operand* rhs);
     void EmitCMP(int imm, Register* reg);
     void EmitPUSH(Operand* operand);
     void EmitPOP(Operand* operand);
-    void EmitLabel(LabelStmt* label);
     void EmitADD(Register* lhs, Register* rhs) {}
     void EmitADD(Register* reg, int imm) {}
 private:

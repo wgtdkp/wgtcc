@@ -2,7 +2,7 @@ int main(int argc, char** argv)
 {
     float f;
     double d;
-    d = f;
+    (double)f;
 
     //printf("%d\n", d);
     

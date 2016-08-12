@@ -383,11 +383,11 @@ Operand* Generator::GenAndOp(BinaryOp* binaryOp)
     EmitJE(labelFalse);
 
     auto ret = AllocReg(4, false);
-    EmitMOV(ret, immTrue);
+    EmitLoad(ret, 1);
     EmitJMP(labelTrue);
 
     EmitLabel(labelFalse);
-    EmitMOV(0, ret);
+    EmitLoad(ret, 0);
     EmitLabel(labelTrue);
 
     return ret;
@@ -410,11 +410,11 @@ Operand* Generator::GenOrOp(BinaryOp* binaryOp)
     EmitCMP(0, rhs);
     EmitJNE(labelTrue);
 
-    EmitMOV(0, ret);
+    EmitLoad(ret, 0);
     EmitJMP(labelFalse);
 
     EmitLabel(labelTrue);
-    EmitMOV(ret, immTrue);
+    EmitLoad(ret, 1);
     EmitLabel(labelFalse);
 
     return ret;
@@ -432,7 +432,7 @@ Register* Generator::GenSubScriptingOp(BinaryOp* binaryOp)
         auto disp = rhs->IVal() * width;
         if (derivedType->IsScalar()) {
             auto ret = AllocReg(width, derivedType->IsFloat());
-            EmitMOV(Memory::New(width, lhs, disp), ret);
+            EmitLoad(ret, Memory::New(width, lhs, disp));
             Free(lhs);
             return ret;
         } else {
@@ -444,12 +444,12 @@ Register* Generator::GenSubScriptingOp(BinaryOp* binaryOp)
     auto rhs = binaryOp->_rhs->Accept(this)->ToRegister();
     if (derivedType->IsScalar()) {
         auto ret = AllocReg(width, derivedType->IsFloat());
-        EmitMOV(Memory::New(width, lhs, 0, rhs, width), ret);
+        EmitLoad(ret, Memory::New(width, lhs, 0, rhs, width));
         Free(lhs);
         Free(rhs);
         return ret;
     } else {
-        EmitLEA(Memory::New(width, lhs, 0, rhs, width), lhs);
+        EmitLEA(lhs, Memory::New(width, lhs, 0, rhs, width));
         Free(rhs);
         return lhs;
     }
@@ -465,11 +465,11 @@ Register* Generator::GenMemberRefOp(BinaryOp* binaryOp)
 
     if (rhs->Type()->IsScalar()) {
         auto ret = AllocReg(width, rhs->Type()->IsFloat());
-        EmitMOV(Memory::New(width, lhs, rhs->Offset()), ret);
+        EmitLoad(ret, Memory::New(width, lhs, rhs->Offset()));
         Free(lhs);
         return ret;
     } else {
-        EmitLEA(Memory::New(width, lhs, rhs->Offset()), lhs);
+        EmitLEA(lhs, Memory::New(width, lhs, rhs->Offset()));
         return lhs;
     }
 }
@@ -493,9 +493,26 @@ Register* Generator::GenAddOp(BinaryOp* binaryOp)
 }
 
 
-Operand* Generator::GenUnaryOp(UnaryOp* unaryOp)
+Register* Generator::GenUnaryOp(UnaryOp* unaryOp)
 {
     // TODO(wgtdkp):
+    switch (unaryOp->_op) {
+    case Token::PREFIX_INC: break;
+    case Token::PREFIX_DEC: break;
+    case Token::POSTFIX_INC: break;
+    case Token::POSTFIX_DEC: break;
+    case Token::ADDR: break;
+    case Token::DEREF: break;
+    case Token::PLUS: break;
+    case Token::MINUS: break;
+    case '~': break;
+    case '!': break;
+    case Token::CAST:
+        return GenCastOp(unaryOp);
+        break;
+    default: Error("internal error");
+    }
+
     return nullptr;
 }
 
@@ -576,7 +593,7 @@ Register* Generator::GenCastOp(UnaryOp* castOp)
                 cast = "movss2sd";
             else
                 cast = "movsd2ss";
-            Emit(cast, src, src, desType->Width());
+            EmitCAST(cast, src, src, desType->Width());
             return src;
         }
         
@@ -600,7 +617,7 @@ Register* Generator::GenCastOp(UnaryOp* castOp)
             cast[5] = 'd';
         width = std::max(4, desArithmType->Width());
         auto des = AllocReg(width, false);
-        Emit(cast, des, src);
+        EmitCAST(cast, des, src);
         des->SetWidth(desArithmType->Width());
         Free(src);
         return des;
@@ -642,7 +659,7 @@ Register* Generator::GenCastOp(UnaryOp* castOp)
         default:
             Error("internal error: error width");
         }
-        Emit(cast, src, src, desArithmType->Width());
+        EmitCAST(cast, src, src, desArithmType->Width());
         if (srcArithmType->Tag() == T_INT
                 && (desArithmType->Tag() & T_LONG)) {
             Emit("cltq");
@@ -663,7 +680,7 @@ Register* Generator::GenCastOp(UnaryOp* castOp)
         auto des = AllocReg(desType->Width(), true);
         if (desType->Width() == 8)
             cast[7] = 'd';
-        Emit(cast, des, src);
+        EmitCAST(cast, des, src);
         Free(src);
         return des;
     }
@@ -671,12 +688,21 @@ Register* Generator::GenCastOp(UnaryOp* castOp)
 
 Register* Generator::GenObject(Object* obj)
 {
-    // TODO(wgtdkp):
-    //if (obj->Linkage() == L_NONE || obj->Storage() & S_STATIC) {
-    //    return Memory::New(obj->Type()->Width(), REG(RBP), obj->Offset());
-    //} else {
-    //    Error("internal error: not implemented yet");
-    //}
+    Memory* mem;
+    if (obj->Linkage() == L_NONE || obj->Storage() & S_STATIC) {
+        mem = Memory::New(obj->Type()->Width(), REG(RBP), obj->Offset());
+        if (obj->Type()->IsScalar()) {
+            auto reg = AllocReg(obj->Type()->Width(), obj->Type()->IsFloat());
+            EmitLoad(reg, mem);
+            return reg;
+        } else {
+            auto reg = AllocReg(8, false);
+            EmitLEA(reg, mem);
+            return reg;
+        }
+    } else {
+        Error("internal error: not implemented yet");
+    }
 
     return nullptr;
 }
@@ -696,6 +722,13 @@ Register* Generator::GenFuncCall(FuncCall* funcCall)
 
     Register* desReg = nullptr;
 
+
+    for (auto argReg: _argRegs) {
+        assert(!argReg->Allocated());
+    }
+
+    _argRegUsed = 0;
+    _argVecRegUsed = 0;
     // Prepare return value
     // TODO(wgtdkp): Tell the Caller where is the return value,
     // or the caller find it by himself?
@@ -704,21 +737,20 @@ Register* Generator::GenFuncCall(FuncCall* funcCall)
         // TODO(wgtdkp):
         // Alloc the return value on the stack
         auto addr = AllocArgStack();
-        auto reg = AllocArgReg();
+        auto reg = AllocArgReg(8);
         // Address of the return value 
         // should be treated as the first hidden param
         assert(reg->Is(Register::RDI));
         PushReturnAddr(addr, reg);
 
-        desReg = REG(RAX);
+        desReg = TryAllocReg(REG(RAX), 8);
     } else if (cls == ParamClass::SSE) {
-        desReg = REG(XMM0);
+        desReg = TryAllocReg(REG(XMM0), funcCall->Type()->Width());
     } else if (cls == ParamClass::INTEGER) {
-        desReg = REG(RAX);
+        desReg = TryAllocReg(REG(RAX), funcCall->Type()->Width());
     } else {
         assert(false);
     }
-
 
     // Prepare arguments
     for (auto arg: *args) {
@@ -746,7 +778,7 @@ void Generator::PushReturnAddr(int addr, Register* reg)
 void Generator::PushFuncArg(Expr* arg, ParamClass cls)
 {
     if (cls == ParamClass::INTEGER) {
-        auto reg = AllocArgReg();
+        auto reg = AllocArgReg(arg->Type()->Width());
         if (!reg) {
             // Push the argument on the stack
         } else {
@@ -833,7 +865,7 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
 
     // Save %rbp
     EmitPUSH(REG(RBP));
-    EmitMOV(REG(RSP), REG(RBP));
+    Emit(std::string("mov"), REG(RBP), REG(RSP));
 
 
     // Get offset to %rbp from Generator
@@ -880,7 +912,7 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
     for (auto param: params) {
         auto cls = Classify(param->Type());
         if (cls == ParamClass::INTEGER) {
-            auto reg = AllocArgReg();
+            auto reg = AllocArgReg(param->Type()->Width());
             if (reg == nullptr)
                 break;
             
@@ -889,11 +921,14 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
             param->SetOffset(Top());
 
             auto mem = Memory::New(width, REG(RBP), Top());
-            EmitMOV(reg, mem);
+            EmitStore(mem, reg);
 
             // It may be the return address
             if (reg->Is(Register::RDI))
                 retAddrMem = mem;
+        } else {
+            // TODO(wgtdkp):
+            Error("not implemented yet");
         }
     }
 
@@ -907,7 +942,7 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
     auto cls = Classify(funcDef->Type()->Derived());
     switch (cls) {
     case ParamClass::MEMORY:
-        EmitMOV(retAddrMem, REG(RAX));
+        EmitLoad(REG(RAX), retAddrMem);
         retReg = REG(RAX);
         break;
     case ParamClass::INTEGER:
@@ -937,6 +972,16 @@ void Generator::Gen(void)
     GenTranslationUnit(_parser->Unit());
 }
 
+static inline char Postfix(int width)
+{
+    switch (width) {
+    case 1: return 'b';
+    case 2: return 'w';
+    case 4: return 'l';
+    case 8: return 'q';
+    default: assert(false); return '\0';
+    }
+}
 
 void Generator::Emit(const char* format, ...)
 {
@@ -948,24 +993,52 @@ void Generator::Emit(const char* format, ...)
     fprintf(_outFile, "\t\n");
 }
 
-void Generator::Emit(const std::string& inst,
-        Operand* des, Operand* src, int desWidth)
+void Generator::EmitCAST(const std::string& cast,
+        Register* des, Register* src, int desWidth)
 {
     assert(des->Width() == src->Width());
     if (des != src) {
-        Emit("%s\t%s, %s", inst.c_str(), src->Repr().c_str(), des->Repr().c_str());
+        Emit("%s\t%s, %s", cast.c_str(), src->Repr().c_str(), des->Repr().c_str());
     } else {
         const char* srcRepr = src->Repr().c_str();
         des->SetWidth(desWidth);
         const char* desRepr = des->Repr().c_str();
-        Emit("%s\t%s, %s", inst.c_str(), srcRepr, desRepr);
+        Emit("%s\t%s, %s", cast.c_str(), srcRepr, desRepr);
     }
 }
 
-
-void Generator::EmitLEA(Memory* mem, Register* reg)
+void Generator::EmitLoad(Register* des, int src)
 {
-    Emit("lea\t%s, %s", mem->Repr().c_str(), reg->Repr().c_str());
+    assert(des->Width() == 4 || des->Width() == 8);
+    Emit("mov%c\t$%s, %s", Postfix(des->Width()), src, des->Repr().c_str());
+}
+
+
+void Generator::EmitLoad(Register* des, Memory* src)
+{
+    assert(des->Width() == src->Width());
+    Emit("mov%c\t%s, %s", Postfix(des->Width()),
+            src->Repr().c_str(), des->Repr().c_str());
+}
+
+void Generator::EmitStore(Memory* des, Register* src)
+{
+    assert(des->Width() == src->Width());
+    Emit("mov%c\t%s, %s", Postfix(des->Width()),
+            src->Repr().c_str(), des->Repr().c_str());
+}
+
+
+void Generator::Emit(const std::string& inst, Register* des, Register* src)
+{
+    assert(des->Width() == src->Width());
+    Emit("%s%c\t%s, %s", inst.c_str(), Postfix(src->Width()),
+            src->Repr().c_str(), des->Repr().c_str());
+}
+
+void Generator::EmitLEA(Register* des, Memory* src)
+{
+    Emit("lea\t%s, %s", src->Repr().c_str(), des->Repr().c_str());
 }
 
 void Generator::EmitJE(LabelStmt* label)
@@ -1027,17 +1100,18 @@ Register* Generator::AllocReg(int width, bool flt, Operand* except)
     };
     */
     Register* exceptReg[2] = {nullptr, nullptr};
-    if (except->ToRegister())
-        exceptReg[0] = except->ToRegister();
-    else if (except->ToMemory()) {
-        auto mem = except->ToMemory();
-        exceptReg[0] = mem->_base;
-        exceptReg[1] = mem->_index;
+    if (except){
+        if (except->ToRegister())
+            exceptReg[0] = except->ToRegister();
+        else if (except->ToMemory()) {
+            auto mem = except->ToMemory();
+            exceptReg[0] = mem->_base;
+            exceptReg[1] = mem->_index;
+        }
     }
 
     const std::vector<int>* pregs = flt ? &xregs: &regs; 
-    width = flt ? 8: width;
-    
+
     // Get free general purpose register
     for (auto tag: *pregs) {
         auto reg = Register::Get(tag);
@@ -1065,6 +1139,25 @@ Register* Generator::AllocReg(int width, bool flt, Operand* except)
     return nullptr; // Make compiler happy
 }
 
+Register* Generator::TryAllocReg(Register* reg, int width)
+{
+    if (reg->Allocated())
+        return nullptr;
+    reg->SetAllocated(true);
+    reg->SetWidth(width);
+    return reg;
+}
+
+Register* Generator::AllocArgReg(int width) {
+    if (_argRegUsed >= N_ARG_REG)
+        return nullptr;
+
+    auto ret = _argRegs[_argRegUsed++];
+    ret = TryAllocReg(ret, width);
+    assert(ret);
+    return ret;
+}
+
 void Generator::Free(Operand* operand)
 {
     if (operand == nullptr)
@@ -1088,7 +1181,7 @@ void Generator::Spill(Register* reg)
 
     Push(reg->Width(), reg->Width());
     auto mem = Memory::New(reg->Width(), REG(RBP), Top());
-    EmitMOV(reg, mem);
+    EmitStore(mem, reg);
     
     reg->AddSpill(mem);
     reg->SetAllocated(false);
@@ -1106,7 +1199,7 @@ void Generator::Reload(Register* reg)
     auto mem = reg->RemoveSpill();
     assert(offset == mem->_disp);
     reg->SetWidth(mem->Width());
-    EmitMOV(mem, reg);
+    EmitLoad(reg, mem);
 
     reg->SetAllocated(true);
 }
