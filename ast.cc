@@ -28,34 +28,29 @@ static MemPoolImp<FuncDef>         funcDefPool;
  */
 
 Operand* EmptyStmt::Accept(Generator* g) {
-    assert(false);
-    g->GenEmptyStmt(this);
+    //assert(false);
+    //g->GenEmptyStmt(this);
     return nullptr;
 }
 
 Operand* LabelStmt::Accept(Generator* g) {
-    g->GenLabelStmt(this);
-    return nullptr;
+    return g->GenLabelStmt(this);
 }
 
 Operand* IfStmt::Accept(Generator* g) {
-    g->GenIfStmt(this);
-    return nullptr;
+    return g->GenIfStmt(this);
 }
 
 Operand* JumpStmt::Accept(Generator* g) {
-    g->GenJumpStmt(this);
-    return nullptr;
+    return g->GenJumpStmt(this);
 }
 
 Operand* ReturnStmt::Accept(Generator* g) {
-    g->GenReturnStmt(this);
-    return nullptr;
+    return g->GenReturnStmt(this);
 }
 
 Operand* CompoundStmt::Accept(Generator* g) {
-    g->GenCompoundStmt(this);
-    return nullptr;
+    return g->GenCompoundStmt(this);
 }
 
 Operand* BinaryOp::Accept(Generator* g) {

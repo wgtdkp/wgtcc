@@ -40,18 +40,10 @@ public:
         return nullptr;
     }
 
-    int Width(void) {
-        return _width;
-    }
-
-    void SetWidth(int width) {
-        _width = width;
-    }
+    virtual int Width(void) = 0;
 
 protected:
-    explicit Operand(int width): _width(width) {}
-
-    int _width;
+    Operand(void) {}
 
     MemPool* _pool;
 };
@@ -83,7 +75,7 @@ public:
         RIP, N_REG
     };
 
-    ~Register(void) {}
+    virtual ~Register(void) {}
 
     virtual Register* ToRegister(void) {
         return this;
@@ -123,14 +115,22 @@ public:
         return ret;
     }
 
+    virtual int Width(void) {
+        return _width;
+    }
+
+    void SetWidth(int width) {
+        _width = width;
+    }
+
 private:
     static Register* New(int tag, int width=8);
     
     explicit Register(int tag, int width=8)
-            : Operand(width), _allocated(false),
-              _tag(tag) {}
-
+            : _allocated(false), _width(width), _tag(tag) {}
+    
     bool _allocated;
+    int _width;
     int _tag;
     std::vector<Memory*> _spills;
 
@@ -142,16 +142,9 @@ private:
 class Immediate: public Operand
 {
 public:
-    static Immediate* New(Constant* cons);
+    static Immediate* New(long val, int width=4);
 
-    static Immediate* New(int tag, long long val) {
-        //TODO(wgtdkp):
-        //auto cons = Constant::New(tag, val);
-        //return New(cons);
-        return nullptr;
-    }
-
-    ~Immediate(void) {}
+    virtual ~Immediate(void) {}
 
     virtual Immediate* ToImmediate(void) {
         return this;
@@ -159,15 +152,20 @@ public:
 
     virtual std::string Repr(void) const;
 
-    Constant* Cons(void) {
-        return _cons;
+    virtual int Width(void) {
+        return _width;
+    }
+
+    long Val(void) const {
+        return _val;
     }
 
 private:
-    explicit Immediate(Constant* cons)
-            : Operand(cons->Type()->Width()), _cons(cons) {}
+    explicit Immediate(long val, int width)
+            : _val(val), _width(width) {}
 
-    Constant* _cons;
+    long _val;
+    int _width;
 };
 
 
@@ -185,25 +183,29 @@ class Memory: public Operand
     friend class Generator;
 
 public:
-    static Memory* New(int width, Register* base, int disp,
+    static Memory* New(Type* type, Register* base, int disp,
             Register* index=nullptr, int scale=0);
 
-    ~Memory(void) {}
+    virtual ~Memory(void) {}
 
     virtual Memory* ToMemory(void) {
         return this;
+    }
+    
+    virtual int Width(void) {
+        return _type->Width();
     }
 
     virtual std::string Repr(void) const;
 
 private:
-    Memory(int width, Register* base, int disp,
+    Memory(Type* type, Register* base, int disp,
             Register* index=nullptr, int scale=0)
-            : Operand(width), _base(base),
-              _index(index), _scale(scale), _disp(disp) {}
+            : _type(type), _base(base), _index(index),
+              _scale(scale), _disp(disp) {}
 
     //Memory()
-
+    Type* _type;
     Register* _base;
     Register* _index;
     int _scale;
@@ -223,31 +225,29 @@ public:
 
     //Expression
     virtual Operand* GenBinaryOp(BinaryOp* binaryOp);
-    virtual Register* GenUnaryOp(UnaryOp* unaryOp);
+    virtual Operand* GenUnaryOp(UnaryOp* unaryOp);
     virtual Operand* GenConditionalOp(ConditionalOp* condOp);
     virtual Register* GenFuncCall(FuncCall* funcCall);
-    virtual Register* GenObject(Object* obj);
+    virtual Memory* GenObject(Object* obj);
     virtual Immediate* GenConstant(Constant* cons);
     virtual Register* GenTempVar(TempVar* tempVar);
 
-    Register* GenMemberRefOp(BinaryOp* binaryOp);
-    Register* GenSubScriptingOp(BinaryOp* binaryOp);
+    Memory* GenMemberRefOp(BinaryOp* binaryOp);
+    Memory* GenSubScriptingOp(BinaryOp* binaryOp);
     Operand* GenAndOp(BinaryOp* binaryOp);
     Operand* GenOrOp(BinaryOp* binaryOp);
     Register* GenAddOp(BinaryOp* binaryOp);
     Register* GenSubOp(BinaryOp* binaryOp);
-    Operand* GenAssignOp(BinaryOp* binaryOp);
+    Memory* GenAssignOp(BinaryOp* binaryOp);
     Register* GenCastOp(UnaryOp* cast);
-
+    Memory* GenDerefOp(UnaryOp* deref);
 
     //statement
-    virtual void GenStmt(Stmt* stmt);
-    virtual void GenIfStmt(IfStmt* ifStmt);
-    virtual void GenJumpStmt(JumpStmt* jumpStmt);
-    virtual void GenReturnStmt(ReturnStmt* returnStmt);
-    virtual void GenLabelStmt(LabelStmt* labelStmt);
-    virtual void GenEmptyStmt(EmptyStmt* emptyStmt);
-    virtual void GenCompoundStmt(CompoundStmt* compoundStmt);
+    virtual Operand* GenIfStmt(IfStmt* ifStmt);
+    virtual Operand* GenJumpStmt(JumpStmt* jumpStmt);
+    virtual Operand* GenReturnStmt(ReturnStmt* returnStmt);
+    virtual Operand* GenLabelStmt(LabelStmt* labelStmt);
+    virtual Operand* GenCompoundStmt(CompoundStmt* compoundStmt);
 
     //Function Definition
     virtual Register* GenFuncDef(FuncDef* funcDef);
@@ -304,14 +304,16 @@ public:
         return _offsets.back();
     }
 
+    Register* Load(Operand* operand);
+
     void Emit(const char* format, ...);
 
     // lhsWidth enabled only when lhs == rhs
-    void Emit(const std::string& inst, Register* lhs, Register* rhs);
+    void Emit(const std::string& inst, Register* des, Operand* src);
     void EmitCAST(const std::string& cast,
         Register* des, Register* src, int desWidth=0);
-    void EmitLoad(Register* des, int src);
-    void EmitLoad(Register* des, Memory* src);
+    void EmitLoad(const std::string& load, Register* des, Memory* src);
+    void EmitLoad(const std::string& load, Register* des, int src);
     void EmitStore(Memory* des, Register* src);
     
     void EmitLEA(Register* des, Memory* src);
@@ -325,8 +327,7 @@ public:
     void EmitCMP(int imm, Register* reg);
     void EmitPUSH(Operand* operand);
     void EmitPOP(Operand* operand);
-    void EmitADD(Register* lhs, Register* rhs) {}
-    void EmitADD(Register* reg, int imm) {}
+
 private:
     Parser* _parser;
     FILE* _outFile;
