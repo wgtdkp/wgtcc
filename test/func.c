@@ -1,10 +1,10 @@
 int main(int argc, char** argv)
 {
-    //f fp = (f)0;
-    short a, b, c;
-    a = 1;
-    b = 2;
-    c = 3;
+    float f;
+    double d;
+    d = f;
+
+    //printf("%d\n", d);
     
     return 0;
 }

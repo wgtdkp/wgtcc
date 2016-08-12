@@ -225,6 +225,14 @@ public:
         return _type;
     }
 
+    virtual Object* ToObject(void) {
+        return nullptr;
+    }
+
+    virtual Constant* ToConstant(void) {
+        return nullptr;
+    }
+
     virtual bool IsLVal(void) const = 0;
 
     virtual long long EvalInteger(const Token* errTok) = 0;
@@ -436,6 +444,10 @@ public:
     
     virtual Operand* Accept(Generator* g);
     
+    virtual Constant* ToConstant(void) {
+        return this;
+    }
+
     virtual bool IsLVal(void) const {
         return false;
     }
@@ -592,10 +604,6 @@ public:
         return false;
     }
 
-    virtual Object* ToObject(void) {
-        return nullptr;
-    }
-
     virtual long long EvalInteger(const Token* errTok);
 
     /*
@@ -656,13 +664,13 @@ public:
 
     virtual Operand* Accept(Generator* g);
     
+    virtual Object* ToObject(void) {
+        return this;
+    }
+
     virtual bool IsLVal(void) const {
         // TODO(wgtdkp): not all object is lval?
         return true;
-    }
-
-    virtual Object* ToObject(void) {
-        return this;
     }
 
     int Storage(void) const {

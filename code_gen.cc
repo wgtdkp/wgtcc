@@ -33,7 +33,8 @@ Register* Register::_regs[N_REG] = {
     New(R8), New(R9), New(R10), New(R11),
     New(R12), New(R13), New(R14), New(R15),
     New(XMM0), New(XMM1), New(XMM2), New(XMM3),
-    New(XMM4), New(XMM5), New(XMM6), New(XMM7)
+    New(XMM4), New(XMM5), New(XMM6), New(XMM7),
+    New(RIP)
 };
 
 const char* Register::_reprs[N_REG][4] = {
@@ -60,7 +61,8 @@ const char* Register::_reprs[N_REG][4] = {
     {"xmm4", "xmm4", "xmm4", "xmm4"},
     {"xmm5", "xmm5", "xmm5", "xmm5"},
     {"xmm6", "xmm6", "xmm6", "xmm6"},
-    {"xmm7", "xmm7", "xmm7", "xmm7"}
+    {"xmm7", "xmm7", "xmm7", "xmm7"},
+    {"rip", "rip", "rip", "rip"}
 };
 
 Register* Generator::_argRegs[N_ARG_REG] = {
@@ -95,6 +97,8 @@ std::string Register::Repr(void) const
 
     return std::string("%") + _reprs[_tag][idx];
 }
+
+
 
 
 /*
@@ -366,43 +370,24 @@ Operand* Generator::GenAndOp(BinaryOp* binaryOp)
 {
     LabelStmt* labelFalse = nullptr;
 
-    auto lhs = binaryOp->_lhs->Accept(this);
-    if (lhs->ToImmediate()) {
-        auto imm = lhs->ToImmediate();
-        auto cond = imm->Cons()->IVal();
-        if (cond == 0)
-            return immFalse;
-    } else {
-        EmitCMP(immFalse, lhs);
-        EmitJE(labelFalse = LabelStmt::New());
-    }
+    auto lhs = binaryOp->_lhs->Accept(this)->ToRegister();
 
-    auto ret = AllocReg(binaryOp);
+    EmitCMP(0, lhs);
+    EmitJE(labelFalse = LabelStmt::New());
 
     auto labelTrue = LabelStmt::New();
 
-    auto rhs = binaryOp->_rhs->Accept(this);
-    if (rhs->ToImmediate()) {
-        auto imm = rhs->ToImmediate();
-        auto cond = imm->Cons()->IVal();
-        if (cond == 0) {
-            // Do nothing
-        } else {
-            EmitMOV(immTrue, ret);
-            EmitJMP(labelTrue);
-        }
-    } else {
-        EmitCMP(immFalse, rhs);
-        if (labelFalse == nullptr)
-            labelFalse = LabelStmt::New();
-        EmitJE(labelFalse);
+    auto rhs = binaryOp->_rhs->Accept(this)->ToRegister();
+    
+    EmitCMP(0, rhs);
+    EmitJE(labelFalse);
 
-        EmitMOV(immTrue, ret);
-        EmitJMP(labelTrue);
-    }
+    auto ret = AllocReg(4, false);
+    EmitMOV(ret, immTrue);
+    EmitJMP(labelTrue);
 
     EmitLabel(labelFalse);
-    EmitMOV(immFalse, ret);
+    EmitMOV(0, ret);
     EmitLabel(labelTrue);
 
     return ret;
@@ -412,140 +397,290 @@ Operand* Generator::GenAndOp(BinaryOp* binaryOp)
 Operand* Generator::GenOrOp(BinaryOp* binaryOp)
 {
     LabelStmt* labelTrue = nullptr;
-    auto lhs = binaryOp->_lhs->Accept(this);
-    if (lhs->ToImmediate()) {
-        auto imm = lhs->ToImmediate();
-        auto cond = imm->Cons()->IVal();
-        if (cond)
-            return immTrue;
-    } else {
-        EmitCMP(immFalse, lhs);
-        EmitJNE(labelTrue = LabelStmt::New());
-    }
+    auto lhs = binaryOp->_lhs->Accept(this)->ToRegister();
+    EmitCMP(0, lhs);
+    EmitJNE(labelTrue = LabelStmt::New());
 
-    auto ret = AllocReg(binaryOp);
+    auto ret = AllocReg(4, false);
 
     auto labelFalse = LabelStmt::New();
 
-    auto rhs = binaryOp->_rhs->Accept(this);
-    if (rhs->ToImmediate()) {
-        auto imm = rhs->ToImmediate();
-        auto cond = imm->Cons()->IVal();
-        if (cond) {
-            // Do nothing
-        } else {
-            EmitMOV(immFalse, ret);
-            EmitJMP(labelFalse);
-        }
-    } else {
-        EmitCMP(immFalse, rhs);
-        if (labelTrue == nullptr)
-            labelTrue = LabelStmt::New();
-        EmitJNE(labelTrue);
+    auto rhs = binaryOp->_rhs->Accept(this)->ToRegister();
 
-        EmitMOV(immFalse, ret);
-        EmitJMP(labelFalse);
-    }
+    EmitCMP(0, rhs);
+    EmitJNE(labelTrue);
+
+    EmitMOV(0, ret);
+    EmitJMP(labelFalse);
 
     EmitLabel(labelTrue);
-    EmitMOV(immTrue, ret);
+    EmitMOV(ret, immTrue);
     EmitLabel(labelFalse);
 
     return ret;
 }
 
 
-Operand* Generator::GenSubScriptingOp(BinaryOp* binaryOp)
+Register* Generator::GenSubScriptingOp(BinaryOp* binaryOp)
 {
-    auto lhs = binaryOp->_lhs->Accept(this);
-    auto rhs = binaryOp->_rhs->Accept(this);
-    auto scale = binaryOp->_rhs->Type()->Width();
-
-    int disp;
-    Register* index;
-
-    if (rhs->ToMemory()) {
-        index = AllocReg(binaryOp->_rhs);
-        EmitMOV(rhs, index);
-    } else if (rhs->ToRegister()){
-        index = rhs->ToRegister();
-    } else {
-        disp = rhs->ToImmediate()->Cons()->IVal() * scale;
-    }
-
-    if (lhs->ToRegister()) {
-        // The register has the address of lhs
-        if (rhs->ToImmediate()) {
-            return Memory::New(scale, lhs->ToRegister(), disp);
+    auto lhs = binaryOp->_lhs->Accept(this)->ToRegister();
+    auto derivedType = binaryOp->_lhs->Type()->ToArrayType()->Derived();
+    auto width = derivedType->Width();
+    if (binaryOp->_rhs->ToConstant()) {
+        auto rhs = binaryOp->_rhs->ToConstant();
+        
+        auto disp = rhs->IVal() * width;
+        if (derivedType->IsScalar()) {
+            auto ret = AllocReg(width, derivedType->IsFloat());
+            EmitMOV(Memory::New(width, lhs, disp), ret);
+            Free(lhs);
+            return ret;
+        } else {
+            EmitADD(lhs, disp);
+            return lhs;
         }
-        return Memory::New(scale, lhs->ToRegister(), 0, index, scale);
     }
 
-    if (rhs->ToImmediate()) {
-        lhs->ToMemory()->_disp += disp;
+    auto rhs = binaryOp->_rhs->Accept(this)->ToRegister();
+    if (derivedType->IsScalar()) {
+        auto ret = AllocReg(width, derivedType->IsFloat());
+        EmitMOV(Memory::New(width, lhs, 0, rhs, width), ret);
+        Free(lhs);
+        Free(rhs);
+        return ret;
+    } else {
+        EmitLEA(Memory::New(width, lhs, 0, rhs, width), lhs);
+        Free(rhs);
         return lhs;
     }
-
-    // lhs is memory
-    auto base = AllocReg(binaryOp->_lhs, true);
-    EmitLEA(lhs->ToMemory(), base);
-    return Memory::New(scale, base, 0, index, scale);
 }
 
 // Generate no assembly code
-Operand* Generator::GenMemberRefOp(BinaryOp* binaryOp)
+Register* Generator::GenMemberRefOp(BinaryOp* binaryOp)
 {
-    auto lhs = binaryOp->_lhs->Accept(this);
-    auto rhs = binaryOp->_rhs->Accept(this)->ToMemory();
-    auto width = binaryOp->_rhs->Type()->Width();
-    assert(rhs);
+    auto lhs = binaryOp->_lhs->Accept(this)->ToRegister();
+    //auto rhs = binaryOp->_rhs->Accept(this)->ToMemory();
+    auto rhs = binaryOp->_rhs->ToObject();
+    auto width = rhs->Type()->Width();
 
-    if (lhs->ToRegister()) {
-        // Expression: int c = a->b;
-        // Translation:
-        //     leaq a(%rbp), %rax
-        //     movl b(%rax), %eax
-        //     movl %eax, c(%rbp)
-        return Memory::New(width, lhs->ToRegister(), rhs->_disp);
-    } else if (lhs->ToMemory()) {
-        // Expression: int c = a.b;
-        // Translation:
-        //     movl b+a(%rbp), %eax
-        //     movl %eax, c(%rbp)
-        auto operand = lhs->ToMemory();
-        operand->_disp += rhs->_disp;
-        return operand;
+    if (rhs->Type()->IsScalar()) {
+        auto ret = AllocReg(width, rhs->Type()->IsFloat());
+        EmitMOV(Memory::New(width, lhs, rhs->Offset()), ret);
+        Free(lhs);
+        return ret;
+    } else {
+        EmitLEA(Memory::New(width, lhs, rhs->Offset()), lhs);
+        return lhs;
     }
-
-    assert(false);
-    return nullptr; // Make compiler happy
 }
 
-/*
-Operand* Generator::GenAddOp(Expr* lhsExpr, Expr* rhsExpr)
+
+Register* Generator::GenAddOp(BinaryOp* binaryOp)
 {
     // Evaluate from left to right
+    auto lhs = binaryOp->_lhs->Accept(this)->ToRegister();
+    auto rhs = binaryOp->_rhs->Accept(this)->ToRegister();
+    
+    assert(lhs && rhs);
+    assert(lhs->Width() == rhs->Width());
 
-    if (!lhsOperand->ToRegister() && !rhsOperand->ToRegister()) {
-        auto reg = AllocReg();
-        EmitMOV(lhsOperand, reg);
-        lhsOperand = reg;
-    } else if (rhsOperand->ToRegister() && !lhsOperand->ToRegister()) {
-        // Instruction 'add' obeys commutative law
-        std::swap(lhsOperand, rhsOperand);
-    }
-
-    Emit("add", rhsOperand, lhsOperand);
-
-    return lhsOperand; // Must be a register
+    EmitADD(lhs, rhs);
+    
+    // We done calc 'lhs + rhs', if rhs has alloc any register,
+    // it will be freed.
+    Free(rhs);
+    return lhs; // Must be a register
 }
-*/
+
 
 Operand* Generator::GenUnaryOp(UnaryOp* unaryOp)
 {
     // TODO(wgtdkp):
     return nullptr;
 }
+
+
+/*
+ * desType and srcType must be scalar type
+ * It means that they are arithmetic type or pointer
+ */
+
+/* src: memory, des: register
+ * src: char,   des: float  --- movs(z)bl + cvtsi2ss
+ * src: short,  des: float  --- movs(z)wl + cvtsi2ss
+ * src: int,    des: float  --- cvtsi2ss
+ * src: long,   des: float  --- cvtsi2ssq  (src:long long)
+ * src: char, short, int , long     des: double --- cvtsi2sd
+ *
+ * src: float,  des: char   --- movss + cvttss2si + change width(1)
+ * src: float,  des: short  --- movss + cvttss2si + change width(2)
+ * src: float,  des: int    --- movss + cvttss2si
+ * src: float,  des: long   --- movss + cvttss2siq
+ * src: float,  des: unsigned char  --- cvttss2si + change width(1)
+ * src: float,  des: unsigned short --- cvttss2si + change width(2)
+ * src: float,  des: unsigned int   --- movss + cvttss2siq + change width(4)
+ * src: float,  des: unsigned long  --- too complicate, just use movss + cvttss2siq
+ * src: double, des: (unsigned) char, short, int, long, change 'ss' to 'sd'
+
+ * src: float,  des: double     --- cvtss2sd
+ * src: double, des: float      --- cvtsd2ss
+
+
+ * integer to integer
+ * char, char   --- movzbl + change width(1)
+ * char, short  --- movsbl + change width(2)
+ * char, int    --- movsbl
+ * char, long   --- movsbq
+ * unchage, if des is unsigned
+
+ * short, char   --- movzwl + change width(1)
+ * short, short  --- movzwl + change width(2)
+ * short, int    --- movswl
+ * short, long   --- movswq
+ * unchage, if des is unsigned
+
+ * int, char   --- movl + change width(1)
+ * int, short  --- movl + change width(2)
+ * int, int    --- movl
+ * int, long   --- movl + cltq + change width(8)
+ * unchage, if des is unsigned
+
+ * unsigned int, char   --- movl + change width(1)
+ * unsigned int, short  --- movl + change width(2)
+ * unsigned int, int    --- movl
+ * unsigned int, long   --- movl + change width(8)
+ * unchage, if des is unsigned
+
+ * long, char   --- movq + change width(1)
+ * long, short  --- movq + change width(2)
+ * long, int    --- movq + change width(4)
+ * long, long   --- movq
+ * unchage, if des is unsigned
+
+
+ */
+Register* Generator::GenCastOp(UnaryOp* castOp)
+{
+    auto src = castOp->_operand->Accept(this)->ToRegister();
+    auto desType = castOp->Type();
+    auto srcType = castOp->_operand->Type();
+    
+    std::string cast;
+
+    if (srcType->IsFloat()) {
+        if (desType->IsFloat()) {
+            if (srcType->Width() == desType->Width())
+                return src;
+
+            if (srcType->Width() == 4 && desType->Width() == 8)
+                cast = "movss2sd";
+            else
+                cast = "movsd2ss";
+            Emit(cast, src, src, desType->Width());
+            return src;
+        }
+        
+        auto desArithmType = desType->ToArithmType();
+        if (desType->ToPointerType())
+            desArithmType = Type::NewArithmType(T_LONG);
+
+        switch (desArithmType->Tag()) {
+        case T_CHAR: case T_SHORT: case T_INT:
+            cast = "cvttss2si"; break;
+        case T_LONG: case T_UNSIGNED: case T_UNSIGNED | T_LONG:
+            cast = "cvttss2siq"; break;
+        case T_UNSIGNED | T_CHAR: case T_UNSIGNED | T_SHORT:
+            cast = "cvttss2si"; break;
+        default: Error("internal error");
+        }
+
+        auto width = srcType->Width();
+
+        if (width == 8)
+            cast[5] = 'd';
+        width = std::max(4, desArithmType->Width());
+        auto des = AllocReg(width, false);
+        Emit(cast, des, src);
+        des->SetWidth(desArithmType->Width());
+        Free(src);
+        return des;
+    } if ((srcType->IsInteger() || srcType->ToPointerType())
+            && (desType->IsInteger() || desType->ToPointerType())) {
+        // char, short, int, long, long long
+        ArithmType* srcArithmType = srcType->ToArithmType();
+        ArithmType* desArithmType = desType->ToArithmType();
+        if (srcType->ToPointerType())
+            srcArithmType = Type::NewArithmType(T_LONG);
+        if (desType->ToPointerType())
+            desArithmType = Type::NewArithmType(T_LONG);
+
+        switch (srcArithmType->Width()) {
+        case 1:
+            switch (desArithmType->Width()) {
+            case 1: cast = "movzbl"; break;
+            case 2: case 4: cast = "movsbl"; break;
+            case 8: cast = "movsbq"; break;
+            default: Error("internal error");
+            }
+            if (srcArithmType->Tag() & T_UNSIGNED)
+                cast[3] = 'z';
+            break;
+        case 2:
+            switch (desArithmType->Width()) {
+            case 1: case 2: cast = "movzwl"; break;
+            case 4: cast = "movswl"; break;
+            case 8: cast = "movswq"; break;
+            default: Error("internal error");
+            }
+            if (srcArithmType->Tag() & T_UNSIGNED)
+                cast[3] = 'z';
+            break;
+        case 4:
+            cast = "movl"; break;
+        case 8:
+            cast = "movq"; break;
+        default:
+            Error("internal error: error width");
+        }
+        Emit(cast, src, src, desArithmType->Width());
+        if (srcArithmType->Tag() == T_INT
+                && (desArithmType->Tag() & T_LONG)) {
+            Emit("cltq");
+        }
+        return src;
+    } else {
+        assert(srcType->IsInteger());
+        assert(desType->IsFloat());
+
+        switch (srcType->Width()) {
+        case 1: cast = "cvtsi2ss"; break;
+        case 2: cast = "cvtsi2ss"; break;
+        case 4: cast = "cvtsi2ss"; break;
+        case 8: cast = "cvtsi2ssq"; break;
+        default: Error("internal error");
+        }
+
+        auto des = AllocReg(desType->Width(), true);
+        if (desType->Width() == 8)
+            cast[7] = 'd';
+        Emit(cast, des, src);
+        Free(src);
+        return des;
+    }
+}
+
+Register* Generator::GenObject(Object* obj)
+{
+    // TODO(wgtdkp):
+    //if (obj->Linkage() == L_NONE || obj->Storage() & S_STATIC) {
+    //    return Memory::New(obj->Type()->Width(), REG(RBP), obj->Offset());
+    //} else {
+    //    Error("internal error: not implemented yet");
+    //}
+
+    return nullptr;
+}
+
 
 Operand* Generator::GenConditionalOp(ConditionalOp* condOp)
 {
@@ -634,12 +769,6 @@ void Generator::PushFuncArg(Expr* arg, ParamClass cls)
     }
 }
 
-Memory* Generator::GenObject(Object* obj)
-{
-    // TODO(wgtdkp):
-    return nullptr;
-}
-
 Immediate* Generator::GenConstant(Constant* cons)
 {
     // TODO(wgtdkp):
@@ -700,7 +829,7 @@ public:
 //Function Definition
 Register* Generator::GenFuncDef(FuncDef* funcDef)
 {
-    Emit("%s:\n", funcDef->Type()->Name().c_str());
+    Emit("%s:", funcDef->Type()->Name().c_str());
 
     // Save %rbp
     EmitPUSH(REG(RBP));
@@ -728,21 +857,22 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
                 goto next;
         }
 
+        // TODO(wgtdkp):
+        // External and static objects are not allocated on stack
+
         heap.push(iter->second->ToObject());
     next:;
     }
 
-    int offset = _stackOffset;
-    assert(offset == 0);
+    assert(Top() == 0);
 
     // Alloc memory for objects
     while (!heap.empty()) {
         auto obj = heap.top();
         heap.pop();
 
-        offset -= obj->Type()->Width();
-        offset = Type::MakeAlign(offset, obj->Type()->Align());
-        obj->SetOffset(offset);
+        Push(obj->Type()->Width(), obj->Type()->Align());
+        obj->SetOffset(Top());
     }
 
     Memory* retAddrMem;
@@ -755,11 +885,10 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
                 break;
             
             auto width = param->Type()->Width();
-            offset -= width;
-            offset = Type::MakeAlign(offset, param->Type()->Align());
-            param->SetOffset(offset);
+            Push(width, param->Type()->Align());
+            param->SetOffset(Top());
 
-            auto mem = Memory::New(width, REG(RBP), offset);
+            auto mem = Memory::New(width, REG(RBP), Top());
             EmitMOV(reg, mem);
 
             // It may be the return address
@@ -767,8 +896,6 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
                 retAddrMem = mem;
         }
     }
-
-    _stackOffset = offset;
 
     // Gen body
     for (auto stmt: funcDef->Body()->Stmts()) {
@@ -813,79 +940,82 @@ void Generator::Gen(void)
 
 void Generator::Emit(const char* format, ...)
 {
+    fprintf(_outFile, "\t");
     va_list args;
     va_start(args, format);
     vfprintf(_outFile, format, args);
     va_end(args);
+    fprintf(_outFile, "\t\n");
 }
 
-void Generator::Emit(const char* inst, Operand* lhs, Operand* rhs)
+void Generator::Emit(const std::string& inst,
+        Operand* des, Operand* src, int desWidth)
 {
-    assert(lhs->Width() == rhs->Width());
-
-    Emit(inst);
-
-    // TODO(wgtdkp):
-    switch (rhs->Width()) {
-    case 1: Emit("b"); break;
-    case 2: Emit("w"); break;
-    case 4: Emit("l"); break;
-    case 8: Emit("q"); break;
-    default: assert(false);
+    assert(des->Width() == src->Width());
+    if (des != src) {
+        Emit("%s\t%s, %s", inst.c_str(), src->Repr().c_str(), des->Repr().c_str());
+    } else {
+        const char* srcRepr = src->Repr().c_str();
+        des->SetWidth(desWidth);
+        const char* desRepr = des->Repr().c_str();
+        Emit("%s\t%s, %s", inst.c_str(), srcRepr, desRepr);
     }
 }
 
-void Generator::EmitMOV(Operand* src, Operand* des)
-{
-    Emit("\tmov\t%s, %s\n", src->Repr().c_str(), des->Repr().c_str());
-}
 
 void Generator::EmitLEA(Memory* mem, Register* reg)
 {
-    Emit("\tlea\t%s, %s\n", mem->Repr().c_str(), reg->Repr().c_str());
+    Emit("lea\t%s, %s", mem->Repr().c_str(), reg->Repr().c_str());
 }
 
 void Generator::EmitJE(LabelStmt* label)
 {
-    Emit("\tje\t.l%d\n", label->Tag());
+    Emit("je\t.l%d", label->Tag());
 }
 
 void Generator::EmitJNE(LabelStmt* label)
 {
-    Emit("\tjne\t.l%d\n", label->Tag());
+    Emit("jne\t.l%d", label->Tag());
 }
 
 void Generator::EmitJMP(LabelStmt* label)
 {
-    Emit("\tjmp\t.l%d\n", label->Tag());
+    Emit("jmp\t.l%d", label->Tag());
 }
 
-void Generator::EmitCMP(Immediate* lhs, Operand* rhs)
+void Generator::EmitCMP(int imm, Register* reg)
 {
-    Emit("\tcmp\t%s, %s\n", lhs->Repr().c_str(), rhs->Repr().c_str());
+    Emit("cmp\t%d, %s", imm, reg->Repr().c_str());
 }
 
 void Generator::EmitPUSH(Operand* operand)
 {
-    Emit("\tpush\t%s\n", operand->Repr().c_str());
+    Emit("push\t%s", operand->Repr().c_str());
 }
 
 void Generator::EmitPOP(Operand* operand)
 {
-    Emit("\tpop\t%s\n", operand->Repr().c_str());
+    Emit("pop\t%s", operand->Repr().c_str());
 }
 
 void Generator::EmitLabel(LabelStmt* label)
 {
-    Emit(".l%d:\n", label->Tag());
+    Emit(".l%d:", label->Tag());
 }
 
-Register* Generator::AllocReg(Expr* expr, bool addr)
+
+Register* Generator::AllocReg(int width, bool flt, Operand* except)
 {
-    const static int callerSaved[] = {
+    const static std::vector<int> regs {
         Register::RAX, Register::RCX, Register::RDX,
         Register::RSI, Register::RDI, Register::R8,
         Register::R9, Register::R10, Register::R11
+    };
+
+    const static std::vector<int> xregs = {
+        Register::XMM0, Register::XMM1, Register::XMM2,
+        Register::XMM3, Register::XMM4, Register::XMM5,
+        Register::XMM6, Register::XMM7
     };
 
     // TODO(wgtdkp):
@@ -896,26 +1026,87 @@ Register* Generator::AllocReg(Expr* expr, bool addr)
         Register::RSP
     };
     */
+    Register* exceptReg[2] = {nullptr, nullptr};
+    if (except->ToRegister())
+        exceptReg[0] = except->ToRegister();
+    else if (except->ToMemory()) {
+        auto mem = except->ToMemory();
+        exceptReg[0] = mem->_base;
+        exceptReg[1] = mem->_index;
+    }
 
-    // Get free caller saved general purpose register
-    for (auto tag: callerSaved) {
+    const std::vector<int>* pregs = flt ? &xregs: &regs; 
+    width = flt ? 8: width;
+    
+    // Get free general purpose register
+    for (auto tag: *pregs) {
         auto reg = Register::Get(tag);
-        if (reg->Using())
+        if (reg->Allocated())
             continue;
-        reg->Bind(expr, addr ? 8: expr->Type()->Width());
+        reg->SetAllocated(true);
+        reg->SetWidth(width);
         return reg;
     }
 
-    // TODO(wgtdkp):
-    // Saved register to stack, and free it
+    // exceptReg could being used by lhs, 
+    // i don't want to spill out lhs
+    for (auto tag: *pregs) {
+        auto reg = Register::Get(tag);
+        if (reg == exceptReg[0] || reg == exceptReg[1])
+            continue;
+        Spill(reg);
+
+        reg->SetAllocated(true);
+        reg->SetWidth(width);
+        return reg;
+    }
+
     Error("internal error: no enough register");
     return nullptr; // Make compiler happy
 }
 
-void Generator::FreeReg(Register* reg)
+void Generator::Free(Operand* operand)
 {
-    if (!reg->Using()) {
-        Error("internal error: free register than is free");
+    if (operand == nullptr)
+        return;
+    if (operand->ToImmediate())
+        return;
+    if (operand->ToRegister()) {
+        operand->ToRegister()->SetAllocated(false);
+    } else {
+        auto mem = operand->ToMemory();
+        if (mem->_base != REG(RBP) && mem->_base != REG(RIP))
+            mem->_base->SetAllocated(false);
+        if (mem->_index)
+            mem->_base->SetAllocated(false);
     }
-    reg->Unbind();
+}
+
+void Generator::Spill(Register* reg)
+{
+    assert(reg->Allocated());
+
+    Push(reg->Width(), reg->Width());
+    auto mem = Memory::New(reg->Width(), REG(RBP), Top());
+    EmitMOV(reg, mem);
+    
+    reg->AddSpill(mem);
+    reg->SetAllocated(false);
+    
+}
+
+void Generator::Reload(Register* reg)
+{
+    assert(!reg->Allocated());
+    assert(reg->Spilled());
+
+    auto offset = Top();
+    Pop();
+
+    auto mem = reg->RemoveSpill();
+    assert(offset == mem->_disp);
+    reg->SetWidth(mem->Width());
+    EmitMOV(mem, reg);
+
+    reg->SetAllocated(true);
 }

@@ -80,7 +80,7 @@ public:
         R12, R13, R14, R15,
         XMM0, XMM1, XMM2, XMM3,
         XMM4, XMM5, XMM6, XMM7,
-        N_REG
+        RIP, N_REG
     };
 
     ~Register(void) {}
@@ -97,34 +97,38 @@ public:
         return _regs[tag];
     }
 
-    void Bind(::Expr* expr, int width=-1) {
-        _expr = expr;
-        if (width == -1)
-            _width = expr->Type()->Width();
-        else
-            _width = width;
+    bool Allocated(void) {
+        return _allocated;
     }
 
-    void Unbind(void) {
-        _expr = nullptr;
+    void SetAllocated(bool allocated) {
+        _allocated = allocated;
     }
 
-    ::Expr* Expr(void) {
-        return _expr;
+    bool Spilled(void) {
+        return _spills.size();
     }
 
-    bool Using(void) {
-        return _expr != nullptr;
+    void AddSpill(Memory* mem) {
+        _spills.push_back(mem);
+    }
+
+    Memory* RemoveSpill(void) {
+        auto ret = _spills.back();
+        _spills.pop_back();
+        return ret;
     }
 
 private:
     static Register* New(int tag, int width=8);
     
     explicit Register(int tag, int width=8)
-            : Operand(width), _tag(tag) {}
+            : Operand(width), _allocated(false),
+              _tag(tag) {}
 
-    ::Expr* _expr;
+    bool _allocated;
     int _tag;
+    std::vector<Memory*> _spills;
 
     static Register* _regs[N_REG];
     static const char* _reprs[N_REG][4];
@@ -211,24 +215,26 @@ public:
             : _parser(parser), _outFile(outFile),
               _desReg(Register::Get(Register::RAX)),
               _argRegUsed(0), _argVecRegUsed(0),
-              _argStackOffset(-8), _stackOffset(0) {}
+              _argStackOffset(-8) {}
 
     //Expression
     virtual Operand* GenBinaryOp(BinaryOp* binaryOp);
     virtual Operand* GenUnaryOp(UnaryOp* unaryOp);
     virtual Operand* GenConditionalOp(ConditionalOp* condOp);
     virtual Register* GenFuncCall(FuncCall* funcCall);
-    virtual Memory* GenObject(Object* obj);
+    virtual Register* GenObject(Object* obj);
     virtual Immediate* GenConstant(Constant* cons);
     virtual Register* GenTempVar(TempVar* tempVar);
 
-    Operand* GenMemberRefOp(BinaryOp* binaryOp);
-    Operand* GenSubScriptingOp(BinaryOp* binaryOp);
+    Register* GenMemberRefOp(BinaryOp* binaryOp);
+    Register* GenSubScriptingOp(BinaryOp* binaryOp);
     Operand* GenAndOp(BinaryOp* binaryOp);
     Operand* GenOrOp(BinaryOp* binaryOp);
     Register* GenAddOp(BinaryOp* binaryOp);
     Register* GenSubOp(BinaryOp* binaryOp);
     Operand* GenAssignOp(BinaryOp* binaryOp);
+    Register* GenCastOp(UnaryOp* cast);
+
 
     //statement
     virtual void GenStmt(Stmt* stmt);
@@ -272,27 +278,46 @@ public:
         return _argStackOffset;
     }
 
-    void SetDesReg(Register* desReg) {
-        //assert(!desReg->Using());
-        _desReg = desReg;
+    Register* AllocReg(int width, bool flt, Operand* except=nullptr);
+    void Free(Operand* operand);
+
+    void Spill(Register* reg);
+
+    void Reload(Register* reg);
+
+    void Push(int width, int align) {
+        auto offset = Top() - width;
+        offset = Type::MakeAlign(offset, align);
+        _offsets.push_back(offset);
     }
 
-    Register* AllocReg(Expr* expr, bool addr=false);
-    void FreeReg(Register* reg);
+    void Pop(void) {
+        assert(_offsets.size() > 1);
+        _offsets.pop_back();
+    }
+
+    int Top(void) {
+        assert(_offsets.size());
+        return _offsets.back();
+    }
 
     void Emit(const char* format, ...);
-    void Emit(const char* inst, Operand* lhs, Operand* rhs);
-    void EmitMOV(Operand* src, Operand* des);
-    //void EmitMOV(Register* src, Operand* des) {}
+
+    // lhsWidth enabled only when lhs == rhs
+    void Emit(const std::string& inst, Operand* lhs, Operand* rhs, int lhsWidth=0);
+
+    void EmitMOV(Operand* des, Operand* src) {}
     void EmitLEA(Memory* mem, Register* reg);
     void EmitJE(LabelStmt* label);
     void EmitJNE(LabelStmt* label);
     void EmitJMP(LabelStmt* label);
-    void EmitCMP(Immediate* lhs, Operand* rhs);
+    //void EmitCMP(Immediate* lhs, Operand* rhs);
+    void EmitCMP(int imm, Register* reg);
     void EmitPUSH(Operand* operand);
     void EmitPOP(Operand* operand);
     void EmitLabel(LabelStmt* label);
-
+    void EmitADD(Register* lhs, Register* rhs) {}
+    void EmitADD(Register* reg, int imm) {}
 private:
     Parser* _parser;
     FILE* _outFile;
@@ -310,7 +335,7 @@ private:
     // The stack pointer after pushed arguments on the stack 
     int _argStackOffset;
 
-    int _stackOffset;
+    std::vector<int> _offsets {0};
 
     static const int N_ARG_REG = 6;
     static Register* _argRegs[N_ARG_REG];
