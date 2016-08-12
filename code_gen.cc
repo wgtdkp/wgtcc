@@ -99,8 +99,6 @@ std::string Register::Repr(void) const
 }
 
 
-
-
 /*
  * Immediate
  */
@@ -126,63 +124,62 @@ std::string Immediate::Repr(void) const
  * Memory
  */
 
-Memory* Memory::New(Type* type, Register* base, int disp,
+Memory* Memory::New(bool isFloat, int width, Register* base, int disp,
         Register* index, int scale) {
     auto ret = new (memoryPool.Alloc())
-            Memory(type, base, disp, index, scale);
+            Memory(isFloat, width, base, disp, index, scale);
     ret->_pool = &memoryPool;
 
     return ret;
 }
 
-Register* Generator::Load(Operand* operand)
+Memory* Memory::New(Type* type, Register* base, int disp,
+        Register* index, int scale) {
+    auto ret = new (memoryPool.Alloc())
+            Memory(type->IsFloat(), type->Width(), base, disp, index, scale);
+    ret->_pool = &memoryPool;
+
+    return ret;
+}
+
+
+Register* Generator::Load(Register* des, Operand* src)
 {
     std::string load;
-    Register* reg;
-    if (operand->ToRegister()) {
-        return operand->ToRegister();
-    } else if (operand->ToImmediate()) {
-        auto imm = operand->ToImmediate();
-        reg = AllocReg(imm->Width(), false);
+    if (src->ToRegister()) {
+        return src->ToRegister();
+    } else if (src->ToImmediate()) {
+        auto imm = src->ToImmediate();
+        if (des == nullptr)
+            des = AllocReg(imm->Width(), false);
         load = imm->Width() == 4 ? "movl": "movq";
-        EmitLoad(load, reg, imm->Val());
-        return reg;
+        EmitLoad(load, des, imm->Val());
+        return des;
     }
 
-    auto mem = operand->ToMemory();
-
-    if (mem->_type->IsScalar()) {
-        if (mem->_type->IsFloat()) {
-            reg = AllocReg(mem->Width(), true);
-            if (mem->Width() == 4)
-                load = "movss";
-            else
-                load = "movsd";
-        } else {
-            reg = AllocReg(mem->Width(), false);
-            switch (mem->Width()) {
-            case 1: load = "movb"; break;
-            case 2: load = "movw"; break;
-            case 4: load = "movl"; break;
-            case 8: load = "movq"; break;
-            }
-        }
-        EmitLoad(load, reg, mem);
-        return reg;
+    auto mem = src->ToMemory();
+    if (des == nullptr) {
+        des = AllocReg(mem->Width(), mem->IsFloat());
+        _except = des;
+    }
+    if (mem->IsFloat()) {
+        if (mem->Width() == 4)
+            load = "movss";
+        else
+            load = "movsd";
     } else {
-        Register* reg;
-        if (mem->_index) {
-            reg = mem->_index;
-            Free(mem->_base);
-        } else if (mem->_base && mem->_base != REG(RBP) && mem->_base != REG(RIP)) {
-            reg = mem->_base;
-        } else {
-            reg = AllocReg(8, false);
-            Free(mem->_base);            
+        switch (mem->Width()) {
+        case 1: load = "movb"; break;
+        case 2: load = "movw"; break;
+        case 4: load = "movl"; break;
+        case 8: load = "movq"; break;
         }
-        EmitLEA(reg, mem);
-        return reg;
     }
+    EmitLoad(load, des, mem);
+
+    return des;
+
+    // We will never load a struct/union
 }
 
 std::string Memory::Repr(void) const
@@ -392,9 +389,10 @@ Memory* Generator::GenAssignOp(BinaryOp* assign)
 {
     // TODO(wgtdkp):
     auto lhs = assign->_lhs->Accept(this)->ToMemory();
-    auto rhs = Load(assign->_rhs->Accept(this));
-    assert(lhs);
+    auto rhs = Load(nullptr, assign->_rhs->Accept(this));
 
+    assert(lhs);    
+    
     if (assign->Type()->IsScalar()) {
         EmitStore(lhs, rhs);
     } else {
@@ -427,24 +425,26 @@ Operand* Generator::GenAndOp(BinaryOp* binaryOp)
 {
     LabelStmt* labelFalse = nullptr;
 
-    auto lhs = binaryOp->_lhs->Accept(this)->ToRegister();
+    auto lhs = Load(nullptr, binaryOp->_lhs->Accept(this));
 
     EmitCMP(0, lhs);
+    Free(lhs);
     EmitJE(labelFalse = LabelStmt::New());
 
     auto labelTrue = LabelStmt::New();
 
-    auto rhs = binaryOp->_rhs->Accept(this)->ToRegister();
-    
+    auto rhs = Load(nullptr, binaryOp->_rhs->Accept(this));
+
     EmitCMP(0, rhs);
+    Free(rhs); 
+
     EmitJE(labelFalse);
 
-    auto ret = Load(immTrue);
+    auto ret = Load(nullptr, immTrue);
     EmitJMP(labelTrue);
 
     EmitLabel(labelFalse);
-    Free(ret); // So the next load() will load into the same register
-    ret = Load(immFalse);
+    Load(ret, immFalse);
     EmitLabel(labelTrue);
 
     return ret;
@@ -454,23 +454,26 @@ Operand* Generator::GenAndOp(BinaryOp* binaryOp)
 Operand* Generator::GenOrOp(BinaryOp* binaryOp)
 {
     LabelStmt* labelTrue = nullptr;
-    auto lhs = binaryOp->_lhs->Accept(this)->ToRegister();
+    
+    auto lhs = Load(nullptr, binaryOp->_lhs->Accept(this));
     EmitCMP(0, lhs);
+    Free(lhs);
+
     EmitJNE(labelTrue = LabelStmt::New());
 
     auto labelFalse = LabelStmt::New();
 
-    auto rhs = binaryOp->_rhs->Accept(this)->ToRegister();
+    auto rhs = Load(nullptr, binaryOp->_rhs->Accept(this));
 
     EmitCMP(0, rhs);
+    Free(rhs);
     EmitJNE(labelTrue);
 
-    auto ret = Load(immFalse);
+    auto ret = Load(nullptr, immFalse);
     EmitJMP(labelFalse);
 
     EmitLabel(labelTrue);
-    Free(ret);
-    ret = Load(immTrue);
+    Load(ret, immTrue);
     EmitLabel(labelFalse);
 
     return ret;
@@ -488,20 +491,24 @@ Memory* Generator::GenSubScriptingOp(BinaryOp* subScript)
         auto rhs = subScript->_rhs->ToConstant();
         auto disp = rhs->IVal() * width;
         lhs->_disp += disp;
-        lhs->_type = derivedType;
+        lhs->_isFloat = derivedType->IsFloat();
+        lhs->_width = derivedType->Width();
         return  lhs;        
     }
 
-    auto rhs = Load(subScript->_rhs->Accept(this));
+    auto rhs = Load(nullptr, subScript->_rhs->Accept(this));
     if (lhs->_index == nullptr) {
         lhs->_index = rhs;
         lhs->_scale = width;
+        lhs->_isFloat = derivedType->IsFloat();
+        lhs->_width = derivedType->Width();
         return  lhs;
     }
 
     auto reg = lhs->_index;
     EmitLEA(reg, lhs);
     Free(lhs->_base);
+
     return Memory::New(derivedType, reg, 0, rhs, width);
 }
 
@@ -513,17 +520,18 @@ Memory* Generator::GenMemberRefOp(BinaryOp* binaryOp)
     assert(lhs);
 
     lhs->_disp += rhs->Offset();
-    lhs->_type = rhs->Type();
+    lhs->_isFloat = rhs->Type()->IsFloat();
+    lhs->_width = rhs->Type()->Width();
     return lhs;
 }
 
 
 Register* Generator::GenAddOp(BinaryOp* binaryOp)
 {
-    // Evaluate from right to left
-    // Because the left always consume at least one register
+    // Evaluate from left to right
+    auto lhs = Load(nullptr, binaryOp->_lhs->Accept(this));
     auto rhs = binaryOp->_rhs->Accept(this);
-    auto lhs = Load(binaryOp->_lhs->Accept(this));
+    
     
     
     assert(lhs && rhs);
@@ -565,7 +573,8 @@ Operand* Generator::GenUnaryOp(UnaryOp* unaryOp)
 
 Memory* Generator::GenDerefOp(UnaryOp* deref)
 {
-    auto addr = Load(deref->_operand->Accept(this));
+    auto addr = Load(nullptr, deref->_operand->Accept(this));
+
     return Memory::New(deref->Type(), addr, 0);
 }
 
@@ -631,7 +640,7 @@ Memory* Generator::GenDerefOp(UnaryOp* deref)
  */
 Register* Generator::GenCastOp(UnaryOp* castOp)
 {
-    auto src = Load(castOp->_operand->Accept(this));
+    auto src = Load(nullptr, castOp->_operand->Accept(this));
     auto desType = castOp->Type();
     auto srcType = castOp->_operand->Type();
     
@@ -1006,11 +1015,16 @@ Register* Generator::GenFuncDef(FuncDef* funcDef)
 }
 
 //Translation Unit
-void Generator::GenTranslationUnit(TranslationUnit* unit)
+Operand* Generator::GenTranslationUnit(TranslationUnit* unit)
 {
+    // Setup env
+    REG(RBP)->SetAllocated(true);
+    REG(RIP)->SetAllocated(true);
+
      for (auto node: unit->ExtDecls()) {
          node->Accept(this);
      }
+     return nullptr;
 }
 
 void Generator::Gen(void)
@@ -1124,13 +1138,33 @@ void Generator::EmitLabel(LabelStmt* label)
     fprintf(_outFile, ".L%d:\n", label->Tag());
 }
 
+/*
+void Generator::Fix(Operand*& first, Operand*& second)
+{
+    if (second->ToImmediate())
+        return;
+    if (first->ToImmediate())
+        return;
 
-Register* Generator::AllocReg(int width, bool flt, Operand* except)
+    if (second->ToRegister()) {
+        if (first == second) {
+            auto r11 = REG(R11);
+            r11->SetWidth(second->Width());
+            Emit("mov", r11, second);
+            Free(second);
+        }
+    }
+}
+*/
+
+Register* Generator::AllocReg(int width, bool flt)
 {
     const static std::vector<int> regs {
         Register::RAX, Register::RCX, Register::RDX,
         Register::RSI, Register::RDI, Register::R8,
-        Register::R9, Register::R10, Register::R11
+        Register::R9, Register::R10
+        // %R11 is reserved to resolve conflict
+        /*, Register::R11*/
     };
 
     const static std::vector<int> xregs = {
@@ -1148,15 +1182,20 @@ Register* Generator::AllocReg(int width, bool flt, Operand* except)
     };
     */
     Register* exceptReg[2] = {nullptr, nullptr};
-    if (except){
-        if (except->ToRegister())
-            exceptReg[0] = except->ToRegister();
-        else if (except->ToMemory()) {
-            auto mem = except->ToMemory();
+    if (_except) {
+        if (_except->ToRegister())
+            exceptReg[0] = _except->ToRegister();
+        else if (_except->ToMemory()) {
+            auto mem = _except->ToMemory();
             exceptReg[0] = mem->_base;
             exceptReg[1] = mem->_index;
         }
     }
+
+    if (exceptReg[0])
+        assert(exceptReg[0]->Allocated());
+    if (exceptReg[1])
+        assert(exceptReg[1]->Allocated());
 
     const std::vector<int>* pregs = flt ? &xregs: &regs; 
 
@@ -1215,8 +1254,12 @@ void Generator::Free(Operand* operand)
 
     Register* reg;
     if ((reg = operand->ToRegister())) {
-        if (reg != REG(RBP) && reg != REG(RIP))
-            reg->SetAllocated(false);
+        if (reg == REG(RBP) || reg == REG(RIP))
+            return;
+
+        reg->SetAllocated(false);
+        if (reg->Spilled())
+            Reload(reg);
     } else {
         auto mem = operand->ToMemory();
         Free(mem->_base);
@@ -1230,14 +1273,11 @@ void Generator::Spill(Register* reg)
     assert(reg->Allocated());
 
     Push(reg->Width(), reg->Width());
-    // TODO(wgtdkp): 
-    Error("not implemented yet");
-    //auto mem = Memory::New(reg->Width(), REG(RBP), Top());
-    //EmitStore(mem, reg);
+    auto mem = Memory::New(reg->IsXReg(), reg->Width(), REG(RBP), Top());
+    EmitStore(mem, reg);
     
-    //reg->AddSpill(mem);
+    reg->AddSpill(mem);
     reg->SetAllocated(false);
-    
 }
 
 void Generator::Reload(Register* reg)
@@ -1251,9 +1291,7 @@ void Generator::Reload(Register* reg)
     auto mem = reg->RemoveSpill();
     assert(offset == mem->_disp);
     reg->SetWidth(mem->Width());
-    // TODO(wgtdkp): 
-    Error("not implemented yet"); 
-    //EmitLoad(reg, mem);
+    Load(reg, mem);
 
     reg->SetAllocated(true);
 }

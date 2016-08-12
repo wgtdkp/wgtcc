@@ -34,61 +34,87 @@ Operand* EmptyStmt::Accept(Generator* g) {
 }
 
 Operand* LabelStmt::Accept(Generator* g) {
-    return g->GenLabelStmt(this);
+    auto ret = g->GenLabelStmt(this);
+    
+    return ret;
 }
 
 Operand* IfStmt::Accept(Generator* g) {
-    return g->GenIfStmt(this);
+    auto ret = g->GenIfStmt(this);
+    g->SetExcept(nullptr);
+    return ret;
 }
 
 Operand* JumpStmt::Accept(Generator* g) {
-    return g->GenJumpStmt(this);
+    auto ret = g->GenJumpStmt(this);
+    
+    return ret;
 }
 
 Operand* ReturnStmt::Accept(Generator* g) {
-    return g->GenReturnStmt(this);
+    auto ret = g->GenReturnStmt(this);
+    
+    return ret;
 }
 
 Operand* CompoundStmt::Accept(Generator* g) {
-    return g->GenCompoundStmt(this);
+    auto ret = g->GenCompoundStmt(this);
+    
+    return ret;
 }
 
 Operand* BinaryOp::Accept(Generator* g) {
-    return g->GenBinaryOp(this);
+    auto ret = g->GenBinaryOp(this);
+    
+    return ret;
 }
 
 Operand* UnaryOp::Accept(Generator* g) {
-    return g->GenUnaryOp(this);
+    auto ret = g->GenUnaryOp(this);
+    
+    return ret;
 }
 
 Operand* ConditionalOp::Accept(Generator* g) {
-    return g->GenConditionalOp(this);
+    auto ret = g->GenConditionalOp(this);
+    
+    return ret;
 }
 
 Operand* FuncCall::Accept(Generator* g) { 
-    return g->GenFuncCall(this);
+    auto ret = g->GenFuncCall(this);
+    
+    return ret;
 }
 
 Operand* Object::Accept(Generator* g) {
-    return g->GenObject(this);
+    auto ret = g->GenObject(this);
+    
+    return ret;
 }
 
 Operand* Constant::Accept(Generator* g) {
-    return g->GenConstant(this);
+    auto ret = g->GenConstant(this);
+    
+    return ret;
 }
 
 Operand* TempVar::Accept(Generator* g) {
-    return g->GenTempVar(this);
+    auto ret = g->GenTempVar(this);
+    
+    return ret;
 }
 
 Operand* FuncDef::Accept(Generator* g) {
-    g->GenFuncDef(this);
-    return nullptr;
+    auto ret = g->GenFuncDef(this);
+    
+    return ret;
 }
 
 Operand* TranslationUnit::Accept(Generator* g) {
-    g->GenTranslationUnit(this);
-    return nullptr;
+    auto ret = g->GenTranslationUnit(this);
+    
+    return ret;
 }
 
 

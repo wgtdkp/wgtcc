@@ -40,11 +40,14 @@ public:
         return nullptr;
     }
 
-    virtual int Width(void) = 0;
+    int Width(void) const {
+        return _width;
+    }
 
 protected:
-    Operand(void) {}
+    Operand(int width): _width(width) {}
 
+    int _width;
     MemPool* _pool;
 };
 
@@ -115,22 +118,21 @@ public:
         return ret;
     }
 
-    virtual int Width(void) {
-        return _width;
-    }
-
     void SetWidth(int width) {
         _width = width;
+    }
+
+    bool IsXReg(void) const {
+        return Register::XMM0 <= _tag && _tag <= Register::XMM7;
     }
 
 private:
     static Register* New(int tag, int width=8);
     
     explicit Register(int tag, int width=8)
-            : _allocated(false), _width(width), _tag(tag) {}
+            : Operand(width), _allocated(false), _tag(tag) {}
     
     bool _allocated;
-    int _width;
     int _tag;
     std::vector<Memory*> _spills;
 
@@ -152,20 +154,15 @@ public:
 
     virtual std::string Repr(void) const;
 
-    virtual int Width(void) {
-        return _width;
-    }
-
     long Val(void) const {
         return _val;
     }
 
 private:
     explicit Immediate(long val, int width)
-            : _val(val), _width(width) {}
+            : Operand(width), _val(val) {}
 
     long _val;
-    int _width;
 };
 
 
@@ -183,29 +180,32 @@ class Memory: public Operand
     friend class Generator;
 
 public:
-    static Memory* New(Type* type, Register* base, int disp,
+    static Memory* New(bool isFloat, int width, Register* base, int disp,
             Register* index=nullptr, int scale=0);
+
+    static Memory* New(Type* type, Register* base, int disp,
+        Register* index=nullptr, int scale=0);
 
     virtual ~Memory(void) {}
 
     virtual Memory* ToMemory(void) {
         return this;
     }
-    
-    virtual int Width(void) {
-        return _type->Width();
+
+    bool IsFloat(void) const {
+        return _isFloat;
     }
 
     virtual std::string Repr(void) const;
 
 private:
-    Memory(Type* type, Register* base, int disp,
+    Memory(bool isFloat, int width, Register* base, int disp,
             Register* index=nullptr, int scale=0)
-            : _type(type), _base(base), _index(index),
-              _scale(scale), _disp(disp) {}
+            : Operand(width), _isFloat(isFloat), 
+              _base(base), _index(index), _scale(scale), _disp(disp) {}
 
     //Memory()
-    Type* _type;
+    bool _isFloat;
     Register* _base;
     Register* _index;
     int _scale;
@@ -253,7 +253,7 @@ public:
     virtual Register* GenFuncDef(FuncDef* funcDef);
 
     //Translation Unit
-    virtual void GenTranslationUnit(TranslationUnit* unit);
+    virtual Operand* GenTranslationUnit(TranslationUnit* unit);
     void Gen(void);
 
     void PushFuncArg(Expr* arg, ParamClass cls);
@@ -281,7 +281,7 @@ public:
     // May fail, return nullptr;
     Register* TryAllocReg(Register* reg, int width);
 
-    Register* AllocReg(int width, bool flt, Operand* except=nullptr);
+    Register* AllocReg(int width, bool flt);
     void Free(Operand* operand);
 
     void Spill(Register* reg);
@@ -304,7 +304,11 @@ public:
         return _offsets.back();
     }
 
-    Register* Load(Operand* operand);
+    void SetExcept(Operand* except) {
+        _except = except;
+    }
+
+    Register* Load(Register* des, Operand* src);
 
     void Emit(const char* format, ...);
 
@@ -346,6 +350,8 @@ private:
     int _argStackOffset;
 
     std::vector<int> _offsets {0};
+
+    Operand* _except;
 
     static const int N_ARG_REG = 6;
     static Register* _argRegs[N_ARG_REG];
