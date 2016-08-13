@@ -1,24 +1,22 @@
 #include <stdio.h>
+#include <stdarg.h>
 
-int main(int argc, char** argv)
+int test(int a1, int a2, int a3, int a4, int a5, int a6, int a7, ...)
 {
-    int a, b, c, d, e, f, g, h, i, j, k;
-    a = 1;
-    b = 2;
-    c = 3;
-    d = 4;
-    e = 5;
-    f = 6;
-    g = 7;
-    h = 8;
-    i = 9;
-    j = 10;
-    k = 11;
+    va_list args;
+    va_start(args, a7);
+    int i1 = va_arg(args, int);
+    va_end(args);
 
-    //a = (a + (b + (c + (d + (e + (f + (g + (h + (i + j)))))))));
-    a = (a + b) + (c + d);
-    
-    printf("%d\n", a);
+    return 0;
+}
+
+int testl(long a1, long a2, long a3, long a4, long a5, long a6, long a7, ...)
+{
+    va_list args;
+    va_start(args, a7);
+    int i1 = va_arg(args, int);
+    va_end(args);
 
     return 0;
 }
