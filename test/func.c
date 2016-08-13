@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 int main(int argc, char** argv)
 {
     int a, b, c, d, e, f, g, h, i, j, k;
@@ -13,7 +15,10 @@ int main(int argc, char** argv)
     j = 10;
     k = 11;
 
-    a = (a + (b + (c + (d + (e + (f + (g + (h + (i + j)))))))));
+    //a = (a + (b + (c + (d + (e + (f + (g + (h + (i + j)))))))));
+    a = (a + b) + (c + d);
     
+    printf("%d\n", a);
+
     return 0;
 }

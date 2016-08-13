@@ -879,7 +879,9 @@ void Preprocessor::Init(void)
     AddSearchPath("/usr/include/linux");
     AddSearchPath("/usr/include/x86_64-linux-gnu");
     AddSearchPath("/usr/local/include");
-    
+    AddSearchPath("/home/wgtdkp/wgtcc/include");
+
+
     AddMacro("__FILE__", new std::string("\"" + *_curFileName + "\""), true);
     AddMacro("__LINE__", new std::string(std::to_string(_curLine)), true);
     AddMacro("__DATE__", Date(), true);

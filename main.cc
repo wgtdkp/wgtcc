@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
 
     // Parsing
     Parser parser(tokSeq);
-    parser.ParseTranslationUnit();
+    parser.Parse();
     
     // CodeGen
     Generator g(&parser, stdout);

@@ -55,6 +55,13 @@ void Parser::EnterBlock(FuncType* funcType)
     }
 }
 
+void Parser::Parse(void)
+{
+    
+
+    
+    ParseTranslationUnit();
+}
 
 void Parser::ParseTranslationUnit(void)
 {
