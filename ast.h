@@ -278,7 +278,12 @@ public:
     
     //like member ref operator is a lvalue
     virtual bool IsLVal(void) const {
-        return false;
+        switch (_op) {
+        case '.': case ']': case '*':
+            return true;
+        default:
+            return false;
+        }
     }
 
     virtual long long EvalInteger(const Token* errTok);

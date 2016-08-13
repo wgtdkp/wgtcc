@@ -33,7 +33,7 @@ public:
     Expr* ParseString(const Token* tok);
     Expr* ParseGeneric(void);
 
-    void Parser::Parse(void);
+    void Parse(void);
     void ParseTranslationUnit(void);
     FuncDef* ParseFuncDef(Token* tok, FuncType* funcType);
     /************ Expressions ************/

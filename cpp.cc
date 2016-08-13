@@ -30,15 +30,16 @@ static const DirectiveMap directiveMap = {
  *     is: input token sequence
  *     os: output token sequence
  */
-void Preprocessor::Expand(TokenSeq& os, TokenSeq& is)
+void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
 {
     Macro* macro = nullptr;
     int direcitve;
     while (!is.Empty()) {
         auto name = is.Peek()->Str();
+
         if ((direcitve = GetDirective(is)) != Token::INVALID) {
             ParseDirective(os, is, direcitve);
-        } else if (!NeedExpand()) {
+        } else if (!inCond && !NeedExpand()) {
             is.Next();
         } else if (Hidden(name)) {
             os.InsertBack(is.Peek());
@@ -247,16 +248,16 @@ void Preprocessor::Stringize(char*& begin, char*& end, TokenSeq is)
 void Preprocessor::Stringize(std::string& str, TokenSeq is)
 {
     unsigned line = 1;
-    unsigned maxLine = 1;
+    //unsigned maxLine = 1;
 
     while (!is.Empty()) {
         auto tok = is.Peek();
         
         if (is.IsBeginOfLine()) {
-            if (tok->_line > maxLine) {
+            //if (tok->_line > maxLine) {
                 str.push_back('\n');
-                maxLine = tok->_line;
-            }
+                //maxLine = tok->_line;
+            //}
         }
 
         line = tok->_line;
@@ -277,7 +278,12 @@ void HSAdd(TokenSeq& ts, HideSet& hs)
 void Preprocessor::Process(TokenSeq& os)
 {
     TokenSeq is;
+    // Add source file
     IncludeFile(is, _curFileName);
+    // Add predefined
+    Init(is);
+
+
 
     std::string str;
     Stringize(str, is);
@@ -487,17 +493,8 @@ void Preprocessor::ParseDirective(TokenSeq& os, TokenSeq& is, int directive)
             assert(false);
         }
 
-        if (NeedExpand())
-            os.InsertBack(ls);
-
         //if (NeedExpand())
-        //    break;
-        //while (!is.Empty()) {
-        //    if ((direcitve = GetDirective(is)) != Token::INVALID)
-        //        break;
-        //    is.Next();
-        //}
-    //}
+        //    os.InsertBack(ls);
 }
 
 void Preprocessor::ParsePragma(TokenSeq ls)
@@ -562,15 +559,9 @@ void Preprocessor::ParseIf(TokenSeq ls)
 
     TokenSeq ts;
     ReplaceDefOp(ls);
-    TokenSeq tmp = ls;
-    Expand(ts, ls);
+    Expand(ts, ls, true);
     ReplaceIdent(ts);
 
-    if (ts.Empty()) {
-        Expand(ts, tmp);
-        std::cout << "go hell" << std::endl;
-    }
-    
     //assert(!ts.Empty());
     auto begin = ts.Peek();
     Parser parser(ts);
@@ -591,7 +582,7 @@ void Preprocessor::ParseIfdef(TokenSeq ls)
     ls.Next();
     
     auto ident = ls.Expect(Token::IDENTIFIER);
-    if (!ls.Peek()->IsEOF()) {
+    if (!ls.Empty()) {
         Error(ls.Peek(), "expect new line");
     }
 
@@ -613,12 +604,21 @@ void Preprocessor::ParseIfndef(TokenSeq ls)
 
 void Preprocessor::ParseElif(TokenSeq ls)
 {
-    if (!NeedExpand()) {
+    auto directive = ls.Next(); // Skip the directive
+
+    if (_ppCondStack.empty()) {
+        Error(directive, "unexpected 'elif' directive");
+    }
+
+    auto top = _ppCondStack.top();
+    if (top._tag == Token::PP_ELSE) {
+        Error(directive, "unexpected 'elif' directive");
+    }
+    auto enabled = top._enabled;
+    if (!enabled) {
         _ppCondStack.push({Token::PP_ELIF, false, false});
         return;
     }
-
-    auto directive = ls.Next(); // Skip the directive
 
     if (ls.Empty()) {
         Error(ls.Peek(), "expect expression in 'elif' directive");
@@ -626,35 +626,22 @@ void Preprocessor::ParseElif(TokenSeq ls)
 
     TokenSeq ts;
     ReplaceDefOp(ls);
-    Expand(ts, ls);
+    Expand(ts, ls, true);
     ReplaceIdent(ts);
-
-    if (ts.Empty()) {
-        std::cout << "go hell" << std::endl;
-    }
 
     auto begin = ts.Peek();
     Parser parser(ts);
     auto expr = parser.ParseExpr();
     auto cond = expr->EvalInteger(begin);
 
-    if (_ppCondStack.empty()) {
-        Error(directive, "unexpected 'elif' directive");
-    }
-    auto top = _ppCondStack.top();
-    if (top._tag == Token::PP_ELSE) {
-        Error(directive, "unexpected 'elif' directive");
-    }
-
     cond = cond && !top._cond;
-    auto enabled = top._enabled;
-    _ppCondStack.push({Token::PP_ELIF, enabled, cond});
+    _ppCondStack.push({Token::PP_ELIF, true, cond});
 }
 
 void Preprocessor::ParseElse(TokenSeq ls)
 {
     auto directive = ls.Next();
-    if (!ls.IsBeginOfLine()) {
+    if (!ls.Empty()) {
         Error(ls.Peek(), "expect new line");
     }
 
@@ -675,7 +662,7 @@ void Preprocessor::ParseEndif(TokenSeq ls)
 {  
     auto directive = ls.Next();
 
-    if (!ls.IsBeginOfLine()) {
+    if (!ls.Empty()) {
         Error(ls.Peek(), "expect new line");
     }
 
@@ -701,7 +688,7 @@ void Preprocessor::ParseInclude(TokenSeq& is, TokenSeq ls)
     ls.Next(); // Skip 'include'
     auto tok = ls.Next();
     if (tok->_tag == Token::STRING_LITERAL) {
-        if (!ls.Peek()->IsEOF()) {
+        if (!ls.Empty()) {
             Error(ls.Peek(), "expect new line");
         }
         // TODO(wgtdkp): include file
@@ -727,11 +714,16 @@ void Preprocessor::ParseInclude(TokenSeq& is, TokenSeq ls)
         if (cnt != 0) {
             Error(rhs, "expect '>'");
         }
-        if (!ls.Peek()->IsEOF()) {
+        if (!ls.Empty()) {
             Error(ls.Peek(), "expect new line");
         }
 
         auto fileName = std::string(lhs->_end, rhs->_begin);
+        if (fileName == "bits/types.h") {
+            std::cout << "here" << std::endl;
+            auto macro = FindMacro("__WORDSIZE");
+            auto macro1 = macro;
+        }
         auto fullPath = SearchFile(fileName, true);
         if (fullPath == nullptr) {
             Error(tok, "%s: No such file or directory", fileName.c_str());
@@ -809,7 +801,7 @@ void Preprocessor::IncludeFile(TokenSeq& is, const std::string* fileName)
 
     _curFileName = fileName;
     auto tmp = std::string("\"") + *fileName + "\"";
-    AddMacro(*fileName, new std::string(tmp), true);
+    AddMacro("__FILE__", new std::string(tmp), true);
 }
 
 std::string* Preprocessor::SearchFile(const std::string& name, bool libHeader)
@@ -872,16 +864,15 @@ static std::string* Date(void)
     return ret;
 }
 
-void Preprocessor::Init(void)
+void Preprocessor::Init(TokenSeq& is)
 {
     // Preinclude search paths
+    AddSearchPath("/home/wgtdkp/wgtcc/include");
     AddSearchPath("/usr/include");
     AddSearchPath("/usr/include/linux");
     AddSearchPath("/usr/include/x86_64-linux-gnu");
     AddSearchPath("/usr/local/include");
-    AddSearchPath("/home/wgtdkp/wgtcc/include");
-
-
+    
     AddMacro("__FILE__", new std::string("\"" + *_curFileName + "\""), true);
     AddMacro("__LINE__", new std::string(std::to_string(_curLine)), true);
     AddMacro("__DATE__", Date(), true);
@@ -889,7 +880,6 @@ void Preprocessor::Init(void)
     AddMacro("__STDC__HOSTED__", new std::string("0"), true);
     AddMacro("__STDC_VERSION__", new std::string("201103L"), true);
 
-    AddMacro("__x86_64__", new std::string("1"), true);
-    AddMacro("__LP64__", new std::string("1"), true);
-    
+    auto wgtccHeaderFile = new std::string("/home/wgtdkp/wgtcc/include/wgtcc.h");
+    IncludeFile(is, wgtccHeaderFile);
 }

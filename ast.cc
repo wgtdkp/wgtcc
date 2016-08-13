@@ -128,7 +128,7 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
     switch (op) {
     case '.':
     case '=': 
-    case '[':
+    case ']': // SubScripting
     case '*':
     case '/':
     case '%':
@@ -251,7 +251,7 @@ void BinaryOp::TypeChecking(const Token* errTok)
     case '.':
         return MemberRefOpTypeChecking(errTok);
 
-    case '[':
+    case ']':
         return SubScriptingOpTypeChecking(errTok);
 
     case '*':
@@ -570,8 +570,7 @@ void UnaryOp::CastOpTypeChecking(const Token* errTok)
 {
     // The _type has been initiated to dest type
     if (!_type->IsScalar()) {
-        Error(errTok,
-                "the cast type should be arithemetic type or pointer");
+        Error(errTok, "the cast type should be arithemetic type or pointer");
     }
 
     if (_type->IsFloat() && _operand->Type()->ToPointerType()) {

@@ -409,7 +409,7 @@ UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
 Type* Parser::ParseTypeName(void)
 {
     auto type = ParseSpecQual();
-    if (_ts.Try('*') || _ts.Try('(')) //abstract-declarator ??FIRST????
+    if (_ts.Test('*') || _ts.Test('(')) //abstract-declarator FIRST set
         return ParseAbstractDeclarator(type);
     
     return type;
@@ -1481,6 +1481,7 @@ bool Parser::ParseParamList(std::list<Type*>& paramTypes)
      * The parameter list is 'void'
      */
     if (paramType->ToVoidType()) {
+        paramTypes.pop_back();
         return false;
     }
 
@@ -1507,7 +1508,7 @@ Type* Parser::ParseParamDecl(void)
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
     
     // No declarator
-    if (_ts.Peek()->Tag() == ',' || _ts.Peek()->Tag() == ')')
+    if (_ts.Test(',') || _ts.Test(')'))
         return type;
     
     auto tokTypePair = ParseDeclarator(type);

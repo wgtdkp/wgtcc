@@ -350,7 +350,7 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
     switch (op) {
     case '.':
         return GenMemberRefOp(binaryOp);
-    case '[': {
+    case ']': {
         return GenSubScriptingOp(binaryOp);
     }
     case '+':

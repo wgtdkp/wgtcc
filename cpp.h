@@ -90,13 +90,12 @@ class Preprocessor
 public:
     Preprocessor(const std::string* fileName)
             : _curFileName(fileName), _curLine(1), _curCond(true) {
-        Init();
     }
 
     ~Preprocessor(void) {}
 
     void Process(TokenSeq& os);
-    void Expand(TokenSeq& os, TokenSeq& is);
+    void Expand(TokenSeq& os, TokenSeq& is, bool inCond=false);
     void Subst(TokenSeq& os, TokenSeq& is, HideSet& hs, ParamMap& params);
     void Glue(TokenSeq& os, TokenSeq& is);
     void Glue(TokenSeq& os, Token* tok);
@@ -171,7 +170,7 @@ public:
     }
 
 private:
-    void Init(void);
+    void Init(TokenSeq& is);
 
     HideSet _hs;
     PPCondStack _ppCondStack;
