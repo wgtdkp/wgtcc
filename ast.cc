@@ -733,7 +733,7 @@ Object* Object::New(const Token* tok,
  * Constant
  */
 
-Constant* Constant::New(int tag, long long val)
+Constant* Constant::New(int tag, long val)
 {
     auto type = Type::NewArithmType(tag);
     auto ret = new (constantPool.Alloc()) Constant(type, val);
@@ -741,8 +741,20 @@ Constant* Constant::New(int tag, long long val)
     return ret;
 }
 
-Constant* Constant::New(ArithmType* type, double val)
+Constant* Constant::New(int tag, double val)
 {
+    auto type = Type::NewArithmType(tag);
+    auto ret = new (constantPool.Alloc()) Constant(type, val);
+    ret->_pool = &constantPool;
+    return ret;
+}
+
+Constant* Constant::New(const std::string& val)
+{
+    static auto derived = Type::NewArithmType(T_CHAR);
+    derived->SetQual(derived->Qual() | Q_CONST);
+    static auto type = Type::NewPointerType(derived);
+
     auto ret = new (constantPool.Alloc()) Constant(type, val);
     ret->_pool = &constantPool;
     return ret;

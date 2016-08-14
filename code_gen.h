@@ -284,6 +284,8 @@ public:
     Register* AllocReg(int width, bool flt);
     void Free(Operand* operand);
 
+    Register* LoadRet(Operand* operand);
+
     void Spill(Register* reg);
 
     void Reload(Register* reg);

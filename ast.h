@@ -435,15 +435,13 @@ protected:
 };
 
 
-/********* Identifier *************/
-
-
-//integer, character, string literal, floating
+//integer, character, string literal, float
 class Constant : public Expr
 {
 public:
-    static Constant* New(int tag, long long val);
-    static Constant* New(ArithmType* type, double val);
+    static Constant* New(int tag, long val);
+    static Constant* New(int tag, double val);
+    static Constant* New(const std::string& val);
 
     ~Constant(void) {}
     
@@ -471,19 +469,18 @@ public:
 
 
 protected:
-    Constant(ArithmType* type, long long val): Expr(type), _ival(val) {
+    Constant(ArithmType* type, long val): Expr(type), _ival(val) {
         assert(type->IsInteger());
     }
 
     Constant(ArithmType* type, double val): Expr(type), _fval(val) {
         assert(type->IsFloat());
     }
-    /*
-    Constant(MemPool* pool, const char* val)
-            : Expr(pool, , VAR, true), _sval(val) {
-
+    
+    Constant(PointerType* type, const std::string& val)
+            : Expr(type), _sval(val) {
+        assert(type->ToPointerType());
     }
-    */
 
 private:
     union {
@@ -658,6 +655,17 @@ protected:
     enum Linkage _linkage;
 };
 
+/*
+class Enumerator: public Indentifier
+{
+public:
+    static Enumerator* New(int val);
+
+    ~Enumerator(void) {}
+
+    virtual Operand* Accept();
+};
+*/
 
 class Object : public Identifier
 {

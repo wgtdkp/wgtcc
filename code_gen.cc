@@ -389,7 +389,7 @@ Memory* Generator::GenAssignOp(BinaryOp* assign)
 {
     // TODO(wgtdkp):
     auto lhs = assign->_lhs->Accept(this)->ToMemory();
-    auto rhs = Load(nullptr, assign->_rhs->Accept(this));
+    auto rhs = LoadRet(assign->_rhs->Accept(this));
 
     assert(lhs);    
     
@@ -1265,6 +1265,16 @@ void Generator::Free(Operand* operand)
         Free(mem->_base);
         Free(mem->_index);
     }
+}
+
+/*
+ * Load the lhs operand of binary instruction into register
+ */
+Register* Generator::LoadRet(Operand* operand)
+{
+    auto lhs = Load(nullptr, operand);
+    _except = lhs;
+    return lhs;
 }
 
 void Generator::Spill(Register* reg)

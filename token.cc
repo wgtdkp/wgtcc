@@ -150,6 +150,7 @@ const unordered_map<int, const char*> Token::_TagLexemeMap = {
     { Token::STRING_LITERAL, "(string literal)" },
 };
 
+
 void PrintTokSeq(TokenSeq& tokSeq)
 {
     auto iter = tokSeq._begin;
@@ -206,4 +207,21 @@ Token* TokenSeq::Expect(int expect)
                 Token::Lexeme(expect), tok->Str().c_str());
     }
     return tok;
+}
+
+Encoding StringEncoding(const Token* tok)
+{
+    switch (tok->_begin[0]) {
+    case '"':
+        return Encoding::NONE;
+    case 'u':
+        if (tok->_begin[1] == 8)
+            return Encoding::UTF8;
+    case 'L':
+        return Encoding::CHAR16;
+    case 'U':
+        return Encoding::CHAR32;
+    default: Error(this, "invalid string literal encoding");
+    }
+    return Encoding::NONE; // Make compiler happy
 }

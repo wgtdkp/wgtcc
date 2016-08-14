@@ -19,6 +19,13 @@ typedef std::list<Token> TokenList;
 void PrintTokSeq(TokenSeq& tokSeq);
 void PrintTokList(TokenList& tokList);
 
+enum class Encoding {
+    NONE,
+    CHAR16,
+    CHAR32,
+    UTF8,
+    WCHAR
+};
 
 struct Token
 {
@@ -442,3 +449,6 @@ public:
 };
 
 #endif
+
+Encoding StringEncoding(const Token* tok);
+

@@ -192,12 +192,11 @@ Constant* Parser::ParseConstant(const Token* tok)
     assert(tok->IsConstant());
 
     if (tok->Tag() == Token::I_CONSTANT) {
-        auto ival = atoi(tok->Str().c_str());
+        long ival = atoi(tok->Str().c_str());
         return Constant::New(T_INT, ival);
     } else {
-        auto fval = atoi(tok->Str().c_str());
-        auto type = Type::NewArithmType(T_DOUBLE);
-        return Constant::New(type, fval);
+        double fval = atoi(tok->Str().c_str());
+        return Constant::New(T_DOUBLE, fval);
     }
 }
 
@@ -205,7 +204,10 @@ Constant* Parser::ParseConstant(const Token* tok)
 Expr* Parser::ParseString(const Token* tok)
 {
     assert(tok->IsString());
-    assert(0);
+    std::string val;
+    
+
+
     return nullptr;
 }
 
@@ -376,7 +378,7 @@ Constant* Parser::ParseSizeof(void)
         Error(tok, "sizeof(incomplete type)");
     }
 
-    return Constant::New(T_UNSIGNED | T_LONG, type->Width());
+    return Constant::New(T_UNSIGNED | T_LONG, (long)type->Width());
 }
 
 Constant* Parser::ParseAlignof(void)
@@ -385,7 +387,7 @@ Constant* Parser::ParseAlignof(void)
     auto type = ParseTypeName();
     _ts.Expect(')');
 
-    return Constant::New(T_UNSIGNED | T_LONG, type->Align());
+    return Constant::New(T_UNSIGNED | T_LONG, (long)type->Align());
 }
 
 UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
@@ -1017,6 +1019,7 @@ Type* Parser::ParseEnumSpec(void)
 
 enum_decl:
     auto type = Type::NewArithmType(T_INT);
+    type->SetComplete(false);
     if (tagName.size() != 0) {
         auto ident = Identifier::New(tok, type, _curScope, L_NONE);
         _curScope->InsertTag(tagName, ident);
@@ -1029,7 +1032,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
 {
     assert(type && !type->Complete() && type->IsInteger());
     do {
-        auto tok = _ts.Peek();
+        auto tok = _ts.Next();
         if (!tok->IsIdentifier())
             Error(tok, "enumration constant expected");
         
@@ -1961,7 +1964,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
     for (auto iter = caseLabels.begin();
             iter != caseLabels.end(); iter++) {
-        auto rhs = Constant::New(T_INT, iter->first);
+        auto rhs = Constant::New(T_INT, (long)iter->first);
         auto cond = BinaryOp::New(tok, Token::EQ_OP, t, rhs);
         auto then = JumpStmt::New(iter->second);
         auto ifStmt = IfStmt::New(cond, then, nullptr);
