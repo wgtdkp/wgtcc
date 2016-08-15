@@ -185,6 +185,8 @@ public:
     }
 
 private:
+    typedef std::vector<Constant*> LiteralList;
+    typedef std::vector<Object*> StaticObjectList;
     typedef std::vector<std::pair<int, LabelStmt*>> CaseLabelList;
     typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
     typedef std::map<std::string, LabelStmt*> LabelMap;
@@ -199,6 +201,10 @@ private:
     // It contains all external symbols(resolved and not resolved)
     Scope* _externalSymbols;
     
+    LiteralList _literals;
+    StaticObjectList _staticObjects;
+
+
     Token* _errTok;
     //std::stack<Token*> _buf;
 

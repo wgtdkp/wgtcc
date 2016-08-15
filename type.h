@@ -453,6 +453,15 @@ public:
         return _derived->Width() * idx;
     }
 
+    int Len(void) const {
+        return _len;
+    }
+
+    void SetLen(int len) {
+        _len = len;
+        SetComplete(true);
+    }
+
 protected:
     ArrayType(MemPool* pool, long long len, Type* derived)
             : PointerType(pool, derived), _len(len) {
@@ -570,12 +579,8 @@ public:
         return _memberMap;
     }
 
-    MemberList::iterator Begin(void) {
-        return _memberList.begin();
-    }
-
-    MemberList::iterator End(void) {
-        return _memberList.end();
+    MemberList& Members(void) {
+        return _members;
     }
 
     bool HasTag(void) {
@@ -597,7 +602,7 @@ private:
     bool _hasTag;
     Scope* _memberMap;
 
-    MemberList _memberList;
+    MemberList _members;
     int _offset;
     int _width;
     int _align;

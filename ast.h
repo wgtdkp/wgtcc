@@ -50,7 +50,7 @@ class ASTNode
 public:
     virtual ~ASTNode(void) {}
     
-    virtual Operand* Accept(Generator* g) = 0;
+    virtual void Accept(Generator* g) = 0;
 
     //virtual Coordinate Coord(void) = 0;
 
@@ -62,6 +62,16 @@ protected:
 };
 
 typedef ASTNode ExtDecl;
+
+class Decl: public ASTNode
+{
+public:
+    virtual ~ASTNode(void) {}
+    virtual void Accept(Generator* g);
+
+protected:
+
+};
 
 
 /*********** Statement *************/
@@ -85,7 +95,7 @@ public:
 
     virtual ~EmptyStmt(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
 
 protected:
     EmptyStmt(void) {}
@@ -100,7 +110,7 @@ public:
 
     ~LabelStmt(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
     int Tag(void) const {
         return Tag();
@@ -126,7 +136,7 @@ public:
 
     virtual ~IfStmt(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
 
 protected:
     IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
@@ -146,7 +156,7 @@ public:
 
     virtual ~JumpStmt(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
     void SetLabel(LabelStmt* label) { _label = label; }
 
@@ -164,7 +174,7 @@ public:
 
     virtual ~ReturnStmt(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
 protected:
     ReturnStmt(Expr* expr): _expr(expr) {}
@@ -180,7 +190,7 @@ public:
 
     virtual ~CompoundStmt(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
 
     std::list<Stmt*>& Stmts(void) {
         return _stmts;
@@ -235,8 +245,10 @@ public:
 
     virtual bool IsLVal(void) const = 0;
 
-    virtual long long EvalInteger(const Token* errTok) = 0;
-
+    virtual long EvalInteger(const Token* errTok) = 0;
+    
+    virtual double EvalConstant(bool flt) = 0;
+    
     virtual void TypeChecking(const Token* errTok) = 0;
 
     virtual std::string Name(void) {
@@ -274,19 +286,20 @@ public:
 
     virtual ~BinaryOp(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
     //like member ref operator is a lvalue
     virtual bool IsLVal(void) const {
         switch (_op) {
-        case '.': case ']': case '*':
-            return true;
-        default:
-            return false;
+        case '.':
+        case ']': return !Type->ToArrayType();
+        default: return false;
         }
     }
 
-    virtual long long EvalInteger(const Token* errTok);
+    virtual long EvalInteger(const Token* errTok);
+
+    virtual double EvalConstant(bool flt);
 
     ArithmType* Promote(const Token* errTok);
 
@@ -335,12 +348,15 @@ public:
 
     virtual ~UnaryOp(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
 
     //TODO: like '*p' is lvalue, but '~i' is not lvalue
     virtual bool IsLVal(void) const;
 
-    virtual long long EvalInteger(const Token* errTok);
+    virtual long EvalInteger(const Token* errTok);
+
+    virtual double EvalConstant(bool flt);
+
 
     ArithmType* Promote(Parser* parser, const Token* errTok);
 
@@ -372,13 +388,15 @@ public:
     
     virtual ~ConditionalOp(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
 
     virtual bool IsLVal(void) const {
         return false;
     }
 
-    virtual long long EvalInteger(const Token* errTok);
+    virtual long EvalInteger(const Token* errTok);
+
+    virtual double EvalConstant(bool flt);
 
     ArithmType* Promote(const Token* errTok);
     
@@ -407,14 +425,16 @@ public:
 
     ~FuncCall(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
 
     //a function call is ofcourse not lvalue
     virtual bool IsLVal(void) const {
         return false;
     }
 
-    virtual long long EvalInteger(const Token* errTok);
+    virtual long EvalInteger(const Token* errTok);
+
+    virtual double EvalConstant(bool flt);
 
     ArgList* Args(void) {
         return &_args;
@@ -445,7 +465,7 @@ public:
 
     ~Constant(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
     virtual Constant* ToConstant(void) {
         return this;
@@ -455,11 +475,13 @@ public:
         return false;
     }
 
-    virtual long long EvalInteger(const Token* errTok);
+    virtual long EvalInteger(const Token* errTok);
+
+    virtual double EvalConstant(bool flt);
     
     virtual void TypeChecking(const Token* errTok) {}
 
-    long long IVal(void) const {
+    long IVal(void) const {
         return _ival;
     }
     
@@ -467,6 +489,9 @@ public:
         return _fval;
     }
 
+    const std::string* SVal(void) const {
+        return &_sval;
+    }
 
 protected:
     Constant(ArithmType* type, long val): Expr(type), _ival(val) {
@@ -484,7 +509,7 @@ protected:
 
 private:
     union {
-        long long _ival;
+        long _ival;
         double _fval;
         std::string _sval;
     };
@@ -499,13 +524,15 @@ public:
 
     virtual ~TempVar(void) {}
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
     virtual bool IsLVal(void) const {
         return true;
     }
 
-    virtual long long EvalInteger(const Token* errTok);
+    virtual long EvalInteger(const Token* errTok);
+
+    virtual double EvalConstant(bool flt);
     
     virtual void TypeChecking(const Token* errTok) {}
 
@@ -544,7 +571,7 @@ public:
         return _body;
     }
     
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
 
 protected:
     FuncDef(FuncType* type, const std::list<Object*>& params,
@@ -566,7 +593,7 @@ public:
 
     virtual ~TranslationUnit(void) {}
 
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
     void Add(ExtDecl* extDecl) {
         _extDecls.push_back(extDecl);
@@ -598,15 +625,15 @@ public:
 
     virtual ~Identifier(void) {}
 
-    virtual Operand* Accept(Generator* g) {
-        return nullptr;
-    }
+    virtual void Accept(Generator* g) {}
 
     virtual bool IsLVal(void) const {
         return false;
     }
 
-    virtual long long EvalInteger(const Token* errTok);
+    virtual long EvalInteger(const Token* errTok);
+
+    virtual double EvalConstant(bool flt);
 
     /*
      * An identifer can be:
@@ -663,9 +690,16 @@ public:
 
     ~Enumerator(void) {}
 
-    virtual Operand* Accept();
+    virtual void Accept();
 };
 */
+
+struct Initializer
+{
+    int _offset;
+    Type* _type;
+    Expr* _expr;
+};
 
 class Object : public Identifier
 {
@@ -675,7 +709,7 @@ public:
 
     ~Object(void) {}
 
-    virtual Operand* Accept(Generator* g);
+    virtual void Accept(Generator* g);
     
     virtual Object* ToObject(void) {
         return this;
@@ -702,12 +736,21 @@ public:
         _offset = offset;
     }
 
-    /*
-    // of course a variable is a lvalue expression
-    virtual bool IsLVal(void) const {
-        return true;
+    std::string Addr(void) const {
+        return std::string(".LC") + std::to_string(); 
     }
-    */
+
+    bool Initialized(void) const {
+        return _initializers.size();
+    }
+
+    const std::vector<Initializer>& Initializers(void) const {
+        return _initializers;
+    }
+
+    //void AddInitializer(int offset, int width, long val) {
+    //    _initializers.push_back({offset, width, val});
+    //}
 
     bool operator==(const Object& other) const {
         // TODO(wgtdkp): Not implemented
@@ -722,13 +765,17 @@ protected:
     Object(const Token* tok, ::Type* type, ::Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE)
             : Identifier(tok, type, scope, linkage),
-              _storage(0), _offset(0) {}
+              _storage(0), _offset(0), _inited(false), _initVal(0) {}
 
 private:
     int _storage;
     
     // For code gen
     int _offset;
+
+    std::vector<Initializer> _initializers;
+
+    static size_t _labelId {0};
 };
 
 #endif

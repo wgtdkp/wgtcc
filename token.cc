@@ -221,7 +221,7 @@ Encoding StringEncoding(const Token* tok)
         return Encoding::CHAR16;
     case 'U':
         return Encoding::CHAR32;
-    default: Error(this, "invalid string literal encoding");
+    default: Error(tok, "invalid string literal encoding");
     }
     return Encoding::NONE; // Make compiler happy
 }

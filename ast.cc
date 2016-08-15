@@ -27,94 +27,65 @@ static MemPoolImp<FuncDef>         funcDefPool;
  * Accept
  */
 
-Operand* EmptyStmt::Accept(Generator* g) {
+void EmptyStmt::Accept(Generator* g) {
     //assert(false);
     //g->GenEmptyStmt(this);
-    return nullptr;
 }
 
-Operand* LabelStmt::Accept(Generator* g) {
-    auto ret = g->GenLabelStmt(this);
-    
-    return ret;
+void LabelStmt::Accept(Generator* g) {
+    g->GenLabelStmt(this);
 }
 
-Operand* IfStmt::Accept(Generator* g) {
-    auto ret = g->GenIfStmt(this);
-    g->SetExcept(nullptr);
-    return ret;
+void IfStmt::Accept(Generator* g) {
+    g->GenIfStmt(this);
 }
 
-Operand* JumpStmt::Accept(Generator* g) {
-    auto ret = g->GenJumpStmt(this);
-    
-    return ret;
+void JumpStmt::Accept(Generator* g) {
+    g->GenJumpStmt(this);
 }
 
-Operand* ReturnStmt::Accept(Generator* g) {
-    auto ret = g->GenReturnStmt(this);
-    
-    return ret;
+void ReturnStmt::Accept(Generator* g) {
+    g->GenReturnStmt(this);
 }
 
-Operand* CompoundStmt::Accept(Generator* g) {
-    auto ret = g->GenCompoundStmt(this);
-    
-    return ret;
+void CompoundStmt::Accept(Generator* g) {
+    g->GenCompoundStmt(this);
 }
 
-Operand* BinaryOp::Accept(Generator* g) {
-    auto ret = g->GenBinaryOp(this);
-    
-    return ret;
+void BinaryOp::Accept(Generator* g) {
+    g->GenBinaryOp(this);
 }
 
-Operand* UnaryOp::Accept(Generator* g) {
-    auto ret = g->GenUnaryOp(this);
-    
-    return ret;
+void UnaryOp::Accept(Generator* g) {
+    g->GenUnaryOp(this);
 }
 
-Operand* ConditionalOp::Accept(Generator* g) {
-    auto ret = g->GenConditionalOp(this);
-    
-    return ret;
+void ConditionalOp::Accept(Generator* g) {
+    g->GenConditionalOp(this);
 }
 
-Operand* FuncCall::Accept(Generator* g) { 
-    auto ret = g->GenFuncCall(this);
-    
-    return ret;
+void FuncCall::Accept(Generator* g) { 
+    g->GenFuncCall(this);
 }
 
-Operand* Object::Accept(Generator* g) {
-    auto ret = g->GenObject(this);
-    
-    return ret;
+void Object::Accept(Generator* g) {
+    g->GenObject(this);
 }
 
-Operand* Constant::Accept(Generator* g) {
-    auto ret = g->GenConstant(this);
-    
-    return ret;
+void Constant::Accept(Generator* g) {
+    g->GenConstant(this);
 }
 
-Operand* TempVar::Accept(Generator* g) {
-    auto ret = g->GenTempVar(this);
-    
-    return ret;
+void TempVar::Accept(Generator* g) {
+    g->GenTempVar(this);
 }
 
-Operand* FuncDef::Accept(Generator* g) {
-    auto ret = g->GenFuncDef(this);
-    
-    return ret;
+void FuncDef::Accept(Generator* g) {
+    g->GenFuncDef(this);
 }
 
-Operand* TranslationUnit::Accept(Generator* g) {
-    auto ret = g->GenTranslationUnit(this);
-    
-    return ret;
+void TranslationUnit::Accept(Generator* g) {
+    g->GenTranslationUnit(this);
 }
 
 
@@ -160,7 +131,8 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
     return ret;    
 }
 
-long long BinaryOp::EvalInteger(const Token* errTok)
+
+long BinaryOp::EvalInteger(const Token* errTok)
 {
 #define L   _lhs->EvalInteger(errTok)
 #define R   _rhs->EvalInteger(errTok)
@@ -169,11 +141,27 @@ long long BinaryOp::EvalInteger(const Token* errTok)
         Error(errTok, "expect constant integer expression");
     }
 
+    auto pointerType = Type->ToPointerType();
+    unsigned long width = pointerType ? pointerType->Derived()->Width(): 0;
     //bool res = true;
     switch (_op) {
     case '+':
+        if (pointerType) {
+            if (_lhs->IsInteger())
+                return L + (unsigned long)R * width;
+            else
+                return (unsigned long)L * width + R;
+        }
         return L + R;
     case '-':
+        if (pointerType) {
+            if (_lhs->IsInteger())
+                return L - (unsigned long)R * width;
+            else if (_rhs->IsInteger())
+                return (unsigned long)L * width - R;
+            else
+                return ((unsigned long)L - R) / width;
+        }
         return L - R;
     case '*':
         return L * R;
@@ -348,21 +336,25 @@ void BinaryOp::AdditiveOpTypeChecking(const Token* errTok)
                     || !_rhs->Type()->IsInteger()) {
                 Error(errTok, "invalid operands to binary -");
             }
+            _type = Type::NewArithmType(T_LONG); // ptrdiff_t
         } else if (!_rhs->Type()->IsInteger()) {
             Error(errTok, "invalid operands to binary -");
+        } else {
+            _type = _lhs->Type();
         }
-        _type = _lhs->Type();
     } else if (rhsType) {
         if (_op != Token::ADD || !_lhs->Type()->IsInteger()) {
-            Error(errTok, "invalid operands to binary +");
+            Error(errTok, "invalid operands to binary '%s'",
+                    errTok->Str().c_str());
         }
         _type = _rhs->Type();
+        std::swap(_lhs, _rhs); // To simplify code gen
     } else {
         auto lhsType = _lhs->Type()->ToArithmType();
         auto rhsType = _rhs->Type()->ToArithmType();
         if (lhsType == nullptr || rhsType == nullptr) {
             Error(errTok, "invalid operands to binary %s",
-                    errTok->Str());
+                    errTok->Str().c_str());
         }
 
         _type = Promote(errTok);
@@ -463,9 +455,9 @@ UnaryOp* UnaryOp::New(const Token* tok,
 }
 
 bool UnaryOp::IsLVal(void) const {
-    // only deref('*') op is lvalue;
+    // only deref('*') could be lvalue;
     // so it's only deref will override this func
-    return (Token::DEREF == _op);
+    return (_op == Token::DEREF && !Type()->ToArrayType());
 }
 
 long long UnaryOp::EvalInteger(const Token* errTok)
@@ -762,7 +754,7 @@ Constant* Constant::New(const std::string& val)
 
 long long Constant::EvalInteger(const Token* errTok) {
     if (_type->IsFloat()) {
-        Error(errTok, "expect integer, but get floating");
+        Error(errTok, "expect integer, but got float");
     }
     return _ival;
 }

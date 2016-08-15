@@ -13,7 +13,8 @@ using namespace std;
 
 
 void Parser::EnterFunc(const char* funcName) {
-    //TODO(wgtdkp): function scope
+    //TODO(wgtdkp): Add __func__ macro
+
     _curParamScope->SetParent(_curScope);
     _curScope = _curParamScope;
 }
@@ -85,26 +86,19 @@ void Parser::ParseTranslationUnit(void)
         if (tok && type->ToFuncType() && _ts.Try('{')) { // Function definition
             _unit->Add(ParseFuncDef(tok, type->ToFuncType()));
         } else { // Declaration
-            std::list<Stmt*> stmts;
             if (_ts.Try('=')) {
-                if (ident->ToObject() == nullptr) {
+                if (!ident->ToObject())
                     Error(_ts.Peek(), "unexpected initializer");
-                }
-                stmts.push_back(ParseInitializer(ident->ToObject()));
+                ParseInitializer(ident->ToObject());
             }
 
             while (_ts.Try(',')) {
-                auto initExpr = ParseInitDeclarator(
-                            type, storageSpec, funcSpec);
-                if (initExpr) {
-                    stmts.push_back(initExpr);
-                }
+                ParseInitDeclarator(type, storageSpec, funcSpec);
             }
             _ts.Expect(';');
-            _unit->Add(CompoundStmt::New(stmts));
         }
     }
-
+    
     //_externalSymbols->Print();
 }
 
@@ -201,7 +195,7 @@ Constant* Parser::ParseConstant(const Token* tok)
 }
 
 // TODO(wgtdkp):
-Expr* Parser::ParseString(const Token* tok)
+Constant* Parser::ParseString(const Token* tok)
 {
     assert(tok->IsString());
     std::string val;
@@ -672,11 +666,11 @@ Expr* Parser::ParseAssignExpr(void)
  * then return the initializer expression,
  * else, return null.
  */
-CompoundStmt* Parser::ParseDecl(void)
+void Parser::ParseDecl(void)
 {
-    std::list<Stmt*> stmts;
     if (_ts.Try(Token::STATIC_ASSERT)) {
         //TODO: static_assert();
+        assert(false);
     } else {
         int storageSpec, funcSpec;
         auto type = ParseDeclSpec(&storageSpec, &funcSpec);
@@ -684,17 +678,11 @@ CompoundStmt* Parser::ParseDecl(void)
         //init-declarator 的 FIRST 集合：'*', identifier, '('
         if (_ts.Test('*') || _ts.Test(Token::IDENTIFIER) || _ts.Test('(')) {
             do {
-                auto initExpr = ParseInitDeclarator(
-                            type, storageSpec, funcSpec);
-                if (initExpr) {
-                    stmts.push_back(initExpr);
-                }
+                ParseInitDeclarator(type, storageSpec, funcSpec);
             } while (_ts.Try(','));
         }            
         _ts.Expect(';');
     }
-
-    return CompoundStmt::New(stmts);
 }
 
 //for state machine
@@ -1470,6 +1458,9 @@ int Parser::ParseArrayLength(void)
     
     auto tok = _ts.Peek();
     auto expr = ParseAssignExpr();
+    if (!expr->Type()->IsInteger()) {
+        Error(tok, "expect integer expression");
+    }
     return expr->EvalInteger(tok);
 }
 
@@ -1566,7 +1557,7 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
 /*
  * Initialization is translated into assignment expression
  */
-Stmt* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
+void Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
 {
     auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
     
@@ -1576,38 +1567,116 @@ Stmt* Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
         }
         return ParseInitializer(ident->ToObject());
     }
-
-    return nullptr;
 }
 
-Stmt* Parser::ParseInitializer(Object* obj)
+void Parser::ParseInitializer(Object* obj, Type* type, int offset)
 {
-    auto type = obj->Type();
-
-    if (_ts.Try('{')) {
+    if (Try('{')) {
         if (type->ToArrayType()) {
             // Expect array initializer
-            return ParseArrayInitializer(obj);
+            return ParseArrayInitializer(obj, type, offset);
         } else if (type->ToStructUnionType()) {
             // Expect struct/union initializer
-            return ParseStructInitializer(obj);
+            return ParseStructInitializer(obj, type, offset);
         }
     }
 
-    auto tok = _ts.Peek();
-    Expr* rhs = ParseAssignExpr();
-
-    return BinaryOp::New(tok, '=', obj, rhs);
+    if (type->ToArrayType()) {
+        auto arrType = type->ToArrayType();
+        auto width = arrType->Derived()->Width();
+        if (_ts.Test(Token::STRING_LITERAL) && width == 1) {
+            ParseLiteralInitializer(obj, arrType, offset);
+            return;
+        }
+        for (int i = 0; i < arrType->Len(); i++) {
+            if (_ts.Test('.') || _ts.Test('['))
+                break;
+            ParseInitializer(obj, arrType->Derived(), offset);
+            offset += width;
+            if (!_ts.Try(',')) {
+                _ts.Expect('}');
+                break;
+            }
+        }
+    } else if (type->ToStructUnionType()) {
+        auto structType = type->ToStructUnionType();
+        for (auto member: structType->Members()) {
+            if (_ts.Test('.') || _ts.Test('['))
+                break;
+            ParseInitializer(obj, member->Type(), offset + member->Offset());
+            if (!_ts.Try(',')) {
+                _ts.Expect('}');
+                break;
+            }
+        }
+    } else {
+        // Scalar type
+        Expr* rhs = ParseAssignExpr();
+        obj->Initializers().push_back({offset, type, rhs});
+    }
 }
 
-Stmt* Parser::ParseArrayInitializer(Object* arr)
+void Parser::ParseLiteralInitializer(Object* obj, ArrayType* type, int offset)
 {
-    assert(arr->Type()->ToArrayType());
-    auto type = arr->Type()->ToArrayType();
+    auto literal = ParseExpr();
 
-    size_t defaultIdx = 0;
-    std::set<size_t> idxSet;
-    std::list<Stmt*> stmts;
+    auto str = literal->SVal()->c_str();
+
+    if (!obj->Complete())
+        obj->Type()->SetLen(str->size() + 1);
+    width = std::min(obj->Type()->Len(), str->size() + 1);
+    
+    while (width >= 8) {
+        const long* p = static_cast<const long*>(str);
+        auto type = Type::NewArithmType(T_LONG);
+        auto val = Constant::New(T_LONG, *p);
+        obj->Initializers().push_back({offset, type, val});
+        offset += 8;
+        str += 8;
+    }
+
+    while (width >= 4) {
+        const int* p = static_cast<const int*>(str);
+        auto type = Type::NewArithmType(T_INT);
+        auto val = Constant::New(T_INT, *p);
+        obj->Initializers().push_back({offset, type, val});
+        offset += 4;
+        str += 4;
+    }
+
+    while (width >= 2) {
+        const short* p = static_cast<const short*>(str);
+        auto type = Type::NewArithmType(T_SHORT);
+        auto val = Constant::New(T_SHORT, *p);
+        obj->Initializers().push_back({offset, type, val});
+        offset += 2;
+        str += 2;
+    }
+
+    while (width >= 1) {
+        auto p = str;
+        auto type = Type::NewArithmType(T_CHAR);
+        auto val = Constant::New(T_CHAR, *p);
+        obj->Initializers().push_back({offset, type, val});
+        offset++;
+        str++;
+    }
+}
+
+void Parser::ParseArrayInitializer(Object* obj, ArrayType* type, int offset)
+{
+    assert(type);
+
+    auto width = type->Derived()->Width();
+    long idx = 0;
+
+    if (_ts.Test(Token::STRING_LITERAL) && width == 1) {
+        // TODO(wgtdkp): handle wide character
+        ParseLiteralInitializer(obj, type, offset);
+        _ts.Try(','));
+        _ts.Expect('}');
+        return;
+    }
 
     while (true) {
         auto tok = _ts.Next();
@@ -1617,51 +1686,58 @@ Stmt* Parser::ParseArrayInitializer(Object* arr)
         if (tok->Tag() == '[') {
             auto tok = _ts.Peek();
             auto expr = ParseExpr();
-
-            auto idx = expr->EvalInteger(tok);
-            idxSet.insert(idx);
-
-            // TODO(wgtdkp):
-            //int offset = type->GetElementOffset(idx);
-            auto ele = Object::New(nullptr, type->Derived(), arr->Scope());
-            //ele->SetOffset(offset + arr->Offset());
-            ele->SetStorage(arr->Storage());
-            ele->SetLinkage(arr->Linkage());
-
+            idx = expr->EvalInteger(tok);
             _ts.Expect(']');
             _ts.Expect('=');
-
-            stmts.push_back(ParseInitializer(ele));
-        } else {
-            // If not specified designator,
-            // the default index INC from 0 and jump over designators
-            while (idxSet.find(defaultIdx) != idxSet.end())
-                defaultIdx++;
-            
-            // TODO(wgtdkp):
-            //int offset = type->GetElementOffset(defaultIdx);
-            auto ele = Object::New(nullptr, type->Derived(), arr->Scope());
-            //ele->SetOffset(offset + arr->Offset());
-            ele->SetStorage(arr->Storage());
-            ele->SetLinkage(arr->Linkage());
-
-            stmts.push_back(ParseInitializer(ele));
         }
+        
+        if (idx < 0 || idx >= type->Len())
+            Error(_ts.Peek(), "index exceed range of array");
+
+        ParseInitializer(obj, type->Derived(), idx * width);
+        ++idx;
 
         // Needless comma at the end is allowed
         if (!_ts.Try(',')) {
-            if (_ts.Peek()->Tag() != '}') {
-                Error(_ts.Peek(), "expect ',' or '}'");
-            }
+            _ts.Expect('}');
+            break;
         }
     }
-
-    return CompoundStmt::New(stmts);
 }
 
-Stmt* Parser::ParseStructInitializer(Object* obj)
+
+void Parser::ParseStructInitializer(Object* obj, int offset)
 {
-    return nullptr;
+    auto type = obj->Type()->ToStructUnionType();
+    assert(type);
+
+    auto member = type->Members().begin();
+    while (true) {
+        auto tok = _ts.Next();
+        if (tok->Tag() == '}')
+            break;
+
+        if (tok->Tag() == '.') {
+            auto memberTok = _ts.Expect(Token::Identifier);
+            auto name = memberTok->Str();
+            auto iter = type->Members().begin();
+            for (; iter != type->Members().end(); iter++)
+                if ((*iter)->Name() == name)
+                    break;
+            member = iter;
+
+            _ts.Expect('=');
+        }
+        
+        ParseInitializer(obj, member->Type(), offset + (*member)->Offset());
+        member++;
+
+        // Needless comma at the end is allowed
+        if (!_ts.Try(',')) {
+            _ts.Expect('}');
+            break;
+        }
+    }
 }
 
 
