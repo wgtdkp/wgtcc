@@ -87,9 +87,18 @@ class Initialization: public Stmt
         Type* _type;
         Expr* _expr;
     };
+
+    struct StaticInitializer
+    {
+        int _offset;
+        int width;
+        long val;
+        std::string label;        
+    };
     
     typedef std::vector<Initializer> InitList;
-    
+    typedef std::vector<StaticInitializer> StaticInitList;
+
 public:
     static Initialization* New(Object* obj);
 
@@ -101,11 +110,20 @@ public:
         return _inits;
     }
 
+    StaticInitList StaticInits(void) {
+        return _staticInits;
+    }
+
+    void AddInit(int offset, Type* type, Expr* _expr);
+
 protected:
     Initialization(Object* obj): _obj(obj) {}
 
     Object* _obj;
-    InitList _inits;
+    union {
+        InitList _inits;
+        StaticInitList _staticInits;
+    };
 };
 
 
@@ -303,6 +321,10 @@ public:
         return _tok;
     }
 
+    void SetTok(const Token* tok) {
+        _tok = tok;
+    }
+
 protected:
     /*
      * You can construct a expression without specifying a type,
@@ -328,6 +350,7 @@ class BinaryOp : public Expr
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
+    friend class Initialization;
 
 public:
     static BinaryOp* New(const Token* tok, Expr* lhs, Expr* rhs);
@@ -772,6 +795,10 @@ public:
         return true;
     }
 
+    bool IsStatic(void) const {
+        return (Storage() & S_STATIC) || (Linkage() != L_NONE);
+    }
+
     int Storage(void) const {
         return _storage;
     }
@@ -809,7 +836,7 @@ protected:
     Object(const Token* tok, ::Type* type, ::Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE)
             : Identifier(tok, type, scope, linkage),
-              _storage(0), _offset(0), _init(nullptr) {}
+              _storage(storage), _offset(0), _init(nullptr) {}
 
 private:
     int _storage;

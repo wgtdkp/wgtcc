@@ -109,8 +109,7 @@ public:
     void ParseLiteralInitializer(Initialization* init,
             ArrayType* type, int offset);
 
-    Initialization* ParseInitDeclarator(Type* type,
-            int storageSpec, int funcSpec);
+    Initialization* ParseInitDeclarator(Identifier* ident);
 
     /************* Statements ***************/
     Stmt* ParseStmt(void);
@@ -136,7 +135,7 @@ public:
             return true;
 
         if (tok->IsIdentifier()) {
-            auto ident = _curScope->Find(tok->Str());
+            auto ident = _curScope->Find(tok);
             if (ident && ident->ToType())
                 return true;
         }
@@ -148,11 +147,17 @@ public:
             return true;
 
         if (tok->IsIdentifier()) {
-            auto ident = _curScope->Find(tok->Str());
+            auto ident = _curScope->Find(tok);
             return (ident && !ident->ToObject());
         }
 
         return false;
+    }
+
+    void EnsureInteger(Expr* expr) {
+        if (!expr->Type()->IsInteger()) {
+            Error(expr, "expect integer expression");
+        }
     }
 
     void EnterBlock(FuncType* funcType=nullptr);

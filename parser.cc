@@ -50,7 +50,7 @@ void Parser::EnterBlock(FuncType* funcType)
         // Merge elements in param scope into current block scope
         auto iter = paramScope->begin();
         for (; iter != paramScope->end(); iter++) {
-            _curScope->Insert(iter->first, iter->second);
+            _curScope->Insert(iter->second);
         }
     } else {
         _curScope = new Scope(_curScope, S_BLOCK);
@@ -87,17 +87,11 @@ void Parser::ParseTranslationUnit(void)
         if (tok && type->ToFuncType() && _ts.Try('{')) { // Function definition
             _unit->Add(ParseFuncDef(tok, type->ToFuncType()));
         } else { // Declaration
-            if (_ts.Try('=')) {
-                if (!ident->ToObject())
-                    Error(_ts.Peek(), "unexpected initializer");
-                auto init = Initialization::New(ident->ToObject());
-                ParseInitializer(init, ident->Type(), 0);
-                // TODO(wgtdkp):
-                // Add init to global initialization
-            }
+            ParseInitDeclarator(ident);
 
             while (_ts.Try(',')) {
-                ParseInitDeclarator(type, storageSpec, funcSpec);
+                auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
+                ParseInitDeclarator(ident);
             }
             _ts.Expect(';');
         }
@@ -166,7 +160,7 @@ Expr* Parser::ParsePrimaryExpr(void)
     }
 
     if (tok->IsIdentifier()) {
-        auto ident = _curScope->Find(tok->Str());
+        auto ident = _curScope->Find(tok);
         /* if (ident == nullptr || ident->ToObject() == nullptr) { */
         if (ident == nullptr) {
             Error(tok, "undefined symbol '%s'", 
@@ -682,7 +676,8 @@ CompoundStmt* Parser::ParseDecl(void)
         //init-declarator 的 FIRST 集合：'*', identifier, '('
         if (_ts.Test('*') || _ts.Test(Token::IDENTIFIER) || _ts.Test('(')) {
             do {
-                auto init = ParseInitDeclarator(type, storageSpec, funcSpec);
+                auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
+                auto init = ParseInitDeclarator(ident);
                 if (init) {
                     stmts.push_back(init);
                 }
@@ -905,7 +900,7 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             */
         default:
             if (typeSpec == 0 && IsTypeName(tok)) {
-                auto ident = _curScope->Find(tok->Str());
+                auto ident = _curScope->Find(tok);
                 if (ident) {
                     type = ident->ToType();
                 }
@@ -988,7 +983,7 @@ Type* Parser::ParseEnumSpec(void)
         tagName = tok->Str();
         if (_ts.Try('{')) {
             //定义enum类型
-            auto tagIdent = _curScope->FindTagInCurScope(tagName);
+            auto tagIdent = _curScope->FindTagInCurScope(tok);
             if (tagIdent == nullptr)
                 goto enum_decl;
 
@@ -1000,14 +995,14 @@ Type* Parser::ParseEnumSpec(void)
             }
         } else {
             //Type* type = _curScope->FindTag(tagName);
-            auto tagIdent = _curScope->FindTag(tagName);
+            auto tagIdent = _curScope->FindTag(tok);
             if (tagIdent) {
                 return tagIdent->Type();
             }
             auto type = Type::NewArithmType(T_INT);
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
             auto ident = Identifier::New(tok, type, _curScope, L_NONE);
-            _curScope->InsertTag(tagName, ident);
+            _curScope->InsertTag(ident);
             return type;
         }
     }
@@ -1019,7 +1014,7 @@ enum_decl:
     type->SetComplete(false);
     if (tagName.size() != 0) {
         auto ident = Identifier::New(tok, type, _curScope, L_NONE);
-        _curScope->InsertTag(tagName, ident);
+        _curScope->InsertTag(ident);
     }
     
     return ParseEnumerator(type);   //处理反大括号: '}'
@@ -1035,7 +1030,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
         auto tok = _ts.Expect(Token::IDENTIFIER);
         
         auto enumName = tok->Str();
-        auto ident = _curScope->FindInCurScope(enumName);
+        auto ident = _curScope->FindInCurScope(tok);
         if (ident) {
             Error(tok, "redefinition of enumerator '%s'", enumName.c_str());
         }
@@ -1051,7 +1046,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
         auto enumer = Enumerator::New(tok, _curScope, val);
         ++val;
 
-        _curScope->Insert(enumName, enumer);
+        _curScope->Insert(enumer);
 
         _ts.Try(',');
     } while (!_ts.Try('}'));
@@ -1076,7 +1071,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
         tagName = tok->Str();
         if (_ts.Try('{')) {
             //看见大括号，表明现在将定义该struct/union类型
-            auto tagIdent = _curScope->FindTagInCurScope(tagName);
+            auto tagIdent = _curScope->FindTagInCurScope(tok);
             if (tagIdent == nullptr) //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
                 goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
             
@@ -1105,7 +1100,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 			 *   1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
 			 *   2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
 			 */
-            auto tagIdent = _curScope->FindTag(tagName);
+            auto tagIdent = _curScope->FindTag(tok);
             
             //如果tag已经定义或声明，那么直接返回此定义或者声明
             if (tagIdent) {
@@ -1117,7 +1112,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
             auto ident = Identifier::New(tok, type, _curScope, L_NONE);
-            _curScope->InsertTag(tagName, ident);
+            _curScope->InsertTag(ident);
             return type;
         }
     }
@@ -1130,7 +1125,7 @@ struct_decl:
     auto type = Type::NewStructUnionType(isStruct, tagName.size(), _curScope);
     if (tagName.size() != 0) {
         auto ident = Identifier::New(tok, type, _curScope, L_NONE);
-        _curScope->InsertTag(tagName, ident);
+        _curScope->InsertTag(ident);
     }
     
     return ParseStructUnionDecl(type); //处理反大括号: '}'
@@ -1293,7 +1288,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     Identifier* ident;
 
     if (storageSpec & S_TYPEDEF) {
-        ident = _curScope->FindInCurScope(tok->Str());
+        ident = _curScope->FindInCurScope(tok);
         if (ident) { // There is prio declaration in the same scope
             // The same declaration, simply return the prio declaration
             if (*type == *ident->Type())
@@ -1302,7 +1297,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             Error(tok, "conflicting types for '%s'", name.c_str());
         }
         ident = Identifier::New(tok, type, _curScope, L_NONE);
-        _curScope->Insert(name, ident);
+        _curScope->Insert(ident);
         return ident;
     }
 
@@ -1311,7 +1306,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
                 name.c_str());
     }
 
-    if (!type->Complete()) {
+    if (!(storageSpec & S_EXTERN) && !type->Complete()) {
         Error(tok, "storage size of '%s' isn’t known",
                 name.c_str());
     }
@@ -1339,7 +1334,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     }
 
     //_curScope->Print();
-    ident = _curScope->FindInCurScope(name);
+    ident = _curScope->FindInCurScope(tok);
     if (ident) { // There is prio declaration in the same scope
         if (*type != *ident->Type()) {
             Error(tok, "conflicting types for '%s'", name.c_str());
@@ -1362,7 +1357,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         // The same redeclaration, simply return the prio declaration 
         return ident;
     } else if (linkage == L_EXTERNAL) {
-        ident = _curScope->Find(name);
+        ident = _curScope->Find(tok);
         if (ident) {
             if (*type != *ident->Type()) {
             	Error(tok, "conflicting types for '%s'",
@@ -1372,7 +1367,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
                 linkage = ident->Linkage();
             }
         } else {
-            ident = _externalSymbols->FindInCurScope(name);
+            ident = _externalSymbols->FindInCurScope(tok);
             if (ident) {
                 if (*type != *ident->Type()) {
                     Error(tok, "conflicting types for '%s'",
@@ -1383,19 +1378,22 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         }
     }
 
-    Identifier* ret;
+    //Identifier* ret;    
     // TODO(wgtdkp): Treat function as object ?
     //if (type->ToFuncType()) {
     //    ret = Identifier::New(tok, type, _curScope, linkage);
     //} else {
     //    ret = Object::New(tok, type, _curScope, storageSpec, linkage);
     //}
-    ret = Object::New(tok, type, _curScope, storageSpec, linkage);
+    auto ret = Object::New(tok, type, _curScope, storageSpec, linkage);
+    if (ret->IsStatic()) {
+        _staticObjects.push_back(ret);
+    }
 
-    _curScope->Insert(name, ret);
+    _curScope->Insert(ret);
     
     if (linkage == L_EXTERNAL && ident == nullptr) {
-        _externalSymbols->Insert(name, ret);
+        _externalSymbols->Insert(ret);
     }
 
     return ret;
@@ -1467,9 +1465,7 @@ int Parser::ParseArrayLength(void)
         return -1;
     
     auto expr = ParseAssignExpr();
-    if (!expr->Type()->IsInteger()) {
-        Error(expr, "expect integer expression");
-    }
+    EnsureInteger(expr);
     return Evaluator<long>().Eval(expr);
 }
 
@@ -1564,25 +1560,65 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
 }
 
 
+Initialization* Parser::ParseInitDeclarator(Identifier* ident)
+{
+    if (_ts.Try('=')) {
+        auto obj = ident->ToObject();
+        if (!obj) {
+            Error(_ts.Peek(), "unexpected initializer");
+        }
+
+        if ((_curScope->Type() != S_FILE) && (obj->Storage() & S_EXTERN)) {
+            Error(obj, "'%s' has both 'extern' and initializer",
+                    obj->Name().c_str());
+        }
+
+        if (!obj->Type()->Complete()) {
+            Error(obj, "variable '%s' has initializer but incomplete type",
+                obj->Name().c_str());
+        }
+
+        if (!obj->Type()->IsScalar() && !_ts.Test('{')) {
+            _ts.Expect('{');
+        }
+        auto init = Initialization::New(obj);
+        ParseInitializer(init, ident->Type(), 0);
+        obj->SetInit(init);
+        
+        return obj->IsStatic() ? nullptr: init;
+    }
+    return nullptr;
+}
+
+
+/*
 Initialization* Parser::ParseInitDeclarator(
         Type* type, int storageSpec, int funcSpec)
 {
     auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
     
     if (_ts.Try('=')) {
-        if (ident->ToObject() == nullptr) {
+        auto obj = ident->ToObject();
+        if (!obj) {
             Error(_ts.Peek(), "unexpected initializer");
         }
-        if (!ident->Type()->IsScalar() && !_ts.Test('{')) {
+        if (!obj->Type()->Complete()) {
+            Error(obj, "storage size of '%s' isn’t known",
+                obj->Name().c_str());
+        }
+
+        if (!obj->Type()->IsScalar() && !_ts.Test('{')) {
             _ts.Expect('{');
         }
-        auto init = Initialization::New(ident->ToObject());
+        auto init = Initialization::New(obj);
         ParseInitializer(init, ident->Type(), 0);
-        return init;
+        obj->SetInit(init);
+        
+        return obj->IsStatic() ? nullptr: init;
     }
     return nullptr;
 }
-
+*/
 
 void Parser::ParseInitializer(Initialization* init, Type* type, int offset)
 {
@@ -1594,8 +1630,14 @@ void Parser::ParseInitializer(Initialization* init, Type* type, int offset)
         return ParseStructInitializer(init, structType, offset);
 
     // Scalar type
-    Expr* rhs = ParseAssignExpr();
-    init->Inits().push_back({offset, type, rhs});
+    auto hasBrace = _ts.Try('{');
+    Expr* expr = ParseAssignExpr();
+    if (hasBrace) {
+        _ts.Try(',');
+        _ts.Expect('}');
+    }
+
+    init->AddInit(offset, type, expr);
 }
 
 
@@ -1664,38 +1706,53 @@ void Parser::ParseArrayInitializer(Initialization* init,
         ParseLiteralInitializer(init, type, offset);
         if (hasBrace) {
             _ts.Try(',');
-            _ts.Expect('}');
+            if (!_ts.Try('}')) {
+                Error(_ts.Peek(), "excess elements in array initializer");
+            }
         }
         return;
     }
 
-    while (idx < type->Len()) {
+    while (true) {
         if (_ts.Test('}')) {
             if (hasBrace)
                 _ts.Next();
-            break;
+            return;
         }
 
         if (hasBrace && _ts.Try('[')) {
-            auto expr = ParseExpr();
+            auto expr = ParseAssignExpr();
+            EnsureInteger(expr);
             idx = Evaluator<long>().Eval(expr);
             _ts.Expect(']');
             _ts.Expect('=');
+
+            if (idx < 0 || idx >= type->Len()) {
+                Error(_ts.Peek(), "excess elements in array initializer");
+            }
         } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
-            break;
+            _ts.PutBack(); // Put the read comma(',') back
+            return;
         }
-        
-        if (idx < 0 || idx >= type->Len())
-            Error(_ts.Peek(), "index exceed range of array");
 
         ParseInitializer(init, type->Derived(), idx * width);
         ++idx;
+
+        if (idx >= type->Len())
+            break;
 
         // Needless comma at the end is allowed
         if (!_ts.Try(',')) {
             if (hasBrace)
                 _ts.Expect('}');
-            break;
+            return;
+        }
+    }
+
+    if (hasBrace) {
+        _ts.Try(',');
+        if (!_ts.Try('}')) {
+            Error(_ts.Peek(), "excess elements in array initializer");
         }
     }
 }
@@ -1707,41 +1764,58 @@ void Parser::ParseStructInitializer(Initialization* init,
     assert(type);
     auto hasBrace = _ts.Try('{');
     auto member = type->Members().begin();
-    while (member != type->Members().end()) {
+    while (true) {
         if (_ts.Test('}')) {
             if (hasBrace)
                 _ts.Next();
-            break;
+            return;
         }
 
         if (hasBrace && _ts.Try('.')) {
             auto memberTok = _ts.Expect(Token::IDENTIFIER);
+            _ts.Expect('=');
+            
             auto name = memberTok->Str();
             auto iter = type->Members().begin();
             for (; iter != type->Members().end(); iter++)
                 if ((*iter)->Name() == name)
                     break;
-            member = iter;
 
-            _ts.Expect('=');
+            member = iter;            
+            if (member == type->Members().end()) {
+                Error(_ts.Peek(), "excess elements in array initializer");
+            }
         } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
-            break;
+            _ts.PutBack(); // Put the read comma(',') back
+            return;
         }
         
+        
+
         ParseInitializer(init, (*member)->Type(),
                 offset + (*member)->Offset());
         member++;
+
+        // Union, just init the first member
+        if (!type->IsStruct()) {
+            break;
+        }
+
+        if (member == type->Members().end())
+            break;
 
         // Needless comma at the end is allowed
         if (!_ts.Try(',')) {
             if (hasBrace)
                 _ts.Expect('}');
-            break;
+            return;
         }
+    }
 
-        // Union, just init the first member
-        if (!type->IsStruct()) {
-            break;
+    if (hasBrace) {
+        _ts.Try(',');
+        if (!_ts.Try('}')) {
+            Error(_ts.Peek(), "excess elements in array initializer");
         }
     }
 }

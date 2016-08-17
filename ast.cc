@@ -5,7 +5,7 @@
 #include "mem_pool.h"
 #include "parser.h"
 #include "token.h"
-#include "visitor.h"
+#include "evaluator.h"
 
 
 static MemPoolImp<BinaryOp>         binaryOpPool;
@@ -113,6 +113,7 @@ BinaryOp* BinaryOp::New(const Token* tok, Expr* lhs, Expr* rhs)
 BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
 {
     switch (op) {
+    case ',':
     case '.':
     case '=': 
     case ']': // SubScripting
@@ -524,13 +525,13 @@ ArithmType* ConditionalOp::Promote(void)
 void ConditionalOp::TypeChecking(void)
 {
     if (!_cond->Type()->IsScalar()) {
-        Error(_tok, "scalar is required");
+        Error(_cond->Tok(), "scalar is required");
     }
 
     auto lhsType = _exprTrue->Type();
     auto rhsType = _exprFalse->Type();
     if (!lhsType->Compatible(*rhsType)) {
-        Error(_tok, "incompatible types of true/false expression");
+        Error(_exprTrue->Tok(), "incompatible types of true/false expression");
     } else {
         _type = lhsType;
     }
@@ -618,6 +619,37 @@ Initialization* Initialization::New(Object* obj)
     auto ret = new (initializationPool.Alloc()) Initialization(obj);
     ret->_pool = &initializationPool;
     return ret;
+}
+
+void Initialization::AddInit(int offset, Type* type, Expr* expr)
+{
+    
+    auto qual = type->Qual();
+    type->SetQual(0);
+    // To trigger type checking
+    auto obj = Object::New(expr->Tok(), type, nullptr);
+    auto binary = BinaryOp::New(expr->Tok(), '=', obj, expr);
+    type->SetQual(qual);
+    
+    expr = binary->_rhs; // Maybe added cast
+    
+
+    if (_obj->IsStatic()) {
+        auto width = type->Width();
+        if (type->IsInteger()) {
+            auto val = Evaluator<long>().Eval(expr);
+            _staticInits.push_back({offset, width, val, ""});
+        } else if (type->IsFloat()) {
+            auto val = Evaluator<double>().Eval(expr);
+            auto lval = *reinterpret_cast<long*>(&val);
+            _staticInits.push_back({offset, width, lval, ""});
+        } else if (type->ToPointerType()) {
+            auto addr = Evaluator<Addr>().Eval(expr);
+            _staticInits.push_back({offset, width, addr._offset, addr._label});
+        } else { assert(false); }
+    } else {
+        _inits.push_back({offset, type, expr});
+    }
 }
 
 

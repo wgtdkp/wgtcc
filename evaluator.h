@@ -8,6 +8,7 @@
 
 class Expr;
 
+
 template<typename T>
 class Evaluator: public Visitor
 {
@@ -71,16 +72,20 @@ private:
 };
 
 
-class AddrEvaluator: public Visitor
+struct Addr
 {
-    struct AddrConstant {
-        std::string _label;
-        int _offset;
-    };
-public:
-    AddrEvaluator(void) {}
+    std::string _label;
+    int _offset;
+};
+
+template<>
+class Evaluator<Addr>: public Visitor
+{
     
-    virtual ~AddrEvaluator(void) {}
+public:
+    Evaluator<Addr>(void) {}
+    
+    virtual ~Evaluator<Addr>(void) {}
 
     virtual void VisitBinaryOp(BinaryOp* binary);
     virtual void VisitUnaryOp(UnaryOp* unary);
@@ -100,7 +105,7 @@ public:
     }
 
     virtual void VisitObject(Object* obj) {
-        if (!(obj->Storage() & S_STATIC) || obj->Linkage() == L_NONE) {
+        if (!obj->IsStatic()) {
             Error(obj, "expect static object");
         }
         _addr._label = obj->Name();
@@ -133,13 +138,13 @@ public:
     virtual void VisitFuncDef(FuncDef* funcDef) {}
     virtual void VisitTranslationUnit(TranslationUnit* unit) {}
 
-    AddrConstant Eval(Expr* expr) {
+    Addr Eval(Expr* expr) {
         expr->Accept(this);
         return _addr;
     }
 
 private:
-    AddrConstant _addr;
+    Addr _addr;
 };
 
 #endif

@@ -6,11 +6,59 @@
 #include <iostream>
 
 
+Identifier* Scope::Find(const Token* tok)
+{
+    auto ret = Find(tok->Str());
+    if (ret) {
+        ret->SetTok(tok);
+    }
+    return ret;
+}
+
+Identifier* Scope::FindInCurScope(const Token* tok)
+{
+    auto ret = FindInCurScope(tok->Str());
+    if (ret) {
+        ret->SetTok(tok);
+    }
+    return ret;
+}
+
+Identifier* Scope::FindTag(const Token* tok)
+{
+    auto ret = FindTag(tok->Str());
+    if (ret) {
+        ret->SetTok(tok);
+    }
+    return ret;
+}
+
+Identifier* Scope::FindTagInCurScope(const Token* tok)
+{
+    auto ret = FindTagInCurScope(tok->Str());
+    if (ret) {
+        ret->SetTok(tok);
+    }
+    return ret;
+}
+
+void Scope::Insert(Identifier* ident)
+{
+    Insert(ident->Name(), ident);
+}
+
+void Scope::InsertTag(Identifier* ident)
+{
+    Insert(TagName(ident->Name()), ident);
+}
+
+
 Identifier* Scope::Find(const std::string& name)
 {
     auto ident = _identMap.find(name);
-    if (ident != _identMap.end())
+    if (ident != _identMap.end()) {
         return ident->second;
+    }
     
     if (_type == S_FILE || _parent == nullptr)
         return nullptr;
