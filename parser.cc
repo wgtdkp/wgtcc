@@ -191,10 +191,10 @@ Constant* Parser::ParseConstant(const Token* tok)
 
     if (tok->Tag() == Token::I_CONSTANT) {
         long ival = atoi(tok->Str().c_str());
-        return Constant::New(T_INT, ival);
+        return Constant::New(tok, T_INT, ival);
     } else {
         double fval = atoi(tok->Str().c_str());
-        return Constant::New(T_DOUBLE, fval);
+        return Constant::New(tok, T_DOUBLE, fval);
     }
 }
 
@@ -311,8 +311,6 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
     FuncType* type = designator->Type()->ToFuncType();
     assert(type);
 
-    auto tok = _ts.Peek();
-
     list<Expr*> args;
     while (!_ts.Try(')')) {
         args.push_back(ParseAssignExpr());
@@ -320,7 +318,7 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
             _ts.Expect(',');
     }
 
-    return FuncCall::New(tok, designator, args);
+    return FuncCall::New(designator, args);
 }
 
 Expr* Parser::ParseUnaryExpr(void)
@@ -376,16 +374,16 @@ Constant* Parser::ParseSizeof(void)
         Error(tok, "sizeof(incomplete type)");
     }
 
-    return Constant::New(T_UNSIGNED | T_LONG, (long)type->Width());
+    return Constant::New(tok, T_UNSIGNED | T_LONG, (long)type->Width());
 }
 
 Constant* Parser::ParseAlignof(void)
 {
-    _ts.Expect('(');
+    auto tok = _ts.Expect('(');
     auto type = ParseTypeName();
     _ts.Expect(')');
 
-    return Constant::New(T_UNSIGNED | T_LONG, (long)type->Align());
+    return Constant::New(tok, T_UNSIGNED | T_LONG, (long)type->Align());
 }
 
 UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
@@ -1010,6 +1008,7 @@ Type* Parser::ParseEnumSpec(void)
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
             auto ident = Identifier::New(tok, type, _curScope, L_NONE);
             _curScope->InsertTag(tagName, ident);
+            return type;
         }
     }
     
@@ -1041,14 +1040,14 @@ Type* Parser::ParseEnumerator(ArithmType* type)
             Error(tok, "redefinition of enumerator '%s'", enumName.c_str());
         }
         if (_ts.Try('=')) {
-            auto expr = ParseExpr();
+            auto expr = ParseAssignExpr();
             val = Evaluator<long>().Eval(expr);
 
             if (valSet.find(val) != valSet.end()) {
-                Error(tok, "conflict enumerator constant '%d'", val);
+                Error(expr, "conflict enumerator constant '%d'", val);
             }
         }
-
+        valSet.insert(val);
         auto enumer = Enumerator::New(tok, _curScope, val);
         ++val;
 
@@ -1604,6 +1603,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
         ArrayType* type, int offset)
 {
     auto literal = ParseLiteral(_ts.Next());
+    auto tok = literal->Tok();
 
     if (!type->Complete())
         type->SetLen(literal->SVal()->size() + 1);
@@ -1615,7 +1615,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
     while (width >= 8) {
         auto p = reinterpret_cast<const long*>(str);
         auto type = Type::NewArithmType(T_LONG);
-        auto val = Constant::New(T_LONG, static_cast<long>(*p));
+        auto val = Constant::New(tok, T_LONG, static_cast<long>(*p));
         init->Inits().push_back({offset, type, val});
         offset += 8;
         str += 8;
@@ -1624,7 +1624,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
     while (width >= 4) {
         auto p = reinterpret_cast<const int*>(str);
         auto type = Type::NewArithmType(T_INT);
-        auto val = Constant::New(T_INT, static_cast<long>(*p));
+        auto val = Constant::New(tok, T_INT, static_cast<long>(*p));
         init->Inits().push_back({offset, type, val});
         offset += 4;
         str += 4;
@@ -1633,7 +1633,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
     while (width >= 2) {
         auto p = reinterpret_cast<const short*>(str);
         auto type = Type::NewArithmType(T_SHORT);
-        auto val = Constant::New(T_SHORT, static_cast<long>(*p));
+        auto val = Constant::New(tok, T_SHORT, static_cast<long>(*p));
         init->Inits().push_back({offset, type, val});
         offset += 2;
         str += 2;
@@ -1642,7 +1642,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
     while (width >= 1) {
         auto p = str;
         auto type = Type::NewArithmType(T_CHAR);
-        auto val = Constant::New(T_CHAR, static_cast<long>(*p));
+        auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
         init->Inits().push_back({offset, type, val});
         offset++;
         str++;
@@ -2046,8 +2046,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
     for (auto iter = caseLabels.begin();
             iter != caseLabels.end(); iter++) {
-        auto rhs = Constant::New(T_INT, (long)iter->first);
-        auto cond = BinaryOp::New(tok, Token::EQ_OP, t, rhs);
+        auto cond = BinaryOp::New(tok, Token::EQ_OP, t, iter->first);
         auto then = JumpStmt::New(iter->second);
         auto ifStmt = IfStmt::New(cond, then, nullptr);
         stmts.push_back(ifStmt);
@@ -2066,9 +2065,12 @@ CompoundStmt* Parser::ParseCaseStmt(void)
     auto expr = ParseExpr();
     _ts.Expect(':');
     
-    int val = Evaluator<long>().Eval(expr);
+    auto val = Evaluator<long>().Eval(expr);
+    auto cons = Constant::New(expr->Tok(), T_INT, val);
+
     auto labelStmt = LabelStmt::New();
-    _caseLabels->push_back(std::make_pair(val, labelStmt));
+    _caseLabels->push_back(std::make_pair(cons, labelStmt));
+    
     std::list<Stmt*> stmts;
     stmts.push_back(labelStmt);
     stmts.push_back(ParseStmt());

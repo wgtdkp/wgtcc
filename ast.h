@@ -3,6 +3,7 @@
 
 #include "error.h"
 #include "string_pair.h"
+#include "token.h"
 #include "type.h"
 
 #include <cassert>
@@ -48,25 +49,10 @@ class TranslationUnit;
 
 class ASTNode
 {
-    friend class TokenSeq;
 public:
     virtual ~ASTNode(void) {}
     
     virtual void Accept(Visitor* v) = 0;
-
-    const std::string* _fileName {nullptr};
-    
-    // Line index of the begin
-    unsigned _line {1};
-    
-    // Column index of the begin
-    unsigned _column {1};
-
-    char* _lineBegin {nullptr};
-
-    char* _begin {nullptr};
-
-    char* _end {nullptr};
 
 protected:
     ASTNode(void) {}
@@ -83,8 +69,6 @@ class Stmt : public ASTNode
 {
 public:
     virtual ~Stmt(void) {}
-
-    virtual void TypeChecking( const Token* errTok) {}
 
 protected:
      Stmt(void) {}
@@ -309,10 +293,14 @@ public:
 
     virtual bool IsLVal(void) = 0;
 
-    virtual void TypeChecking(const Token* errTok) = 0;
+    virtual void TypeChecking(void) = 0;
 
-    virtual std::string Name(void) {
-        return "";
+    std::string Name(void) {
+        return _tok->Str();
+    }
+
+    const Token* Tok(void) const {
+        return _tok;
     }
 
 protected:
@@ -320,8 +308,9 @@ protected:
      * You can construct a expression without specifying a type,
      * then the type should be evaluated in TypeChecking()
      */
-    Expr(::Type* type): _type(type) {}
+    Expr(const Token* tok, ::Type* type): _tok(tok), _type(type) {}
 
+    const Token* _tok;
     ::Type* _type;
 };
 
@@ -358,23 +347,23 @@ public:
         }
     }
 
-    ArithmType* Promote(const Token* errTok);
+    ArithmType* Promote(void);
 
-    virtual void TypeChecking(const Token* errTok);
-    void SubScriptingOpTypeChecking(const Token* errTok);
-    void MemberRefOpTypeChecking(const Token* errTok);
-    void MultiOpTypeChecking(const Token* errTok);
-    void AdditiveOpTypeChecking(const Token* errTok);
-    void ShiftOpTypeChecking(const Token* errTok);
-    void RelationalOpTypeChecking(const Token* errTok);
-    void EqualityOpTypeChecking(const Token* errTok);
-    void BitwiseOpTypeChecking(const Token* errTok);
-    void LogicalOpTypeChecking(const Token* errTok);
-    void AssignOpTypeChecking(const Token* errTok);
+    virtual void TypeChecking(void);
+    void SubScriptingOpTypeChecking(void);
+    void MemberRefOpTypeChecking(void);
+    void MultiOpTypeChecking(void);
+    void AdditiveOpTypeChecking(void);
+    void ShiftOpTypeChecking(void);
+    void RelationalOpTypeChecking(void);
+    void EqualityOpTypeChecking(void);
+    void BitwiseOpTypeChecking(void);
+    void LogicalOpTypeChecking(void);
+    void AssignOpTypeChecking(void);
 
 protected:
     BinaryOp(int op, Expr* lhs, Expr* rhs)
-            : Expr(nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
+            : Expr(lhs->Tok(), nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
 
     int _op;
     Expr* _lhs;
@@ -411,18 +400,18 @@ public:
     //TODO: like '*p' is lvalue, but '~i' is not lvalue
     virtual bool IsLVal(void);
 
-    ArithmType* Promote(Parser* parser, const Token* errTok);
+    ArithmType* Promote(void);
 
-    void TypeChecking(const Token* errTok);
-    void IncDecOpTypeChecking(const Token* errTok);
-    void AddrOpTypeChecking(const Token* errTok);
-    void DerefOpTypeChecking(const Token* errTok);
-    void UnaryArithmOpTypeChecking(const Token* errTok);
-    void CastOpTypeChecking(const Token* errTok);
+    void TypeChecking(void);
+    void IncDecOpTypeChecking(void);
+    void AddrOpTypeChecking(void);
+    void DerefOpTypeChecking(void);
+    void UnaryArithmOpTypeChecking(void);
+    void CastOpTypeChecking(void);
 
 protected:
     UnaryOp(int op, Expr* operand, ::Type* type = nullptr)
-        : Expr(type), _op(op), _operand(operand) {}
+        : Expr(operand->Tok(), type), _op(op), _operand(operand) {}
 
     int _op;
     Expr* _operand;
@@ -448,13 +437,13 @@ public:
         return false;
     }
 
-    ArithmType* Promote(const Token* errTok);
+    ArithmType* Promote(void);
     
-    virtual void TypeChecking(const Token* errTok);
+    virtual void TypeChecking(void);
 
 protected:
     ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
-            : Expr(nullptr), _cond(cond),
+            : Expr(cond->Tok(), nullptr), _cond(cond),
               _exprTrue(exprTrue), _exprFalse(exprFalse) {}
 
 private:
@@ -474,8 +463,7 @@ class FuncCall : public Expr
     typedef std::list<Expr*> ArgList;
 
 public:
-    static FuncCall* New(const Token* tok,
-            Expr* designator, const std::list<Expr*>& args);
+    static FuncCall* New(Expr* designator, const std::list<Expr*>& args);
 
     ~FuncCall(void) {}
     
@@ -494,11 +482,12 @@ public:
         return _designator;
     }
 
-    virtual void TypeChecking(const Token* errTok);
+    virtual void TypeChecking(void);
 
 protected:
     FuncCall(Expr* designator, std::list<Expr*> args)
-        : Expr(nullptr), _designator(designator), _args(args) {}
+        : Expr(designator->Tok(), nullptr),
+          _designator(designator), _args(args) {}
 
     Expr* _designator;
     ArgList _args;
@@ -512,9 +501,9 @@ class Constant: public Expr
     friend class Generator;
 
 public:
-    static Constant* New(int tag, long val);
-    static Constant* New(int tag, double val);
-    static Constant* New(const std::string* val);
+    static Constant* New(const Token* tok, int tag, long val);
+    static Constant* New(const Token* tok, int tag, double val);
+    static Constant* New(const Token* tok, const std::string* val);
 
     ~Constant(void) {}
     
@@ -524,7 +513,7 @@ public:
         return false;
     }
 
-    virtual void TypeChecking(const Token* errTok) {}
+    virtual void TypeChecking(void) {}
 
     long IVal(void) const {
         return _ival;
@@ -543,9 +532,12 @@ public:
     }
 
 protected:
-    Constant(::Type* type, long val): Expr(type), _ival(val) {}
-    Constant(::Type* type, double val): Expr(type), _fval(val) {}
-    Constant(::Type* type, const std::string* val): Expr(type), _sval(val) {}
+    Constant(const Token* tok, ::Type* type, long val)
+            : Expr(tok, type), _ival(val) {}
+    Constant(const Token* tok, ::Type* type, double val)
+            : Expr(tok, type), _fval(val) {}
+    Constant(const Token* tok, ::Type* type, const std::string* val)
+            : Expr(tok, type), _sval(val) {}
 
     union {
         long _ival;
@@ -576,10 +568,10 @@ public:
         return true;
     }
 
-    virtual void TypeChecking(const Token* errTok) {}
+    virtual void TypeChecking(void) {}
 
 protected:
-    TempVar(::Type* type): Expr(type), _tag(GenTag()) {}
+    TempVar(::Type* type): Expr(nullptr, type), _tag(GenTag()) {}
     
 private:
     static int GenTag(void) {
@@ -717,15 +709,13 @@ public:
         return *_type == *other._type && _scope == other._scope;
     }
 
-    virtual void TypeChecking(const Token* errTok) {}
+    virtual void TypeChecking(void) {}
 
 protected:
     Identifier(const Token* tok, ::Type* type,
             ::Scope* scope, enum Linkage linkage)
-            : Expr(type), _tok(tok), _scope(scope), _linkage(linkage) {}
+            : Expr(tok, type), _scope(scope), _linkage(linkage) {}
     
-    const Token* _tok;
-
     // An identifier has property scope
     ::Scope* _scope;
     // An identifier has property linkage
@@ -753,7 +743,7 @@ public:
 protected:
     Enumerator(const Token* tok, ::Scope* scope, int val)
             : Identifier(tok, Type::NewArithmType(T_INT), scope, L_NONE),
-              _cons(Constant::New(T_INT, (long)val)) {}
+              _cons(Constant::New(tok, T_INT, (long)val)) {}
 
     Constant* _cons;
 };

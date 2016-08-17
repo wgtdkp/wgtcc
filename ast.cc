@@ -26,6 +26,8 @@ static MemPoolImp<LabelStmt>        labelStmtPool;
 static MemPoolImp<CompoundStmt>     compoundStmtPool;
 static MemPoolImp<FuncDef>          funcDefPool;
 
+
+
 /*
  * Accept
  */
@@ -102,6 +104,7 @@ void TranslationUnit::Accept(Visitor* v) {
 }
 
 
+
 BinaryOp* BinaryOp::New(const Token* tok, Expr* lhs, Expr* rhs)
 {
     return New(tok, tok->Tag(), lhs, rhs);
@@ -140,12 +143,12 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
     auto ret = new (binaryOpPool.Alloc()) BinaryOp(op, lhs, rhs);
     ret->_pool = &binaryOpPool;
     
-    ret->TypeChecking(tok);
+    ret->TypeChecking();
     return ret;    
 }
 
 
-ArithmType* BinaryOp::Promote(const Token* errTok)
+ArithmType* BinaryOp::Promote(void)
 {
     // Both lhs and rhs are ensured to be have arithmetic type
     auto lhsType = _lhs->Type()->ToArithmType();
@@ -153,10 +156,10 @@ ArithmType* BinaryOp::Promote(const Token* errTok)
     
     auto type = MaxType(lhsType, rhsType);
     if (lhsType != type) {// Pointer comparation is enough!
-        _lhs = UnaryOp::New(errTok, Token::CAST, _lhs, type);
+        _lhs = UnaryOp::New(_tok, Token::CAST, _lhs, type);
     }
     if (rhsType != type) {
-        _rhs = UnaryOp::New(errTok, Token::CAST, _rhs, type);
+        _rhs = UnaryOp::New(_tok, Token::CAST, _rhs, type);
     }
     
     return type;
@@ -167,90 +170,90 @@ ArithmType* BinaryOp::Promote(const Token* errTok)
  * Type checking
  */
 
-void BinaryOp::TypeChecking(const Token* errTok)
+void BinaryOp::TypeChecking(void)
 {
     switch (_op) {
     case '.':
-        return MemberRefOpTypeChecking(errTok);
+        return MemberRefOpTypeChecking();
 
     case ']':
-        return SubScriptingOpTypeChecking(errTok);
+        return SubScriptingOpTypeChecking();
 
     case '*':
     case '/':
     case '%':
-        return MultiOpTypeChecking(errTok);
+        return MultiOpTypeChecking();
 
     case '+':
     case '-':
-        return AdditiveOpTypeChecking(errTok);
+        return AdditiveOpTypeChecking();
 
     case Token::LEFT_OP:
     case Token::RIGHT_OP:
-        return ShiftOpTypeChecking(errTok);
+        return ShiftOpTypeChecking();
 
     case '<':
     case '>':
     case Token::LE_OP:
     case Token::GE_OP:
-        return RelationalOpTypeChecking(errTok);
+        return RelationalOpTypeChecking();
 
     case Token::EQ_OP:
     case Token::NE_OP:
-        return EqualityOpTypeChecking(errTok);
+        return EqualityOpTypeChecking();
 
     case '&':
     case '^':
     case '|':
-        return BitwiseOpTypeChecking(errTok);
+        return BitwiseOpTypeChecking();
 
     case Token::AND_OP:
     case Token::OR_OP:
-        return LogicalOpTypeChecking(errTok);
+        return LogicalOpTypeChecking();
 
     case '=':
-        return AssignOpTypeChecking(errTok);
+        return AssignOpTypeChecking();
 
     default:
         assert(0);
     }
 }
 
-void BinaryOp::SubScriptingOpTypeChecking(const Token* errTok)
+void BinaryOp::SubScriptingOpTypeChecking(void)
 {
     auto lhsType = _lhs->Type()->ToPointerType();
     if (nullptr == lhsType) {
-        Error(errTok, "an pointer expected");
+        Error(_tok, "an pointer expected");
     }
     if (!_rhs->Type()->IsInteger()) {
-        Error(errTok, "the operand of [] should be intger");
+        Error(_tok, "the operand of [] should be intger");
     }
 
     // The type of [] operator is the derived type
     _type = lhsType->Derived();    
 }
 
-void BinaryOp::MemberRefOpTypeChecking(const Token* errTok)
+void BinaryOp::MemberRefOpTypeChecking(void)
 {
     _type = _rhs->Type();
 }
 
-void BinaryOp::MultiOpTypeChecking(const Token* errTok)
+void BinaryOp::MultiOpTypeChecking(void)
 {
     auto lhsType = _lhs->Type()->ToArithmType();
     auto rhsType = _rhs->Type()->ToArithmType();
     if (lhsType == nullptr || rhsType == nullptr) {
-        Error(errTok, "operands should have arithmetic type");
+        Error(_tok, "operands should have arithmetic type");
     }
 
     if ('%' == _op && 
             !(_lhs->Type()->IsInteger()
             && _rhs->Type()->IsInteger())) {
-        Error(errTok, "operands of '%%' should be integers");
+        Error(_tok, "operands of '%%' should be integers");
     }
 
     //TODO: type promotion
-    _type = Promote(errTok);
+    _type = Promote();
 }
 
 /*
@@ -260,7 +263,7 @@ void BinaryOp::MultiOpTypeChecking(const Token* errTok)
  *     1. lhs of MINUS operator, and rhs must be integer or pointer;
  *     2. lhs/rhs of ADD operator, and the other operand must be integer;
  */
-void BinaryOp::AdditiveOpTypeChecking(const Token* errTok)
+void BinaryOp::AdditiveOpTypeChecking(void)
 {
     auto lhsType = _lhs->Type()->ToPointerType();
     auto rhsType = _rhs->Type()->ToPointerType();
@@ -268,18 +271,18 @@ void BinaryOp::AdditiveOpTypeChecking(const Token* errTok)
         if (_op == Token::MINUS) {
             if ((rhsType && *lhsType != *rhsType)
                     || !_rhs->Type()->IsInteger()) {
-                Error(errTok, "invalid operands to binary -");
+                Error(_tok, "invalid operands to binary -");
             }
             _type = Type::NewArithmType(T_LONG); // ptrdiff_t
         } else if (!_rhs->Type()->IsInteger()) {
-            Error(errTok, "invalid operands to binary -");
+            Error(_tok, "invalid operands to binary -");
         } else {
             _type = _lhs->Type();
         }
     } else if (rhsType) {
         if (_op != Token::ADD || !_lhs->Type()->IsInteger()) {
-            Error(errTok, "invalid operands to binary '%s'",
-                    errTok->Str().c_str());
+            Error(_tok, "invalid operands to binary '%s'",
+                    _tok->Str().c_str());
         }
         _type = _rhs->Type();
         std::swap(_lhs, _rhs); // To simplify code gen
@@ -287,89 +290,89 @@ void BinaryOp::AdditiveOpTypeChecking(const Token* errTok)
         auto lhsType = _lhs->Type()->ToArithmType();
         auto rhsType = _rhs->Type()->ToArithmType();
         if (lhsType == nullptr || rhsType == nullptr) {
-            Error(errTok, "invalid operands to binary %s",
-                    errTok->Str().c_str());
+            Error(_tok, "invalid operands to binary %s",
+                    _tok->Str().c_str());
         }
 
-        _type = Promote(errTok);
+        _type = Promote();
     }
 }
 
-void BinaryOp::ShiftOpTypeChecking(const Token* errTok)
+void BinaryOp::ShiftOpTypeChecking(void)
 {
     if (!_lhs->Type()->IsInteger() || !_rhs->Type()->IsInteger()) {
-        Error(errTok, "expect integers for shift operator '%s'",
-                errTok->Str());
+        Error(_tok, "expect integers for shift operator '%s'",
+                _tok->Str());
     }
 
-    Promote(errTok);
+    Promote();
     _type = _lhs->Type();
 }
 
-void BinaryOp::RelationalOpTypeChecking(const Token* errTok)
+void BinaryOp::RelationalOpTypeChecking(void)
 {
     if (!_lhs->Type()->IsReal() || !_rhs->Type()->IsReal()) {
-        Error(errTok, "expect integer/float"
-                " for relational operator '%s'", errTok->Str());
+        Error(_tok, "expect integer/float"
+                " for relational operator '%s'", _tok->Str());
     }
 
-    Promote(errTok);
+    Promote();
     _type = Type::NewArithmType(T_INT);    
 }
 
-void BinaryOp::EqualityOpTypeChecking(const Token* errTok)
+void BinaryOp::EqualityOpTypeChecking(void)
 {
     auto lhsType = _lhs->Type()->ToPointerType();
     auto rhsType = _rhs->Type()->ToPointerType();
     if (lhsType || rhsType) {
         if (!lhsType->Compatible(*rhsType)) {
-            Error(errTok, "incompatible pointers of operands");
+            Error(_tok, "incompatible pointers of operands");
         }
     } else {
         auto lhsType = _lhs->Type()->ToArithmType();
         auto rhsType = _rhs->Type()->ToArithmType();
         if (lhsType == nullptr || rhsType == nullptr) {
-            Error(errTok, "invalid operands to binary %s",
-                    errTok->Str());
+            Error(_tok, "invalid operands to binary %s",
+                    _tok->Str());
         }
 
-        Promote(errTok);
+        Promote();
     }
 
     _type = Type::NewArithmType(T_INT);    
 }
 
-void BinaryOp::BitwiseOpTypeChecking(const Token* errTok)
+void BinaryOp::BitwiseOpTypeChecking(void)
 {
     if (_lhs->Type()->IsInteger() || _rhs->Type()->IsInteger()) {
-        Error(errTok, "operands of '&' should be integer");
+        Error(_tok, "operands of '&' should be integer");
     }
     
-    _type = Promote(errTok);    
+    _type = Promote();    
 }
 
-void BinaryOp::LogicalOpTypeChecking(const Token* errTok)
+void BinaryOp::LogicalOpTypeChecking(void)
 {
     if (!_lhs->Type()->IsScalar()
             || !_rhs->Type()->IsScalar()) {
-        Error(errTok, "the operand should be arithmetic type or pointer");
+        Error(_tok, "the operand should be arithmetic type or pointer");
     }
     
-    Promote(errTok);
+    Promote();
     _type = Type::NewArithmType(T_INT);
 }
 
-void BinaryOp::AssignOpTypeChecking(const Token* errTok)
+void BinaryOp::AssignOpTypeChecking(void)
 {
     if (!_lhs->IsLVal()) {
-        Error(errTok, "lvalue expression expected");
+        Error(_tok, "lvalue expression expected");
     } else if (_lhs->Type()->IsConst()) {
-        Error(errTok, "can't modifiy 'const' qualified expression");
+        Error(_tok, "can't modifiy 'const' qualified expression");
     } else if (!_lhs->Type()->Compatible(*_rhs->Type())) {
-        Error(errTok, "uncompatible types");
+        Error(_tok, "uncompatible types");
     }
     // The other constraints are lefted to cast operator
-    _rhs = UnaryOp::New(errTok,Token::CAST, _rhs, _lhs->Type());
+    _rhs = UnaryOp::New(_tok,Token::CAST, _rhs, _lhs->Type());
     _type = _lhs->Type();
 }
 
@@ -384,7 +387,7 @@ UnaryOp* UnaryOp::New(const Token* tok,
     auto ret = new (unaryOpPool.Alloc()) UnaryOp(op, operand, type);
     ret->_pool = &unaryOpPool;
     
-    ret->TypeChecking(tok);
+    ret->TypeChecking();
     return ret;
 }
 
@@ -395,93 +398,93 @@ bool UnaryOp::IsLVal(void) {
 }
 
 
-void UnaryOp::TypeChecking(const Token* errTok)
+void UnaryOp::TypeChecking(void)
 {
     switch (_op) {
     case Token::POSTFIX_INC:
     case Token::POSTFIX_DEC:
     case Token::PREFIX_INC:
     case Token::PREFIX_DEC:
-        return IncDecOpTypeChecking(errTok);
+        return IncDecOpTypeChecking();
 
     case Token::ADDR:
-        return AddrOpTypeChecking(errTok);
+        return AddrOpTypeChecking();
 
     case Token::DEREF:
-        return DerefOpTypeChecking(errTok);
+        return DerefOpTypeChecking();
 
     case Token::PLUS:
     case Token::MINUS:
     case '~':
     case '!':
-        return UnaryArithmOpTypeChecking(errTok);
+        return UnaryArithmOpTypeChecking();
 
     case Token::CAST:
-        return CastOpTypeChecking(errTok);
+        return CastOpTypeChecking();
 
     default:
         assert(false);
     }
 }
 
-void UnaryOp::IncDecOpTypeChecking(const Token* errTok)
+void UnaryOp::IncDecOpTypeChecking(void)
 {
     if (!_operand->IsLVal()) {
-        Error(errTok, "lvalue expression expected");
+        Error(_tok, "lvalue expression expected");
     } else if (_operand->Type()->IsConst()) {
-        Error(errTok, "can't modifiy 'const' qualified expression");
+        Error(_tok, "can't modifiy 'const' qualified expression");
     }
 
     _type = _operand->Type();
 }
 
-void UnaryOp::AddrOpTypeChecking(const Token* errTok)
+void UnaryOp::AddrOpTypeChecking(void)
 {
     FuncType* funcType = _operand->Type()->ToFuncType();
     if (funcType == nullptr && !_operand->IsLVal()) {
-        Error(errTok, "expression must be an lvalue or function designator");
+        Error(_tok, "expression must be an lvalue or function designator");
     }
     
     _type = Type::NewPointerType(_operand->Type());
 }
 
-void UnaryOp::DerefOpTypeChecking(const Token* errTok)
+void UnaryOp::DerefOpTypeChecking(void)
 {
     auto pointerType = _operand->Type()->ToPointerType();
     if (pointerType == nullptr) {
-        Error(errTok, "pointer expected for deref operator '*'");
+        Error(_tok, "pointer expected for deref operator '*'");
     }
 
     _type = pointerType->Derived();    
 }
 
-void UnaryOp::UnaryArithmOpTypeChecking(const Token* errTok)
+void UnaryOp::UnaryArithmOpTypeChecking(void)
 {
     if (Token::PLUS == _op || Token::MINUS == _op) {
         if (!_operand->Type()->IsArithm())
-            Error(errTok, "Arithmetic type expected");
+            Error(_tok, "Arithmetic type expected");
     } else if ('~' == _op) {
         if (!_operand->Type()->IsInteger())
-            Error(errTok, "integer expected for operator '~'");
+            Error(_tok, "integer expected for operator '~'");
     } else if (!_operand->Type()->IsScalar()) {
-        Error(errTok,
+        Error(_tok,
                 "arithmetic type or pointer expected for operator '!'");
     }
 
     _type = _operand->Type();
 }
 
-void UnaryOp::CastOpTypeChecking(const Token* errTok)
+void UnaryOp::CastOpTypeChecking(void)
 {
     // The _type has been initiated to dest type
     if (!_type->IsScalar()) {
-        Error(errTok, "the cast type should be arithemetic type or pointer");
+        Error(_tok, "the cast type should be arithemetic type or pointer");
     }
 
     if (_type->IsFloat() && _operand->Type()->ToPointerType()) {
-        Error(errTok, "can't cast a pointer to floating");
+        Error(_tok, "can't cast a pointer to floating");
     } else if (_type->ToPointerType() && _operand->Type()->IsFloat()) {
-        Error(errTok, "can't cast a floating to pointer");
+        Error(_tok, "can't cast a floating to pointer");
     }
 }
 
@@ -497,37 +500,37 @@ ConditionalOp* ConditionalOp::New(const Token* tok,
             ConditionalOp(cond, exprTrue, exprFalse);
     ret->_pool = &conditionalOpPool;
 
-    ret->TypeChecking(tok);
+    ret->TypeChecking();
     return ret;
 }
 
 
-ArithmType* ConditionalOp::Promote(const Token* errTok)
+ArithmType* ConditionalOp::Promote(void)
 {
     auto lhsType = _exprTrue->Type()->ToArithmType();
     auto rhsType = _exprFalse->Type()->ToArithmType();
     
     auto type = MaxType(lhsType, rhsType);
     if (lhsType != type) {// Pointer comparation is enough!
-        _exprTrue = UnaryOp::New(errTok, Token::CAST, _exprTrue, type);
+        _exprTrue = UnaryOp::New(_tok, Token::CAST, _exprTrue, type);
     }
     if (rhsType != type) {
-        _exprFalse = UnaryOp::New(errTok, Token::CAST, _exprFalse, type);
+        _exprFalse = UnaryOp::New(_tok, Token::CAST, _exprFalse, type);
     }
     
     return type;
 }
 
-void ConditionalOp::TypeChecking(const Token* errTok)
+void ConditionalOp::TypeChecking(void)
 {
     if (!_cond->Type()->IsScalar()) {
-        Error(errTok, "scalar is required");
+        Error(_tok, "scalar is required");
     }
 
     auto lhsType = _exprTrue->Type();
     auto rhsType = _exprFalse->Type();
     if (!lhsType->Compatible(*rhsType)) {
-        Error(errTok, "incompatible types of true/false expression");
+        Error(_tok, "incompatible types of true/false expression");
     } else {
         _type = lhsType;
     }
@@ -535,7 +538,7 @@ void ConditionalOp::TypeChecking(const Token* errTok)
     lhsType = lhsType->ToArithmType();
     rhsType = rhsType->ToArithmType();
     if (lhsType && rhsType) {
-        _type = Promote(errTok);
+        _type = Promote();
     }
 }
 
@@ -544,40 +547,39 @@ void ConditionalOp::TypeChecking(const Token* errTok)
  * Function Call
  */
 
-FuncCall* FuncCall::New(const Token* tok,
-        Expr* designator, const std::list<Expr*>& args)
+FuncCall* FuncCall::New(Expr* designator, const std::list<Expr*>& args)
 {
     auto ret = new (funcCallPool.Alloc()) FuncCall(designator, args);
     ret->_pool = &funcCallPool;
 
-    ret->TypeChecking(tok);
+    ret->TypeChecking();
     return ret;
 }
 
 
-void FuncCall::TypeChecking(const Token* errTok)
+void FuncCall::TypeChecking(void)
 {
     auto funcType = _designator->Type()->ToFuncType();
     if (funcType == nullptr) {
-        Error(errTok, "'%s' is not a function", errTok->Str());
+        Error(_tok, "'%s' is not a function", _tok->Str());
     }
 
     auto arg = _args.begin();
     for (auto paramType: funcType->ParamTypes()) {
         if (arg == _args.end()) {
-            Error(errTok, "too few arguments for function ''");
+            Error(_tok, "too few arguments for function ''");
         }
 
         if (!paramType->Compatible(*(*arg)->Type())) {
             // TODO(wgtdkp): function name
-            Error(errTok, "incompatible type for argument 1 of ''");
+            Error(_tok, "incompatible type for argument 1 of ''");
         }
 
         ++arg;
     }
     
     if (arg != _args.end() && !funcType->Variadic()) {
-        Error(errTok, "too many arguments for function ''");
+        Error(_tok, "too many arguments for function ''");
     }
     
     _type = funcType->Derived();
@@ -637,29 +639,29 @@ Object* Object::New(const Token* tok,
  * Constant
  */
 
-Constant* Constant::New(int tag, long val)
+Constant* Constant::New(const Token* tok, int tag, long val)
 {
     auto type = Type::NewArithmType(tag);
-    auto ret = new (constantPool.Alloc()) Constant(type, val);
+    auto ret = new (constantPool.Alloc()) Constant(tok, type, val);
     ret->_pool = &constantPool;
     return ret;
 }
 
-Constant* Constant::New(int tag, double val)
+Constant* Constant::New(const Token* tok, int tag, double val)
 {
     auto type = Type::NewArithmType(tag);
-    auto ret = new (constantPool.Alloc()) Constant(type, val);
+    auto ret = new (constantPool.Alloc()) Constant(tok, type, val);
     ret->_pool = &constantPool;
     return ret;
 }
 
-Constant* Constant::New(const std::string* val)
+Constant* Constant::New(const Token* tok, const std::string* val)
 {
     static auto derived = Type::NewArithmType(T_CHAR);
     derived->SetQual(Q_CONST);
     static auto type = Type::NewPointerType(derived);
 
-    auto ret = new (constantPool.Alloc()) Constant(type, val);
+    auto ret = new (constantPool.Alloc()) Constant(tok, type, val);
     ret->_pool = &constantPool;
 
     static long tag = 0;

@@ -1,7 +1,7 @@
 #ifndef _WGTCC_TOKEN_H_
 #define _WGTCC_TOKEN_H_
 
-#include "ast.h"
+#include "error.h"
 
 #include <cassert>
 #include <cstring>
@@ -9,8 +9,10 @@
 #include <list>
 #include <unordered_map>
 
+
 class Generator;
 class Parser;
+class Token;
 class TokenSeq;
 
 typedef std::list<Token> TokenList;
@@ -27,7 +29,7 @@ enum class Encoding {
     WCHAR
 };
 
-struct Token: public ASTNode
+struct Token
 {
     friend class Parser;
     
@@ -48,7 +50,7 @@ public:
         _fileName = other._fileName;
         _line = other._line;
         _ws = other._ws;
-        _column = other._column;
+        //_column = other._column;
         _lineBegin = other._lineBegin;
         _begin = other._begin;
         _end = other._end;
@@ -57,9 +59,6 @@ public:
     }
 
     virtual ~Token(void) {}
-    
-    // Do nothing
-    virtual void Accept(Visitor* v) { assert(false); }
     
     //Token::NOTOK represents not a kw.
     static int KeyWordTag(const char* begin, const char* end) {
@@ -291,13 +290,30 @@ public:
             
         return iter->second;
     }
+
+    int Column(void) const {
+        return _begin - _lineBegin + 1;
+    }
     
     int _tag;
+    
+    const std::string* _fileName {nullptr};
+
+    // Line index of the begin
+    unsigned _line {1};
+    
     /*
-     * _ws standards for weither there is preceding white space
-     * This is to simplify the '#' operator(stringize) in macro expansion
-     */
-    bool _ws;
+        * _ws standards for weither there is preceding white space
+        * This is to simplify the '#' operator(stringize) in macro expansion
+        */
+    bool _ws {false};
+        
+
+    char* _lineBegin {nullptr};
+
+    char* _begin {nullptr};
+
+    char* _end {nullptr};
     
     //bool _needFree;
 
@@ -429,3 +445,6 @@ public:
 };
 
 #endif
+
+Encoding StringEncoding(const Token* tok);
+
