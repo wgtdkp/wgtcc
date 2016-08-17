@@ -30,7 +30,8 @@ public:
     ~Parser(void) {}
 
     Constant* ParseConstant(const Token* tok);
-    Expr* ParseString(const Token* tok);
+    Constant* ParseLiteral(const Token* tok);
+
     Expr* ParseGeneric(void);
 
     void Parse(void);
@@ -98,10 +99,18 @@ public:
             int storageSpec, int funcSpec);
 
     //initializer
-    Stmt* ParseInitializer(Object* obj);
-    Stmt* ParseArrayInitializer(Object* arr);
-    Stmt* ParseStructInitializer(Object* obj);
-    Stmt* ParseInitDeclarator(Type* type, int storageSpec, int funcSpec);
+    void ParseInitializer(Initialization* init, Type* type, int offset);
+    void ParseArrayInitializer(Initialization* init,
+            ArrayType* type, int offset);
+            
+    void ParseStructInitializer(Initialization* init,
+            StructUnionType* type, int offset);
+
+    void ParseLiteralInitializer(Initialization* init,
+            ArrayType* type, int offset);
+
+    Initialization* ParseInitDeclarator(Type* type,
+            int storageSpec, int funcSpec);
 
     /************* Statements ***************/
     Stmt* ParseStmt(void);

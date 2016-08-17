@@ -1,19 +1,13 @@
+#include <stdio.h>
+enum ee;
 
-enum EE {
-    AA,
-    BB,
-    CC,
-} ee;
-
-enum TT {
-    EE,
-    FF,
-    GG,
+enum ee
+{
+    A,
 };
 
-void test(void)
+
+int main(void)
 {
-    enum TT tt = AA;
-    enum BB bb;
-    ee = CC;
+    return 0;
 }

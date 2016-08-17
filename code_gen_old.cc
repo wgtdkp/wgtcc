@@ -334,7 +334,7 @@ Operand* Generator::GenBinaryOp(BinaryOp* binaryOp)
 {
     // TODO(wgtdkp):
     // Evaluate from left to right
-    auto op = binaryOp->_op;
+    auto op = binaryOp->Op();
 
     if (op == Token::AND_OP) {
         return GenAndOp(binaryOp);
@@ -549,7 +549,7 @@ Register* Generator::GenAddOp(BinaryOp* binaryOp)
 Operand* Generator::GenUnaryOp(UnaryOp* unaryOp)
 {
     // TODO(wgtdkp):
-    switch (unaryOp->_op) {
+    switch (unaryOp->Op()) {
     case Token::PREFIX_INC: break;
     case Token::PREFIX_DEC: break;
     case Token::POSTFIX_INC: break;

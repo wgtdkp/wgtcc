@@ -4,6 +4,7 @@
 #include "error.h"
 #include "scope.h"
 #include "type.h"
+#include "evaluator.h"
 
 #include <iostream>
 #include <set>
@@ -89,7 +90,10 @@ void Parser::ParseTranslationUnit(void)
             if (_ts.Try('=')) {
                 if (!ident->ToObject())
                     Error(_ts.Peek(), "unexpected initializer");
-                ParseInitializer(ident->ToObject());
+                auto init = Initialization::New(ident->ToObject());
+                ParseInitializer(init, ident->Type(), 0);
+                // TODO(wgtdkp):
+                // Add init to global initialization
             }
 
             while (_ts.Try(',')) {
@@ -171,8 +175,8 @@ Expr* Parser::ParsePrimaryExpr(void)
         return ident;
     } else if (tok->IsConstant()) {
         return ParseConstant(tok);
-    } else if (tok->IsString()) {
-        return ParseString(tok);
+    } else if (tok->IsLiteral()) {
+        return ParseLiteral(tok);
     } else if (tok->Tag() == Token::GENERIC) {
         return ParseGeneric();
     } 
@@ -195,9 +199,9 @@ Constant* Parser::ParseConstant(const Token* tok)
 }
 
 // TODO(wgtdkp):
-Constant* Parser::ParseString(const Token* tok)
+Constant* Parser::ParseLiteral(const Token* tok)
 {
-    assert(tok->IsString());
+    assert(tok->IsLiteral());
     std::string val;
     
 
@@ -666,8 +670,10 @@ Expr* Parser::ParseAssignExpr(void)
  * then return the initializer expression,
  * else, return null.
  */
-void Parser::ParseDecl(void)
+CompoundStmt* Parser::ParseDecl(void)
 {
+    StmtList stmts;
+
     if (_ts.Try(Token::STATIC_ASSERT)) {
         //TODO: static_assert();
         assert(false);
@@ -678,11 +684,16 @@ void Parser::ParseDecl(void)
         //init-declarator 的 FIRST 集合：'*', identifier, '('
         if (_ts.Test('*') || _ts.Test(Token::IDENTIFIER) || _ts.Test('(')) {
             do {
-                ParseInitDeclarator(type, storageSpec, funcSpec);
+                auto init = ParseInitDeclarator(type, storageSpec, funcSpec);
+                if (init) {
+                    stmts.push_back(init);
+                }
             } while (_ts.Try(','));
         }            
         _ts.Expect(';');
     }
+
+    return CompoundStmt::New(stmts, _curScope);
 }
 
 //for state machine
@@ -955,9 +966,8 @@ int Parser::ParseAlignas(void)
         _ts.Expect(')');
         align = type->Align();
     } else {
-        auto tok = _ts.Peek();
         auto expr = ParseExpr();
-        align = expr->EvalInteger(tok);
+        align = Evaluator<long>().Eval(expr);
         _ts.Expect(')');
         delete expr;
     }
@@ -1019,30 +1029,31 @@ enum_decl:
 Type* Parser::ParseEnumerator(ArithmType* type)
 {
     assert(type && !type->Complete() && type->IsInteger());
+    
+    std::set<int> valSet;
+    int val = 0;
     do {
-        auto tok = _ts.Next();
-        if (!tok->IsIdentifier())
-            Error(tok, "enumration constant expected");
+        auto tok = _ts.Expect(Token::IDENTIFIER);
         
         auto enumName = tok->Str();
         auto ident = _curScope->FindInCurScope(enumName);
         if (ident) {
-            Error(tok, "redefinition of enumerator '%s'",
-                    enumName.c_str());
+            Error(tok, "redefinition of enumerator '%s'", enumName.c_str());
         }
         if (_ts.Try('=')) {
-            auto tok = _ts.Peek();
             auto expr = ParseExpr();
-            auto val = expr->EvalInteger(tok);
-            // TODO(wgtdkp): checking conflict
+            val = Evaluator<long>().Eval(expr);
+
+            if (valSet.find(val) != valSet.end()) {
+                Error(tok, "conflict enumerator constant '%d'", val);
+            }
         }
 
-        // TODO(wgtdkp):
-        /*
-        auto Constant = Constant::New(T_INT, val++);
+        auto enumer = Enumerator::New(tok, _curScope, val);
+        ++val;
 
-        _curScope->InsertConstant(enumName, Constant);
-        */
+        _curScope->Insert(enumName, enumer);
+
         _ts.Try(',');
     } while (!_ts.Try('}'));
     
@@ -1456,12 +1467,11 @@ int Parser::ParseArrayLength(void)
     if (!hasStatic && _ts.Test(']'))
         return -1;
     
-    auto tok = _ts.Peek();
     auto expr = ParseAssignExpr();
     if (!expr->Type()->IsInteger()) {
-        Error(tok, "expect integer expression");
+        Error(expr, "expect integer expression");
     }
-    return expr->EvalInteger(tok);
+    return Evaluator<long>().Eval(expr);
 }
 
 /*
@@ -1554,10 +1564,9 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
     return ProcessDeclarator(tok, type, storageSpec, funcSpec);
 }
 
-/*
- * Initialization is translated into assignment expression
- */
-void Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
+
+Initialization* Parser::ParseInitDeclarator(
+        Type* type, int storageSpec, int funcSpec)
 {
     auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
     
@@ -1565,90 +1574,67 @@ void Parser::ParseInitDeclarator(Type* type, int storageSpec, int funcSpec)
         if (ident->ToObject() == nullptr) {
             Error(_ts.Peek(), "unexpected initializer");
         }
-        return ParseInitializer(ident->ToObject());
+        if (!ident->Type()->IsScalar() && !_ts.Test('{')) {
+            _ts.Expect('{');
+        }
+        auto init = Initialization::New(ident->ToObject());
+        ParseInitializer(init, ident->Type(), 0);
+        return init;
     }
+    return nullptr;
 }
 
-void Parser::ParseInitializer(Object* obj, Type* type, int offset)
-{
-    if (Try('{')) {
-        if (type->ToArrayType()) {
-            // Expect array initializer
-            return ParseArrayInitializer(obj, type, offset);
-        } else if (type->ToStructUnionType()) {
-            // Expect struct/union initializer
-            return ParseStructInitializer(obj, type, offset);
-        }
-    }
 
-    if (type->ToArrayType()) {
-        auto arrType = type->ToArrayType();
-        auto width = arrType->Derived()->Width();
-        if (_ts.Test(Token::STRING_LITERAL) && width == 1) {
-            ParseLiteralInitializer(obj, arrType, offset);
-            return;
-        }
-        for (int i = 0; i < arrType->Len(); i++) {
-            if (_ts.Test('.') || _ts.Test('['))
-                break;
-            ParseInitializer(obj, arrType->Derived(), offset);
-            offset += width;
-            if (!_ts.Try(',')) {
-                _ts.Expect('}');
-                break;
-            }
-        }
-    } else if (type->ToStructUnionType()) {
-        auto structType = type->ToStructUnionType();
-        for (auto member: structType->Members()) {
-            if (_ts.Test('.') || _ts.Test('['))
-                break;
-            ParseInitializer(obj, member->Type(), offset + member->Offset());
-            if (!_ts.Try(',')) {
-                _ts.Expect('}');
-                break;
-            }
-        }
-    } else {
-        // Scalar type
-        Expr* rhs = ParseAssignExpr();
-        obj->Initializers().push_back({offset, type, rhs});
-    }
+void Parser::ParseInitializer(Initialization* init, Type* type, int offset)
+{
+    auto arrType = type->ToArrayType();
+    auto structType = type->ToStructUnionType();
+    if (arrType)
+        return ParseArrayInitializer(init, arrType, offset);
+    else if (structType)
+        return ParseStructInitializer(init, structType, offset);
+
+    // Scalar type
+    Expr* rhs = ParseAssignExpr();
+    init->Inits().push_back({offset, type, rhs});
 }
 
-void Parser::ParseLiteralInitializer(Object* obj, ArrayType* type, int offset)
+
+void Parser::ParseLiteralInitializer(Initialization* init,
+        ArrayType* type, int offset)
 {
-    auto literal = ParseExpr();
+    auto literal = ParseLiteral(_ts.Next());
 
-    auto str = literal->SVal()->c_str();
+    if (!type->Complete())
+        type->SetLen(literal->SVal()->size() + 1);
 
-    if (!obj->Complete())
-        obj->Type()->SetLen(str->size() + 1);
-    width = std::min(obj->Type()->Len(), str->size() + 1);
+    auto width = std::min(static_cast<size_t>(type->Len()),
+            literal->SVal()->size() + 1);
     
+    auto str = literal->SVal()->c_str();    
     while (width >= 8) {
-        const long* p = static_cast<const long*>(str);
+        auto p = reinterpret_cast<const long*>(str);
         auto type = Type::NewArithmType(T_LONG);
-        auto val = Constant::New(T_LONG, *p);
-        obj->Initializers().push_back({offset, type, val});
+        auto val = Constant::New(T_LONG, static_cast<long>(*p));
+        init->Inits().push_back({offset, type, val});
         offset += 8;
         str += 8;
     }
 
     while (width >= 4) {
-        const int* p = static_cast<const int*>(str);
+        auto p = reinterpret_cast<const int*>(str);
         auto type = Type::NewArithmType(T_INT);
-        auto val = Constant::New(T_INT, *p);
-        obj->Initializers().push_back({offset, type, val});
+        auto val = Constant::New(T_INT, static_cast<long>(*p));
+        init->Inits().push_back({offset, type, val});
         offset += 4;
         str += 4;
     }
 
     while (width >= 2) {
-        const short* p = static_cast<const short*>(str);
+        auto p = reinterpret_cast<const short*>(str);
         auto type = Type::NewArithmType(T_SHORT);
-        auto val = Constant::New(T_SHORT, *p);
-        obj->Initializers().push_back({offset, type, val});
+        auto val = Constant::New(T_SHORT, static_cast<long>(*p));
+        init->Inits().push_back({offset, type, val});
         offset += 2;
         str += 2;
     }
@@ -1656,69 +1642,80 @@ void Parser::ParseLiteralInitializer(Object* obj, ArrayType* type, int offset)
     while (width >= 1) {
         auto p = str;
         auto type = Type::NewArithmType(T_CHAR);
-        auto val = Constant::New(T_CHAR, *p);
-        obj->Initializers().push_back({offset, type, val});
+        auto val = Constant::New(T_CHAR, static_cast<long>(*p));
+        init->Inits().push_back({offset, type, val});
         offset++;
         str++;
     }
 }
 
-void Parser::ParseArrayInitializer(Object* obj, ArrayType* type, int offset)
+
+void Parser::ParseArrayInitializer(Initialization* init,
+        ArrayType* type, int offset)
 {
     assert(type);
 
     auto width = type->Derived()->Width();
     long idx = 0;
 
+    auto hasBrace = _ts.Try('{');
     if (_ts.Test(Token::STRING_LITERAL) && width == 1) {
         // TODO(wgtdkp): handle wide character
-        ParseLiteralInitializer(obj, type, offset);
-        _ts.Try(','));
-        _ts.Expect('}');
+        ParseLiteralInitializer(init, type, offset);
+        if (hasBrace) {
+            _ts.Try(',');
+            _ts.Expect('}');
+        }
         return;
     }
 
-    while (true) {
-        auto tok = _ts.Next();
-        if (tok->Tag() == '}')
+    while (idx < type->Len()) {
+        if (_ts.Test('}')) {
+            if (hasBrace)
+                _ts.Next();
             break;
+        }
 
-        if (tok->Tag() == '[') {
-            auto tok = _ts.Peek();
+        if (hasBrace && _ts.Try('[')) {
             auto expr = ParseExpr();
-            idx = expr->EvalInteger(tok);
+            idx = Evaluator<long>().Eval(expr);
             _ts.Expect(']');
             _ts.Expect('=');
+        } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
+            break;
         }
         
         if (idx < 0 || idx >= type->Len())
             Error(_ts.Peek(), "index exceed range of array");
 
-        ParseInitializer(obj, type->Derived(), idx * width);
+        ParseInitializer(init, type->Derived(), idx * width);
         ++idx;
 
         // Needless comma at the end is allowed
         if (!_ts.Try(',')) {
-            _ts.Expect('}');
+            if (hasBrace)
+                _ts.Expect('}');
             break;
         }
     }
 }
 
 
-void Parser::ParseStructInitializer(Object* obj, int offset)
+void Parser::ParseStructInitializer(Initialization* init,
+        StructUnionType* type, int offset)
 {
-    auto type = obj->Type()->ToStructUnionType();
     assert(type);
-
+    auto hasBrace = _ts.Try('{');
     auto member = type->Members().begin();
-    while (true) {
-        auto tok = _ts.Next();
-        if (tok->Tag() == '}')
+    while (member != type->Members().end()) {
+        if (_ts.Test('}')) {
+            if (hasBrace)
+                _ts.Next();
             break;
+        }
 
-        if (tok->Tag() == '.') {
-            auto memberTok = _ts.Expect(Token::Identifier);
+        if (hasBrace && _ts.Try('.')) {
+            auto memberTok = _ts.Expect(Token::IDENTIFIER);
             auto name = memberTok->Str();
             auto iter = type->Members().begin();
             for (; iter != type->Members().end(); iter++)
@@ -1727,14 +1724,23 @@ void Parser::ParseStructInitializer(Object* obj, int offset)
             member = iter;
 
             _ts.Expect('=');
+        } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
+            break;
         }
         
-        ParseInitializer(obj, member->Type(), offset + (*member)->Offset());
+        ParseInitializer(init, (*member)->Type(),
+                offset + (*member)->Offset());
         member++;
 
         // Needless comma at the end is allowed
         if (!_ts.Try(',')) {
-            _ts.Expect('}');
+            if (hasBrace)
+                _ts.Expect('}');
+            break;
+        }
+
+        // Union, just init the first member
+        if (!type->IsStruct()) {
             break;
         }
     }
@@ -2057,11 +2063,10 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
 CompoundStmt* Parser::ParseCaseStmt(void)
 {
-    auto tok = _ts.Peek();
     auto expr = ParseExpr();
     _ts.Expect(':');
     
-    auto val = expr->EvalInteger(tok);
+    int val = Evaluator<long>().Eval(expr);
     auto labelStmt = LabelStmt::New();
     _caseLabels->push_back(std::make_pair(val, labelStmt));
     std::list<Stmt*> stmts;

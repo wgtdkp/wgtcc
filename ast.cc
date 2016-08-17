@@ -1,91 +1,104 @@
 #include "ast.h"
 
+#include "code_gen.h"
 #include "error.h"
 #include "mem_pool.h"
 #include "parser.h"
 #include "token.h"
-#include "code_gen.h"
+#include "visitor.h"
 
 
-static MemPoolImp<BinaryOp>        binaryOpPool;
-static MemPoolImp<ConditionalOp>   conditionalOpPool;
-static MemPoolImp<FuncCall>        funcCallPool;
-static MemPoolImp<Object>          objectPool;
-static MemPoolImp<Identifier>      identifierPool;
-static MemPoolImp<Constant>        constantPool;
-static MemPoolImp<TempVar>         tempVarPool;
-static MemPoolImp<UnaryOp>         unaryOpPool;
-static MemPoolImp<EmptyStmt>       emptyStmtPool;
-static MemPoolImp<IfStmt>          ifStmtPool;
-static MemPoolImp<JumpStmt>        jumpStmtPool;
-static MemPoolImp<ReturnStmt>      returnStmtPool;
-static MemPoolImp<LabelStmt>       labelStmtPool;
-static MemPoolImp<CompoundStmt>    compoundStmtPool;
-static MemPoolImp<FuncDef>         funcDefPool;
+static MemPoolImp<BinaryOp>         binaryOpPool;
+static MemPoolImp<ConditionalOp>    conditionalOpPool;
+static MemPoolImp<FuncCall>         funcCallPool;
+static MemPoolImp<Initialization>   initializationPool;
+static MemPoolImp<Object>           objectPool;
+static MemPoolImp<Identifier>       identifierPool;
+static MemPoolImp<Enumerator>       enumeratorPool;
+static MemPoolImp<Constant>         constantPool;
+static MemPoolImp<TempVar>          tempVarPool;
+static MemPoolImp<UnaryOp>          unaryOpPool;
+static MemPoolImp<EmptyStmt>        emptyStmtPool;
+static MemPoolImp<IfStmt>           ifStmtPool;
+static MemPoolImp<JumpStmt>         jumpStmtPool;
+static MemPoolImp<ReturnStmt>       returnStmtPool;
+static MemPoolImp<LabelStmt>        labelStmtPool;
+static MemPoolImp<CompoundStmt>     compoundStmtPool;
+static MemPoolImp<FuncDef>          funcDefPool;
 
 /*
  * Accept
  */
 
-void EmptyStmt::Accept(Generator* g) {
+void Initialization::Accept(Visitor* v)
+{
+    v->VisitInitialization(this);
+}
+
+void EmptyStmt::Accept(Visitor* v) {
     //assert(false);
-    //g->GenEmptyStmt(this);
+    //v->VisitEmptyStmt(this);
 }
 
-void LabelStmt::Accept(Generator* g) {
-    g->GenLabelStmt(this);
+void LabelStmt::Accept(Visitor* v) {
+    v->VisitLabelStmt(this);
 }
 
-void IfStmt::Accept(Generator* g) {
-    g->GenIfStmt(this);
+void IfStmt::Accept(Visitor* v) {
+    v->VisitIfStmt(this);
 }
 
-void JumpStmt::Accept(Generator* g) {
-    g->GenJumpStmt(this);
+void JumpStmt::Accept(Visitor* v) {
+    v->VisitJumpStmt(this);
 }
 
-void ReturnStmt::Accept(Generator* g) {
-    g->GenReturnStmt(this);
+void ReturnStmt::Accept(Visitor* v) {
+    v->VisitReturnStmt(this);
 }
 
-void CompoundStmt::Accept(Generator* g) {
-    g->GenCompoundStmt(this);
+void CompoundStmt::Accept(Visitor* v) {
+    v->VisitCompoundStmt(this);
 }
 
-void BinaryOp::Accept(Generator* g) {
-    g->GenBinaryOp(this);
+void BinaryOp::Accept(Visitor* v) {
+    v->VisitBinaryOp(this);
 }
 
-void UnaryOp::Accept(Generator* g) {
-    g->GenUnaryOp(this);
+void UnaryOp::Accept(Visitor* v) {
+    v->VisitUnaryOp(this);
 }
 
-void ConditionalOp::Accept(Generator* g) {
-    g->GenConditionalOp(this);
+void ConditionalOp::Accept(Visitor* v) {
+    v->VisitConditionalOp(this);
 }
 
-void FuncCall::Accept(Generator* g) { 
-    g->GenFuncCall(this);
+void FuncCall::Accept(Visitor* v) { 
+    v->VisitFuncCall(this);
 }
 
-void Object::Accept(Generator* g) {
-    g->GenObject(this);
+void Object::Accept(Visitor* v) {
+    v->VisitObject(this);
 }
 
-void Constant::Accept(Generator* g) {
-    g->GenConstant(this);
+void Constant::Accept(Visitor* v) {
+    v->VisitConstant(this);
 }
 
-void TempVar::Accept(Generator* g) {
-    g->GenTempVar(this);
+void Enumerator::Accept(Visitor* v)
+{
+    v->VisitEnumerator(this);
 }
 
-void FuncDef::Accept(Generator* g) {
-    g->GenFuncDef(this);
+void TempVar::Accept(Visitor* v) {
+    v->VisitTempVar(this);
 }
 
-void TranslationUnit::Accept(Generator* g) {
-    g->GenTranslationUnit(this);
+void FuncDef::Accept(Visitor* v) {
+    v->VisitFuncDef(this);
+}
+
+void TranslationUnit::Accept(Visitor* v) {
+    v->VisitTranslationUnit(this);
 }
 
 
@@ -131,85 +144,6 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
     return ret;    
 }
 
-
-long BinaryOp::EvalInteger(const Token* errTok)
-{
-#define L   _lhs->EvalInteger(errTok)
-#define R   _rhs->EvalInteger(errTok)
-
-    if (!_type->IsInteger()) {
-        Error(errTok, "expect constant integer expression");
-    }
-
-    auto pointerType = Type->ToPointerType();
-    unsigned long width = pointerType ? pointerType->Derived()->Width(): 0;
-    //bool res = true;
-    switch (_op) {
-    case '+':
-        if (pointerType) {
-            if (_lhs->IsInteger())
-                return L + (unsigned long)R * width;
-            else
-                return (unsigned long)L * width + R;
-        }
-        return L + R;
-    case '-':
-        if (pointerType) {
-            if (_lhs->IsInteger())
-                return L - (unsigned long)R * width;
-            else if (_rhs->IsInteger())
-                return (unsigned long)L * width - R;
-            else
-                return ((unsigned long)L - R) / width;
-        }
-        return L - R;
-    case '*':
-        return L * R;
-    case '/':
-    case '%':
-        {
-            int l = L, r = R;
-            if (r == 0)
-                Error(errTok, "division by zero");
-            return _op == '%' ? (l % r): (l / r);
-        }
-    case '<':
-        return L < R;
-    case '>':
-        return L > R;
-    case '|':
-        return L | R;
-    case '&':
-        return L & R;
-    case '^':
-        return L ^ R;
-    case Token::LEFT_OP:
-        return L << R;
-    case Token::RIGHT_OP:
-        return L >> R;
-    case Token::AND_OP:
-        return L && R;
-    case Token::OR_OP:
-        return L || R;
-    case Token::EQ_OP:
-        return L == R;
-    case Token::NE_OP:
-        return L != R;
-    case Token::LE_OP:
-        return L <= R;
-    case Token::GE_OP:
-        return L >= R; 
-    case '=':  
-    case ',':
-        return R;
-    case '[':
-    case '.':
-    case Token::PTR_OP:
-        Error(errTok, "expect constant expression"); 
-    default:
-        assert(0);
-    }
-}
 
 ArithmType* BinaryOp::Promote(const Token* errTok)
 {
@@ -454,33 +388,12 @@ UnaryOp* UnaryOp::New(const Token* tok,
     return ret;
 }
 
-bool UnaryOp::IsLVal(void) const {
+bool UnaryOp::IsLVal(void) {
     // only deref('*') could be lvalue;
     // so it's only deref will override this func
     return (_op == Token::DEREF && !Type()->ToArrayType());
 }
 
-long long UnaryOp::EvalInteger(const Token* errTok)
-{
-#define VAL _operand->EvalInteger(errTok)
-
-    switch (_op) {
-    case Token::PLUS:
-        return VAL;
-    case Token::MINUS:
-        return -VAL;
-    case '~':
-        return ~VAL;
-    case '!':
-        return !VAL;
-    case Token::CAST:
-        return VAL;
-    default:
-        Error(errTok, "expect constant expression");
-    }
-
-    return 0;   // Make compiler happy
-}
 
 void UnaryOp::TypeChecking(const Token* errTok)
 {
@@ -588,15 +501,6 @@ ConditionalOp* ConditionalOp::New(const Token* tok,
     return ret;
 }
 
-long long ConditionalOp::EvalInteger(const Token* errTok)
-{
-    int cond = _cond->EvalInteger(errTok);
-    if (cond) {
-        return _exprTrue->EvalInteger(errTok);
-    } else {
-        return _exprFalse->EvalInteger(errTok);
-    }
-}
 
 ArithmType* ConditionalOp::Promote(const Token* errTok)
 {
@@ -650,10 +554,6 @@ FuncCall* FuncCall::New(const Token* tok,
     return ret;
 }
 
-long long FuncCall::EvalInteger(const Token* errTok) {
-    Error(errTok, "function call in constant expression");
-    return 0;   // Make compiler happy
-}
 
 void FuncCall::TypeChecking(const Token* errTok)
 {
@@ -697,13 +597,25 @@ Identifier* Identifier::New(const Token* tok,
     return ret;
 }
 
-long long Identifier::EvalInteger(const Token* errTok) {
-    Error(errTok, "identifier in constant expression");
-    return 0;   // Make compiler happy
-}
 
 std::string Identifier::Name(void) {
     return _tok->Str();
+}
+
+
+Enumerator* Enumerator::New(const Token* tok, ::Scope* scope, int val)
+{
+    auto ret = new (enumeratorPool.Alloc()) Enumerator(tok, scope, val);
+    ret->_pool = &enumeratorPool;
+    return ret;
+}
+
+
+Initialization* Initialization::New(Object* obj)
+{
+    auto ret = new (initializationPool.Alloc()) Initialization(obj);
+    ret->_pool = &initializationPool;
+    return ret;
 }
 
 
@@ -741,22 +653,19 @@ Constant* Constant::New(int tag, double val)
     return ret;
 }
 
-Constant* Constant::New(const std::string& val)
+Constant* Constant::New(const std::string* val)
 {
     static auto derived = Type::NewArithmType(T_CHAR);
-    derived->SetQual(derived->Qual() | Q_CONST);
+    derived->SetQual(Q_CONST);
     static auto type = Type::NewPointerType(derived);
 
     auto ret = new (constantPool.Alloc()) Constant(type, val);
     ret->_pool = &constantPool;
-    return ret;
-}
 
-long long Constant::EvalInteger(const Token* errTok) {
-    if (_type->IsFloat()) {
-        Error(errTok, "expect integer, but got float");
-    }
-    return _ival;
+    static long tag = 0;
+    ret->_tag = tag++;
+
+    return ret;
 }
 
 
@@ -769,12 +678,6 @@ TempVar* TempVar::New(::Type* type)
     auto ret = new (tempVarPool.Alloc()) TempVar(type);
     ret->_pool = &tempVarPool;
     return ret;
-}
-
-long long TempVar::EvalInteger(const Token* errTok) {
-    assert(false);
-    Error(errTok, "function call in constant expression");
-    return 0;   // Make compiler happy
 }
 
 

@@ -1,5 +1,6 @@
 #include "cpp.h"
 
+#include "evaluator.h"
 #include "parser.h"
 
 #include <ctime>
@@ -563,10 +564,10 @@ void Preprocessor::ParseIf(TokenSeq ls)
     ReplaceIdent(ts);
 
     //assert(!ts.Empty());
-    auto begin = ts.Peek();
+    //auto begin = ts.Peek();
     Parser parser(ts);
     auto expr = parser.ParseExpr();
-    auto cond = expr->EvalInteger(begin);
+    int cond = Evaluator<long>().Eval(expr);
     // TODO(wgtdkp): delete expr
 
     _ppCondStack.push({Token::PP_IF, NeedExpand(), cond});
@@ -629,10 +630,10 @@ void Preprocessor::ParseElif(TokenSeq ls)
     Expand(ts, ls, true);
     ReplaceIdent(ts);
 
-    auto begin = ts.Peek();
+    //auto begin = ts.Peek();
     Parser parser(ts);
     auto expr = parser.ParseExpr();
-    auto cond = expr->EvalInteger(begin);
+    int cond = Evaluator<long>().Eval(expr);
 
     cond = cond && !top._cond;
     _ppCondStack.push({Token::PP_ELIF, true, cond});
@@ -719,11 +720,6 @@ void Preprocessor::ParseInclude(TokenSeq& is, TokenSeq ls)
         }
 
         auto fileName = std::string(lhs->_end, rhs->_begin);
-        if (fileName == "bits/types.h") {
-            std::cout << "here" << std::endl;
-            auto macro = FindMacro("__WORDSIZE");
-            auto macro1 = macro;
-        }
         auto fullPath = SearchFile(fileName, true);
         if (fullPath == nullptr) {
             Error(tok, "%s: No such file or directory", fileName.c_str());

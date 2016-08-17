@@ -1,11 +1,13 @@
 #include "error.h"
 
+#include "ast.h"
 #include "token.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
+
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
@@ -15,7 +17,9 @@
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
+
 extern std::string program;
+
 
 void Error(const char* format, ...)
 {
@@ -31,6 +35,7 @@ void Error(const char* format, ...)
 
     exit(0);
 }
+
 
 void Error(const Token* tok, const char* format, ...)
 {
@@ -59,10 +64,17 @@ void Error(const Token* tok, const char* format, ...)
     
     fprintf(stderr, "\n    ");
 
-    for (int i = 1; i + nspaces < tok->_column; i++)
+    for (unsigned i = 1; i + nspaces < tok->_column; i++)
         fputc(' ', stderr);
     
     fprintf(stderr, ANSI_COLOR_GREEN "^\n");
 
+    exit(0);
+}
+
+
+void Error(const ASTNode* node, const char* format, ...)
+{
+    assert(false);
     exit(0);
 }

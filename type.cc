@@ -382,7 +382,7 @@ void StructUnionType::AddMember(const std::string& name, Object* member)
     auto offset = MakeAlign(_offset, member->Type()->Align());
     member->SetOffset(offset);
     
-    _memberList.push_back(member);
+    _members.push_back(member);
     _memberMap->Insert(name, member);
 
     _align = std::max(_align, member->Type()->Align());
@@ -403,14 +403,14 @@ void StructUnionType::AddMember(const std::string& name, Object* member)
 void StructUnionType::MergeAnony(StructUnionType* anonType)
 {   
     auto offset = MakeAlign(_offset, anonType->Align());
-    for (auto member: anonType->_memberList) {
+    for (auto member: anonType->_members) {
         member->SetOffset(offset + member->Offset());
 
         auto name = member->Name();
         if (GetMember(name)) {
             Error(member->Tok(), "duplicated member '%s'", name.c_str());
         }
-        _memberList.push_back(member);
+        _members.push_back(member);
         _memberMap->Insert(name, member);
     }
 

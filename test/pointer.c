@@ -1,11 +1,21 @@
 #include <stdio.h>
 
+typedef void (*f_t) (void);
 
-static int* p = 0;
+void test(void)
+{
+
+}
+
+f_t f = test;
+
+char ch;
+
+const char* p = "abc\t";
+const char* q = "ABC\t";
 
 int main(void)
 {
-    long i = p;
-    printf("%p\n", p);
+    f();
     return 0;
 }

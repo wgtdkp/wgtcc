@@ -27,14 +27,12 @@ enum class Encoding {
     WCHAR
 };
 
-struct Token
+struct Token: public ASTNode
 {
     friend class Parser;
     
 public:
-    explicit Token(int tag=Token::END): _tag(tag),
-            _fileName(nullptr), _line(1), _column(1),
-            _lineBegin(nullptr), _begin(nullptr), _end(nullptr) {}
+    explicit Token(int tag=Token::END): _tag(tag), _ws(false) {}
 
     //Token(int tag, const char* fileName, int line,
     //        int column, char* lineBegin, StrPair& str)
@@ -61,7 +59,7 @@ public:
     virtual ~Token(void) {}
     
     // Do nothing
-    virtual void Accept(Generator* g) {}
+    virtual void Accept(Visitor* v) { assert(false); }
     
     //Token::NOTOK represents not a kw.
     static int KeyWordTag(const char* begin, const char* end) {
@@ -262,7 +260,7 @@ public:
         return 0 <= _tag && _tag <= ELLIPSIS;
     }
 
-    bool IsString(void) const {
+    bool IsLiteral(void) const {
         return _tag == STRING_LITERAL;
     }
 
@@ -295,30 +293,12 @@ public:
     }
     
     int _tag;
-    //Coordinate _coord;
+    /*
+     * _ws standards for weither there is preceding white space
+     * This is to simplify the '#' operator(stringize) in macro expansion
+     */
+    bool _ws;
     
-    const std::string* _fileName;
-    
-    // Line index of the begin
-    unsigned _line;
-    
-    // Column index of the begin
-    struct {
-        /*
-         * _ws standards for weither there is preceding white space
-         * This is to simplify the '#' operator(stringize) in macro expansion
-         */
-        unsigned _ws: 1;
-        unsigned _column: 31;
-    };
-
-
-    char* _lineBegin;
-
-    char* _begin;
-
-    char* _end;
-
     //bool _needFree;
 
     static const std::unordered_map<std::string, int> _kwTypeMap;
@@ -449,6 +429,3 @@ public:
 };
 
 #endif
-
-Encoding StringEncoding(const Token* tok);
-

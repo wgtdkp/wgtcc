@@ -1,13 +1,21 @@
 #include "code_gen.h"
 
+#include "parser.h"
+#include "token.h"
 
-static std::string GetObjectAddr(Object* obj)
+#include <cstdarg>
+
+
+static const char* GetObjectAddr(Object* obj)
 {
+    return "";
+    /*
     if ((obj->Linkage() != L_NONE) || (obj->Storage() & S_STATIC)) {
         return obj->Label() + "(#rip)";
     } else {
         return std::to_string(obj->Offset()) + "(#rbp)";
     }
+    */
 }
 
 static const char* GetLoad(int width, bool flt=false)
@@ -34,7 +42,15 @@ static const char* GetReg(int width)
 }
 
 
-static void Push(const char* reg)
+static inline void GetOperands(const char*& src,
+        const char*& des, bool flt, int width)
+{
+    src = flt ? "xmm1": (width == 8 ? "rcx": "ecx");
+    des = flt ? "xmm0": (width == 8 ? "rax": "eax");
+}
+
+
+void Generator::Push(const char* reg)
 {
     if (reg[0] == 'x' && reg[1] == 'm' && reg[2] == 'm') {
         Emit("sub $8, #rsp");
@@ -45,7 +61,7 @@ static void Push(const char* reg)
 }
 
 
-static void Pop(const char* reg)
+void Generator::Pop(const char* reg)
 {
     if (reg[0] == 'x' && reg[1] == 'm' && reg[2] == 'm') {
         Emit("movsd (#rsp), #%s", reg);
@@ -56,27 +72,15 @@ static void Pop(const char* reg)
 }
 
 
-static inline void Spill(bool flt)
+void Generator::Restore(bool flt)
 {
-    Push(flt ? "xmm0": "rax");
-}
-
-
-static inline void Restore(bool flt)
-{
-    const char* des = flt ? "xmm0": "rax";
-    const char* backup = flt ? "xmm1": "rcx";
+    const char* src = flt ? "xmm0": "rax";
+    const char* des = flt ? "xmm1": "rcx";
     const char* inst = flt ? "movsd": "mov";
-    Emit("%s #%s, #%s", inst, des, backup);
-    Pop(des);
+    Emit("%s #%s, #%s", inst, src, des);
+    Pop(src);
 }
 
-static inline void GetOperands(const char*& des,
-        const char*& src, bool flt, iht width)
-{
-    src = flt ? "xmm1": (width == 8 ? "rcx": "ecx");
-    des = flt ? "xmm0": (width == 8 ? "rax": "eax");
-}
 
 /*
  * Operaotr/Instruction mapping:
@@ -102,7 +106,7 @@ static inline void GetOperands(const char*& des,
  * ]  GenSubScriptingOp
  * .  GenMemberRefOp
  */
-void Generator::GenBinaryOp(BinaryOp* binary)
+void Generator::VisitBinaryOp(BinaryOp* binary)
 {
     auto op = binary->_op;
 
@@ -157,7 +161,20 @@ void Generator::GenBinaryOp(BinaryOp* binary)
 
     const char* src;
     const char* des;
-    GetOperands(des, src, flt, width);
+    GetOperands(src, des, flt, width);
+    Emit("%s %s, %s", inst, src, des);
+}
+
+
+void Generator::GenAndOp(BinaryOp* andOp)
+{
+    // TODO(wgtdkp):
+}
+
+
+void Generator::GenOrOp(BinaryOp* orOp)
+{
+    // TODO(wgtdkp):
 }
 
 
@@ -170,15 +187,15 @@ void Generator::GenSubScriptingOp(BinaryOp* subScript)
     subScript->_rhs->Accept(this);
     Restore(false);
 
-    auto width = ref->Type()->Width();
-    auto flt = ref->Type()->IsFloat();
+    auto width = subScript->Type()->Width();
+    auto flt = subScript->Type()->IsFloat();
     if (_expectLVal || !subScript->Type()->IsScalar()) {
         Emit("lea (#rax, #rcx, %d), #rax", width);
     } else {
         const char* src;
         const char* des;
         auto load = GetLoad(flt, width);
-        GetOperands(des, src, flt, width);
+        GetOperands(src, des, flt, width);
         Emit("%s (#rax, #rcx, %d), %s", load, width, des);
     }
 }
@@ -190,7 +207,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
     // we expect the address of lhs in %rax
     ref->_lhs->Accept(this);
 
-    auto offset = ref->_rhs->Offset();
+    auto offset = ref->_rhs->ToObject()->Offset();
     if (_expectLVal || !ref->Type()->IsScalar()) {
         Emit("lea %d(#rax), #rax", offset);
     } else {
@@ -215,49 +232,28 @@ void Generator::GenAssignOp(BinaryOp* assign)
     Restore(false);
 
     auto flt = assign->Type()->IsFloat();
-    auto width = assgin->Type()->Width();
+    auto width = assign->Type()->Width();
     if (assign->Type()->IsScalar()) {
         auto inst = flt ? (width == 8 ? "movsd": "movss"): "mov";
         const char* src;
         const char* des;
-        GetOperands(des, src, flt, width);
-        Emit("%s %s, (%s)", src, des);
+        GetOperands(src, des, flt, width);
+        Emit("%s %s, (%s)", inst, src, des);
     } else {
 
     }
 }
 
 
-void Generator::GenCompOp(BinaryOp* binary)
+void Generator::GenCompOp(bool flt, int width, const char* set)
 {
-    auto type = binary->Type()->ToArithmType();
-
-    auto flt = type->IsFloat();
-    auto width = type->Width();
-    auto sign = !(type->Tag() & T_UNSIGNED);
-
-    auto cmp = flt ? (width == 4 ? "ucomiss": "ucomisd"): "cmp";
-    const char* set;
-    switch (binary->_op) {
-    case '<':
-        set = (flt || !sign) ? "setb": "setl";
-        break;
-    case '>':
-        set = (flt || !sign) ? "seta": "setg";
-        break;
-    case Token::LE_OP:
-        set = (flt || !sign) ? "setbe": "setle";
-        break;
-    case Token::GE_OP:
-
-    case Token::EQ_OP:
-    case Token::NE_OP:
-    }
-
     auto cmp = flt ? (width == 8 ? "ucomisd": "ucomiss"): "cmp";
-    auto src = flt ? "#xmm1": "#rcx";
-    auto des = flt ? "#xmm0": "#rax";
-    Emit("%s %s, %s", cmp, des, scr);
+    
+    const char* src;
+    const char* des;
+    GetOperands(src, des, flt, width);
+
+    Emit("%s %s, %s", cmp, src, des);
     Emit("%s #al", set);
     Emit("movzbl #al, #rax");
 }
@@ -292,7 +288,7 @@ void Generator::GenPointerArithm(BinaryOp* binary)
     
     auto type = binary->_lhs->Type()->ToPointerType()->Derived();
     if (type->Width() > 1)
-        Emit("imul $%d, #rax", width);
+        Emit("imul $%d, #rax", type->Width());
     Emit("mov #rax, #rcx");
     Pop("rax");
     if (binary->_op == '+')
@@ -308,7 +304,7 @@ void Generator::GenDerefOp(UnaryOp* deref)
     // Whatever, the address of the operand is in %rax    
     deref->_operand->Accept(this);
     
-    if (_expectLVal || !deref->type()->IsScalar()) {
+    if (_expectLVal || !deref->Type()->IsScalar()) {
         // Just let it!
     } else {
         auto width = deref->Type()->Width();
@@ -316,12 +312,13 @@ void Generator::GenDerefOp(UnaryOp* deref)
         auto load = GetLoad(flt, width);
         const char* src;
         const char* des;
+        GetOperands(src, des, flt, width);
         Emit("%s (#rax), %s", load, des);
     }
 }
 
 
-void Generator::GenObject(Object* obj)
+void Generator::VisitObject(Object* obj)
 {
     // TODO(wgtdkp): handle static object
     if (_expectLVal || !obj->Type()->IsScalar()) {
@@ -333,7 +330,7 @@ void Generator::GenObject(Object* obj)
         auto load = GetLoad(flt, width);
         const char* src;
         const char* des;
-        GetOperands(des, src, flt, width);
+        GetOperands(src, des, flt, width);
         Emit("%s %s, %s", load, GetObjectAddr(obj), des);
     }
 }
@@ -357,19 +354,119 @@ void Generator::GenCastOp(UnaryOp* cast)
         Emit("%s #rax, #xmm0", inst);
     } else {
         int width = srcType->Width();
+        auto sign = !(srcType->ToArithmType()->Tag() & T_UNSIGNED);
         const char* inst;
         switch (width) {
-        case 1: inst = "movsbq"; break;
-        case 2: inst = "movswq"; break;
-        case 4: inst = "movl": break;
+        case 1: inst = sign ? "movsbq": "movzbq"; break;
+        case 2: inst = sign ? "movswq": "movzwq"; break;
+        case 4: inst = "movl"; break;
         case 8: inst = "movq"; break;
         }
         if (inst[4] == 0)
             return;
-        if (srcType->ToArithmType()->Tag() & T_UNSIGNED)
-            inst[3] = 'z';
         Emit("%s %s, #rax", inst, GetReg(width));
     }
+}
+
+
+void Generator::VisitUnaryOp(UnaryOp* unaryOp)
+{
+
+}
+
+
+void Generator::VisitConditionalOp(ConditionalOp* condOp)
+{
+
+}
+
+
+void Generator::VisitFuncCall(FuncCall* funcCall)
+{
+
+}
+
+
+void Generator::VisitEnumerator(Enumerator* enumer)
+{
+
+}
+
+
+void Generator::VisitIdentifier(Identifier* ident)
+{
+
+}
+
+
+void Generator::VisitConstant(Constant* cons)
+{
+
+}
+
+
+void Generator::VisitTempVar(TempVar* tempVar)
+{
+
+}
+
+
+void Generator::VisitInitialization(Initialization* init)
+{
+
+}
+
+
+void Generator::VisitEmptyStmt(EmptyStmt* emptyStmt)
+{
+
+}
+
+
+void Generator::VisitIfStmt(IfStmt* ifStmt)
+{
+
+}
+
+
+void Generator::VisitJumpStmt(JumpStmt* jumpStmt)
+{
+
+}
+
+
+void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
+{
+
+}
+
+
+void Generator::VisitLabelStmt(LabelStmt* labelStmt)
+{
+
+}
+
+
+void Generator::VisitCompoundStmt(CompoundStmt* compoundStmt)
+{
+
+}
+
+void Generator::VisitFuncDef(FuncDef* funcDef)
+{
+
+}
+
+
+void Generator::VisitTranslationUnit(TranslationUnit* unit)
+{
+    
+}
+
+
+void Generator::Gen(void)
+{
+    VisitTranslationUnit(_parser->Unit());
 }
 
 

@@ -19,6 +19,7 @@ class VoidType;
 class Identifier;
 class Object;
 class Constant;
+
 class ArithmType;
 class DerivedType;
 class ArrayType;
@@ -380,24 +381,6 @@ protected:
         : DerivedType(pool, derived, _intWidth << 1) {}
 };
 
-/*
-class StringType: public PointerType
-{
-    friend class Type;
-
-public:
-    ~StringType(void) {}
-
-    virtual bool operator==(const Type& other) const;
-    
-    virtual bool Compatible(const Type& other) const;
-
-protected:
-    explicit StringType(void)
-        : PointerType(Type::NewArithmType(T_CHAR)) {
-    }
-};
-*/
 
 class ArrayType : public PointerType
 {
@@ -608,22 +591,6 @@ private:
     int _align;
 };
 
-/*
-class EnumType : public Type
-{
-friend class Type;
-public:
-virtual ~EnumType(void) {}
-virtual EnumType* ToEnumType(void) { return this; }
-virtual const EnumType* ToEnumType(void) const { return this; }
-virtual bool operator==(const Type& other) const;
-virtual bool Compatible(const Type& other) const;
-protected:
-EnumType(void) : Type(_intWidth, false) {}
-private:
-
-};
-*/
 
 ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType);
 

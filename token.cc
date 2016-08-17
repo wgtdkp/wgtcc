@@ -208,20 +208,3 @@ Token* TokenSeq::Expect(int expect)
     }
     return tok;
 }
-
-Encoding StringEncoding(const Token* tok)
-{
-    switch (tok->_begin[0]) {
-    case '"':
-        return Encoding::NONE;
-    case 'u':
-        if (tok->_begin[1] == 8)
-            return Encoding::UTF8;
-    case 'L':
-        return Encoding::CHAR16;
-    case 'U':
-        return Encoding::CHAR32;
-    default: Error(tok, "invalid string literal encoding");
-    }
-    return Encoding::NONE; // Make compiler happy
-}
