@@ -184,10 +184,10 @@ Constant* Parser::ParseConstant(const Token* tok)
     assert(tok->IsConstant());
 
     if (tok->Tag() == Token::I_CONSTANT) {
-        long ival = atoi(tok->Str().c_str());
-        return Constant::New(tok, T_INT, ival);
+        long ival = stol(tok->Str());
+        return Constant::New(tok, T_LONG, ival);
     } else {
-        double fval = atoi(tok->Str().c_str());
+        double fval = stod(tok->Str());
         return Constant::New(tok, T_DOUBLE, fval);
     }
 }
@@ -1378,16 +1378,14 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         }
     }
 
-    //Identifier* ret;    
+    Identifier* ret;    
     // TODO(wgtdkp): Treat function as object ?
-    //if (type->ToFuncType()) {
-    //    ret = Identifier::New(tok, type, _curScope, linkage);
-    //} else {
-    //    ret = Object::New(tok, type, _curScope, storageSpec, linkage);
-    //}
-    auto ret = Object::New(tok, type, _curScope, storageSpec, linkage);
-    if (ret->IsStatic()) {
-        _staticObjects.push_back(ret);
+    if (type->ToFuncType()) {
+        ret = Identifier::New(tok, type, _curScope, linkage);
+    } else {
+        ret = Object::New(tok, type, _curScope, storageSpec, linkage);
+        if (ret->ToObject()->IsStatic())
+            _staticObjects.push_back(ret->ToObject());
     }
 
     _curScope->Insert(ret);
@@ -1590,35 +1588,6 @@ Initialization* Parser::ParseInitDeclarator(Identifier* ident)
     return nullptr;
 }
 
-
-/*
-Initialization* Parser::ParseInitDeclarator(
-        Type* type, int storageSpec, int funcSpec)
-{
-    auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
-    
-    if (_ts.Try('=')) {
-        auto obj = ident->ToObject();
-        if (!obj) {
-            Error(_ts.Peek(), "unexpected initializer");
-        }
-        if (!obj->Type()->Complete()) {
-            Error(obj, "storage size of '%s' isn’t known",
-                obj->Name().c_str());
-        }
-
-        if (!obj->Type()->IsScalar() && !_ts.Test('{')) {
-            _ts.Expect('{');
-        }
-        auto init = Initialization::New(obj);
-        ParseInitializer(init, ident->Type(), 0);
-        obj->SetInit(init);
-        
-        return obj->IsStatic() ? nullptr: init;
-    }
-    return nullptr;
-}
-*/
 
 void Parser::ParseInitializer(Initialization* init, Type* type, int offset)
 {

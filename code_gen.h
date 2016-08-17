@@ -64,6 +64,7 @@ public:
     void Gen(void);
 
     void Emit(const char* format, ...);
+    void EmitLabel(const std::string& label);
 
     void Push(const char* reg);
     void Pop(const char* reg);

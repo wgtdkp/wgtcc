@@ -1,5 +1,8 @@
-void test(void)
+#include <stdio.h>
+
+int main(void)
 {
-    float a, b;
-    int c = a && b;
+    double d = 4.5f;
+    printf("%ld\n", *(long*)&d); 
+    return 0;
 }

@@ -1,8 +1,10 @@
+#include <stdio.h>
 
+static double a = 4.5;
+static double b = 5.5;
 
-
-void test(void)
+int main(void)
 {
-    extern int foo = 0;
-    void func(void);
+    printf("%lf\n%lf\n", a, b);
+    return 0;
 }

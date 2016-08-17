@@ -10,6 +10,8 @@
 
 
 std::string program;
+std::string inFileName;
+std::string outFileName;
 
 
 void Usage(void)
@@ -29,11 +31,10 @@ int main(int argc, char* argv[])
         Usage();
     }
     program = std::string(argv[0]);
-    std::string* fileName = nullptr;
 
     for (auto i = 1; i < argc; i++) {
         if (argv[i][0] != '-') {
-            fileName = new std::string(argv[i]);
+            inFileName = std::string(argv[i]);
             break;
             continue;
         }
@@ -62,12 +63,12 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (fileName == nullptr) {
+    if (inFileName.size() == 0) {
         Usage();
     }
     
     // Preprocessing
-    Preprocessor cpp(fileName);
+    Preprocessor cpp(&inFileName);
     TokenSeq tokSeq;
     cpp.Process(tokSeq);
 

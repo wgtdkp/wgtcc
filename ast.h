@@ -91,9 +91,9 @@ class Initialization: public Stmt
     struct StaticInitializer
     {
         int _offset;
-        int width;
-        long val;
-        std::string label;        
+        int _width;
+        long _val;
+        std::string _label;        
     };
     
     typedef std::vector<Initializer> InitList;
@@ -112,6 +112,10 @@ public:
 
     StaticInitList StaticInits(void) {
         return _staticInits;
+    }
+
+    Object* Obj(void) {
+        return _obj;
     }
 
     void AddInit(int offset, Type* type, Expr* _expr);

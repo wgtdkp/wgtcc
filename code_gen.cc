@@ -6,6 +6,10 @@
 #include <cstdarg>
 
 
+extern std::string inFileName;
+extern std::string outFileName;
+
+
 static const char* GetObjectAddr(Object* obj)
 {
     return "";
@@ -413,7 +417,28 @@ void Generator::VisitTempVar(TempVar* tempVar)
 
 void Generator::VisitInitialization(Initialization* init)
 {
-
+    if (init->Obj()->IsStatic()) {
+        for (auto initer: init->StaticInits()) {
+            switch (initer._width) {
+            case 1:
+                Emit(".byte %d", static_cast<char>(initer._val));
+                break;
+            case 2:
+                Emit(".value %d", static_cast<short>(initer._val));
+                break;
+            case 4:
+                Emit(".long %d", static_cast<int>(initer._val));
+                break;
+            case 8: 
+                if (initer._label.size() == 0)
+                    Emit(".quad %ld", initer._val);
+                else
+                    Emit(".quad %s+%ld", initer._label.c_str(), initer._val);
+                break;
+            default: assert(false);
+            }
+        }
+    }
 }
 
 
@@ -466,8 +491,42 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit)
 
 void Generator::Gen(void)
 {
+    Emit(".file %s", inFileName.c_str());
+    Emit(".data");
+
+    int id = 0;
+    for (auto obj: _parser->StaticObjects()) {
+        auto name = obj->Name();
+        auto width = obj->Type()->Width();
+        auto align = obj->Type()->Align();
+
+        if (obj->Linkage() == L_NONE) {
+            name += "." + std::to_string(id++);
+        }
+
+        // omit the external without initilizer
+        if ((obj->Storage() & S_EXTERN) && !obj->Init())
+            continue;
+
+        auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
+        Emit("%s %s", glb, name.c_str());
+
+        if (!obj->Init()) {    
+            Emit(".comm %s, %d, %d", name.c_str(), width, align);
+        } else {
+            Emit(".align %d", align);
+            Emit(".type %s, @object", name.c_str());
+            Emit(".size %s, %d", name.c_str(), width);
+            EmitLabel(name.c_str());
+            VisitInitialization(obj->Init());
+        }
+
+    }
+
     VisitTranslationUnit(_parser->Unit());
 }
+
+
 
 
 void Generator::Emit(const char* format, ...)
@@ -476,12 +535,10 @@ void Generator::Emit(const char* format, ...)
 
     std::string str(format);
     auto pos = str.find(' ');
-    if (!std::string::npos) {
+    if (pos != std::string::npos) {
         str[pos] = '\t';
         while ((pos = str.find('#', pos)) != std::string::npos)
             str.replace(pos, 1, "%%");
-    } else {
-        assert(false);
     }
     
     va_list args;
@@ -489,4 +546,10 @@ void Generator::Emit(const char* format, ...)
     vfprintf(_outFile, str.c_str(), args);
     va_end(args);
     fprintf(_outFile, "\n");
+}
+
+
+void Generator::EmitLabel(const std::string& label)
+{
+    fprintf(_outFile, "%s:\n", label.c_str());
 }

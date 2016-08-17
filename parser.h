@@ -17,6 +17,12 @@ typedef std::pair<Token*, Type*> TokenTypePair;
 
 class Parser
 {
+    typedef std::vector<Constant*> LiteralList;
+    typedef std::vector<Object*> StaticObjectList;
+    typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
+    typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
+    typedef std::map<std::string, LabelStmt*> LabelMap;
+    
 public:
     explicit Parser(const TokenSeq& ts) 
         : _unit(TranslationUnit::New()),
@@ -198,12 +204,11 @@ public:
         return _unit;
     }
 
+    StaticObjectList& StaticObjects(void) {
+        return _staticObjects;
+    }
+
 private:
-    typedef std::vector<Constant*> LiteralList;
-    typedef std::vector<Object*> StaticObjectList;
-    typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
-    typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
-    typedef std::map<std::string, LabelStmt*> LabelMap;
     
     // The root of the AST
     TranslationUnit* _unit;

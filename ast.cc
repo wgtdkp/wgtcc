@@ -642,6 +642,7 @@ void Initialization::AddInit(int offset, Type* type, Expr* expr)
         } else if (type->IsFloat()) {
             auto val = Evaluator<double>().Eval(expr);
             auto lval = *reinterpret_cast<long*>(&val);
+            printf("%lf\n%ld\n", val, lval);
             _staticInits.push_back({offset, width, lval, ""});
         } else if (type->ToPointerType()) {
             auto addr = Evaluator<Addr>().Eval(expr);

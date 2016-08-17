@@ -12,13 +12,14 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary)
 #define LL  Evaluator<long>().Eval(binary->_lhs)
 #define LR  Evaluator<long>().Eval(binary->_rhs)
 
-    //if (!_type->IsInteger()) {
-    //    Error(errTok, "expect constant integer expression");
-    //}
+    if (binary->Type()->ToPointerType()) {
+        auto val = Evaluator<Addr>().Eval(binary);
+        if (val._label.size()) {
+            Error(binary, "expect constant integer expression");
+        }
+        _val = static_cast<T>(val._offset);
+    }
 
-    //auto pointerType = binary->Type()->ToPointerType();
-    //unsigned long width = pointerType ? pointerType->Derived()->Width(): 0;
-    //bool res = true;
     switch (binary->_op) {
     case '+': _val = L + R; break; 
     case '-': _val = L - R; break;
@@ -77,6 +78,8 @@ void Evaluator<T>::VisitUnaryOp(UnaryOp* unary)
     case Token::CAST:
         if (unary->Type()->IsInteger())
             _val = static_cast<long>(VAL);
+        else
+            _val = VAL;
         break;
     default: Error(unary, "expect constant expression");
     }
