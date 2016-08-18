@@ -5,14 +5,11 @@ void func(void)
 {
 
 }
-
-static func_t f;
-
-int c = sizeof(f);
+int arr[10];
+static int c = sizeof(arr);
 
 int main(void)
 {
     
     return 0;
 }
-

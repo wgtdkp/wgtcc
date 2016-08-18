@@ -10,6 +10,15 @@ extern std::string inFileName;
 extern std::string outFileName;
 
 
+
+static inline std::string ObjectLabel(Object* obj)
+{
+    assert(obj->IsStatic());
+    if (obj->Linkage() == L_NONE)
+        return obj->Name() + "." + std::to_string((long)obj);
+    return obj->Name();
+}
+
 static const char* GetObjectAddr(Object* obj)
 {
     return "";
@@ -494,30 +503,25 @@ void Generator::Gen(void)
     Emit(".file %s", inFileName.c_str());
     Emit(".data");
 
-    int id = 0;
     for (auto obj: _parser->StaticObjects()) {
-        auto name = obj->Name();
+        auto label = ObjectLabel(obj);
         auto width = obj->Type()->Width();
         auto align = obj->Type()->Align();
-
-        if (obj->Linkage() == L_NONE) {
-            name += "." + std::to_string(id++);
-        }
 
         // omit the external without initilizer
         if ((obj->Storage() & S_EXTERN) && !obj->Init())
             continue;
 
         auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
-        Emit("%s %s", glb, name.c_str());
+        Emit("%s %s", glb, label.c_str());
 
         if (!obj->Init()) {    
-            Emit(".comm %s, %d, %d", name.c_str(), width, align);
+            Emit(".comm %s, %d, %d", label.c_str(), width, align);
         } else {
             Emit(".align %d", align);
-            Emit(".type %s, @object", name.c_str());
-            Emit(".size %s, %d", name.c_str(), width);
-            EmitLabel(name.c_str());
+            Emit(".type %s, @object", label.c_str());
+            Emit(".size %s, %d", label.c_str(), width);
+            EmitLabel(label.c_str());
             VisitInitialization(obj->Init());
         }
 
@@ -553,3 +557,4 @@ void Generator::EmitLabel(const std::string& label)
 {
     fprintf(_outFile, "%s:\n", label.c_str());
 }
+

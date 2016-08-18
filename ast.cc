@@ -104,6 +104,21 @@ void TranslationUnit::Accept(Visitor* v) {
 }
 
 
+Expr* Expr::MayCast(Expr* expr)
+{
+    auto arrType = expr->Type()->ToArrayType();
+    if (arrType) {
+        auto pointer = Type::NewPointerType(arrType->Derived());
+        return UnaryOp::New(expr->Tok(), Token::CAST, expr, pointer);
+    }
+    auto funcType = expr->Type()->ToFuncType();
+    if (funcType) {
+        auto pointer = Type::NewPointerType(funcType);
+        return UnaryOp::New(expr->Tok(), Token::CAST, expr, pointer);
+    }
+    return expr;
+}
+
 
 BinaryOp* BinaryOp::New(const Token* tok, Expr* lhs, Expr* rhs)
 {

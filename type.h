@@ -397,14 +397,6 @@ public:
         return this;
     }
 
-    virtual PointerType* ToPointerType(void) {
-        return Type::NewPointerType(_derived);
-    }
-
-    virtual const PointerType* ToPointerType(void) const {
-        return Type::NewPointerType(_derived);
-    }
-
     virtual bool operator==(const Type& other) const {
         auto otherArray = ToArrayType();
         return Type::operator==(other) && (nullptr != otherArray
@@ -467,10 +459,6 @@ public:
     
     virtual const FuncType* ToFuncType(void) const {
         return this;
-    }
-
-    virtual PointerType* ToPointerType(void) {
-        return Type::NewPointerType(this);
     }
     
     virtual bool operator==(const Type& other) const;

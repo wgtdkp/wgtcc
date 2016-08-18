@@ -317,10 +317,6 @@ public:
 
     virtual void TypeChecking(void) = 0;
 
-    std::string Name(void) const {
-        return _tok->Str();
-    }
-
     const Token* Tok(void) const {
         return _tok;
     }
@@ -328,6 +324,8 @@ public:
     void SetTok(const Token* tok) {
         _tok = tok;
     }
+
+    static Expr* MayCast(Expr* expr);
 
 protected:
     /*
@@ -390,7 +388,8 @@ public:
 
 protected:
     BinaryOp(int op, Expr* lhs, Expr* rhs)
-            : Expr(lhs->Tok(), nullptr), _op(op), _lhs(lhs), _rhs(rhs) {}
+            : Expr(lhs->Tok(), nullptr), _op(op),
+              _lhs(MayCast(lhs)), _rhs(MayCast(rhs)) {}
 
     int _op;
     Expr* _lhs;
@@ -438,7 +437,12 @@ public:
 
 protected:
     UnaryOp(int op, Expr* operand, ::Type* type = nullptr)
-        : Expr(operand->Tok(), type), _op(op), _operand(operand) {}
+        : Expr(operand->Tok(), type), _op(op) {
+            _operand = operand;
+            if (_op != Token::CAST && _op != Token::ADDR) {
+                _operand = MayCast(operand);
+            }
+        }
 
     int _op;
     Expr* _operand;
@@ -470,8 +474,8 @@ public:
 
 protected:
     ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
-            : Expr(cond->Tok(), nullptr), _cond(cond),
-              _exprTrue(exprTrue), _exprFalse(exprFalse) {}
+            : Expr(cond->Tok(), nullptr), _cond(MayCast(cond)),
+              _exprTrue(MayCast(exprTrue)), _exprFalse(MayCast(exprFalse)) {}
 
 private:
     Expr* _cond;
@@ -514,7 +518,7 @@ public:
 protected:
     FuncCall(Expr* designator, std::list<Expr*> args)
         : Expr(designator->Tok(), nullptr),
-          _designator(designator), _args(args) {}
+          _designator(MayCast(designator)), _args(args) {}
 
     Expr* _designator;
     ArgList _args;
@@ -610,75 +614,6 @@ private:
 };
 
 
-/*************** Declaration ******************/
-
-class FuncDef : public ExtDecl
-{
-    template<typename T> friend class Evaluator;
-    friend class AddrEvaluator;
-    friend class Generator;
-
-public:
-    static FuncDef* New(FuncType* type,
-            const std::list<Object*>& params, CompoundStmt* stmt);
-
-    virtual ~FuncDef(void) {}
-    
-    virtual FuncType* Type(void) {
-        return _type;
-    }
-
-    std::list<Object*>& Params(void) {
-        return _params;
-    }
-
-    CompoundStmt* Body(void) {
-        return _body;
-    }
-    
-    virtual void Accept(Visitor* v);
-
-protected:
-    FuncDef(FuncType* type, const std::list<Object*>& params,
-            CompoundStmt* stmt): _type(type), _params(params), _body(stmt) {}
-
-private:
-    FuncType* _type;
-    std::list<Object*> _params;
-    CompoundStmt* _body;
-};
-
-
-class TranslationUnit : public ASTNode
-{
-    template<typename T> friend class Evaluator;
-    friend class AddrEvaluator;
-    friend class Generator;
-
-public:
-    static TranslationUnit* New(void) {
-        return new TranslationUnit();
-    }
-
-    virtual ~TranslationUnit(void) {}
-
-    virtual void Accept(Visitor* v);
-    
-    void Add(ExtDecl* extDecl) {
-        _extDecls.push_back(extDecl);
-    }
-
-    std::list<ExtDecl*>& ExtDecls(void) {
-        return _extDecls;
-    }
-
-private:
-    TranslationUnit(void) {}
-
-    std::list<ExtDecl*> _extDecls;
-};
-
-
 enum Linkage {
     L_NONE,
     L_EXTERNAL,
@@ -694,7 +629,7 @@ class Identifier: public Expr
 
 public:
     static Identifier* New(const Token* tok,
-            ::Type* type, Scope* scope, enum Linkage linkage);
+            ::Type* type, Scope* scope, Linkage linkage);
 
     virtual ~Identifier(void) {}
 
@@ -715,6 +650,12 @@ public:
             return nullptr;
         return this;
     }
+
+
+    std::string Name(void) const {
+        return _tok->Str();
+    }
+
 
     ::Scope* Scope(void) {
         return _scope;
@@ -850,5 +791,76 @@ private:
 
     //static size_t _labelId {0};
 };
+
+
+
+/*************** Declaration ******************/
+
+class FuncDef : public ExtDecl
+{
+    template<typename T> friend class Evaluator;
+    friend class AddrEvaluator;
+    friend class Generator;
+
+public:
+    static FuncDef* New(FuncType* type,
+            const std::list<Object*>& params, CompoundStmt* stmt);
+
+    virtual ~FuncDef(void) {}
+    
+    virtual FuncType* Type(void) {
+        return _type;
+    }
+
+    std::list<Object*>& Params(void) {
+        return _params;
+    }
+
+    CompoundStmt* Body(void) {
+        return _body;
+    }
+    
+    virtual void Accept(Visitor* v);
+
+protected:
+    FuncDef(FuncType* type, const std::list<Object*>& params,
+            CompoundStmt* stmt): _type(type), _params(params), _body(stmt) {}
+
+private:
+    FuncType* _type;
+    std::list<Object*> _params;
+    CompoundStmt* _body;
+};
+
+
+class TranslationUnit : public ASTNode
+{
+    template<typename T> friend class Evaluator;
+    friend class AddrEvaluator;
+    friend class Generator;
+
+public:
+    static TranslationUnit* New(void) {
+        return new TranslationUnit();
+    }
+
+    virtual ~TranslationUnit(void) {}
+
+    virtual void Accept(Visitor* v);
+    
+    void Add(ExtDecl* extDecl) {
+        _extDecls.push_back(extDecl);
+    }
+
+    std::list<ExtDecl*>& ExtDecls(void) {
+        return _extDecls;
+    }
+
+private:
+    TranslationUnit(void) {}
+
+    std::list<ExtDecl*> _extDecls;
+};
+
 
 #endif

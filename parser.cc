@@ -362,11 +362,8 @@ Constant* Parser::ParseSizeof(void)
         type = unaryExpr->Type();
     }
 
-    if (type->ToFuncType()) {
-        Error(tok, "sizeof operator can't act on function");
-    }
-
-    if (!type->Complete()) {
+    if (type->ToFuncType() || type->ToVoidType()) {
+    } else if (!type->Complete()) {
         Error(tok, "sizeof(incomplete type)");
     }
 
@@ -1320,7 +1317,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
                 name.c_str());
     }
 
-    enum Linkage linkage;
+    Linkage linkage;
     // Identifiers in function prototype have no linkage
     if (_curScope->Type() == S_PROTO) {
         linkage = L_NONE;

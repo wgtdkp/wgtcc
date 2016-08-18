@@ -1,21 +1,11 @@
-#include <stdio.h>
 
-typedef void (*f_t) (void);
 
-void test(void)
-{
-
-}
-
-f_t f = test;
-
-char ch;
-
-const char* p = "abc\t";
-const char* q = "ABC\t";
 
 int main(void)
 {
-    f();
+    int arr[10];
+    arr[3] = 5;
+    int* p = arr;
+    p[3] = 7;
     return 0;
 }
