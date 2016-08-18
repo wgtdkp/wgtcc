@@ -173,7 +173,7 @@ Expr* Parser::ParsePrimaryExpr(void)
         return ParseLiteral(tok);
     } else if (tok->Tag() == Token::GENERIC) {
         return ParseGeneric();
-    } 
+    }
 
     Error(tok, "unexpected expect '%s'", tok->Str().c_str());
     return nullptr; // Make compiler happy
@@ -196,11 +196,13 @@ Constant* Parser::ParseConstant(const Token* tok)
 Constant* Parser::ParseLiteral(const Token* tok)
 {
     assert(tok->IsLiteral());
-    std::string val;
+    std::string str = tok->Str();
     
+    auto begin = str.find('"') + 1;
+    auto end = str.rfind('"');
 
-
-    return nullptr;
+    auto val = new std::string(str.begin() + begin, str.begin() + end);
+    return Constant::New(tok, val);
 }
 
 // TODO(wgtdkp):
@@ -902,7 +904,8 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
             if (typeSpec == 0 && IsTypeName(tok)) {
                 auto ident = _curScope->Find(tok);
                 if (ident) {
-                    type = ident->ToType();
+                    ident = ident->ToTypeName();
+                    type = ident ? ident->Type(): nullptr;
                 }
                 typeSpec |= T_TYPEDEF_NAME;
             } else  {

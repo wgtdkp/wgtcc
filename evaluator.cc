@@ -18,6 +18,7 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary)
             Error(binary, "expect constant integer expression");
         }
         _val = static_cast<T>(val._offset);
+        return;
     }
 
     switch (binary->_op) {
@@ -126,21 +127,21 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
     switch (binary->_op) {
     case '+':
         _addr._label = l._label;
-        _addr._offset += r._offset * width;
+        _addr._offset = l._offset + r._offset * width;
         break;
     case '-':
         _addr._label = l._label;
-        _addr._offset -= r._offset * width;
+        _addr._offset = l._offset + r._offset * width;
         break;
     case ']':
         _addr._label = l._label;
-        _addr._offset += r._offset * width;
+        _addr._offset = l._offset + r._offset * width;
         break;
     case '.': {
         _addr._label = l._label;
         auto type = binary->_lhs->Type()->ToStructUnionType();
         auto offset = type->GetMember(r._label)->Offset();
-        _addr._offset += offset;
+        _addr._offset = l._offset + offset;
         break;
     }
     default: assert(false);

@@ -86,7 +86,7 @@ void Scope::Insert(const std::string& name, Identifier* ident)
 Identifier* Scope::FindTag(const std::string& name) {
     auto tag = Find(TagName(name));
     if (tag) {
-        assert(tag->ToType());
+        assert(tag->ToTypeName());
     }
     return tag;
 }
@@ -94,7 +94,7 @@ Identifier* Scope::FindTag(const std::string& name) {
 
 Identifier* Scope::FindTagInCurScope(const std::string& name) {
     auto tag = FindInCurScope(TagName(name));
-    assert(tag == nullptr || tag->ToType());
+    assert(tag == nullptr || tag->ToTypeName());
     
     return tag;
 }
@@ -108,7 +108,7 @@ void Scope::Print(void)
     for (; iter != _identMap.end(); iter++) {
         auto name = iter->first;
         auto ident = iter->second;
-        if (ident->ToType()) {
+        if (ident->ToTypeName()) {
             std::cout << name << "\t[type:\t" << ident->Type()->Str() << "]" << std::endl;
         } else {
             std::cout << name << "\t[object:\t";

@@ -317,7 +317,7 @@ public:
 
     virtual void TypeChecking(void) = 0;
 
-    std::string Name(void) {
+    std::string Name(void) const {
         return _tok->Str();
     }
 
@@ -708,10 +708,12 @@ public:
      * An identifer can be:
      *     object, sturct/union/enum tag, typedef name, function, label.
      */
-    virtual ::Type* ToType(void) {
-        if (ToObject())
+     Identifier* ToTypeName(void) {
+        // A typename has no linkage
+        // And a function has external or internal linkage
+        if (ToObject() || _linkage != L_NONE)
             return nullptr;
-        return this->Type();
+        return this;
     }
 
     ::Scope* Scope(void) {
@@ -726,14 +728,10 @@ public:
         _linkage = linkage;
     }
 
-    const Token* Tok(void) {
-        return _tok;
-    }
-
-    virtual std::string Name(void);
-
     virtual bool operator==(const Identifier& other) const {
-        return *_type == *other._type && _scope == other._scope;
+        return Name() == other.Name()
+            && *_type == *other._type
+            && _scope == other._scope;
     }
 
     virtual void TypeChecking(void) {}
@@ -829,7 +827,7 @@ public:
 
     bool operator==(const Object& other) const {
         // TODO(wgtdkp): Not implemented
-        assert(0);
+        assert(false);
     }
 
     bool operator!=(const Object& other) const {

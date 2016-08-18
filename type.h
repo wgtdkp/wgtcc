@@ -229,13 +229,11 @@ public:
     }
 
     virtual int Width(void) const {
-        assert(0);
-        return 0;
+        return 1;
     }
 
     virtual int Align(void) const {
-        assert(0);
-        return 0;
+        return Width();
     }
 
     virtual std::string Str(void) const {
@@ -400,11 +398,11 @@ public:
     }
 
     virtual PointerType* ToPointerType(void) {
-        return this;
+        return Type::NewPointerType(_derived);
     }
 
     virtual const PointerType* ToPointerType(void) const {
-        return this;
+        return Type::NewPointerType(_derived);
     }
 
     virtual bool operator==(const Type& other) const {
@@ -470,19 +468,21 @@ public:
     virtual const FuncType* ToFuncType(void) const {
         return this;
     }
+
+    virtual PointerType* ToPointerType(void) {
+        return Type::NewPointerType(this);
+    }
     
     virtual bool operator==(const Type& other) const;
     
     virtual bool Compatible(const Type& other) const;
 
     virtual int Width(void) const {
-        assert(0);
-        return 0;
+        return 1;
     }
 
     virtual int Align(void) const {
-        assert(0);
-        return 0;
+        return Width();
     }
 
     virtual std::string Str(void) const;

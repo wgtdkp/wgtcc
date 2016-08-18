@@ -1,34 +1,14 @@
-#include <stdio.h>
 
-/*
-int test(int a1, int a2, int a3, int a4, int a5, int a6, int a7, ...)
+typedef void(func_t)(void);
+
+void func(void)
 {
-    va_list args;
-    va_start(args, a7);
-    int i1 = va_arg(args, int);
-    va_end(args);
 
-    return 0;
 }
 
-int testl(long a1, long a2, long a3, long a4, long a5, long a6, long a7, ...)
+int main(void)
 {
-    va_list args;
-    va_start(args, a7);
-    int i1 = va_arg(args, int);
-    va_end(args);
-
+    func_t arr[10];
     return 0;
 }
-
-int testc(char a1, char a2, char a3, char a4, char a5, char a6, char a7, ...)
-{
-    va_list args;
-    va_start(args, a7);
-    int i1 = va_arg(args, int);
-    va_end(args);
-
-    return 0;
-}
-*/
 

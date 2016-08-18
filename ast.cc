@@ -601,11 +601,6 @@ Identifier* Identifier::New(const Token* tok,
 }
 
 
-std::string Identifier::Name(void) {
-    return _tok->Str();
-}
-
-
 Enumerator* Enumerator::New(const Token* tok, ::Scope* scope, int val)
 {
     auto ret = new (enumeratorPool.Alloc()) Enumerator(tok, scope, val);

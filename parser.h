@@ -142,7 +142,7 @@ public:
 
         if (tok->IsIdentifier()) {
             auto ident = _curScope->Find(tok);
-            if (ident && ident->ToType())
+            if (ident && ident->ToTypeName())
                 return true;
         }
         return false;
@@ -154,7 +154,7 @@ public:
 
         if (tok->IsIdentifier()) {
             auto ident = _curScope->Find(tok);
-            return (ident && !ident->ToObject());
+            return (ident && ident->ToTypeName());
         }
 
         return false;
