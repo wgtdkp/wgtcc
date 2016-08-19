@@ -8,6 +8,8 @@
 
 class Expr;
 
+extern std::string ConstantLabel(Constant* cons);
+extern std::string ObjectLabel(Object* obj);
 
 template<typename T>
 class Evaluator: public Visitor
@@ -108,7 +110,7 @@ public:
         if (!obj->IsStatic()) {
             Error(obj, "expect static object");
         }
-        _addr._label = obj->Name();
+        _addr._label = ObjectLabel(obj);
         _addr._offset = 0;
     }
 
@@ -116,7 +118,7 @@ public:
         if (cons->Type()->IsInteger()) {
             _addr._offset = cons->IVal();
         } else if (cons->Type()->ToPointerType()) {
-            _addr._label = cons->Label();
+            _addr._label = ConstantLabel(cons);
             _addr._offset = 0;
         } else {
             assert(false);

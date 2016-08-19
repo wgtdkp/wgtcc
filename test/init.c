@@ -1,6 +1,8 @@
 #include <stdio.h>
 
-static int a = (int)((int*)0 + 4);
+
+static char arr[];
+
 
 int main(void)
 {

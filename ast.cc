@@ -683,7 +683,6 @@ StaticInitializer Declaration::GetStaticInit(const Initializer& init)
     } else if (init._type->IsFloat()) {
         auto val = Evaluator<double>().Eval(init._expr);
         auto lval = *reinterpret_cast<long*>(&val);
-        printf("%lf\n%ld\n", val, lval);
         return {init._offset, width, lval, ""};
     } else if (init._type->ToPointerType()) {
         auto addr = Evaluator<Addr>().Eval(init._expr);

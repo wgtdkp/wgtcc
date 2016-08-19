@@ -1,10 +1,10 @@
-#include <stdio.h>
 
-static double a = 4.5;
-static double b = 5.5;
-
-int main(void)
+void test1(void)
 {
-    printf("%lf\n%lf\n", a, b);
-    return 0;
+    extern int c;
+}
+
+void test2(void)
+{
+    extern double c;
 }

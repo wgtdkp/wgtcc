@@ -1253,14 +1253,15 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
     if (_ts.Try('(')) {
         //现在的 pointerType 并不是正确的 base type
         auto tokenTypePair = ParseDeclarator(pointerType);
+        auto tok = tokenTypePair.first;
+        auto type = tokenTypePair.second;
+
         _ts.Expect(')');
 
-        auto newBase = ParseArrayFuncDeclarator(
-                tokenTypePair.first, pointerType);
+        auto newBase = ParseArrayFuncDeclarator(tok, pointerType);
         
         //修正 base type
-        auto retType = ModifyBase(tokenTypePair.second, pointerType, newBase);
-        
+        auto retType = ModifyBase(type, pointerType, newBase);
         return TokenTypePair(tokenTypePair.first, retType);
     } else if (_ts.Peek()->IsIdentifier()) {
         auto tok = _ts.Next();
@@ -1302,11 +1303,6 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
 
     if (type->ToVoidType()) {
         Error(tok, "variable or field '%s' declared void",
-                name.c_str());
-    }
-
-    if (!(storageSpec & S_EXTERN) && !type->Complete()) {
-        Error(tok, "storage size of '%s' isn’t known",
                 name.c_str());
     }
 
@@ -1353,7 +1349,9 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
                 Error(tok, "conflicting linkage for '%s'", name.c_str());
             }
         }
-        // The same redeclaration, simply return the prio declaration 
+        // The same declaration, simply return the prio declaration
+        if (!ident->Type()->Complete())
+            ident->Type()->SetComplete(type->Complete());
         return ident;
     } else if (linkage == L_EXTERNAL) {
         ident = _curScope->Find(tok);
@@ -1365,6 +1363,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             if (ident->Linkage() != L_NONE) {
                 linkage = ident->Linkage();
             }
+            // Don't return, override it
         } else {
             ident = _externalSymbols->FindInCurScope(tok);
             if (ident) {
@@ -1372,9 +1371,18 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
                     Error(tok, "conflicting types for '%s'",
                             name.c_str());
                 }
+                // TODO(wgtdkp): ???????
                 // Don't return
+                if (!ident->Type()->Complete())
+                    ident->Type()->SetComplete(type->Complete()); 
+                return ident;
             }
         }
+    }
+
+    if (!type->Complete() && linkage == L_NONE) {
+        Error(tok, "storage size of '%s' isn’t known",
+            name.c_str());
     }
 
     Identifier* ret;    
@@ -1397,6 +1405,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
 Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
 {
     if (_ts.Try('[')) {
+
         if (nullptr != base->ToFuncType()) {
             Error(_ts.Peek(), "the element of array can't be a function");
         }
@@ -1407,7 +1416,10 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
         }
         _ts.Expect(']');
         base = ParseArrayFuncDeclarator(ident, base);
-        
+        if (!base->Complete()) {
+            Error(ident, "'%s' has incomplete element type",
+                    ident->Str().c_str());
+        }
         return Type::NewArrayType(len, base);
     } else if (_ts.Try('(')) {	//function declaration
         if (base->ToFuncType()) {
@@ -1562,19 +1574,19 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
         return nullptr;
     }
 
+    auto name = obj->Name();
     if (_ts.Try('=')) {
         if ((_curScope->Type() != S_FILE) && (obj->Storage() & S_EXTERN)) {
-            Error(obj, "'%s' has both 'extern' and initializer",
-                    obj->Name().c_str());
+            Error(obj, "'%s' has both 'extern' and initializer", name.c_str());
         }
 
-        if (!obj->Type()->Complete()) {
+        if (!obj->Type()->Complete() && !obj->Type()->ToArrayType()) {
             Error(obj, "variable '%s' has initializer but incomplete type",
                 obj->Name().c_str());
         }
 
         if (obj->HasInit()) {
-            Error(obj, "redefinition of variable '%s'", obj->Name().c_str());
+            Error(obj, "redefinition of variable '%s'", name.c_str());
         }
 
         if (!obj->Type()->IsScalar() && !_ts.Test('{')) {
@@ -1583,14 +1595,26 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
 
         if (obj->Decl()) {
             ParseInitializer(obj->Decl(), obj->Type(), 0);
+            return nullptr;
         } else {
             auto decl = Declaration::New(obj);
             ParseInitializer(decl, obj->Type(), 0);
             obj->SetDecl(decl);
             return decl;
         }
-    } else if (!obj->Decl()) {
-        return Declaration::New(obj);
+    }
+    
+    if (!obj->Type()->Complete()) {
+        if (obj->Linkage() == L_NONE) {
+            Error(obj, "storage size of '%s' isn’t known", name.c_str());
+        }
+        return nullptr; // Discards the incomplete object declarations
+    }
+
+    if (!obj->Decl()) {
+        auto decl = Declaration::New(obj);
+        obj->SetDecl(decl);
+        return decl;
     }
 
     return nullptr;
@@ -1631,7 +1655,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
             literal->SVal()->size() + 1);
     
     auto str = literal->SVal()->c_str();    
-    while (width >= 8) {
+    for (; width >= 8; width -= 8) {
         auto p = reinterpret_cast<const long*>(str);
         auto type = Type::NewArithmType(T_LONG);
         auto val = Constant::New(tok, T_LONG, static_cast<long>(*p));
@@ -1640,7 +1664,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
         str += 8;
     }
 
-    while (width >= 4) {
+    for (; width >= 4; width -= 4) {
         auto p = reinterpret_cast<const int*>(str);
         auto type = Type::NewArithmType(T_INT);
         auto val = Constant::New(tok, T_INT, static_cast<long>(*p));
@@ -1649,7 +1673,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
         str += 4;
     }
 
-    while (width >= 2) {
+    for (; width >= 2; width -= 2) {
         auto p = reinterpret_cast<const short*>(str);
         auto type = Type::NewArithmType(T_SHORT);
         auto val = Constant::New(tok, T_SHORT, static_cast<long>(*p));
@@ -1658,7 +1682,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
         str += 2;
     }
 
-    while (width >= 1) {
+    for (; width >= 1; width--) {
         auto p = str;
         auto type = Type::NewArithmType(T_CHAR);
         auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
@@ -1694,7 +1718,7 @@ void Parser::ParseArrayInitializer(Declaration* decl,
         if (_ts.Test('}')) {
             if (hasBrace)
                 _ts.Next();
-            return;
+            goto end;
         }
 
         if (hasBrace && _ts.Try('[')) {
@@ -1704,25 +1728,25 @@ void Parser::ParseArrayInitializer(Declaration* decl,
             _ts.Expect(']');
             _ts.Expect('=');
 
-            if (idx < 0 || idx >= type->Len()) {
+            if (idx < 0 || (type->HasLen() && idx >= type->Len())) {
                 Error(_ts.Peek(), "excess elements in array initializer");
             }
         } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
             _ts.PutBack(); // Put the read comma(',') back
-            return;
+            goto end;
         }
 
         ParseInitializer(decl, type->Derived(), idx * width);
         ++idx;
 
-        if (idx >= type->Len())
+        if (type->HasLen() && idx >= type->Len())
             break;
 
         // Needless comma at the end is allowed
         if (!_ts.Try(',')) {
             if (hasBrace)
                 _ts.Expect('}');
-            return;
+            goto end;
         }
     }
 
@@ -1732,6 +1756,9 @@ void Parser::ParseArrayInitializer(Declaration* decl,
             Error(_ts.Peek(), "excess elements in array initializer");
         }
     }
+end:
+    if (!type->HasLen())
+        type->SetLen(idx);
 }
 
 

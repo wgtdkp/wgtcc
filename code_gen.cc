@@ -22,7 +22,13 @@ std::string operator+(const char* lhs, const std::string&& rhs)
 }
 */
 
-static inline std::string ObjectLabel(Object* obj)
+std::string ConstantLabel(Constant* cons)
+{
+    assert(cons->Type()->ToPointerType());
+    return ".LC" + std::to_string((long)cons);
+}
+
+std::string ObjectLabel(Object* obj)
 {
     assert(obj->IsStatic());
     if (obj->Linkage() == L_NONE)
@@ -45,7 +51,6 @@ static const char* GetLoad(int width, bool flt=false)
 
 static std::string GetInst(const std::string& inst, int width, bool flt)
 {
-
     if (flt)  {
         return inst + (width == 4 ? "ss": "sd");
     } else {
@@ -546,6 +551,7 @@ void Generator::VisitDeclaration(Declaration* decl)
         Emit(".size %s, %d", label.c_str(), width);
         EmitLabel(label.c_str());
         
+        // TODO(wgtdkp): Add .zero
         for (auto init: decl->Inits()) {
             auto initer = decl->GetStaticInit(init);
             switch (initer._width) {
@@ -559,10 +565,13 @@ void Generator::VisitDeclaration(Declaration* decl)
                 Emit(".long %d", static_cast<int>(initer._val));
                 break;
             case 8: 
-                if (initer._label.size() == 0)
+                if (initer._label.size() == 0) {
                     Emit(".quad %ld", initer._val);
-                else
+                } else if (initer._val != 0) {
                     Emit(".quad %s+%ld", initer._label.c_str(), initer._val);
+                } else {
+                    Emit(".quad %s", initer._label.c_str());
+                }
                 break;
             default: assert(false);
             }

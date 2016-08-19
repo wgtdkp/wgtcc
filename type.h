@@ -430,6 +430,10 @@ public:
         return _len;
     }
 
+    bool HasLen(void) const {
+        return _len > 0;
+    }
+
     void SetLen(int len) {
         _len = len;
         SetComplete(true);
@@ -438,7 +442,7 @@ public:
 protected:
     ArrayType(MemPool* pool, long long len, Type* derived)
             : PointerType(pool, derived), _len(len) {
-        SetComplete(len > 0);
+        SetComplete(_len > 0);
         SetQual(Q_CONST);
     }
 
