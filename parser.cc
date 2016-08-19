@@ -87,11 +87,13 @@ void Parser::ParseTranslationUnit(void)
         if (tok && type->ToFuncType() && _ts.Try('{')) { // Function definition
             _unit->Add(ParseFuncDef(tok, type->ToFuncType()));
         } else { // Declaration
-            ParseInitDeclarator(ident);
+            auto decl = ParseInitDeclarator(ident);
+            if (decl) _unit->Add(decl);
 
             while (_ts.Try(',')) {
                 auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
-                ParseInitDeclarator(ident);
+                decl = ParseInitDeclarator(ident);
+                if (decl) _unit->Add(decl);
             }
             _ts.Expect(';');
         }
@@ -123,7 +125,7 @@ FuncDef* Parser::ParseFuncDef(Token* tok, FuncType* funcType)
     auto stmt = ParseCompoundStmt(funcType);
     ExitFunc();
 
-    return FuncDef::New(funcType, params, stmt);
+    return FuncDef::New(tok, funcType, params, stmt);
 }
 
 Expr* Parser::ParseExpr(void)
@@ -657,11 +659,7 @@ Expr* Parser::ParseAssignExpr(void)
 
 /**************** Declarations ********************/
 
-/*
- * If there is an initializer,
- * then return the initializer expression,
- * else, return null.
- */
+// Return: list of declarations
 CompoundStmt* Parser::ParseDecl(void)
 {
     StmtList stmts;
@@ -686,7 +684,7 @@ CompoundStmt* Parser::ParseDecl(void)
         _ts.Expect(';');
     }
 
-    return CompoundStmt::New(stmts, _curScope);
+    return CompoundStmt::New(stmts);
 }
 
 //for state machine
@@ -1385,8 +1383,6 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         ret = Identifier::New(tok, type, _curScope, linkage);
     } else {
         ret = Object::New(tok, type, _curScope, storageSpec, linkage);
-        if (ret->ToObject()->IsStatic())
-            _staticObjects.push_back(ret->ToObject());
     }
 
     _curScope->Insert(ret);
@@ -1430,7 +1426,7 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
         _ts.Expect(')');
         base = ParseArrayFuncDeclarator(ident, base);
         
-        return Type::NewFuncType(base, 0, hasEllipsis, paramTypes, ident);
+        return Type::NewFuncType(base, 0, hasEllipsis, paramTypes);
     }
 
     return base;
@@ -1559,14 +1555,14 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
 }
 
 
-Initialization* Parser::ParseInitDeclarator(Identifier* ident)
+Declaration* Parser::ParseInitDeclarator(Identifier* ident)
 {
-    if (_ts.Try('=')) {
-        auto obj = ident->ToObject();
-        if (!obj) {
-            Error(_ts.Peek(), "unexpected initializer");
-        }
+    auto obj = ident->ToObject();
+    if (!obj) { // Do not record function Declaration
+        return nullptr;
+    }
 
+    if (_ts.Try('=')) {
         if ((_curScope->Type() != S_FILE) && (obj->Storage() & S_EXTERN)) {
             Error(obj, "'%s' has both 'extern' and initializer",
                     obj->Name().c_str());
@@ -1577,27 +1573,38 @@ Initialization* Parser::ParseInitDeclarator(Identifier* ident)
                 obj->Name().c_str());
         }
 
+        if (obj->HasInit()) {
+            Error(obj, "redefinition of variable '%s'", obj->Name().c_str());
+        }
+
         if (!obj->Type()->IsScalar() && !_ts.Test('{')) {
             _ts.Expect('{');
         }
-        auto init = Initialization::New(obj);
-        ParseInitializer(init, ident->Type(), 0);
-        obj->SetInit(init);
-        
-        return obj->IsStatic() ? nullptr: init;
+
+        if (obj->Decl()) {
+            ParseInitializer(obj->Decl(), obj->Type(), 0);
+        } else {
+            auto decl = Declaration::New(obj);
+            ParseInitializer(decl, obj->Type(), 0);
+            obj->SetDecl(decl);
+            return decl;
+        }
+    } else if (!obj->Decl()) {
+        return Declaration::New(obj);
     }
+
     return nullptr;
 }
 
 
-void Parser::ParseInitializer(Initialization* init, Type* type, int offset)
+void Parser::ParseInitializer(Declaration* decl, Type* type, int offset)
 {
     auto arrType = type->ToArrayType();
     auto structType = type->ToStructUnionType();
     if (arrType)
-        return ParseArrayInitializer(init, arrType, offset);
+        return ParseArrayInitializer(decl, arrType, offset);
     else if (structType)
-        return ParseStructInitializer(init, structType, offset);
+        return ParseStructInitializer(decl, structType, offset);
 
     // Scalar type
     auto hasBrace = _ts.Try('{');
@@ -1607,11 +1614,11 @@ void Parser::ParseInitializer(Initialization* init, Type* type, int offset)
         _ts.Expect('}');
     }
 
-    init->AddInit(offset, type, expr);
+    decl->AddInit(offset, type, expr);
 }
 
 
-void Parser::ParseLiteralInitializer(Initialization* init,
+void Parser::ParseLiteralInitializer(Declaration* decl,
         ArrayType* type, int offset)
 {
     auto literal = ParseLiteral(_ts.Next());
@@ -1628,7 +1635,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
         auto p = reinterpret_cast<const long*>(str);
         auto type = Type::NewArithmType(T_LONG);
         auto val = Constant::New(tok, T_LONG, static_cast<long>(*p));
-        init->Inits().push_back({offset, type, val});
+        decl->Inits().push_back({offset, type, val});
         offset += 8;
         str += 8;
     }
@@ -1637,7 +1644,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
         auto p = reinterpret_cast<const int*>(str);
         auto type = Type::NewArithmType(T_INT);
         auto val = Constant::New(tok, T_INT, static_cast<long>(*p));
-        init->Inits().push_back({offset, type, val});
+        decl->Inits().push_back({offset, type, val});
         offset += 4;
         str += 4;
     }
@@ -1646,7 +1653,7 @@ void Parser::ParseLiteralInitializer(Initialization* init,
         auto p = reinterpret_cast<const short*>(str);
         auto type = Type::NewArithmType(T_SHORT);
         auto val = Constant::New(tok, T_SHORT, static_cast<long>(*p));
-        init->Inits().push_back({offset, type, val});
+        decl->Inits().push_back({offset, type, val});
         offset += 2;
         str += 2;
     }
@@ -1655,14 +1662,14 @@ void Parser::ParseLiteralInitializer(Initialization* init,
         auto p = str;
         auto type = Type::NewArithmType(T_CHAR);
         auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
-        init->Inits().push_back({offset, type, val});
+        decl->Inits().push_back({offset, type, val});
         offset++;
         str++;
     }
 }
 
 
-void Parser::ParseArrayInitializer(Initialization* init,
+void Parser::ParseArrayInitializer(Declaration* decl,
         ArrayType* type, int offset)
 {
     assert(type);
@@ -1673,7 +1680,7 @@ void Parser::ParseArrayInitializer(Initialization* init,
     auto hasBrace = _ts.Try('{');
     if (_ts.Test(Token::STRING_LITERAL) && width == 1) {
         // TODO(wgtdkp): handle wide character
-        ParseLiteralInitializer(init, type, offset);
+        ParseLiteralInitializer(decl, type, offset);
         if (hasBrace) {
             _ts.Try(',');
             if (!_ts.Try('}')) {
@@ -1705,7 +1712,7 @@ void Parser::ParseArrayInitializer(Initialization* init,
             return;
         }
 
-        ParseInitializer(init, type->Derived(), idx * width);
+        ParseInitializer(decl, type->Derived(), idx * width);
         ++idx;
 
         if (idx >= type->Len())
@@ -1728,7 +1735,7 @@ void Parser::ParseArrayInitializer(Initialization* init,
 }
 
 
-void Parser::ParseStructInitializer(Initialization* init,
+void Parser::ParseStructInitializer(Declaration* decl,
         StructUnionType* type, int offset)
 {
     assert(type);
@@ -1762,7 +1769,7 @@ void Parser::ParseStructInitializer(Initialization* init,
         
         
 
-        ParseInitializer(init, (*member)->Type(),
+        ParseInitializer(decl, (*member)->Type(),
                 offset + (*member)->Offset());
         member++;
 
@@ -1956,9 +1963,10 @@ CompoundStmt* Parser::ParseForStmt(void)
     stmts.push_back(JumpStmt::New(condLabel));
     stmts.push_back(endLabel);
 
+    auto scope = _curScope;
     ExitBlock();
     
-    return CompoundStmt::New(stmts);
+    return CompoundStmt::New(stmts, scope);
 }
 
 /*

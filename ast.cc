@@ -11,7 +11,7 @@
 static MemPoolImp<BinaryOp>         binaryOpPool;
 static MemPoolImp<ConditionalOp>    conditionalOpPool;
 static MemPoolImp<FuncCall>         funcCallPool;
-static MemPoolImp<Initialization>   initializationPool;
+static MemPoolImp<Declaration>   initializationPool;
 static MemPoolImp<Object>           objectPool;
 static MemPoolImp<Identifier>       identifierPool;
 static MemPoolImp<Enumerator>       enumeratorPool;
@@ -32,9 +32,9 @@ static MemPoolImp<FuncDef>          funcDefPool;
  * Accept
  */
 
-void Initialization::Accept(Visitor* v)
+void Declaration::Accept(Visitor* v)
 {
-    v->VisitInitialization(this);
+    v->VisitDeclaration(this);
 }
 
 void EmptyStmt::Accept(Visitor* v) {
@@ -579,8 +579,9 @@ FuncCall* FuncCall::New(Expr* designator, const std::list<Expr*>& args)
 
 void FuncCall::TypeChecking(void)
 {
-    auto funcType = _designator->Type()->ToFuncType();
-    if (funcType == nullptr) {
+    auto pointerType = _designator->Type()->ToPointerType();
+    FuncType* funcType;
+    if (!pointerType || !(funcType = pointerType->Derived()->ToFuncType())) {
         Error(_tok, "'%s' is not a function", _tok->Str());
     }
 
@@ -628,14 +629,14 @@ Enumerator* Enumerator::New(const Token* tok, ::Scope* scope, int val)
 }
 
 
-Initialization* Initialization::New(Object* obj)
+Declaration* Declaration::New(Object* obj)
 {
-    auto ret = new (initializationPool.Alloc()) Initialization(obj);
+    auto ret = new (initializationPool.Alloc()) Declaration(obj);
     ret->_pool = &initializationPool;
     return ret;
 }
 
-void Initialization::AddInit(int offset, Type* type, Expr* expr)
+void Declaration::AddInit(int offset, Type* type, Expr* expr)
 {
     
     auto qual = type->Qual();
@@ -647,8 +648,9 @@ void Initialization::AddInit(int offset, Type* type, Expr* expr)
     
     expr = binary->_rhs; // Maybe added cast
     
-
+    /*
     if (_obj->IsStatic()) {
+        // Delay until code gen
         auto width = type->Width();
         if (type->IsInteger()) {
             auto val = Evaluator<long>().Eval(expr);
@@ -664,6 +666,31 @@ void Initialization::AddInit(int offset, Type* type, Expr* expr)
         } else { assert(false); }
     } else {
         _inits.push_back({offset, type, expr});
+    }
+    */
+
+    _inits.push_back({offset, type, expr});
+}
+
+
+StaticInitializer Declaration::GetStaticInit(const Initializer& init)
+{
+    // Delay until code gen
+    auto width = init._type->Width();
+    if (init._type->IsInteger()) {
+        auto val = Evaluator<long>().Eval(init._expr);
+        return {init._offset, width, val, ""};
+    } else if (init._type->IsFloat()) {
+        auto val = Evaluator<double>().Eval(init._expr);
+        auto lval = *reinterpret_cast<long*>(&val);
+        printf("%lf\n%ld\n", val, lval);
+        return {init._offset, width, lval, ""};
+    } else if (init._type->ToPointerType()) {
+        auto addr = Evaluator<Addr>().Eval(init._expr);
+        return {init._offset, width, addr._offset, addr._label};
+    } else {
+        assert(false);
+        return StaticInitializer(); //Make compiler happy
     }
 }
 
@@ -777,10 +804,10 @@ LabelStmt* LabelStmt::New(void)
     return ret;
 }
 
-FuncDef* FuncDef::New(FuncType* type,
+FuncDef* FuncDef::New(const Token* tok, FuncType* type,
             const std::list<Object*>& params, CompoundStmt* stmt)
 {
-    auto ret = new (funcDefPool.Alloc()) FuncDef(type, params, stmt);
+    auto ret = new (funcDefPool.Alloc()) FuncDef(tok, type, params, stmt);
     ret->_pool = &funcDefPool;
 
     return ret;

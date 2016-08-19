@@ -79,34 +79,34 @@ protected:
 };
 
 
-class Initialization: public Stmt
+struct Initializer
+{
+    int _offset;
+    Type* _type;
+    Expr* _expr;
+};
+
+struct StaticInitializer
+{
+    int _offset;
+    int _width;
+    long _val;
+    std::string _label;        
+};
+
+class Declaration: public Stmt
 {
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
-
-    struct Initializer
-    {
-        int _offset;
-        Type* _type;
-        Expr* _expr;
-    };
-
-    struct StaticInitializer
-    {
-        int _offset;
-        int _width;
-        long _val;
-        std::string _label;        
-    };
     
     typedef std::vector<Initializer> InitList;
-    typedef std::vector<StaticInitializer> StaticInitList;
+    //typedef std::vector<StaticInitializer> StaticInitList;
 
 public:
-    static Initialization* New(Object* obj);
+    static Declaration* New(Object* obj);
 
-    virtual ~Initialization(void) {}
+    virtual ~Declaration(void) {}
 
     virtual void Accept(Visitor* v);
 
@@ -114,9 +114,9 @@ public:
         return _inits;
     }
 
-    StaticInitList StaticInits(void) {
-        return _staticInits;
-    }
+    //StaticInitList StaticInits(void) {
+    //    return _staticInits;
+    //}
 
     Object* Obj(void) {
         return _obj;
@@ -124,14 +124,16 @@ public:
 
     void AddInit(int offset, Type* type, Expr* _expr);
 
+    StaticInitializer GetStaticInit(const Initializer& init);
+
 protected:
-    Initialization(Object* obj): _obj(obj) {}
+    Declaration(Object* obj): _obj(obj) {}
 
     Object* _obj;
-    union {
+    //union {
         InitList _inits;
-        StaticInitList _staticInits;
-    };
+    //    StaticInitList _staticInits;
+    //};
 };
 
 
@@ -267,7 +269,6 @@ public:
     
     virtual void Accept(Visitor* v);
 
-    /*
     StmtList& Stmts(void) {
         return _stmts;
     }
@@ -275,7 +276,6 @@ public:
     ::Scope* Scope(void) {
         return _scope;
     }
-    */
 
 protected:
     CompoundStmt(const StmtList& stmts, ::Scope* scope=nullptr)
@@ -354,7 +354,7 @@ class BinaryOp : public Expr
     friend class AddrEvaluator;
     friend class Generator;
     friend class LValGenerator;
-    friend class Initialization;
+    friend class Declaration;
 
 public:
     static BinaryOp* New(const Token* tok, Expr* lhs, Expr* rhs);
@@ -775,12 +775,16 @@ public:
         _offset = offset;
     }
 
-    Initialization* Init(void) {
-        return _init;
+    Declaration* Decl(void) {
+        return _decl;
     }
 
-    void SetInit(Initialization* init) {
-        _init = init;
+    void SetDecl(Declaration* decl) {
+        _decl = decl;
+    }
+
+    bool HasInit(void) const {
+        return _decl && _decl->Inits().size();
     }
 
     bool operator==(const Object& other) const {
@@ -796,7 +800,7 @@ protected:
     Object(const Token* tok, ::Type* type, ::Scope* scope,
             int storage=0, enum Linkage linkage=L_NONE)
             : Identifier(tok, type, scope, linkage),
-              _storage(storage), _offset(0), _init(nullptr) {}
+              _storage(storage), _offset(0), _decl(nullptr) {}
 
 private:
     int _storage;
@@ -804,7 +808,7 @@ private:
     // For code gen
     int _offset;
 
-    Initialization* _init;
+    Declaration* _decl;
 
     //static size_t _labelId {0};
 };
@@ -819,9 +823,10 @@ class FuncDef : public ExtDecl
     friend class AddrEvaluator;
     friend class Generator;
 
+    typedef std::list<Object*> ParamList;
 public:
-    static FuncDef* New(FuncType* type,
-            const std::list<Object*>& params, CompoundStmt* stmt);
+    static FuncDef* New(const Token* tok, FuncType* type,
+            const ParamList& params, CompoundStmt* stmt);
 
     virtual ~FuncDef(void) {}
     
@@ -829,23 +834,29 @@ public:
         return _type;
     }
 
-    std::list<Object*>& Params(void) {
+    ParamList& Params(void) {
         return _params;
     }
 
     CompoundStmt* Body(void) {
         return _body;
     }
+
+    std::string Name(void) const {
+        return _tok->Str();
+    }
     
     virtual void Accept(Visitor* v);
 
 protected:
-    FuncDef(FuncType* type, const std::list<Object*>& params,
-            CompoundStmt* stmt): _type(type), _params(params), _body(stmt) {}
+    FuncDef(const Token* tok, FuncType* type,
+            const ParamList& params, CompoundStmt* stmt)
+            : _tok(tok), _type(type), _params(params), _body(stmt) {}
 
 private:
+    const Token* _tok;
     FuncType* _type;
-    std::list<Object*> _params;
+    ParamList _params;
     CompoundStmt* _body;
 };
 

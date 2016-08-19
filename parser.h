@@ -105,17 +105,17 @@ public:
             int storageSpec, int funcSpec);
 
     //initializer
-    void ParseInitializer(Initialization* init, Type* type, int offset);
-    void ParseArrayInitializer(Initialization* init,
+    void ParseInitializer(Declaration* init, Type* type, int offset);
+    void ParseArrayInitializer(Declaration* init,
             ArrayType* type, int offset);
             
-    void ParseStructInitializer(Initialization* init,
+    void ParseStructInitializer(Declaration* init,
             StructUnionType* type, int offset);
 
-    void ParseLiteralInitializer(Initialization* init,
+    void ParseLiteralInitializer(Declaration* init,
             ArrayType* type, int offset);
 
-    Initialization* ParseInitDeclarator(Identifier* ident);
+    Declaration* ParseInitDeclarator(Identifier* ident);
 
     /************* Statements ***************/
     Stmt* ParseStmt(void);
@@ -204,9 +204,9 @@ public:
         return _unit;
     }
 
-    StaticObjectList& StaticObjects(void) {
-        return _staticObjects;
-    }
+    //StaticObjectList& StaticObjects(void) {
+    //    return _staticObjects;
+    //}
 
 private:
     
@@ -220,8 +220,8 @@ private:
     // It contains all external symbols(resolved and not resolved)
     Scope* _externalSymbols;
     
-    LiteralList _literals;
-    StaticObjectList _staticObjects;
+    //LiteralList _literals;
+    //StaticObjectList _staticObjects;
 
 
     Token* _errTok;

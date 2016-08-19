@@ -175,7 +175,7 @@ public:
     static ArrayType* NewArrayType(long long len, Type* eleType);
     
     static FuncType* NewFuncType(Type* derived, int funcSpec, \
-        bool hasEllipsis, const std::list<Type*>& params, Token* tok);
+        bool hasEllipsis, const std::list<Type*>& params);
     
     static PointerType* NewPointerType(Type* derived);
     
@@ -486,24 +486,17 @@ public:
         return _variadic;
     }
 
-    Token* Tok(void) {
-        return _tok;
-    }
-
-    std::string Name(void);
-
 protected:
     //a function does not has the width property
     FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
-            const std::list<Type*>& paramTypes, Token* tok)
+            const std::list<Type*>& paramTypes)
         : DerivedType(pool, derived, -1), _inlineNoReturn(inlineReturn),
-          _variadic(variadic), _paramTypes(paramTypes), _tok(tok) {}
+          _variadic(variadic), _paramTypes(paramTypes) {}
 
 private:
     int _inlineNoReturn;
     bool _variadic;
     std::list<Type*> _paramTypes;
-    Token* _tok;
 };
 
 

@@ -48,9 +48,9 @@ ArrayType* Type::NewArrayType(long long len, Type* eleType)
 
 //static IntType* NewIntType();
 FuncType* Type::NewFuncType(Type* derived, int funcSpec,
-        bool hasEllipsis, const std::list<Type*>& params, Token* tok) {
+        bool hasEllipsis, const std::list<Type*>& params) {
     return new (_funcTypePool.Alloc())
-            FuncType(&_funcTypePool, derived, funcSpec, hasEllipsis, params, tok);
+            FuncType(&_funcTypePool, derived, funcSpec, hasEllipsis, params);
 }
 
 PointerType* Type::NewPointerType(Type* derived) {
@@ -307,9 +307,6 @@ bool FuncType::Compatible(const Type& other) const
     return true;
 }
 
-std::string FuncType::Name(void) {
-    return _tok->Str();
-}
 
 std::string FuncType::Str(void) const
 {

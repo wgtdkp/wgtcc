@@ -1,2 +1,8 @@
-struct BBBB;
-struct BBBB _IO_2_1_stdin_;
+
+static int c;
+static int c = 12;
+
+int main(void)
+{
+    return 0;
+}

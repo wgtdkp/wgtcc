@@ -12,7 +12,6 @@ extern std::string outFileName;
 
 Parser* Generator::_parser = nullptr;
 FILE* Generator::_outFile = nullptr;
-
 std::string Generator::_cons;
 RODataList Generator::_rodatas;
 
@@ -522,10 +521,33 @@ void Generator::VisitTempVar(TempVar* tempVar)
 }
 
 
-void Generator::VisitInitialization(Initialization* init)
+void Generator::VisitDeclaration(Declaration* decl)
 {
-    if (init->Obj()->IsStatic()) {
-        for (auto initer: init->StaticInits()) {
+    auto obj = decl->_obj;
+    if (obj->IsStatic()) {
+        auto label = ObjectLabel(obj);
+        auto width = obj->Type()->Width();
+        auto align = obj->Type()->Align();
+
+        // omit the external without initilizer
+        if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
+            return;
+
+        auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
+        Emit("%s %s", glb, label.c_str());
+
+        if (!obj->HasInit()) {    
+            Emit(".comm %s, %d, %d", label.c_str(), width, align);
+            return;
+        }
+
+        Emit(".align %d", align);
+        Emit(".type %s, @object", label.c_str());
+        Emit(".size %s, %d", label.c_str(), width);
+        EmitLabel(label.c_str());
+        
+        for (auto init: decl->Inits()) {
+            auto initer = decl->GetStaticInit(init);
             switch (initer._width) {
             case 1:
                 Emit(".byte %d", static_cast<char>(initer._val));
@@ -546,6 +568,14 @@ void Generator::VisitInitialization(Initialization* init)
             }
         }
     }
+
+    /*
+    if (decl->Obj()->IsStatic()) {
+        for (auto initer: decl->Inits()) {
+            
+        }
+    }
+    */
 }
 
 
@@ -586,13 +616,27 @@ void Generator::VisitCompoundStmt(CompoundStmt* compoundStmt)
 
 void Generator::VisitFuncDef(FuncDef* funcDef)
 {
+    EmitLabel(funcDef->Name());
+    Emit("pushq #rbp");
+    Emit("movq #rsp, #rbp");
+
+    if (funcDef->Type()->Variadic()) {
+        
+    }
+
+
+    //FuncDef::ParamList& params =
+    auto scope = funcDef->Body()->Scope();
+
 
 }
 
 
 void Generator::VisitTranslationUnit(TranslationUnit* unit)
 {
-    
+    for (auto decl: unit->ExtDecls()) {
+        decl->Accept(this);
+    }
 }
 
 
@@ -601,6 +645,7 @@ void Generator::Gen(void)
     Emit(".file %s", inFileName.c_str());
     Emit(".data");
 
+/*
     for (auto obj: _parser->StaticObjects()) {
         auto label = ObjectLabel(obj);
         auto width = obj->Type()->Width();
@@ -620,10 +665,11 @@ void Generator::Gen(void)
             Emit(".type %s, @object", label.c_str());
             Emit(".size %s, %d", label.c_str(), width);
             EmitLabel(label.c_str());
-            VisitInitialization(obj->Init());
+            VisitDeclaration(obj->Init());
         }
 
     }
+*/
 
     VisitTranslationUnit(_parser->Unit());
 }
@@ -699,8 +745,10 @@ void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 {
     assert(unary->_op == Token::DEREF);
+    Generator().GenExpr(unary->_operand);
+    Emit("movq #rax, #rdx");
 
-
+    _addr = {"", "rdx", 0};
 }
 
 

@@ -12,7 +12,7 @@ class Enumerator;
 class Constant;
 class TempVar;
 
-class Initialization;
+class Declaration;
 class IfStmt;
 class JumpStmt;
 class ReturnStmt;
@@ -37,7 +37,7 @@ public:
     virtual void VisitConstant(Constant* cons) = 0;
     virtual void VisitTempVar(TempVar* tempVar) = 0;
 
-    virtual void VisitInitialization(Initialization* init) = 0;
+    virtual void VisitDeclaration(Declaration* init) = 0;
     virtual void VisitIfStmt(IfStmt* ifStmt) = 0;
     virtual void VisitJumpStmt(JumpStmt* jumpStmt) = 0;
     virtual void VisitReturnStmt(ReturnStmt* returnStmt) = 0;

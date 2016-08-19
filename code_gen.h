@@ -88,7 +88,7 @@ public:
 
 
     //statement
-    virtual void VisitInitialization(Initialization* init);
+    virtual void VisitDeclaration(Declaration* init);
     virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
     virtual void VisitIfStmt(IfStmt* ifStmt);
     virtual void VisitJumpStmt(JumpStmt* jumpStmt);
