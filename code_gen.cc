@@ -10,6 +10,18 @@ extern std::string inFileName;
 extern std::string outFileName;
 
 
+Parser* Generator::_parser = nullptr;
+FILE* Generator::_outFile = nullptr;
+
+std::string Generator::_cons;
+RODataList Generator::_rodatas;
+
+/*
+std::string operator+(const char* lhs, const std::string&& rhs)
+{
+    return std::string(lhs) + rhs;
+}
+*/
 
 static inline std::string ObjectLabel(Object* obj)
 {
@@ -19,17 +31,6 @@ static inline std::string ObjectLabel(Object* obj)
     return obj->Name();
 }
 
-static const char* GetObjectAddr(Object* obj)
-{
-    return "";
-    /*
-    if ((obj->Linkage() != L_NONE) || (obj->Storage() & S_STATIC)) {
-        return obj->Label() + "(#rip)";
-    } else {
-        return std::to_string(obj->Offset()) + "(#rbp)";
-    }
-    */
-}
 
 static const char* GetLoad(int width, bool flt=false)
 {
@@ -40,6 +41,31 @@ static const char* GetLoad(int width, bool flt=false)
     case 8: return !flt ? "mov": "movsd";
     default: assert(false); return nullptr;
     }
+}
+
+
+static std::string GetInst(const std::string& inst, int width, bool flt)
+{
+
+    if (flt)  {
+        return inst + (width == 4 ? "ss": "sd");
+    } else {
+        switch (width) {
+        case 1: return inst + "b";
+        case 2: return inst + "w";
+        case 4: return inst + "l";
+        case 8: return inst + "q";
+        default: assert(false);
+        }
+        return inst; // Make compiler happy
+    } 
+}
+
+
+static std::string GetInst(const std::string& inst, Type* type)
+{
+    assert(type->IsScalar());
+    return GetInst(inst, type->Width(), type->IsFloat());
 }
 
 
@@ -89,7 +115,7 @@ void Generator::Restore(bool flt)
 {
     const char* src = flt ? "xmm0": "rax";
     const char* des = flt ? "xmm1": "rcx";
-    const char* inst = flt ? "movsd": "mov";
+    const char* inst = flt ? "movsd": "movq";
     Emit("%s #%s, #%s", inst, src, des);
     Pop(src);
 }
@@ -131,8 +157,8 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
         return GenOrOp(binary);
     if (op == '.')
         return GenMemberRefOp(binary);
-    if (op == ']')
-        return GenSubScriptingOp(binary);
+    //if (op == ']')
+    //    return GenSubScriptingOp(binary);
     if (binary->Type()->ToPointerType())
         return GenPointerArithm(binary);
 
@@ -191,6 +217,7 @@ void Generator::GenOrOp(BinaryOp* orOp)
 }
 
 
+/*
 void Generator::GenSubScriptingOp(BinaryOp* subScript)
 {
     // As the lhs will always be array
@@ -202,7 +229,7 @@ void Generator::GenSubScriptingOp(BinaryOp* subScript)
 
     auto width = subScript->Type()->Width();
     auto flt = subScript->Type()->IsFloat();
-    if (_expectLVal || !subScript->Type()->IsScalar()) {
+    if (!subScript->Type()->IsScalar()) {
         Emit("lea (#rax, #rcx, %d), #rax", width);
     } else {
         const char* src;
@@ -212,48 +239,47 @@ void Generator::GenSubScriptingOp(BinaryOp* subScript)
         Emit("%s (#rax, #rcx, %d), %s", load, width, des);
     }
 }
+*/
 
 
 void Generator::GenMemberRefOp(BinaryOp* ref)
 {
-    // As the lhs will always be struct/union
-    // we expect the address of lhs in %rax
-    ref->_lhs->Accept(this);
+    // As the lhs will always be struct/union 
+    auto addr = LValGenerator().GenExpr(ref).Repr();
 
-    auto offset = ref->_rhs->ToObject()->Offset();
-    if (_expectLVal || !ref->Type()->IsScalar()) {
-        Emit("lea %d(#rax), #rax", offset);
+    if (!ref->Type()->IsScalar()) {
+        Emit("lea %s, #rax", addr.c_str());
     } else {
-        auto width = ref->Type()->Width();
-        auto flt = ref->Type()->IsFloat();
-        auto load = GetLoad(flt, width);
-        if (flt)
-            Emit("%s %d(#rax), #rax", load, offset);
-        else
-            Emit("%s %d(#rax), #xmm0", load, offset);
+        EmitLoad(addr, ref->Type());
     }
 }
 
 
 void Generator::GenAssignOp(BinaryOp* assign)
 {
-    _expectLVal = true;
-    assign->_lhs->Accept(this);
-    _expectLVal = false;
-    Spill(false);
-    assign->_rhs->Accept(this);
-    Restore(false);
+    // The base register of addr is %rdx
+    auto addr = LValGenerator().GenExpr(assign->_lhs);
+    GenExpr(assign->_rhs);
 
-    auto flt = assign->Type()->IsFloat();
-    auto width = assign->Type()->Width();
     if (assign->Type()->IsScalar()) {
-        auto inst = flt ? (width == 8 ? "movsd": "movss"): "mov";
-        const char* src;
-        const char* des;
-        GetOperands(src, des, flt, width);
-        Emit("%s %s, (%s)", inst, src, des);
+        EmitStore(addr.Repr(), assign->Type());
     } else {
+        // struct/union type
+        // The address of rhs is in %rax
+        auto len = assign->Type()->Width();
+        int widths[] = {8, 4, 2, 1};
+        int offset = 0;
 
+        for (auto width: widths) {
+            while (len >= width) {
+                auto mov = GetInst("mov", width, false);
+                Emit("%s %d(#rax), #rcx", mov.c_str(), offset);
+                Emit("%s #rcx, %s", mov.c_str(), addr.Repr().c_str());
+                addr._offset += width;
+                offset += width;
+                len -= width;
+            }
+        }
     }
 }
 
@@ -314,37 +340,21 @@ void Generator::GenPointerArithm(BinaryOp* binary)
 
 void Generator::GenDerefOp(UnaryOp* deref)
 {
-    // Whatever, the address of the operand is in %rax    
-    deref->_operand->Accept(this);
-    
-    if (_expectLVal || !deref->Type()->IsScalar()) {
-        // Just let it!
-    } else {
-        auto width = deref->Type()->Width();
-        auto flt = deref->Type()->IsFloat();
-        auto load = GetLoad(flt, width);
-        const char* src;
-        const char* des;
-        GetOperands(src, des, flt, width);
-        Emit("%s (#rax), %s", load, des);
-    }
+    auto addr = LValGenerator().GenExpr(deref->_operand).Repr();
+    Emit("lea %s, #rax", addr.c_str());
 }
 
 
 void Generator::VisitObject(Object* obj)
 {
+    auto addr = LValGenerator().GenExpr(obj).Repr();
+
     // TODO(wgtdkp): handle static object
-    if (_expectLVal || !obj->Type()->IsScalar()) {
+    if (!obj->Type()->IsScalar()) {
         // Return the address of the object in rax
-        Emit("lea %s, #rax", GetObjectAddr(obj));
+        Emit("lea %s, #rax", addr.c_str());
     } else {
-        auto width = obj->Type()->Width();
-        auto flt = obj->Type()->IsFloat();
-        auto load = GetLoad(flt, width);
-        const char* src;
-        const char* des;
-        GetOperands(src, des, flt, width);
-        Emit("%s %s, %s", load, GetObjectAddr(obj), des);
+        EmitLoad(addr, obj->Type());
     }
 }
 
@@ -388,6 +398,79 @@ void Generator::VisitUnaryOp(UnaryOp* unaryOp)
 }
 
 
+void Generator::GenPrefixIncDec(UnaryOp* unary, const std::string& inst)
+{
+    // Need a special base register to reduce register conflict
+    auto addr = LValGenerator().GenExpr(unary).Repr();
+    auto des = EmitLoad(addr, unary->Type());
+
+    Constant* cons;
+    auto pointerType = unary->Type()->ToPointerType();
+     if (pointerType) {
+        long width = pointerType->Derived()->Width();
+        cons = Constant::New(unary->Tok(), T_LONG, width);
+    } else if (unary->Type()->IsInteger()) {
+        cons = Constant::New(unary->Tok(), T_LONG, 1L);
+    } else {
+        if (unary->Type()->Width() == 4)
+            cons = Constant::New(unary->Tok(), T_FLOAT, 1.0);
+        else
+            cons = Constant::New(unary->Tok(), T_DOUBLE, 1.0);
+    }
+    VisitConstant(cons);
+    auto consLabel = _cons;
+
+    auto addSub = GetInst(inst, unary->Type());    
+    Emit("%s %s, %s", addSub.c_str(), consLabel.c_str(), des.c_str());
+    
+    EmitStore(addr, unary->Type());
+}
+
+
+void Generator::GenPostfixIncDec(UnaryOp* unary, const std::string& inst)
+{
+    // Need a special base register to reduce register conflict
+    auto addr = LValGenerator().GenExpr(unary).Repr();
+    auto des = EmitLoad(addr, unary->Type());
+    auto saved = Save(des);
+
+    Constant* cons;
+    auto pointerType = unary->Type()->ToPointerType();
+     if (pointerType) {
+        long width = pointerType->Derived()->Width();
+        cons = Constant::New(unary->Tok(), T_LONG, width);
+    } else if (unary->Type()->IsInteger()) {
+        cons = Constant::New(unary->Tok(), T_LONG, 1L);
+    } else {
+        if (unary->Type()->Width() == 4)
+            cons = Constant::New(unary->Tok(), T_FLOAT, 1.0);
+        else
+            cons = Constant::New(unary->Tok(), T_DOUBLE, 1.0);
+    }
+    VisitConstant(cons);
+    const std::string& consLabel = _cons;
+
+    auto addSub = GetInst(inst, unary->Type());    
+    Emit("%s %s, %s", addSub.c_str(), consLabel.c_str(), des.c_str());
+
+    EmitStore(addr, unary->Type());
+    Exchange(des, saved);
+}
+
+
+void Generator::Exchange(const std::string& lhs, const std::string& rhs)
+{
+    if (lhs == "xmm0" || rhs == "xmm0") {
+        Emit("movsd #%s, #xmm2", lhs.c_str());
+        Emit("movsd #%s, #%s", rhs.c_str(), lhs.c_str());
+        Emit("movsd #xmm2, #%s", rhs.c_str());
+    } else {
+        Emit("xchgq #%s, #%s", lhs.c_str(), rhs.c_str());
+    }
+
+}
+
+
 void Generator::VisitConditionalOp(ConditionalOp* condOp)
 {
 
@@ -414,7 +497,22 @@ void Generator::VisitIdentifier(Identifier* ident)
 
 void Generator::VisitConstant(Constant* cons)
 {
-
+    if (cons->Type()->IsInteger()) {
+        _cons = "$" + std::to_string(cons->IVal());
+    } else if (cons->Type()->IsFloat()) {
+        double valsd = cons->FVal();
+        float  valss = valsd;
+        // TODO(wgtdkp): Add rodata
+        auto width = cons->Type()->Width();
+        long val = width == 4 ? *(int*)&valss: *(long*)&valsd;
+        const ROData& rodata = ROData(val, width);
+        _rodatas.push_back(rodata);
+        _cons = "$" + rodata._label;
+    } else {
+        const ROData& rodata = ROData(*cons->SVal());
+        _rodatas.push_back(rodata);
+        _cons = "$" + rodata._label;
+    }
 }
 
 
@@ -531,6 +629,30 @@ void Generator::Gen(void)
 }
 
 
+std::string Generator::EmitLoad(const std::string& addr, Type* type)
+{
+    assert(type->IsScalar());
+
+    auto width = type->Width();
+    auto flt = type->IsFloat();
+    auto load = GetLoad(width, flt);
+    const char* src;
+    const char* des;
+    GetOperands(src, des, width, flt);
+    Emit("%s, %s, %s", load, addr.c_str(), des);
+    return des;
+}
+
+
+void Generator::EmitStore(const std::string& addr, Type* type)
+{
+    auto store = GetInst("mov", type);
+    const char* src;
+    const char* des;
+    GetOperands(src, des, type->Width(), type->IsFloat());
+    Emit("%s, #%s, %s", store.c_str(), src, addr.c_str());
+
+}
 
 
 void Generator::Emit(const char* format, ...)
@@ -558,3 +680,63 @@ void Generator::EmitLabel(const std::string& label)
     fprintf(_outFile, "%s:\n", label.c_str());
 }
 
+
+
+void LValGenerator::VisitBinaryOp(BinaryOp* binary)
+{
+    assert(binary->_op == '.');
+
+    auto addr = LValGenerator().GenExpr(binary->_lhs);
+    auto name = binary->_rhs->Tok()->Str();
+    auto structType = binary->_lhs->Type()->ToStructUnionType();
+    auto member = structType->GetMember(name);
+    addr._offset += member->Offset();
+
+    _addr = addr;
+}
+
+
+void LValGenerator::VisitUnaryOp(UnaryOp* unary)
+{
+    assert(unary->_op == Token::DEREF);
+
+
+}
+
+
+void LValGenerator::VisitObject(Object* obj)
+{
+    if (obj->IsStatic()) {
+        _addr = {ObjectLabel(obj), "rip", 0};
+    } else {
+        _addr = {"", "rbp", obj->Offset()};
+    }
+}
+
+
+// The identifier must be function
+void LValGenerator::VisitIdentifier(Identifier* ident)
+{
+    assert(!ident->ToTypeName());
+
+    // Function address
+    _addr = {ident->Name(), "rip", 0};
+}
+
+
+
+std::string ObjectAddr::Repr(void)
+{
+    auto ret = "(#" + _base + ")";
+    if (_label.size() == 0) {
+        if (_offset == 0)
+            return ret;
+        else
+            return std::to_string(_offset) + ret;
+    } else {
+        if (_offset == 0)
+            return _label + ret;
+        else
+            return _label + "+" + std::to_string(_offset) + ret;
+    }
+}

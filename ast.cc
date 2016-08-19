@@ -109,6 +109,7 @@ Expr* Expr::MayCast(Expr* expr)
     auto arrType = expr->Type()->ToArrayType();
     if (arrType) {
         auto pointer = Type::NewPointerType(arrType->Derived());
+        pointer->SetQual(Q_CONST);
         return UnaryOp::New(expr->Tok(), Token::CAST, expr, pointer);
     }
     auto funcType = expr->Type()->ToFuncType();
@@ -131,7 +132,6 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
     case ',':
     case '.':
     case '=': 
-    case ']': // SubScripting
     case '*':
     case '/':
     case '%':
@@ -192,8 +192,8 @@ void BinaryOp::TypeChecking(void)
     case '.':
         return MemberRefOpTypeChecking();
 
-    case ']':
-        return SubScriptingOpTypeChecking();
+    //case ']':
+    //    return SubScriptingOpTypeChecking();
 
     case '*':
     case '/':
@@ -364,7 +364,7 @@ void BinaryOp::BitwiseOpTypeChecking(void)
         Error(_tok, "operands of '&' should be integer");
     }
     
-    _type = Promote();    
+    _type = Promote();
 }
 
 void BinaryOp::LogicalOpTypeChecking(void)
@@ -381,11 +381,11 @@ void BinaryOp::LogicalOpTypeChecking(void)
 void BinaryOp::AssignOpTypeChecking(void)
 {
     if (!_lhs->IsLVal()) {
-        Error(_tok, "lvalue expression expected");
+        Error(_lhs->Tok(), "lvalue expression expected");
     } else if (_lhs->Type()->IsConst()) {
-        Error(_tok, "can't modifiy 'const' qualified expression");
+        Error(_lhs->Tok(), "can't modifiy 'const' qualified expression");
     } else if (!_lhs->Type()->Compatible(*_rhs->Type())) {
-        Error(_tok, "uncompatible types");
+        Error(_lhs->Tok(), "uncompatible types");
     }
     // The other constraints are lefted to cast operator
     _rhs = UnaryOp::New(_tok,Token::CAST, _rhs, _lhs->Type());
@@ -410,7 +410,11 @@ UnaryOp* UnaryOp::New(const Token* tok,
 bool UnaryOp::IsLVal(void) {
     // only deref('*') could be lvalue;
     // so it's only deref will override this func
-    return (_op == Token::DEREF && !Type()->ToArrayType());
+    switch (_op) {
+    case Token::DEREF: return !Type()->ToArrayType();
+    case Token::CAST: return _operand->IsLVal();
+    default: return false;
+    }
 }
 
 

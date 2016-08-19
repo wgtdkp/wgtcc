@@ -77,7 +77,8 @@ int main(int argc, char* argv[])
     parser.Parse();
     
     // CodeGen
-    Generator g(&parser, stdout);
+    Generator::SetInOut(&parser, stdout);
+    Generator g;
     g.Gen();
 
     return 0;

@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    double d = 4.5f;
-    printf("%ld\n", *(long*)&d); 
+    float a, b;
+    a = b++;
     return 0;
 }

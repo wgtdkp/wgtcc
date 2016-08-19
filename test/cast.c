@@ -5,11 +5,12 @@ void func(void)
 {
 
 }
-int arr[10];
-static int c = sizeof(arr);
+
+int arr[10] = {0};
+static int c = sizeof(arr[4]);
 
 int main(void)
 {
-    
+    *(&arr) = arr + 4;
     return 0;
 }

@@ -32,6 +32,10 @@ class FuncCall;
 class TempVar;
 class Constant;
 
+class Identifier;
+class Object;
+class Enumerator;
+
 //statement
 class Stmt;
 class IfStmt;
@@ -301,16 +305,13 @@ class Expr : public Stmt
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
+    friend class LValGenerator;
 
 public:
     virtual ~Expr(void) {}
     
     ::Type* Type(void) {
         return _type;
-    }
-
-    virtual Object* ToObject(void) {
-        return nullptr;
     }
 
     virtual bool IsLVal(void) = 0;
@@ -352,6 +353,7 @@ class BinaryOp : public Expr
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
+    friend class LValGenerator;
     friend class Initialization;
 
 public:
@@ -414,6 +416,7 @@ class UnaryOp : public Expr
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
+    friend class LValGenerator;
 
 public:
     static UnaryOp* New(const Token* tok,
@@ -626,6 +629,7 @@ class Identifier: public Expr
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
+    friend class LValGenerator;
 
 public:
     static Identifier* New(const Token* tok,
@@ -639,6 +643,14 @@ public:
         return false;
     }
 
+    virtual Object* ToObject(void) {
+        return nullptr;
+    }
+
+    virtual Enumerator* ToEnumerator(void) {
+        return nullptr;
+    }
+
     /*
      * An identifer can be:
      *     object, sturct/union/enum tag, typedef name, function, label.
@@ -646,7 +658,7 @@ public:
      Identifier* ToTypeName(void) {
         // A typename has no linkage
         // And a function has external or internal linkage
-        if (ToObject() || _linkage != L_NONE)
+        if (ToObject() || ToEnumerator() || _linkage != L_NONE)
             return nullptr;
         return this;
     }
@@ -702,6 +714,10 @@ public:
 
     virtual void Accept(Visitor* v);
 
+    virtual Enumerator* ToEnumerator(void) {
+        return this;
+    }
+
     int Val(void) const {
         return _cons->IVal();
     }
@@ -720,6 +736,7 @@ class Object : public Identifier
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
+    friend class LValGenerator;
 
 public:
     static Object* New(const Token* tok, ::Type* type, ::Scope* scope,

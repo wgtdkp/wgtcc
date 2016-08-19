@@ -264,14 +264,15 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
     }
 }
 
-Expr* Parser::ParseSubScripting(Expr* pointer)
+Expr* Parser::ParseSubScripting(Expr* lhs)
 {
-    auto indexExpr = ParseExpr();
+    auto rhs = ParseExpr();
     
     auto tok = _ts.Peek();
     _ts.Expect(']');
-
-    return BinaryOp::New(tok, pointer, indexExpr);
+    //
+    auto operand = BinaryOp::New(tok, '+', lhs, rhs);
+    return UnaryOp::New(tok, Token::DEREF, operand);
 }
 
 
