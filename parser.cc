@@ -1373,16 +1373,14 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
                 }
                 // TODO(wgtdkp): ???????
                 // Don't return
+                // To stop later declaration with the same name in the same scope overriding this declaration
+                
+                // Useless here, just keep it
                 if (!ident->Type()->Complete())
                     ident->Type()->SetComplete(type->Complete()); 
-                return ident;
+                //return ident;
             }
         }
-    }
-
-    if (!type->Complete() && linkage == L_NONE) {
-        Error(tok, "storage size of '%s' isn’t known",
-            name.c_str());
     }
 
     Identifier* ret;    
@@ -1576,7 +1574,7 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
 
     auto name = obj->Name();
     if (_ts.Try('=')) {
-        if ((_curScope->Type() != S_FILE) && (obj->Storage() & S_EXTERN)) {
+        if ((_curScope->Type() != S_FILE) && obj->Linkage() != L_NONE) {
             Error(obj, "'%s' has both 'extern' and initializer", name.c_str());
         }
 
@@ -1593,6 +1591,18 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
             _ts.Expect('{');
         }
 
+        // There could be more than one declaration for 
+        //     an object in the same scope.
+        // But it must has external or internal linkage.
+        // So, for external/internal objects,
+        //     the initialization will always go to
+        //     the first declaration. As the initialization 
+        //     is evaluated at compile time, 
+        //     the order doesn't matter.
+        // For objects with no linkage, there is
+        //     always only one declaration.
+        // Once again, we need not to worry about 
+        //     the order of the initialization.
         if (obj->Decl()) {
             ParseInitializer(obj->Decl(), obj->Type(), 0);
             return nullptr;

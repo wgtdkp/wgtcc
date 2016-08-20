@@ -1,9 +1,7 @@
 
-static char arr[] = {[12] = 3};
-
-static int c = sizeof(arr);
-
 int main(void)
 {
+    static int a;
+    static int* p = &a;
     return 0;
 }

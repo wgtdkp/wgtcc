@@ -1,8 +1,7 @@
 #include <stdio.h>
 
 
-static char arr[];
-
+static char arr[] = "12345";
 
 int main(void)
 {

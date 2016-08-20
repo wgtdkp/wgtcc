@@ -1,8 +1,7 @@
 
-static int c;
-static int c = 12;
-
-int main(void)
+static int main(void)
 {
-    return 0;
+    static int c;
+    int a = c;
+    static int c = 9;
 }

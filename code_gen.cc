@@ -529,62 +529,75 @@ void Generator::VisitTempVar(TempVar* tempVar)
 void Generator::VisitDeclaration(Declaration* decl)
 {
     auto obj = decl->_obj;
-    if (obj->IsStatic()) {
-        auto label = ObjectLabel(obj);
-        auto width = obj->Type()->Width();
-        auto align = obj->Type()->Align();
 
-        // omit the external without initilizer
-        if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
+    if (!obj->IsStatic()) {
+        // The object has no linkage and has 
+        //     no static storage(the object is on stack).
+        // If it has no initialization, then it's value is random
+        //     initialized.
+        if (!obj->HasInit())
             return;
 
-        auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
-        Emit("%s %s", glb, label.c_str());
-
-        if (!obj->HasInit()) {    
-            Emit(".comm %s, %d, %d", label.c_str(), width, align);
-            return;
-        }
-
-        Emit(".align %d", align);
-        Emit(".type %s, @object", label.c_str());
-        Emit(".size %s, %d", label.c_str(), width);
-        EmitLabel(label.c_str());
-        
-        // TODO(wgtdkp): Add .zero
         for (auto init: decl->Inits()) {
-            auto initer = decl->GetStaticInit(init);
-            switch (initer._width) {
-            case 1:
-                Emit(".byte %d", static_cast<char>(initer._val));
-                break;
-            case 2:
-                Emit(".value %d", static_cast<short>(initer._val));
-                break;
-            case 4:
-                Emit(".long %d", static_cast<int>(initer._val));
-                break;
-            case 8: 
-                if (initer._label.size() == 0) {
-                    Emit(".quad %ld", initer._val);
-                } else if (initer._val != 0) {
-                    Emit(".quad %s+%ld", initer._label.c_str(), initer._val);
-                } else {
-                    Emit(".quad %s", initer._label.c_str());
-                }
-                break;
-            default: assert(false);
-            }
+            ObjectAddr addr = {"", "rbp", init._offset};
+            GenExpr(init._expr);
+            EmitStore(addr.Repr(), init._type);
         }
+        return;
     }
 
-    /*
-    if (decl->Obj()->IsStatic()) {
-        for (auto initer: decl->Inits()) {
-            
+    auto label = ObjectLabel(obj);
+    auto width = obj->Type()->Width();
+    auto align = obj->Type()->Align();
+
+    // omit the external without initilizer
+    if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
+        return;
+
+    auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
+    Emit("%s %s", glb, label.c_str());
+
+    if (!obj->HasInit()) {    
+        Emit(".comm %s, %d, %d", label.c_str(), width, align);
+        return;
+    }
+
+    Emit(".align %d", align);
+    Emit(".type %s, @object", label.c_str());
+    Emit(".size %s, %d", label.c_str(), width);
+    EmitLabel(label.c_str());
+    
+    // TODO(wgtdkp): Add .zero
+    int offset = 0;
+    for (auto init: decl->Inits()) {
+        auto initer = decl->GetStaticInit(init);
+        if (initer._offset > offset) {
+            Emit(".zero %d", initer._offset - offset);
+            offset += initer._width;
+        }
+
+        switch (initer._width) {
+        case 1:
+            Emit(".byte %d", static_cast<char>(initer._val));
+            break;
+        case 2:
+            Emit(".value %d", static_cast<short>(initer._val));
+            break;
+        case 4:
+            Emit(".long %d", static_cast<int>(initer._val));
+            break;
+        case 8: 
+            if (initer._label.size() == 0) {
+                Emit(".quad %ld", initer._val);
+            } else if (initer._val != 0) {
+                Emit(".quad %s+%ld", initer._label.c_str(), initer._val);
+            } else {
+                Emit(".quad %s", initer._label.c_str());
+            }
+            break;
+        default: assert(false);
         }
     }
-    */
 }
 
 
