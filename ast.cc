@@ -108,13 +108,13 @@ Expr* Expr::MayCast(Expr* expr)
 {
     auto arrType = expr->Type()->ToArrayType();
     if (arrType) {
-        auto pointer = Type::NewPointerType(arrType->Derived());
+        auto pointer = PointerType::New(arrType->Derived());
         pointer->SetQual(Q_CONST);
         return UnaryOp::New(expr->Tok(), Token::CAST, expr, pointer);
     }
     auto funcType = expr->Type()->ToFuncType();
     if (funcType) {
-        auto pointer = Type::NewPointerType(funcType);
+        auto pointer = PointerType::New(funcType);
         return UnaryOp::New(expr->Tok(), Token::CAST, expr, pointer);
     }
     return expr;
@@ -289,7 +289,7 @@ void BinaryOp::AdditiveOpTypeChecking(void)
                     || !_rhs->Type()->IsInteger()) {
                 Error(_tok, "invalid operands to binary -");
             }
-            _type = Type::NewArithmType(T_LONG); // ptrdiff_t
+            _type = ArithmType::New(T_LONG); // ptrdiff_t
         } else if (!_rhs->Type()->IsInteger()) {
             Error(_tok, "invalid operands to binary -");
         } else {
@@ -333,7 +333,7 @@ void BinaryOp::RelationalOpTypeChecking(void)
     }
 
     Promote();
-    _type = Type::NewArithmType(T_INT);    
+    _type = ArithmType::New(T_INT);    
 }
 
 void BinaryOp::EqualityOpTypeChecking(void)
@@ -355,7 +355,7 @@ void BinaryOp::EqualityOpTypeChecking(void)
         Promote();
     }
 
-    _type = Type::NewArithmType(T_INT);    
+    _type = ArithmType::New(T_INT);    
 }
 
 void BinaryOp::BitwiseOpTypeChecking(void)
@@ -375,7 +375,7 @@ void BinaryOp::LogicalOpTypeChecking(void)
     }
     
     Promote();
-    _type = Type::NewArithmType(T_INT);
+    _type = ArithmType::New(T_INT);
 }
 
 void BinaryOp::AssignOpTypeChecking(void)
@@ -465,7 +465,7 @@ void UnaryOp::AddrOpTypeChecking(void)
         Error(_tok, "expression must be an lvalue or function designator");
     }
     
-    _type = Type::NewPointerType(_operand->Type());
+    _type = PointerType::New(_operand->Type());
 }
 
 void UnaryOp::DerefOpTypeChecking(void)
@@ -567,7 +567,7 @@ void ConditionalOp::TypeChecking(void)
  * Function Call
  */
 
-FuncCall* FuncCall::New(Expr* designator, const std::list<Expr*>& args)
+FuncCall* FuncCall::New(Expr* designator, const ArgList& args)
 {
     auto ret = new (funcCallPool.Alloc()) FuncCall(designator, args);
     ret->_pool = &funcCallPool;
@@ -693,7 +693,7 @@ Object* Object::New(const Token* tok,
 
 Constant* Constant::New(const Token* tok, int tag, long val)
 {
-    auto type = Type::NewArithmType(tag);
+    auto type = ArithmType::New(tag);
     auto ret = new (constantPool.Alloc()) Constant(tok, type, val);
     ret->_pool = &constantPool;
     return ret;
@@ -701,7 +701,7 @@ Constant* Constant::New(const Token* tok, int tag, long val)
 
 Constant* Constant::New(const Token* tok, int tag, double val)
 {
-    auto type = Type::NewArithmType(tag);
+    auto type = ArithmType::New(tag);
     auto ret = new (constantPool.Alloc()) Constant(tok, type, val);
     ret->_pool = &constantPool;
     return ret;
@@ -709,9 +709,9 @@ Constant* Constant::New(const Token* tok, int tag, double val)
 
 Constant* Constant::New(const Token* tok, const std::string* val)
 {
-    static auto derived = Type::NewArithmType(T_CHAR);
+    static auto derived = ArithmType::New(T_CHAR);
     derived->SetQual(Q_CONST);
-    static auto type = Type::NewPointerType(derived);
+    static auto type = PointerType::New(derived);
 
     auto ret = new (constantPool.Alloc()) Constant(tok, type, val);
     ret->_pool = &constantPool;

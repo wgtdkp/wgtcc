@@ -169,20 +169,8 @@ public:
 
     virtual const EnumType* ToEnumType(void) const { return nullptr; }
 
-    //static IntType* NewIntType();
-    static VoidType* NewVoidType(void);
-    
-    static ArrayType* NewArrayType(long long len, Type* eleType);
-    
-    static FuncType* NewFuncType(Type* derived, int funcSpec, \
-        bool hasEllipsis, const std::list<Type*>& params);
-    
-    static PointerType* NewPointerType(Type* derived);
-    
-    static StructUnionType* NewStructUnionType(bool isStruct, bool hasTag, Scope* parent);
-    
     //static EnumType* NewEnumType();
-    static ArithmType* NewArithmType(int typeSpec);
+
 
 protected:
     Type(MemPool* pool, int width, bool complete)
@@ -209,6 +197,8 @@ class VoidType : public Type
     friend class Type;
 
 public:
+    static VoidType* New(void);
+
     virtual ~VoidType(void) {}
 
     virtual VoidType* ToVoidType(void) {
@@ -250,6 +240,8 @@ class ArithmType : public Type
     friend class Type;
 
 public:
+    static ArithmType* New(int typeSpec);
+
     virtual ~ArithmType(void) {}
 
     virtual ArithmType* ToArithmType(void) {
@@ -348,6 +340,8 @@ class PointerType : public DerivedType
     friend class Type;
 
 public:
+    static PointerType* New(Type* derived);
+
     ~PointerType(void) {}
 
     virtual PointerType* ToPointerType(void) {
@@ -385,6 +379,7 @@ class ArrayType : public PointerType
     friend class Type;
 
 public:
+    static ArrayType* New(int len, Type* eleType);
     virtual ~ArrayType(void) {
         delete _derived;
     }
@@ -440,7 +435,7 @@ public:
     }
 
 protected:
-    ArrayType(MemPool* pool, long long len, Type* derived)
+    ArrayType(MemPool* pool, int len, Type* derived)
             : PointerType(pool, derived), _len(len) {
         SetComplete(_len > 0);
         SetQual(Q_CONST);
@@ -455,6 +450,12 @@ class FuncType : public DerivedType
     friend class Type;
 
 public:
+    typedef std::vector<Type*> TypeList;
+
+public:
+    static FuncType* New(Type* derived, int funcSpec,
+            bool hasEllipsis, const FuncType::TypeList& params);
+
     ~FuncType(void) {}
     
     virtual FuncType* ToFuncType(void) {
@@ -482,7 +483,7 @@ public:
     //bool IsInline(void) const { _inlineNoReturn & F_INLINE; }
     //bool IsNoReturn(void) const { return _inlineNoReturn & F_NORETURN; }
 
-    std::list<Type*>& ParamTypes(void) {
+    TypeList& ParamTypes(void) {
         return _paramTypes;
     }
 
@@ -493,14 +494,14 @@ public:
 protected:
     //a function does not has the width property
     FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
-            const std::list<Type*>& paramTypes)
+            const TypeList& paramTypes)
         : DerivedType(pool, derived, -1), _inlineNoReturn(inlineReturn),
           _variadic(variadic), _paramTypes(paramTypes) {}
 
 private:
     int _inlineNoReturn;
     bool _variadic;
-    std::list<Type*> _paramTypes;
+    TypeList _paramTypes;
 };
 
 
@@ -510,6 +511,8 @@ class StructUnionType : public Type
     typedef std::list<Object*> MemberList;
 
 public:
+    static StructUnionType* New(bool isStruct, bool hasTag, Scope* parent);
+    
     ~StructUnionType(void) {/*TODO: delete _env ?*/ }
     
     virtual StructUnionType* ToStructUnionType(void) {

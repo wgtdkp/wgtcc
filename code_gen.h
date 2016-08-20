@@ -137,6 +137,8 @@ public:
 
     void CopyStruct(ObjectAddr desAddr, int len);
     std::string ConsLabel(Constant* cons);
+    std::vector<const char*> GetParamLocation(std::vector<Type*> types, bool retStruct);
+
     // gen and emit
     void Gen(void);
 

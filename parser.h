@@ -98,7 +98,7 @@ public:
     TokenTypePair ParseDeclarator(Type* type);
     Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
     int ParseArrayLength(void);
-    bool ParseParamList(std::list<Type*>& paramTypes);
+    bool ParseParamList(FuncType::TypeList& paramTypes);
     Type* ParseParamDecl(void);
 
     //typename

@@ -111,7 +111,7 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
 
     auto funcType = ident->Type()->ToFuncType();
     std::list<Object*> params;
-    std::list<Type*>& paramTypes = funcType->ParamTypes();
+    std::vector<Type*>& paramTypes = funcType->ParamTypes();
     if (_curScope->size() != paramTypes.size()) {
         Error(ident, "parameter name omitted");
     }
@@ -314,7 +314,7 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
     FuncType* type = designator->Type()->ToFuncType();
     assert(type);
 
-    list<Expr*> args;
+    FuncCall::ArgList args;
     while (!_ts.Try(')')) {
         args.push_back(ParseAssignExpr());
         if (!_ts.Test(')'))
@@ -922,7 +922,7 @@ end_of_loop:
         break;
 
     case T_VOID:
-        type = Type::NewVoidType();
+        type = VoidType::New();
         break;
 
     case T_ATOMIC:
@@ -932,7 +932,7 @@ end_of_loop:
         break;
 
     default:
-        type = ArithmType::NewArithmType(typeSpec);
+        type = ArithmType::New(typeSpec);
         break;
     }
 
@@ -1002,7 +1002,7 @@ Type* Parser::ParseEnumSpec(void)
             if (tagIdent) {
                 return tagIdent->Type();
             }
-            auto type = Type::NewArithmType(T_INT);
+            auto type = ArithmType::New(T_INT);
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
             auto ident = Identifier::New(tok, type, _curScope, L_NONE);
             _curScope->InsertTag(ident);
@@ -1013,7 +1013,7 @@ Type* Parser::ParseEnumSpec(void)
     _ts.Expect('{');
 
 enum_decl:
-    auto type = Type::NewArithmType(T_INT);
+    auto type = ArithmType::New(T_INT);
     type->SetComplete(false);
     if (tagName.size() != 0) {
         auto ident = Identifier::New(tok, type, _curScope, L_NONE);
@@ -1111,7 +1111,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             }
             
             //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
-            auto type = Type::NewStructUnionType(isStruct, true, _curScope);
+            auto type = StructUnionType::New(isStruct, true, _curScope);
             
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
             auto ident = Identifier::New(tok, type, _curScope, L_NONE);
@@ -1125,7 +1125,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 struct_decl:
     //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
 	//所以现在是第一次开始定义一个完整的struct/union类型
-    auto type = Type::NewStructUnionType(isStruct, tagName.size(), _curScope);
+    auto type = StructUnionType::New(isStruct, tagName.size(), _curScope);
     if (tagName.size() != 0) {
         auto ident = Identifier::New(tok, type, _curScope, L_NONE);
         _curScope->InsertTag(ident);
@@ -1225,7 +1225,7 @@ Type* Parser::ParsePointer(Type* typePointedTo)
 {
     Type* retType = typePointedTo;
     while (_ts.Try('*')) {
-        retType = Type::NewPointerType(typePointedTo);
+        retType = PointerType::New(typePointedTo);
         retType->SetQual(ParseQual());
         typePointedTo = retType;
     }
@@ -1422,7 +1422,7 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
             Error(ident, "'%s' has incomplete element type",
                     ident->Str().c_str());
         }
-        return Type::NewArrayType(len, base);
+        return ArrayType::New(len, base);
     } else if (_ts.Try('(')) {	//function declaration
         if (base->ToFuncType()) {
             Error(_ts.Peek(),
@@ -1432,7 +1432,7 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
                     "the return value of function can't be array");
         }
 
-        std::list<Type*> paramTypes;
+        FuncType::TypeList paramTypes;
         EnterProto();
         bool hasEllipsis = ParseParamList(paramTypes);
         ExitProto();
@@ -1440,7 +1440,7 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
         _ts.Expect(')');
         base = ParseArrayFuncDeclarator(ident, base);
         
-        return Type::NewFuncType(base, 0, hasEllipsis, paramTypes);
+        return FuncType::New(base, 0, hasEllipsis, paramTypes);
     }
 
     return base;
@@ -1481,7 +1481,7 @@ int Parser::ParseArrayLength(void)
 /*
  * Return: true, has ellipsis;
  */
-bool Parser::ParseParamList(std::list<Type*>& paramTypes)
+bool Parser::ParseParamList(FuncType::TypeList& paramTypes)
 {
     auto paramType = ParseParamDecl();
     paramTypes.push_back(paramType);
@@ -1671,7 +1671,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
     auto str = literal->SVal()->c_str();    
     for (; width >= 8; width -= 8) {
         auto p = reinterpret_cast<const long*>(str);
-        auto type = Type::NewArithmType(T_LONG);
+        auto type = ArithmType::New(T_LONG);
         auto val = Constant::New(tok, T_LONG, static_cast<long>(*p));
         decl->Inits().push_back({offset, type, val});
         offset += 8;
@@ -1680,7 +1680,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
 
     for (; width >= 4; width -= 4) {
         auto p = reinterpret_cast<const int*>(str);
-        auto type = Type::NewArithmType(T_INT);
+        auto type = ArithmType::New(T_INT);
         auto val = Constant::New(tok, T_INT, static_cast<long>(*p));
         decl->Inits().push_back({offset, type, val});
         offset += 4;
@@ -1689,7 +1689,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
 
     for (; width >= 2; width -= 2) {
         auto p = reinterpret_cast<const short*>(str);
-        auto type = Type::NewArithmType(T_SHORT);
+        auto type = ArithmType::New(T_SHORT);
         auto val = Constant::New(tok, T_SHORT, static_cast<long>(*p));
         decl->Inits().push_back({offset, type, val});
         offset += 2;
@@ -1698,7 +1698,7 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
 
     for (; width >= 1; width--) {
         auto p = str;
-        auto type = Type::NewArithmType(T_CHAR);
+        auto type = ArithmType::New(T_CHAR);
         auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
         decl->Inits().push_back({offset, type, val});
         offset++;
@@ -1889,7 +1889,7 @@ Stmt* Parser::ParseStmt(void)
 }
 
 CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
-{   
+{
     if (!funcType)
         EnterBlock();
 

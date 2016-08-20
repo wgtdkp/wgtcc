@@ -482,11 +482,12 @@ class FuncCall : public Expr
     template<typename T> friend class Evaluator;
     friend class AddrEvaluator;
     friend class Generator;
-        
-    typedef std::list<Expr*> ArgList;
+
+public:        
+    typedef std::vector<Expr*> ArgList;
 
 public:
-    static FuncCall* New(Expr* designator, const std::list<Expr*>& args);
+    static FuncCall* New(Expr* designator, const ArgList& args);
 
     ~FuncCall(void) {}
     
@@ -508,7 +509,7 @@ public:
     virtual void TypeChecking(void);
 
 protected:
-    FuncCall(Expr* designator, std::list<Expr*> args)
+    FuncCall(Expr* designator, const ArgList& args)
         : Expr(designator->Tok(), nullptr),
           _designator(MayCast(designator)), _args(args) {}
 
@@ -713,7 +714,7 @@ public:
 
 protected:
     Enumerator(const Token* tok, ::Scope* scope, int val)
-            : Identifier(tok, Type::NewArithmType(T_INT), scope, L_NONE),
+            : Identifier(tok, ArithmType::New(T_INT), scope, L_NONE),
               _cons(Constant::New(tok, T_INT, (long)val)) {}
 
     Constant* _cons;

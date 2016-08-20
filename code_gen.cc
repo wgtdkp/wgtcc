@@ -175,8 +175,8 @@ static const char* GetReg(int width)
 static inline void GetOperands(const char*& src,
         const char*& des, int width, bool flt)
 {
-    src = flt ? "xmm1": (width == 8 ? "rcx": "ecx");
-    des = flt ? "xmm0": (width == 8 ? "rax": "eax");
+    src = flt ? "xmm9": (width == 8 ? "r10": "r10d");
+    des = flt ? "xmm8": (width == 8 ? "rax": "eax");
 }
 
 
@@ -208,8 +208,8 @@ void Generator::Pop(const char* reg)
 
 void Generator::Restore(bool flt)
 {
-    const char* src = flt ? "xmm0": "rax";
-    const char* des = flt ? "xmm1": "rcx";
+    const char* src = flt ? "xmm8": "rax";
+    const char* des = flt ? "xmm9": "r10";
     const char* inst = flt ? "movsd": "movq";
     Emit("%s #%s, #%s", inst, src, des);
     Pop(src);
@@ -327,7 +327,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
 
 void Generator::GenAssignOp(BinaryOp* assign)
 {
-    // The base register of addr is %rdx
+    // The base register of addr is %r11
     auto addr = LValGenerator().GenExpr(assign->_lhs);
     GenExpr(assign->_rhs);
 
@@ -349,8 +349,8 @@ void Generator::CopyStruct(ObjectAddr desAddr, int len)
     for (auto width: widths) {
         while (len >= width) {
             auto mov = GetInst("mov", width, false);
-            Emit("%s %d(#rax), #rcx", mov.c_str(), offset);
-            Emit("%s #rcx, %s", mov.c_str(), desAddr.Repr().c_str());
+            Emit("%s %d(#rax), #r10", mov.c_str(), offset);
+            Emit("%s #r10, %s", mov.c_str(), desAddr.Repr().c_str());
             desAddr._offset += width;
             offset += width;
             len -= width;
@@ -377,14 +377,14 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
 {
     if (flt) {
         auto inst = width == 4 ? "divss": "divsd";
-        Emit("%s #xmm1, #xmm0", inst);
+        Emit("%s #xmm9, #xmm8", inst);
         return;
     } else if (!sign) {
         Emit("xor #rdx, #rdx");
-        Emit("div #rcx");
+        Emit("div #r10");
     } else {
         Emit("cqto");
-        Emit("idiv #rcx");            
+        Emit("idiv #r10");            
     }
     if (op == '%')
         Emit("mov #rdx, #rax");
@@ -396,20 +396,20 @@ void Generator::GenPointerArithm(BinaryOp* binary)
     // For '+', we have swap _lhs and _rhs to ensure that 
     // the pointer is at lhs.
     Visit(binary->_lhs);
-    Push("rcx");
+    Push("r10");
     Push("rax");
     Visit(binary->_rhs);
     
     auto type = binary->_lhs->Type()->ToPointerType()->Derived();
     if (type->Width() > 1)
         Emit("imul $%d, #rax", type->Width());
-    Emit("mov #rax, #rcx");
+    Emit("mov #rax, #r10");
     Pop("rax");
     if (binary->_op == '+')
-        Emit("add #rcx, #rax");
+        Emit("add #r10, #rax");
     else
-        Emit("sub #rcx, #rax");
-    Pop("rcx");
+        Emit("sub #r10, #rax");
+    Pop("r10");
 }
 
 
@@ -443,13 +443,15 @@ void Generator::GenCastOp(UnaryOp* cast)
         if (srcType->Width() == desType->Width())
             return;
         const char* inst = srcType->Width() == 4 ? "movss2sd": "movsd2ss";
-        Emit("%s #xmm0, #xmm0", inst);
+        Emit("%s #xmm8, #xmm8", inst);
     } else if (srcType->IsFloat()) {
         const char* inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
-        Emit("%s #xmm0, #rax", inst);
+        Emit("%s #xmm8, #rax", inst);
     } else if (desType->IsFloat()) {
         const char* inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
-        Emit("%s #rax, #xmm0", inst);
+        Emit("%s #rax, #xmm8", inst);
+    } else if (srcType->ToPointerType()) {
+        // Do nothing
     } else {
         int width = srcType->Width();
         auto sign = !(srcType->ToArithmType()->Tag() & T_UNSIGNED);
@@ -489,7 +491,7 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
     case Token::PLUS:
         return;
     case Token::MINUS:
-        // TODO(wgtdkp): pxor %xmm1, %xmm1
+        // TODO(wgtdkp): pxor %xmm9, %xmm9
         return;
     case '~': return;
     case '!': return;
@@ -562,7 +564,7 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
 
 void Generator::Exchange(const std::string& lhs, const std::string& rhs)
 {
-    if (lhs == "xmm0" || rhs == "xmm0") {
+    if (lhs == "xmm8" || rhs == "xmm8") {
         Emit("movsd #%s, #xmm2", lhs.c_str());
         Emit("movsd #%s, #%s", rhs.c_str(), lhs.c_str());
         Emit("movsd #xmm2, #%s", rhs.c_str());
@@ -726,10 +728,10 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
         // %rax now has the address of the struct/union
         
         ObjectAddr addr = {"", "rbp", _retAddrOffset};
-        Emit("movq %s, #rdx", addr.Repr().c_str());
-        addr = {"", "rdx", 0};
+        Emit("movq %s, #r11", addr.Repr().c_str());
+        addr = {"", "r11", 0};
         CopyStruct(addr, expr->Type()->Width());
-        Emit("movq #rdx, #rax");
+        Emit("movq #r11, #rax");
     }
 
     Emit("leave");
@@ -757,7 +759,7 @@ int Generator::AllocObjects(int baseOffset, Scope* scope,
         auto obj = iter->second->ToObject();
         if (!obj || obj->IsStatic())
             continue;
-        if (paramSet.find(obj) == paramSet.end())
+        if (paramSet.find(obj) != paramSet.end())
             continue;
         heap.push(obj);
     }
@@ -790,10 +792,9 @@ void Generator::VisitCompoundStmt(CompoundStmt* compStmt)
 
 void Generator::VisitFuncCall(FuncCall* funcCall)
 {
-    size_t argOnStackOffset = 8;
-    size_t regCnt = 0, xregCnt = 0;
     // Alloc memory for return value if it is struct/union
-    if (funcCall->Type()->ToStructUnionType()) {
+    auto retType = funcCall->Type()->ToStructUnionType();
+    if (retType) {
         auto offset = _offset;
         offset -= funcCall->Type()->Width();
         offset = Type::MakeAlign(offset, funcCall->Type()->Align());
@@ -803,9 +804,50 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         _offset = offset;
     }
 
-    for (auto arg: funcCall->_args) {
-        auto cls = Classify(arg->Type());
-        /*
+    std::vector<Type*> types;
+    for (auto arg: funcCall->_args)
+        types.push_back(arg->Type());
+        
+    auto locations = GetParamLocation(types, retType);
+    for (int i = locations.size() - 1; i >=0; i--) {
+        if (locations[i][0] == 'm') {
+            Visit(funcCall->_args[i]);
+            if (types[i]->IsFloat())
+                Push("xmm8");
+            else
+                Push("rax");
+        }
+    }
+
+    for (int i = locations.size() - 1; i >=0; i--) {
+        if (locations[i][0] == 'm')
+            continue;
+        Visit(funcCall->_args[i]);
+        
+        if (locations[i][0] == 'x') {
+            auto inst = GetInst("mov", types[i]);
+            Emit("%s #xmm8, #%s", inst.c_str(), locations[i]);
+        } else {
+            Emit("movq #r10, #%s", locations[i]);
+        }
+    }
+
+    Emit("addq $16, #rsp");
+
+
+    // If variadic, set %al
+}
+
+
+std::vector<const char*> Generator::GetParamLocation(std::vector<Type*> types, bool retStruct)
+{
+    std::vector<const char*> locations;
+
+    size_t argOnStackOffset = 8;
+    size_t regCnt = retStruct, xregCnt = 0;
+    for (auto type: types) {
+        auto cls = Classify(type);
+
         const char* reg = nullptr;
         if (cls == ParamClass::INTEGER) {
             if (regCnt < regs.size())
@@ -814,22 +856,10 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
             if (xregCnt < xregs.size())
                 reg = xregs[xregCnt++];
         }
-        
-        if (reg == nullptr) { // The param passed by stack
-            argOnStackOffset += 8;
-            param->SetOffset(argOnStackOffset);
-        } else {
-            offset -= 8;
-            ObjectAddr addr {"", "rbp", offset};
-            EmitStore(addr.Repr(), param->Type());
-            param->SetOffset(offset);
-        }
-        */
+        locations.push_back(reg ? reg: "mem");
     }
-
-    // If variadic, set
+    return locations;
 }
-
 
 void Generator::VisitFuncDef(FuncDef* funcDef)
 {
@@ -855,30 +885,11 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
         offset = GenSaveArea();
     } else {
         // Arrange space to store params passed by registers
-        size_t argOnStackOffset = 8;
-        size_t regCnt = 0, xregCnt = 0;
-        for (auto param: params) {
-            auto cls = Classify(param->Type());
+        auto retType = funcDef->Type()->Derived();
+        auto locations = GetParamLocation(funcDef->Type()->ParamTypes(),
+                retType->ToStructUnionType());
+        
 
-            const char* reg = nullptr;
-            if (cls == ParamClass::INTEGER) {
-                if (regCnt < regs.size())
-                    reg = regs[regCnt++];
-            } else if (cls == ParamClass::SSE) {
-                if (xregCnt < xregs.size())
-                    reg = xregs[xregCnt++];
-            }
-            
-            if (reg == nullptr) { // The param passed by stack
-                argOnStackOffset += 8;
-                param->SetOffset(argOnStackOffset);
-            } else {
-                offset -= 8;
-                ObjectAddr addr {"", "rbp", offset};
-                EmitStore(addr.Repr(), param->Type());
-                param->SetOffset(offset);
-            }
-        }
     }
 
     offset = AllocObjects(offset, funcDef->Body()->Scope(), params);
@@ -1053,9 +1064,9 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 {
     assert(unary->_op == Token::DEREF);
     Generator().GenExpr(unary->_operand);
-    Emit("movq #rax, #rdx");
+    Emit("movq #rax, #r11");
 
-    _addr = {"", "rdx", 0};
+    _addr = {"", "r11", 0};
 }
 
 

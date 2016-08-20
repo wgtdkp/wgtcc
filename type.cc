@@ -12,12 +12,13 @@
 
 /***************** Type *********************/
 
-MemPoolImp<VoidType>         Type::_voidTypePool;
-MemPoolImp<ArrayType>        Type::_arrayTypePool;
-MemPoolImp<FuncType>         Type::_funcTypePool;
-MemPoolImp<PointerType>      Type::_pointerTypePool;
-MemPoolImp<StructUnionType>  Type::_structUnionTypePool;
-MemPoolImp<ArithmType>       Type::_arithmTypePool;
+static MemPoolImp<VoidType>         voidTypePool;
+static MemPoolImp<ArrayType>        arrayTypePool;
+static MemPoolImp<FuncType>         funcTypePool;
+static MemPoolImp<PointerType>      pointerTypePool;
+static MemPoolImp<StructUnionType>  structUnionTypePool;
+static MemPoolImp<ArithmType>       arithmTypePool;
+
 
 bool Type::IsFloat(void) const {
     auto arithmType = ToArithmType();
@@ -29,39 +30,39 @@ bool Type::IsInteger(void) const {
     return arithmType && arithmType->IsInteger();
 }
 
-VoidType* Type::NewVoidType(void)
+VoidType* VoidType::New(void)
 {
-    return new (_voidTypePool.Alloc()) VoidType(&_voidTypePool);
+    return new (voidTypePool.Alloc()) VoidType(&voidTypePool);
 }
 
-ArithmType* Type::NewArithmType(int typeSpec) {
+ArithmType* ArithmType::New(int typeSpec) {
     auto tag = ArithmType::Spec2Tag(typeSpec);
-    return new (_arithmTypePool.Alloc())
-            ArithmType(&_arithmTypePool, tag);
+    return new (arithmTypePool.Alloc())
+            ArithmType(&arithmTypePool, tag);
 }
 
-ArrayType* Type::NewArrayType(long long len, Type* eleType)
+ArrayType* ArrayType::New(int len, Type* eleType)
 {
-    return new (_arrayTypePool.Alloc())
-            ArrayType(&_arrayTypePool, len, eleType);
+    return new (arrayTypePool.Alloc())
+            ArrayType(&arrayTypePool, len, eleType);
 }
 
 //static IntType* NewIntType();
-FuncType* Type::NewFuncType(Type* derived, int funcSpec,
-        bool hasEllipsis, const std::list<Type*>& params) {
-    return new (_funcTypePool.Alloc())
-            FuncType(&_funcTypePool, derived, funcSpec, hasEllipsis, params);
+FuncType* FuncType::New(Type* derived, int funcSpec,
+        bool hasEllipsis, const FuncType::TypeList& params) {
+    return new (funcTypePool.Alloc())
+            FuncType(&funcTypePool, derived, funcSpec, hasEllipsis, params);
 }
 
-PointerType* Type::NewPointerType(Type* derived) {
-    return new (_pointerTypePool.Alloc())
-            PointerType(&_pointerTypePool, derived);
+PointerType* PointerType::New(Type* derived) {
+    return new (pointerTypePool.Alloc())
+            PointerType(&pointerTypePool, derived);
 }
 
-StructUnionType* Type::NewStructUnionType(
+StructUnionType* StructUnionType::New(
         bool isStruct, bool hasTag, Scope* parent) {
-    return new (_structUnionTypePool.Alloc())
-            StructUnionType(&_structUnionTypePool, isStruct, hasTag, parent);
+    return new (structUnionTypePool.Alloc())
+            StructUnionType(&structUnionTypePool, isStruct, hasTag, parent);
 }
 
 /*
@@ -428,7 +429,7 @@ ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType)
     ArithmType* desType;
 
     if (lhsType->Width() < intWidth && rhsType->Width() < intWidth) {
-        desType = Type::NewArithmType(T_INT);
+        desType = ArithmType::New(T_INT);
     } else if (lhsType->Width() > rhsType->Width()) {
         desType = lhsType;
     } else if (lhsType->Width() < rhsType->Width()) {
