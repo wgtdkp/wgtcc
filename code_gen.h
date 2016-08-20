@@ -6,6 +6,9 @@
 
 
 class Parser;
+class Addr;
+class Evaluator<Addr>;
+
 
 enum class ParamClass
 {
@@ -50,9 +53,20 @@ private:
 typedef std::vector<ROData> RODataList;
 
 
+struct StaticInitializer
+{
+    int _offset;
+    int _width;
+    long _val;
+    std::string _label;        
+};
+
+typedef std::vector<StaticInitializer> StaticInitList;
+
 
 class Generator: public Visitor
 {
+    friend class Evaluator<Addr>;
 public:
     Generator(void) {}
 
@@ -99,6 +113,11 @@ public:
     virtual void VisitFuncDef(FuncDef* funcDef);
     virtual void VisitTranslationUnit(TranslationUnit* unit);
 
+    StaticInitializer GetStaticInit(const Initializer& init);
+
+    void GenStaticDecl(Declaration* decl);
+
+    // gen and emit
     void Gen(void);
 
     void GenExpr(Expr* expr) {
@@ -143,6 +162,8 @@ protected:
 
     static std::string _cons;
     static RODataList _rodatas;
+
+    static std::vector<Declaration*> _staticDecls;
 };
 
 

@@ -1,6 +1,7 @@
 #include "evaluator.h"
 
 #include "ast.h"
+#include "code_gen.h"
 #include "token.h"
 
 
@@ -182,5 +183,19 @@ void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp)
         _addr = Evaluator<Addr>().Eval(condOp->_exprTrue);
     } else {
         _addr = Evaluator<Addr>().Eval(condOp->_exprFalse);
+    }
+}
+
+
+void Evaluator<Addr>::VisitConstant(Constant* cons) 
+{
+    if (cons->Type()->IsInteger()) {
+        _addr._offset = cons->IVal();
+    } else if (cons->Type()->ToPointerType()) {
+        Generator().VisitConstant(cons); // Add the literal to _rodatas.
+        _addr._label = Generator::_rodatas.back()._label;
+        _addr._offset = 0;
+    } else {
+        assert(false);
     }
 }

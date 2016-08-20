@@ -86,14 +86,6 @@ struct Initializer
     Expr* _expr;
 };
 
-struct StaticInitializer
-{
-    int _offset;
-    int _width;
-    long _val;
-    std::string _label;        
-};
-
 class Declaration: public Stmt
 {
     template<typename T> friend class Evaluator;
@@ -101,7 +93,6 @@ class Declaration: public Stmt
     friend class Generator;
     
     typedef std::vector<Initializer> InitList;
-    //typedef std::vector<StaticInitializer> StaticInitList;
 
 public:
     static Declaration* New(Object* obj);
@@ -123,8 +114,6 @@ public:
     }
 
     void AddInit(int offset, Type* type, Expr* _expr);
-
-    StaticInitializer GetStaticInit(const Initializer& init);
 
 protected:
     Declaration(Object* obj): _obj(obj) {}

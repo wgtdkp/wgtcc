@@ -8,7 +8,6 @@
 
 class Expr;
 
-extern std::string ConstantLabel(Constant* cons);
 extern std::string ObjectLabel(Object* obj);
 
 template<typename T>
@@ -114,16 +113,7 @@ public:
         _addr._offset = 0;
     }
 
-    virtual void VisitConstant(Constant* cons) {
-        if (cons->Type()->IsInteger()) {
-            _addr._offset = cons->IVal();
-        } else if (cons->Type()->ToPointerType()) {
-            _addr._label = ConstantLabel(cons);
-            _addr._offset = 0;
-        } else {
-            assert(false);
-        }
-    }
+    virtual void VisitConstant(Constant* cons);
 
     virtual void VisitTempVar(TempVar* tempVar) {
         assert(false);

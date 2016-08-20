@@ -1,5 +1,6 @@
 #include "code_gen.h"
 
+#include "evaluator.h"
 #include "parser.h"
 #include "token.h"
 
@@ -14,6 +15,8 @@ Parser* Generator::_parser = nullptr;
 FILE* Generator::_outFile = nullptr;
 std::string Generator::_cons;
 RODataList Generator::_rodatas;
+std::vector<Declaration*> Generator::_staticDecls;
+
 
 /*
 std::string operator+(const char* lhs, const std::string&& rhs)
@@ -22,17 +25,13 @@ std::string operator+(const char* lhs, const std::string&& rhs)
 }
 */
 
-std::string ConstantLabel(Constant* cons)
-{
-    assert(cons->Type()->ToPointerType());
-    return ".LC" + std::to_string((long)cons);
-}
-
 std::string ObjectLabel(Object* obj)
 {
+    static int tag = 0;
     assert(obj->IsStatic());
-    if (obj->Linkage() == L_NONE)
-        return obj->Name() + "." + std::to_string((long)obj);
+    if (obj->Linkage() == L_NONE) {
+        return obj->Name() + "." + std::to_string(tag++);
+    }
     return obj->Name();
 }
 
@@ -512,7 +511,7 @@ void Generator::VisitConstant(Constant* cons)
         const ROData& rodata = ROData(val, width);
         _rodatas.push_back(rodata);
         _cons = "$" + rodata._label;
-    } else {
+    } else { // Literal
         const ROData& rodata = ROData(*cons->SVal());
         _rodatas.push_back(rodata);
         _cons = "$" + rodata._label;
@@ -546,6 +545,18 @@ void Generator::VisitDeclaration(Declaration* decl)
         return;
     }
 
+    if (obj->Linkage() == L_NONE)
+        _staticDecls.push_back(decl);
+    else
+        GenStaticDecl(decl);
+}
+
+
+void Generator::GenStaticDecl(Declaration* decl)
+{
+    auto obj = decl->_obj;
+    assert(obj->IsStatic());
+
     auto label = ObjectLabel(obj);
     auto width = obj->Type()->Width();
     auto align = obj->Type()->Align();
@@ -570,29 +581,29 @@ void Generator::VisitDeclaration(Declaration* decl)
     // TODO(wgtdkp): Add .zero
     int offset = 0;
     for (auto init: decl->Inits()) {
-        auto initer = decl->GetStaticInit(init);
-        if (initer._offset > offset) {
-            Emit(".zero %d", initer._offset - offset);
-            offset += initer._width;
+        auto staticInit = GetStaticInit(init);
+        if (staticInit._offset > offset) {
+            Emit(".zero %d", staticInit._offset - offset);
+            offset += staticInit._width;
         }
 
-        switch (initer._width) {
+        switch (staticInit._width) {
         case 1:
-            Emit(".byte %d", static_cast<char>(initer._val));
+            Emit(".byte %d", static_cast<char>(staticInit._val));
             break;
         case 2:
-            Emit(".value %d", static_cast<short>(initer._val));
+            Emit(".value %d", static_cast<short>(staticInit._val));
             break;
         case 4:
-            Emit(".long %d", static_cast<int>(initer._val));
+            Emit(".long %d", static_cast<int>(staticInit._val));
             break;
         case 8: 
-            if (initer._label.size() == 0) {
-                Emit(".quad %ld", initer._val);
-            } else if (initer._val != 0) {
-                Emit(".quad %s+%ld", initer._label.c_str(), initer._val);
+            if (staticInit._label.size() == 0) {
+                Emit(".quad %ld", staticInit._val);
+            } else if (staticInit._val != 0) {
+                Emit(".quad %s+%ld", staticInit._label.c_str(), staticInit._val);
             } else {
-                Emit(".quad %s", initer._label.c_str());
+                Emit(".quad %s", staticInit._label.c_str());
             }
             break;
         default: assert(false);
@@ -656,8 +667,30 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
 
 void Generator::VisitTranslationUnit(TranslationUnit* unit)
 {
-    for (auto decl: unit->ExtDecls()) {
-        decl->Accept(this);
+    for (auto extDecl: unit->ExtDecls()) {
+        extDecl->Accept(this);
+
+        Emit(".section .rodata");
+        for (auto rodata: _rodatas) {
+            if (rodata._align == 1) {// Literal
+                EmitLabel(rodata._label);
+                Emit(".string %s", rodata._sval.c_str());
+            } else if (rodata._align == 4) {
+                Emit(".align 4");
+                EmitLabel(rodata._label);
+                Emit(".long %d", static_cast<int>(rodata._ival));
+            } else {
+                Emit(".align 8");
+                EmitLabel(rodata._label);
+                Emit(".quad %ld", rodata._ival);
+            }
+        }
+        _rodatas.clear();
+
+        for (auto staticDecl: _staticDecls) {
+            GenStaticDecl(staticDecl);
+        }
+        _staticDecls.clear();
     }
 }
 
@@ -808,5 +841,28 @@ std::string ObjectAddr::Repr(void)
             return _label + ret;
         else
             return _label + "+" + std::to_string(_offset) + ret;
+    }
+}
+
+
+
+
+StaticInitializer Generator::GetStaticInit(const Initializer& init)
+{
+    // Delay until code gen
+    auto width = init._type->Width();
+    if (init._type->IsInteger()) {
+        auto val = Evaluator<long>().Eval(init._expr);
+        return {init._offset, width, val, ""};
+    } else if (init._type->IsFloat()) {
+        auto val = Evaluator<double>().Eval(init._expr);
+        auto lval = *reinterpret_cast<long*>(&val);
+        return {init._offset, width, lval, ""};
+    } else if (init._type->ToPointerType()) {
+        auto addr = Evaluator<Addr>().Eval(init._expr);
+        return {init._offset, width, addr._offset, addr._label};
+    } else {
+        assert(false);
+        return StaticInitializer(); //Make compiler happy
     }
 }

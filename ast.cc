@@ -673,27 +673,6 @@ void Declaration::AddInit(int offset, Type* type, Expr* expr)
 }
 
 
-StaticInitializer Declaration::GetStaticInit(const Initializer& init)
-{
-    // Delay until code gen
-    auto width = init._type->Width();
-    if (init._type->IsInteger()) {
-        auto val = Evaluator<long>().Eval(init._expr);
-        return {init._offset, width, val, ""};
-    } else if (init._type->IsFloat()) {
-        auto val = Evaluator<double>().Eval(init._expr);
-        auto lval = *reinterpret_cast<long*>(&val);
-        return {init._offset, width, lval, ""};
-    } else if (init._type->ToPointerType()) {
-        auto addr = Evaluator<Addr>().Eval(init._expr);
-        return {init._offset, width, addr._offset, addr._label};
-    } else {
-        assert(false);
-        return StaticInitializer(); //Make compiler happy
-    }
-}
-
-
 /*
  * Object
  */
