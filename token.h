@@ -50,7 +50,7 @@ public:
         _fileName = other._fileName;
         _line = other._line;
         _ws = other._ws;
-        //_column = other._column;
+        _column = other._column;
         _lineBegin = other._lineBegin;
         _begin = other._begin;
         _end = other._end;
@@ -301,13 +301,13 @@ public:
 
     // Line index of the begin
     unsigned _line {1};
-    
+    unsigned _column {1};
     /*
         * _ws standards for weither there is preceding white space
         * This is to simplify the '#' operator(stringize) in macro expansion
         */
     bool _ws {false};
-        
+     
 
     char* _lineBegin {nullptr};
 
@@ -442,6 +442,13 @@ public:
     TokenList* _tokList;
     TokenList::iterator _begin;
     TokenList::iterator _end;
+
+    void SetParser(Parser* parser) {
+        _parser = parser;
+    }
+
+private:
+    Parser* _parser {nullptr};
 };
 
 #endif

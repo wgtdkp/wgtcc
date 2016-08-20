@@ -1,18 +1,14 @@
+#include <stdio.h>
 
-typedef void(func_t)(void);
 
-void func(void)
-{
-
-}
-
-static func_t f;
-
-int c = sizeof(f);
+const char* func = __func__;
 
 int main(void)
 {
-    
+    int c = 5;
+
+
+    printf("%s\n", func);
     return 0;
 }
 

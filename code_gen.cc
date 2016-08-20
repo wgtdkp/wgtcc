@@ -6,6 +6,9 @@
 
 #include <cstdarg>
 
+#include <queue>
+#include <set>
+
 
 extern std::string inFileName;
 extern std::string outFileName;
@@ -13,17 +16,82 @@ extern std::string outFileName;
 
 Parser* Generator::_parser = nullptr;
 FILE* Generator::_outFile = nullptr;
-std::string Generator::_cons;
+//std::string Generator::_cons;
 RODataList Generator::_rodatas;
 std::vector<Declaration*> Generator::_staticDecls;
+int Generator::_offset = 0;
+int Generator::_retAddrOffset = 0;
 
 
-/*
-std::string operator+(const char* lhs, const std::string&& rhs)
+static std::vector<const char*> regs {
+    "rdi", "rsi", "rdx",
+    "rcx", "r8", "r9"
+};
+
+static std::vector<const char*> xregs {
+    "xmm0", "xmm1", "xmm2", "xmm3",
+    "xmm4", "xmm5", "xmm6", "xmm7"
+};
+
+static ParamClass Classify(Type* paramType, int offset=0)
 {
-    return std::string(lhs) + rhs;
+    if (paramType->IsInteger() || paramType->ToPointerType()
+            || paramType->ToArrayType()) {
+        return ParamClass::INTEGER;
+    }
+    
+    if (paramType->ToArithmType()) {
+        auto type = paramType->ToArithmType();
+        if (type->Tag() == T_FLOAT || type->Tag() == T_DOUBLE)
+            return ParamClass::SSE;
+        if (type->Tag() == (T_LONG | T_DOUBLE)) {
+            // TODO(wgtdkp):
+            assert(false); 
+            return ParamClass::X87;
+        }
+        
+        // TODO(wgtdkp):
+        assert(false);
+        // It is complex
+        if ((type->Tag() & T_LONG) && (type->Tag() & T_DOUBLE))
+            return ParamClass::COMPLEX_X87;
+        
+    }
+
+    // TODO(wgtdkp): Support agrregate type 
+    assert(false);
+    /*
+    auto type = paramType->ToStructUnionType();
+    assert(type);
+
+    if (type->Width() > 4 * 8)
+        return PC_MEMORY;
+
+    std::vector<ParamClass> classes;
+    int cnt = (type->Width() + 7) / 8;
+    for (int i = 0; i < cnt; i++) {
+        auto  types = FieldsIn8Bytes(type, i);
+        assert(types.size() > 0);
+        
+        auto fieldClass = (types.size() == 1)
+                ? PC_NO_CLASS: FieldClass(types, 0);
+        classes.push_back(fieldClass);
+        
+    }
+
+    bool sawX87 = false;
+    for (int i = 0; i < classes.size(); i++) {
+        if (classes[i] == PC_MEMORY)
+            return PC_MEMORY;
+        if (classes[i] == PC_X87_UP && sawX87)
+            return PC_MEMORY;
+        if (classes[i] == PC_X87)
+            sawX87 = true;
+    }
+    */
+    return ParamClass::NO_CLASS; // Make compiler happy
 }
-*/
+
 
 std::string ObjectLabel(Object* obj)
 {
@@ -36,13 +104,33 @@ std::string ObjectLabel(Object* obj)
 }
 
 
+std::string Generator::ConsLabel(Constant* cons)
+{
+    if (cons->Type()->IsInteger()) {
+        return "$" + std::to_string(cons->IVal());
+    } else if (cons->Type()->IsFloat()) {
+        double valsd = cons->FVal();
+        float  valss = valsd;
+        // TODO(wgtdkp): Add rodata
+        auto width = cons->Type()->Width();
+        long val = width == 4 ? *(int*)&valss: *(long*)&valsd;
+        const ROData& rodata = ROData(val, width);
+        _rodatas.push_back(rodata);
+        return "$" + rodata._label;
+    } else { // Literal
+        const ROData& rodata = ROData(*cons->SVal());
+        _rodatas.push_back(rodata);
+        return "$" + rodata._label;
+    }
+}
+
 static const char* GetLoad(int width, bool flt=false)
 {
     switch (width) {
     case 1: return "movzbq";
     case 2: return "movzwq";
-    case 4: return !flt ? "mov": "movss";
-    case 8: return !flt ? "mov": "movsd";
+    case 4: return !flt ? "movl": "movss";
+    case 8: return !flt ? "movq": "movsd";
     default: assert(false); return nullptr;
     }
 }
@@ -85,7 +173,7 @@ static const char* GetReg(int width)
 
 
 static inline void GetOperands(const char*& src,
-        const char*& des, bool flt, int width)
+        const char*& des, int width, bool flt)
 {
     src = flt ? "xmm1": (width == 8 ? "rcx": "ecx");
     des = flt ? "xmm0": (width == 8 ? "rax": "eax");
@@ -100,6 +188,8 @@ void Generator::Push(const char* reg)
     } else {
         Emit("push #%s", reg);
     }
+
+    _offset -= 8;
 }
 
 
@@ -111,6 +201,8 @@ void Generator::Pop(const char* reg)
     } else {
         Emit("pop #%s", reg);
     }
+
+    _offset += 8;
 }
 
 
@@ -171,9 +263,9 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     auto flt = binary->Type()->IsFloat();
     auto sign = !flt && !(binary->Type()->ToArithmType()->Tag() & T_UNSIGNED);
 
-    binary->_lhs->Accept(this);
+    Visit(binary->_lhs);
     Spill(flt);
-    binary->_rhs->Accept(this);
+    Visit(binary->_rhs);
     Restore(flt);
 
     switch (op) {
@@ -203,8 +295,8 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
 
     const char* src;
     const char* des;
-    GetOperands(src, des, flt, width);
-    Emit("%s %s, %s", inst, src, des);
+    GetOperands(src, des, width, flt);
+    Emit("%s #%s, #%s", inst, src, des);
 }
 
 
@@ -218,31 +310,6 @@ void Generator::GenOrOp(BinaryOp* orOp)
 {
     // TODO(wgtdkp):
 }
-
-
-/*
-void Generator::GenSubScriptingOp(BinaryOp* subScript)
-{
-    // As the lhs will always be array
-    // we expect the address of lhs in %rax
-    subScript->_lhs->Accept(this);
-    Spill(false);
-    subScript->_rhs->Accept(this);
-    Restore(false);
-
-    auto width = subScript->Type()->Width();
-    auto flt = subScript->Type()->IsFloat();
-    if (!subScript->Type()->IsScalar()) {
-        Emit("lea (#rax, #rcx, %d), #rax", width);
-    } else {
-        const char* src;
-        const char* des;
-        auto load = GetLoad(flt, width);
-        GetOperands(src, des, flt, width);
-        Emit("%s (#rax, #rcx, %d), %s", load, width, des);
-    }
-}
-*/
 
 
 void Generator::GenMemberRefOp(BinaryOp* ref)
@@ -269,19 +336,24 @@ void Generator::GenAssignOp(BinaryOp* assign)
     } else {
         // struct/union type
         // The address of rhs is in %rax
-        auto len = assign->Type()->Width();
-        int widths[] = {8, 4, 2, 1};
-        int offset = 0;
+        CopyStruct(addr, assign->Type()->Width());
+    }
+}
 
-        for (auto width: widths) {
-            while (len >= width) {
-                auto mov = GetInst("mov", width, false);
-                Emit("%s %d(#rax), #rcx", mov.c_str(), offset);
-                Emit("%s #rcx, %s", mov.c_str(), addr.Repr().c_str());
-                addr._offset += width;
-                offset += width;
-                len -= width;
-            }
+
+void Generator::CopyStruct(ObjectAddr desAddr, int len)
+{
+    int widths[] = {8, 4, 2, 1};
+    int offset = 0;
+
+    for (auto width: widths) {
+        while (len >= width) {
+            auto mov = GetInst("mov", width, false);
+            Emit("%s %d(#rax), #rcx", mov.c_str(), offset);
+            Emit("%s #rcx, %s", mov.c_str(), desAddr.Repr().c_str());
+            desAddr._offset += width;
+            offset += width;
+            len -= width;
         }
     }
 }
@@ -293,9 +365,9 @@ void Generator::GenCompOp(bool flt, int width, const char* set)
     
     const char* src;
     const char* des;
-    GetOperands(src, des, flt, width);
+    GetOperands(src, des, width, flt);
 
-    Emit("%s %s, %s", cmp, src, des);
+    Emit("%s #%s, #%s", cmp, src, des);
     Emit("%s #al", set);
     Emit("movzbl #al, #rax");
 }
@@ -323,10 +395,10 @@ void Generator::GenPointerArithm(BinaryOp* binary)
 {
     // For '+', we have swap _lhs and _rhs to ensure that 
     // the pointer is at lhs.
-    binary->_lhs->Accept(this);
+    Visit(binary->_lhs);
     Push("rcx");
     Push("rax");
-    binary->_rhs->Accept(this);
+    Visit(binary->_rhs);
     
     auto type = binary->_lhs->Type()->ToPointerType()->Derived();
     if (type->Width() > 1)
@@ -390,73 +462,100 @@ void Generator::GenCastOp(UnaryOp* cast)
         }
         if (inst[4] == 0)
             return;
-        Emit("%s %s, #rax", inst, GetReg(width));
+        Emit("%s #%s, #rax", inst, GetReg(width));
     }
 }
 
 
-void Generator::VisitUnaryOp(UnaryOp* unaryOp)
+void Generator::VisitUnaryOp(UnaryOp* unary)
 {
-
+    switch  (unary->_op) {
+    case Token::PREFIX_INC:
+        return GenPrefixIncDec(unary->_operand, "add");
+    case Token::PREFIX_DEC:
+        return GenPrefixIncDec(unary->_operand, "sub");
+    case Token::POSTFIX_INC:
+        return GenPostfixIncDec(unary->_operand, "add");
+    case Token::POSTFIX_DEC:
+        return GenPostfixIncDec(unary->_operand, "sub");
+    case Token::ADDR: {
+        auto addr = LValGenerator().GenExpr(unary->_operand).Repr();
+        Emit("leaq %s, #rax", addr.c_str());
+    } return;
+    case Token::DEREF:
+        if (!unary->Type()->ToStructUnionType())
+            EmitLoad("(#rax)", unary->Type());
+        return;
+    case Token::PLUS:
+        return;
+    case Token::MINUS:
+        // TODO(wgtdkp): pxor %xmm1, %xmm1
+        return;
+    case '~': return;
+    case '!': return;
+    case Token::CAST:
+        Visit(unary->_operand);
+        GenCastOp(unary);
+        return;
+    default: assert(false);
+    }
 }
 
 
-void Generator::GenPrefixIncDec(UnaryOp* unary, const std::string& inst)
+void Generator::GenPrefixIncDec(Expr* operand, const std::string& inst)
 {
     // Need a special base register to reduce register conflict
-    auto addr = LValGenerator().GenExpr(unary).Repr();
-    auto des = EmitLoad(addr, unary->Type());
+    auto addr = LValGenerator().GenExpr(operand).Repr();
+    auto des = EmitLoad(addr, operand->Type());
 
     Constant* cons;
-    auto pointerType = unary->Type()->ToPointerType();
+    auto pointerType = operand->Type()->ToPointerType();
      if (pointerType) {
         long width = pointerType->Derived()->Width();
-        cons = Constant::New(unary->Tok(), T_LONG, width);
-    } else if (unary->Type()->IsInteger()) {
-        cons = Constant::New(unary->Tok(), T_LONG, 1L);
+        cons = Constant::New(operand->Tok(), T_LONG, width);
+    } else if (operand->Type()->IsInteger()) {
+        cons = Constant::New(operand->Tok(), T_LONG, 1L);
     } else {
-        if (unary->Type()->Width() == 4)
-            cons = Constant::New(unary->Tok(), T_FLOAT, 1.0);
+        if (operand->Type()->Width() == 4)
+            cons = Constant::New(operand->Tok(), T_FLOAT, 1.0);
         else
-            cons = Constant::New(unary->Tok(), T_DOUBLE, 1.0);
+            cons = Constant::New(operand->Tok(), T_DOUBLE, 1.0);
     }
-    VisitConstant(cons);
-    auto consLabel = _cons;
+    auto consLabel = ConsLabel(cons);
 
-    auto addSub = GetInst(inst, unary->Type());    
-    Emit("%s %s, %s", addSub.c_str(), consLabel.c_str(), des.c_str());
+    auto addSub = GetInst(inst, operand->Type());    
+    Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), des.c_str());
     
-    EmitStore(addr, unary->Type());
+    EmitStore(addr, operand->Type());
 }
 
 
-void Generator::GenPostfixIncDec(UnaryOp* unary, const std::string& inst)
+void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
 {
     // Need a special base register to reduce register conflict
-    auto addr = LValGenerator().GenExpr(unary).Repr();
-    auto des = EmitLoad(addr, unary->Type());
+    auto addr = LValGenerator().GenExpr(operand).Repr();
+    auto des = EmitLoad(addr, operand->Type());
     auto saved = Save(des);
 
     Constant* cons;
-    auto pointerType = unary->Type()->ToPointerType();
+    auto pointerType = operand->Type()->ToPointerType();
      if (pointerType) {
         long width = pointerType->Derived()->Width();
-        cons = Constant::New(unary->Tok(), T_LONG, width);
-    } else if (unary->Type()->IsInteger()) {
-        cons = Constant::New(unary->Tok(), T_LONG, 1L);
+        cons = Constant::New(operand->Tok(), T_LONG, width);
+    } else if (operand->Type()->IsInteger()) {
+        cons = Constant::New(operand->Tok(), T_LONG, 1L);
     } else {
-        if (unary->Type()->Width() == 4)
-            cons = Constant::New(unary->Tok(), T_FLOAT, 1.0);
+        if (operand->Type()->Width() == 4)
+            cons = Constant::New(operand->Tok(), T_FLOAT, 1.0);
         else
-            cons = Constant::New(unary->Tok(), T_DOUBLE, 1.0);
+            cons = Constant::New(operand->Tok(), T_DOUBLE, 1.0);
     }
-    VisitConstant(cons);
-    const std::string& consLabel = _cons;
+    auto consLabel = ConsLabel(cons);
 
-    auto addSub = GetInst(inst, unary->Type());    
-    Emit("%s %s, %s", addSub.c_str(), consLabel.c_str(), des.c_str());
+    auto addSub = GetInst(inst, operand->Type());    
+    Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), des.c_str());
 
-    EmitStore(addr, unary->Type());
+    EmitStore(addr, operand->Type());
     Exchange(des, saved);
 }
 
@@ -480,11 +579,6 @@ void Generator::VisitConditionalOp(ConditionalOp* condOp)
 }
 
 
-void Generator::VisitFuncCall(FuncCall* funcCall)
-{
-
-}
-
 
 void Generator::VisitEnumerator(Enumerator* enumer)
 {
@@ -500,23 +594,10 @@ void Generator::VisitIdentifier(Identifier* ident)
 
 void Generator::VisitConstant(Constant* cons)
 {
-    if (cons->Type()->IsInteger()) {
-        _cons = "$" + std::to_string(cons->IVal());
-    } else if (cons->Type()->IsFloat()) {
-        double valsd = cons->FVal();
-        float  valss = valsd;
-        // TODO(wgtdkp): Add rodata
-        auto width = cons->Type()->Width();
-        long val = width == 4 ? *(int*)&valss: *(long*)&valsd;
-        const ROData& rodata = ROData(val, width);
-        _rodatas.push_back(rodata);
-        _cons = "$" + rodata._label;
-    } else { // Literal
-        const ROData& rodata = ROData(*cons->SVal());
-        _rodatas.push_back(rodata);
-        _cons = "$" + rodata._label;
-    }
+    auto label = ConsLabel(cons);
+    EmitLoad(label, cons->Type());
 }
+
 
 
 void Generator::VisitTempVar(TempVar* tempVar)
@@ -538,7 +619,7 @@ void Generator::VisitDeclaration(Declaration* decl)
             return;
 
         for (auto init: decl->Inits()) {
-            ObjectAddr addr = {"", "rbp", init._offset};
+            ObjectAddr addr = {"", "rbp", obj->Offset() + init._offset};
             GenExpr(init._expr);
             EmitStore(addr.Repr(), init._type);
         }
@@ -564,7 +645,8 @@ void Generator::GenStaticDecl(Declaration* decl)
     // omit the external without initilizer
     if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
         return;
-
+    
+    Emit(".data");
     auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
     Emit("%s %s", glb, label.c_str());
 
@@ -626,55 +708,227 @@ void Generator::VisitIfStmt(IfStmt* ifStmt)
 
 void Generator::VisitJumpStmt(JumpStmt* jumpStmt)
 {
-
-}
-
-
-void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
-{
-
+    Emit("jmp %s", jumpStmt->_label->Label().c_str());
 }
 
 
 void Generator::VisitLabelStmt(LabelStmt* labelStmt)
 {
-
+    EmitLabel(labelStmt->Label());
 }
 
 
-void Generator::VisitCompoundStmt(CompoundStmt* compoundStmt)
+void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
 {
+    auto expr = returnStmt->_expr;
+    Visit(expr);
+    if (expr->Type()->ToStructUnionType()) {
+        // %rax now has the address of the struct/union
+        
+        ObjectAddr addr = {"", "rbp", _retAddrOffset};
+        Emit("movq %s, #rdx", addr.Repr().c_str());
+        addr = {"", "rdx", 0};
+        CopyStruct(addr, expr->Type()->Width());
+        Emit("movq #rdx, #rax");
+    }
 
+    Emit("leave");
+    Emit("ret");
 }
+
+
+class Comp
+{
+public:
+    bool operator()(Object* lhs, Object* rhs) {
+        return lhs->Type()->Align() < rhs->Type()->Align();
+    }
+};
+
+
+int Generator::AllocObjects(int baseOffset, Scope* scope,
+        const FuncDef::ParamList& params)
+{
+    int offset = baseOffset;
+
+    auto paramSet = std::set<Object*>(params.begin(), params.end());
+    std::priority_queue<Object*, std::vector<Object*>, Comp> heap;
+    for (auto iter = scope->begin(); iter != scope->end(); iter++) {
+        auto obj = iter->second->ToObject();
+        if (!obj || obj->IsStatic())
+            continue;
+        if (paramSet.find(obj) == paramSet.end())
+            continue;
+        heap.push(obj);
+    }
+
+    while (!heap.empty()) {
+        auto obj = heap.top();
+        heap.pop();
+
+        offset -= obj->Type()->Width();
+        offset = Type::MakeAlign(offset, obj->Type()->Align());
+        obj->SetOffset(offset);
+    }
+
+    return offset;
+}
+
+
+void Generator::VisitCompoundStmt(CompoundStmt* compStmt)
+{
+    if (compStmt->_scope) {
+        //compStmt
+        _offset = AllocObjects(_offset, compStmt->_scope);
+    }
+
+    for (auto stmt: compStmt->_stmts) {
+        Visit(stmt);
+    }
+}
+
+
+void Generator::VisitFuncCall(FuncCall* funcCall)
+{
+    size_t argOnStackOffset = 8;
+    size_t regCnt = 0, xregCnt = 0;
+    // Alloc memory for return value if it is struct/union
+    if (funcCall->Type()->ToStructUnionType()) {
+        auto offset = _offset;
+        offset -= funcCall->Type()->Width();
+        offset = Type::MakeAlign(offset, funcCall->Type()->Align());
+        Emit("leaq %d(#rbp), #rdi", offset);
+        
+        Emit("subq $%d, #rsp", _offset - offset);
+        _offset = offset;
+    }
+
+    for (auto arg: funcCall->_args) {
+        auto cls = Classify(arg->Type());
+        /*
+        const char* reg = nullptr;
+        if (cls == ParamClass::INTEGER) {
+            if (regCnt < regs.size())
+                reg = regs[regCnt++];
+        } else if (cls == ParamClass::SSE) {
+            if (xregCnt < xregs.size())
+                reg = xregs[xregCnt++];
+        }
+        
+        if (reg == nullptr) { // The param passed by stack
+            argOnStackOffset += 8;
+            param->SetOffset(argOnStackOffset);
+        } else {
+            offset -= 8;
+            ObjectAddr addr {"", "rbp", offset};
+            EmitStore(addr.Repr(), param->Type());
+            param->SetOffset(offset);
+        }
+        */
+    }
+
+    // If variadic, set
+}
+
 
 void Generator::VisitFuncDef(FuncDef* funcDef)
 {
-    EmitLabel(funcDef->Name());
+    auto name = funcDef->Name();
+
+    Emit(".text");
+    if (funcDef->Linkage() == L_INTERNAL)
+        Emit(".local %s", name.c_str());
+    else
+        Emit(".globl %s", name.c_str());
+    Emit(".type %s, @function", name.c_str());
+
+    EmitLabel(name);
     Emit("pushq #rbp");
     Emit("movq #rsp, #rbp");
 
+
+    FuncDef::ParamList& params = funcDef->Params();
+
+    _offset = 0;
+    int offset = _offset;
     if (funcDef->Type()->Variadic()) {
-        
+        offset = GenSaveArea();
+    } else {
+        // Arrange space to store params passed by registers
+        size_t argOnStackOffset = 8;
+        size_t regCnt = 0, xregCnt = 0;
+        for (auto param: params) {
+            auto cls = Classify(param->Type());
+
+            const char* reg = nullptr;
+            if (cls == ParamClass::INTEGER) {
+                if (regCnt < regs.size())
+                    reg = regs[regCnt++];
+            } else if (cls == ParamClass::SSE) {
+                if (xregCnt < xregs.size())
+                    reg = xregs[xregCnt++];
+            }
+            
+            if (reg == nullptr) { // The param passed by stack
+                argOnStackOffset += 8;
+                param->SetOffset(argOnStackOffset);
+            } else {
+                offset -= 8;
+                ObjectAddr addr {"", "rbp", offset};
+                EmitStore(addr.Repr(), param->Type());
+                param->SetOffset(offset);
+            }
+        }
     }
 
+    offset = AllocObjects(offset, funcDef->Body()->Scope(), params);
+    
+    Emit("subq $%d, #rsp", _offset - offset);
+    _offset = offset;
 
-    //FuncDef::ParamList& params =
-    auto scope = funcDef->Body()->Scope();
+
+    for (auto stmt: funcDef->_body->_stmts) {
+        Visit(stmt);
+    }
+
+    // 
+
+}
 
 
+int Generator::GenSaveArea(void)
+{
+    static const int begin = -176;
+    int offset = begin;
+    for (auto reg: regs) {
+        Emit("movq #%s, %d(rbp)", reg, offset);
+        offset += 8;
+    }
+    Emit("testb #al, #al");
+    auto label = LabelStmt::New();
+    Emit("je %s", label->Label().c_str());
+    for (auto xreg: xregs) {
+        Emit("movaps #%s, %d(rbp)", xreg, offset);
+        offset += 16;
+    }
+    assert(offset == 0);
+    EmitLabel(label->Label());
+
+    return begin;
 }
 
 
 void Generator::VisitTranslationUnit(TranslationUnit* unit)
 {
     for (auto extDecl: unit->ExtDecls()) {
-        extDecl->Accept(this);
+        Visit(extDecl);
 
-        Emit(".section .rodata");
+        if (_rodatas.size())
+            Emit(".section .rodata");
         for (auto rodata: _rodatas) {
             if (rodata._align == 1) {// Literal
                 EmitLabel(rodata._label);
-                Emit(".string %s", rodata._sval.c_str());
+                Emit(".string \"%s\"", rodata._sval.c_str());
             } else if (rodata._align == 4) {
                 Emit(".align 4");
                 EmitLabel(rodata._label);
@@ -697,8 +951,7 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit)
 
 void Generator::Gen(void)
 {
-    Emit(".file %s", inFileName.c_str());
-    Emit(".data");
+    Emit(".file \"%s\"", inFileName.c_str());
 
 /*
     for (auto obj: _parser->StaticObjects()) {
@@ -740,7 +993,7 @@ std::string Generator::EmitLoad(const std::string& addr, Type* type)
     const char* src;
     const char* des;
     GetOperands(src, des, width, flt);
-    Emit("%s, %s, %s", load, addr.c_str(), des);
+    Emit("%s %s, #%s", load, addr.c_str(), des);
     return des;
 }
 
@@ -751,8 +1004,7 @@ void Generator::EmitStore(const std::string& addr, Type* type)
     const char* src;
     const char* des;
     GetOperands(src, des, type->Width(), type->IsFloat());
-    Emit("%s, #%s, %s", store.c_str(), src, addr.c_str());
-
+    Emit("%s #%s, %s", store.c_str(), des, addr.c_str());
 }
 
 
@@ -828,9 +1080,9 @@ void LValGenerator::VisitIdentifier(Identifier* ident)
 
 
 
-std::string ObjectAddr::Repr(void)
+std::string ObjectAddr::Repr(void) const
 {
-    auto ret = "(#" + _base + ")";
+    auto ret = "(%" + _base + ")";
     if (_label.size() == 0) {
         if (_offset == 0)
             return ret;

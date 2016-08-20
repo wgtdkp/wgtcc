@@ -13,11 +13,13 @@
 using namespace std;
 
 
-void Parser::EnterFunc(const char* funcName) {
+void Parser::EnterFunc(Identifier* func) {
     //TODO(wgtdkp): Add __func__ macro
 
     _curParamScope->SetParent(_curScope);
     _curScope = _curParamScope;
+
+    _curFunc = func;
 }
 
 void Parser::ExitFunc(void) {
@@ -39,6 +41,7 @@ void Parser::ExitFunc(void) {
     _curLabels.clear();	//清空 label map
 
     _curScope = _curScope->Parent();
+    _curFunc = nullptr;
 }
 
 void Parser::EnterBlock(FuncType* funcType)
@@ -85,7 +88,7 @@ void Parser::ParseTranslationUnit(void)
         type = ident->Type();
 
         if (tok && type->ToFuncType() && _ts.Try('{')) { // Function definition
-            _unit->Add(ParseFuncDef(tok, type->ToFuncType()));
+            _unit->Add(ParseFuncDef(ident));
         } else { // Declaration
             auto decl = ParseInitDeclarator(ident);
             if (decl) _unit->Add(decl);
@@ -102,14 +105,15 @@ void Parser::ParseTranslationUnit(void)
     //_externalSymbols->Print();
 }
 
-FuncDef* Parser::ParseFuncDef(Token* tok, FuncType* funcType)
+FuncDef* Parser::ParseFuncDef(Identifier* ident)
 {
-    EnterFunc(nullptr);
+    EnterFunc(ident);
 
+    auto funcType = ident->Type()->ToFuncType();
     std::list<Object*> params;
     std::list<Type*>& paramTypes = funcType->ParamTypes();
     if (_curScope->size() != paramTypes.size()) {
-        Error(tok, "parameter name omitted");
+        Error(ident, "parameter name omitted");
     }
 
     for (auto paramType: paramTypes) {
@@ -125,7 +129,7 @@ FuncDef* Parser::ParseFuncDef(Token* tok, FuncType* funcType)
     auto stmt = ParseCompoundStmt(funcType);
     ExitFunc();
 
-    return FuncDef::New(tok, funcType, params, stmt);
+    return FuncDef::New(ident, params, stmt);
 }
 
 Expr* Parser::ParseExpr(void)
@@ -1383,7 +1387,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         }
     }
 
-    Identifier* ret;    
+    Identifier* ret;
     // TODO(wgtdkp): Treat function as object ?
     if (type->ToFuncType()) {
         ret = Identifier::New(tok, type, _curScope, linkage);
@@ -2216,6 +2220,11 @@ ReturnStmt* Parser::ParseReturnStmt(void)
     } else {
         expr = ParseExpr();
         _ts.Expect(';');
+    }
+
+    auto retType = _curFunc->Type()->ToFuncType()->Derived();
+    if (*expr->Type() != *retType) {
+        expr = UnaryOp::New(expr->Tok(), Token::CAST, expr, retType);
     }
 
     return ReturnStmt::New(expr);

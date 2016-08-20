@@ -5,6 +5,8 @@
 #include "parser.h"
 
 #include <cstdio>
+#include <cstdlib>
+
 #include <iostream>
 #include <string>
 
@@ -77,9 +79,21 @@ int main(int argc, char* argv[])
     parser.Parse();
     
     // CodeGen
-    Generator::SetInOut(&parser, stdout);
+    outFileName = inFileName;
+    outFileName.back() = 's';
+    auto outFile = fopen(outFileName.c_str(), "w");
+    assert(outFile);
+
+    Generator::SetInOut(&parser, outFile);
     Generator g;
     g.Gen();
+
+    fclose(outFile);
+
+    auto str = ReadFile(outFileName);
+    std::cout << *str << std::endl;
+    std::string sys = "gcc -std=c11 -Wall " + outFileName;
+    system(sys.c_str());
 
     return 0;
 }

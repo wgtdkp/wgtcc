@@ -108,7 +108,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
     tok._tag = Token::END;
     tok._fileName = _fileName;
     tok._line = _line;
-    //tok._column = 1;
+    tok._column = 1;
     tok._lineBegin = p;
     tok._begin = p;
     tok._end = p;
@@ -288,7 +288,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
                     tok._tag = Token::ELLIPSIS; ++p; ++p;
                 } else {
                     tok._end = p;
-                    //tok._column = tok._begin - tok._lineBegin + 1;
+                    tok._column = tok._begin - tok._lineBegin + 1;
                     Error(&tok, "illegal identifier '..'");
                 }
             } else if (isdigit(p[1])) {	// for float constant like: '.123'
@@ -366,7 +366,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
             tok._tag = Token::CONSTANT;
             
             tok._end = ++p; //keep the prefix and postfix('\'')
-            //tok._column = tok._begin - tok._lineBegin + 1; 
+            tok._column = tok._begin - tok._lineBegin + 1; 
             AddToken(tokSeq, tok);
             ++p; continue;
 
@@ -380,7 +380,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
             tok._tag = Token::STRING_LITERAL;
             
             tok._end = p + 1; //do not trim the '"' at begin and end
-            //tok._column = tok._begin - tok._lineBegin + 1;
+            tok._column = tok._begin - tok._lineBegin + 1;
             AddToken(tokSeq, tok);
             ++p; continue;
             
@@ -393,7 +393,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
                 }
                 
                 tok._end = p;
-                //tok._column = tok._begin - tok._lineBegin + 1;
+                tok._column = tok._begin - tok._lineBegin + 1;
                 
                 tok._tag = Token::IDENTIFIER;
                 AddToken(tokSeq, tok);
@@ -410,7 +410,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
                 tok._begin = p;
                 auto isInteger = ReadConstant(p);
                 tok._end = p;
-                //tok._column = tok._begin - tok._lineBegin + 1;
+                tok._column = tok._begin - tok._lineBegin + 1;
                 
                 tok._tag = isInteger ? Token::I_CONSTANT: Token::F_CONSTANT;
                 AddToken(tokSeq, tok);
@@ -418,14 +418,14 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
             } else {
             /*error_handler:*/
                 tok._end = p;
-                //tok._column = tok._begin - tok._lineBegin + 1;
+                tok._column = tok._begin - tok._lineBegin + 1;
                 Error(&tok, "invalid character '%c'", p[0]);
             }
             ++p; break;
         }
 
         tok._end = p;
-        //tok._column = tok._begin - tok._lineBegin + 1;
+        tok._column = tok._begin - tok._lineBegin + 1;
         AddToken(tokSeq, tok);
     }
 }

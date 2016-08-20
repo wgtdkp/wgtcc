@@ -41,10 +41,8 @@ static void VError(const Token* tok, const char* format, va_list args)
 {
     assert(tok->_fileName);
 
-    int column = tok->_begin - tok->_lineBegin + 1;
-
     fprintf(stderr,  "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-            tok->_fileName->c_str(), tok->_line, column);
+            tok->_fileName->c_str(), tok->_line, tok->_column);
  
     vfprintf(stderr, format, args);
     
@@ -63,7 +61,7 @@ static void VError(const Token* tok, const char* format, va_list args)
     
     fprintf(stderr, "\n    ");
 
-    for (int i = 1; i + nspaces < column; i++)
+    for (unsigned i = 1; i + nspaces < tok->_column; i++)
         fputc(' ', stderr);
     
     fprintf(stderr, ANSI_COLOR_GREEN "^\n");

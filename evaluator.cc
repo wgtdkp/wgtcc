@@ -192,7 +192,7 @@ void Evaluator<Addr>::VisitConstant(Constant* cons)
     if (cons->Type()->IsInteger()) {
         _addr._offset = cons->IVal();
     } else if (cons->Type()->ToPointerType()) {
-        Generator().VisitConstant(cons); // Add the literal to _rodatas.
+        Generator().ConsLabel(cons); // Add the literal to _rodatas.
         _addr._label = Generator::_rodatas.back()._label;
         _addr._offset = 0;
     } else {

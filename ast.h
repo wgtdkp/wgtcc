@@ -157,8 +157,8 @@ public:
     
     virtual void Accept(Visitor* v);
     
-    int Tag(void) const {
-        return Tag();
+    std::string Label(void) const {
+        return ".L" + std::to_string(_tag);
     }
 
 protected:
@@ -814,13 +814,13 @@ class FuncDef : public ExtDecl
 
     typedef std::list<Object*> ParamList;
 public:
-    static FuncDef* New(const Token* tok, FuncType* type,
-            const ParamList& params, CompoundStmt* stmt);
+    static FuncDef* New(Identifier* ident, const ParamList& params,
+            CompoundStmt* stmt);
 
     virtual ~FuncDef(void) {}
     
     virtual FuncType* Type(void) {
-        return _type;
+        return _ident->Type()->ToFuncType();
     }
 
     ParamList& Params(void) {
@@ -832,19 +832,21 @@ public:
     }
 
     std::string Name(void) const {
-        return _tok->Str();
+        return _ident->Name();
+    }
+
+    enum Linkage Linkage(void) {
+        return _ident->Linkage();
     }
     
     virtual void Accept(Visitor* v);
 
 protected:
-    FuncDef(const Token* tok, FuncType* type,
-            const ParamList& params, CompoundStmt* stmt)
-            : _tok(tok), _type(type), _params(params), _body(stmt) {}
+    FuncDef(Identifier* ident, const ParamList& params, CompoundStmt* stmt)
+            : _ident(ident), _params(params), _body(stmt) {}
 
 private:
-    const Token* _tok;
-    FuncType* _type;
+    Identifier* _ident;
     ParamList _params;
     CompoundStmt* _body;
 };

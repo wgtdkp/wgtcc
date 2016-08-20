@@ -1,9 +1,9 @@
 #include "token.h"
 
-using namespace std;
+#include "parser.h"
 
 
-const unordered_map<string, int> Token::_kwTypeMap = {
+const std::unordered_map<std::string, int> Token::_kwTypeMap = {
     { "auto", Token::AUTO },
     { "break", Token::BREAK },
     { "case", Token::CASE },
@@ -49,7 +49,7 @@ const unordered_map<string, int> Token::_kwTypeMap = {
     { "_Thread_local", THREAD },
 };
 
-const unordered_map<int, const char*> Token::_TagLexemeMap = {
+const std::unordered_map<int, const char*> Token::_TagLexemeMap = {
     { '(', "(" },
     { ')', ")" },
     { '[', "[" },
@@ -194,6 +194,20 @@ Token* TokenSeq::Peek(void)
         eof._begin = back->_end;
         eof._end = eof._begin + 1;
         return &eof;
+    } else if (_parser && _begin->_tag == Token::IDENTIFIER
+            && _begin->Str() == "__func__")
+    {
+        
+        _begin->_tag = Token::STRING_LITERAL;
+
+        auto curFunc = _parser->CurFunc();
+        std::string* name;
+        if(curFunc)
+            name = new std::string("\"" + curFunc->Name() + "\"");
+        else
+            name = new std::string("\"\"");
+        _begin->_begin = const_cast<char*>(name->c_str());
+        _begin->_end = _begin->_begin + name->size();
     }
     return &(*_begin);
 }

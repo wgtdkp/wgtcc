@@ -782,10 +782,10 @@ LabelStmt* LabelStmt::New(void)
     return ret;
 }
 
-FuncDef* FuncDef::New(const Token* tok, FuncType* type,
-            const std::list<Object*>& params, CompoundStmt* stmt)
+FuncDef* FuncDef::New(Identifier* ident, const ParamList& params,
+        CompoundStmt* stmt)
 {
-    auto ret = new (funcDefPool.Alloc()) FuncDef(tok, type, params, stmt);
+    auto ret = new (funcDefPool.Alloc()) FuncDef(ident, params, stmt);
     ret->_pool = &funcDefPool;
 
     return ret;

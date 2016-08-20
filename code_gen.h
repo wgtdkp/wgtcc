@@ -53,6 +53,16 @@ private:
 typedef std::vector<ROData> RODataList;
 
 
+struct ObjectAddr
+{
+    std::string Repr(void) const;
+    
+    std::string _label;
+    std::string _base;
+    int _offset;
+};
+
+
 struct StaticInitializer
 {
     int _offset;
@@ -69,6 +79,10 @@ class Generator: public Visitor
     friend class Evaluator<Addr>;
 public:
     Generator(void) {}
+
+    virtual void Visit(ASTNode* node) {
+        node->Accept(this);
+    }
 
     //Expression
     virtual void VisitBinaryOp(BinaryOp* binaryOp);
@@ -96,8 +110,8 @@ public:
     void GenCompOp(bool flt, int width, const char* set);
 
     // Unary
-    void GenPrefixIncDec(UnaryOp* unary, const std::string& inst);
-    void GenPostfixIncDec(UnaryOp* unary, const std::string& inst);
+    void GenPrefixIncDec(Expr* operand, const std::string& inst);
+    void GenPostfixIncDec(Expr* operand, const std::string& inst);
 
 
 
@@ -116,7 +130,13 @@ public:
     StaticInitializer GetStaticInit(const Initializer& init);
 
     void GenStaticDecl(Declaration* decl);
+    int GenSaveArea(void);
+    
+    int AllocObjects(int baseOffset, Scope* scope,
+            const FuncDef::ParamList& params=FuncDef::ParamList());
 
+    void CopyStruct(ObjectAddr desAddr, int len);
+    std::string ConsLabel(Constant* cons);
     // gen and emit
     void Gen(void);
 
@@ -160,20 +180,15 @@ protected:
     static Parser* _parser;
     static FILE* _outFile;
 
-    static std::string _cons;
+    //static std::string _cons;
     static RODataList _rodatas;
+    static int _offset;
+
+    // The address that store the register %rdi,
+    //     when the return value is a struct/union
+    static int _retAddrOffset;
 
     static std::vector<Declaration*> _staticDecls;
-};
-
-
-struct ObjectAddr
-{
-    std::string Repr(void);
-    
-    std::string _label;
-    std::string _base;
-    int _offset;
 };
 
 

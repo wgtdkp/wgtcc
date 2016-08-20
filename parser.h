@@ -29,9 +29,11 @@ public:
           _inEnumeration(false), _ts(ts),
           _externalSymbols(new Scope(nullptr, S_BLOCK)),
           _errTok(nullptr), _curScope(new Scope(nullptr, S_FILE)),
-          _curParamScope(nullptr),
+          _curParamScope(nullptr), _curFunc(nullptr),
           _breakDest(nullptr), _continueDest(nullptr),
-          _caseLabels(nullptr), _defaultLabel(nullptr) {}
+          _caseLabels(nullptr), _defaultLabel(nullptr) {
+              _ts.SetParser(this);
+          }
 
     ~Parser(void) {}
 
@@ -42,7 +44,7 @@ public:
 
     void Parse(void);
     void ParseTranslationUnit(void);
-    FuncDef* ParseFuncDef(Token* tok, FuncType* funcType);
+    FuncDef* ParseFuncDef(Identifier* ident);
     /************ Expressions ************/
     
     Expr* ParseExpr(void);
@@ -184,7 +186,7 @@ public:
         _curScope = _curScope->Parent();
     }
 
-    void EnterFunc(const char* funcName);
+    void EnterFunc(Identifier* func);
 
     void ExitFunc(void);
 
@@ -207,6 +209,10 @@ public:
     //StaticObjectList& StaticObjects(void) {
     //    return _staticObjects;
     //}
+    
+    Identifier* CurFunc(void) {
+        return _curFunc;
+    }
 
 private:
     
@@ -229,8 +235,10 @@ private:
 
     Scope* _curScope;
     Scope* _curParamScope;
+    Identifier* _curFunc;
     LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;
+    
     
     LabelStmt* _breakDest;
     LabelStmt* _continueDest;
