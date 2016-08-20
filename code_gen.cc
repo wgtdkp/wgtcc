@@ -165,8 +165,8 @@ static const char* GetReg(int width)
     switch (width) {
     case 1: return "al";
     case 2: return "ax";
-    case 4: return "eax";
-    case 8: return "rax";
+    case 4: return "r10d";
+    case 8: return "r10";
     default: assert(false); return nullptr;
     }
 }
@@ -176,39 +176,29 @@ static inline void GetOperands(const char*& src,
         const char*& des, int width, bool flt)
 {
     src = flt ? "xmm9": (width == 8 ? "r10": "r10d");
-    des = flt ? "xmm8": (width == 8 ? "rax": "eax");
+    des = flt ? "xmm8": (width == 8 ? "r10": "r10d");
 }
 
 
 void Generator::Push(const char* reg)
 {
-    if (reg[0] == 'x' && reg[1] == 'm' && reg[2] == 'm') {
-        Emit("sub $8, #rsp");
-        Emit("movsd #%s, (#rsp)", reg);
-    } else {
-        Emit("push #%s", reg);
-    }
-
     _offset -= 8;
+    auto mov = reg[0] == 'x' ? "movsd": "movq";
+    Emit("%s #%s, %d(#rbp)", mov, reg, _offset);
 }
 
 
 void Generator::Pop(const char* reg)
 {
-    if (reg[0] == 'x' && reg[1] == 'm' && reg[2] == 'm') {
-        Emit("movsd (#rsp), #%s", reg);
-        Emit("add $8, #rsp");
-    } else {
-        Emit("pop #%s", reg);
-    }
-
+    auto mov = reg[0] == 'x' ? "movsd": "movq";
+    Emit("%s %d(#rbp), #%s", mov, _offset, reg);
     _offset += 8;
 }
 
 
 void Generator::Restore(bool flt)
 {
-    const char* src = flt ? "xmm8": "rax";
+    const char* src = flt ? "xmm8": "r10";
     const char* des = flt ? "xmm9": "r10";
     const char* inst = flt ? "movsd": "movq";
     Emit("%s #%s, #%s", inst, src, des);
@@ -318,7 +308,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
     auto addr = LValGenerator().GenExpr(ref).Repr();
 
     if (!ref->Type()->IsScalar()) {
-        Emit("lea %s, #rax", addr.c_str());
+        Emit("lea %s, #r10", addr.c_str());
     } else {
         EmitLoad(addr, ref->Type());
     }
@@ -335,7 +325,7 @@ void Generator::GenAssignOp(BinaryOp* assign)
         EmitStore(addr.Repr(), assign->Type());
     } else {
         // struct/union type
-        // The address of rhs is in %rax
+        // The address of rhs is in %r10
         CopyStruct(addr, assign->Type()->Width());
     }
 }
@@ -349,7 +339,7 @@ void Generator::CopyStruct(ObjectAddr desAddr, int len)
     for (auto width: widths) {
         while (len >= width) {
             auto mov = GetInst("mov", width, false);
-            Emit("%s %d(#rax), #r10", mov.c_str(), offset);
+            Emit("%s %d(#r10), #r10", mov.c_str(), offset);
             Emit("%s #r10, %s", mov.c_str(), desAddr.Repr().c_str());
             desAddr._offset += width;
             offset += width;
@@ -369,7 +359,7 @@ void Generator::GenCompOp(bool flt, int width, const char* set)
 
     Emit("%s #%s, #%s", cmp, src, des);
     Emit("%s #al", set);
-    Emit("movzbl #al, #rax");
+    Emit("movzbl #al, #r10");
 }
 
 
@@ -387,7 +377,7 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
         Emit("idiv #r10");            
     }
     if (op == '%')
-        Emit("mov #rdx, #rax");
+        Emit("mov #rdx, #r10");
 }
 
  
@@ -397,18 +387,18 @@ void Generator::GenPointerArithm(BinaryOp* binary)
     // the pointer is at lhs.
     Visit(binary->_lhs);
     Push("r10");
-    Push("rax");
+    Push("r10");
     Visit(binary->_rhs);
     
     auto type = binary->_lhs->Type()->ToPointerType()->Derived();
     if (type->Width() > 1)
-        Emit("imul $%d, #rax", type->Width());
-    Emit("mov #rax, #r10");
-    Pop("rax");
+        Emit("imul $%d, #r10", type->Width());
+    Emit("mov #r10, #r10");
+    Pop("r10");
     if (binary->_op == '+')
-        Emit("add #r10, #rax");
+        Emit("add #r10, #r10");
     else
-        Emit("sub #r10, #rax");
+        Emit("sub #r10, #r10");
     Pop("r10");
 }
 
@@ -416,7 +406,7 @@ void Generator::GenPointerArithm(BinaryOp* binary)
 void Generator::GenDerefOp(UnaryOp* deref)
 {
     auto addr = LValGenerator().GenExpr(deref->_operand).Repr();
-    Emit("lea %s, #rax", addr.c_str());
+    Emit("lea %s, #r10", addr.c_str());
 }
 
 
@@ -426,8 +416,8 @@ void Generator::VisitObject(Object* obj)
 
     // TODO(wgtdkp): handle static object
     if (!obj->Type()->IsScalar()) {
-        // Return the address of the object in rax
-        Emit("lea %s, #rax", addr.c_str());
+        // Return the address of the object in r10
+        Emit("lea %s, #r10", addr.c_str());
     } else {
         EmitLoad(addr, obj->Type());
     }
@@ -446,10 +436,10 @@ void Generator::GenCastOp(UnaryOp* cast)
         Emit("%s #xmm8, #xmm8", inst);
     } else if (srcType->IsFloat()) {
         const char* inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
-        Emit("%s #xmm8, #rax", inst);
+        Emit("%s #xmm8, #r10", inst);
     } else if (desType->IsFloat()) {
         const char* inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
-        Emit("%s #rax, #xmm8", inst);
+        Emit("%s #r10, #xmm8", inst);
     } else if (srcType->ToPointerType()) {
         // Do nothing
     } else {
@@ -464,7 +454,7 @@ void Generator::GenCastOp(UnaryOp* cast)
         }
         if (inst[4] == 0)
             return;
-        Emit("%s #%s, #rax", inst, GetReg(width));
+        Emit("%s #%s, #r10", inst, GetReg(width));
     }
 }
 
@@ -482,11 +472,11 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
         return GenPostfixIncDec(unary->_operand, "sub");
     case Token::ADDR: {
         auto addr = LValGenerator().GenExpr(unary->_operand).Repr();
-        Emit("leaq %s, #rax", addr.c_str());
+        Emit("leaq %s, #r10", addr.c_str());
     } return;
     case Token::DEREF:
         if (!unary->Type()->ToStructUnionType())
-            EmitLoad("(#rax)", unary->Type());
+            EmitLoad("(#r10)", unary->Type());
         return;
     case Token::PLUS:
         return;
@@ -725,13 +715,13 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
     auto expr = returnStmt->_expr;
     Visit(expr);
     if (expr->Type()->ToStructUnionType()) {
-        // %rax now has the address of the struct/union
+        // %r10 now has the address of the struct/union
         
         ObjectAddr addr = {"", "rbp", _retAddrOffset};
         Emit("movq %s, #r11", addr.Repr().c_str());
         addr = {"", "r11", 0};
         CopyStruct(addr, expr->Type()->Width());
-        Emit("movq #r11, #rax");
+        Emit("movq #r11, #r10");
     }
 
     Emit("leave");
@@ -792,7 +782,9 @@ void Generator::VisitCompoundStmt(CompoundStmt* compStmt)
 
 void Generator::VisitFuncCall(FuncCall* funcCall)
 {
+    auto base = _offset;
     // Alloc memory for return value if it is struct/union
+    auto funcType = funcCall->FuncType();
     auto retType = funcCall->Type()->ToStructUnionType();
     if (retType) {
         auto offset = _offset;
@@ -807,24 +799,27 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     std::vector<Type*> types;
     for (auto arg: funcCall->_args)
         types.push_back(arg->Type());
-        
+    
     auto locations = GetParamLocation(types, retType);
+    auto beforePass = _offset;
     for (int i = locations.size() - 1; i >=0; i--) {
         if (locations[i][0] == 'm') {
             Visit(funcCall->_args[i]);
             if (types[i]->IsFloat())
                 Push("xmm8");
             else
-                Push("rax");
+                Push("r10");
         }
     }
 
+    int fltCnt = 0;
     for (int i = locations.size() - 1; i >=0; i--) {
         if (locations[i][0] == 'm')
             continue;
         Visit(funcCall->_args[i]);
         
         if (locations[i][0] == 'x') {
+            ++fltCnt;
             auto inst = GetInst("mov", types[i]);
             Emit("%s #xmm8, #%s", inst.c_str(), locations[i]);
         } else {
@@ -832,10 +827,15 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         }
     }
 
-    Emit("addq $16, #rsp");
-
-
     // If variadic, set %al
+    if (funcType->Variadic()) {
+        Emit("movq $%d, %rax", fltCnt);
+    }
+    Emit("leaq %d(#rbp), #rsp", _offset);
+    Emit("call %s", funcCall->Name().c_str());
+    Emit("leaq %d(#rbp), #rsp", beforePass);
+
+    _offset = base;    
 }
 
 
@@ -1064,7 +1064,7 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 {
     assert(unary->_op == Token::DEREF);
     Generator().GenExpr(unary->_operand);
-    Emit("movq #rax, #r11");
+    Emit("movq #r10, #r11");
 
     _addr = {"", "r11", 0};
 }

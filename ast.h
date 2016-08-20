@@ -506,6 +506,14 @@ public:
         return _designator;
     }
 
+    std::string Name(void) const {
+        return _tok->Str();
+    }
+
+    ::FuncType* FuncType(void) {
+        return _designator->Type()->ToPointerType()->Derived()->ToFuncType();
+    }
+
     virtual void TypeChecking(void);
 
 protected:

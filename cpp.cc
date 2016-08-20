@@ -286,9 +286,9 @@ void Preprocessor::Process(TokenSeq& os)
 
 
 
-    std::string str;
-    Stringize(str, is);
-    std::cout << str << std::endl;
+    //std::string str;
+    //Stringize(str, is);
+    //std::cout << str << std::endl;
 
     Expand(os, is);
 
@@ -302,11 +302,11 @@ void Preprocessor::Process(TokenSeq& os)
         }
     }
 
-    str.resize(0);
-    Stringize(str, os);
-    std::cout << std::endl << "###### Preprocessed ######" << std::endl;
-    std::cout << str << std::endl << std::endl;
-    std::cout << std::endl << "###### End ######" << std::endl;
+    //str.resize(0);
+    //Stringize(str, os);
+    //std::cout << std::endl << "###### Preprocessed ######" << std::endl;
+    //std::cout << str << std::endl << std::endl;
+    //std::cout << std::endl << "###### End ######" << std::endl;
 }
 
 

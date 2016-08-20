@@ -580,7 +580,7 @@ FuncCall* FuncCall::New(Expr* designator, const ArgList& args)
 void FuncCall::TypeChecking(void)
 {
     auto pointerType = _designator->Type()->ToPointerType();
-    FuncType* funcType;
+    ::FuncType* funcType;
     if (!pointerType || !(funcType = pointerType->Derived()->ToFuncType())) {
         Error(_tok, "'%s' is not a function", _tok->Str());
     }
@@ -594,6 +594,8 @@ void FuncCall::TypeChecking(void)
         if (!paramType->Compatible(*(*arg)->Type())) {
             // TODO(wgtdkp): function name
             Error(_tok, "incompatible type for argument 1 of ''");
+        } else if (*paramType != *(*arg)->Type()) {
+            *arg = UnaryOp::New((*arg)->Tok(), Token::CAST, *arg, paramType);
         }
 
         ++arg;
