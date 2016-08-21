@@ -189,6 +189,7 @@ protected:
     // The address that store the register %rdi,
     //     when the return value is a struct/union
     static int _retAddrOffset;
+    static FuncDef* _curFunc;
 
     static std::vector<Declaration*> _staticDecls;
 };

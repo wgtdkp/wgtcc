@@ -186,7 +186,7 @@ public:
         _curScope = _curScope->Parent();
     }
 
-    void EnterFunc(Identifier* func);
+    FuncDef* EnterFunc(Identifier* ident);
 
     void ExitFunc(void);
 
@@ -210,7 +210,7 @@ public:
     //    return _staticObjects;
     //}
     
-    Identifier* CurFunc(void) {
+    FuncDef* CurFunc(void) {
         return _curFunc;
     }
 
@@ -235,7 +235,8 @@ private:
 
     Scope* _curScope;
     Scope* _curParamScope;
-    Identifier* _curFunc;
+    //Identifier* _curFunc;
+    FuncDef* _curFunc;
     LabelMap _curLabels;
     LabelJumpList _unresolvedJumps;
     

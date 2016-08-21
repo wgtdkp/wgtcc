@@ -21,6 +21,7 @@ RODataList Generator::_rodatas;
 std::vector<Declaration*> Generator::_staticDecls;
 int Generator::_offset = 0;
 int Generator::_retAddrOffset = 0;
+FuncDef* Generator::_curFunc = nullptr;
 
 
 static std::vector<const char*> regs {
@@ -778,8 +779,7 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
         Emit("movq #r11, #rax");
     }
 
-    Emit("leaveq");
-    Emit("retq");
+    Emit("jmp %s", _curFunc->_retLabel->Label().c_str());
 }
 
 
@@ -921,6 +921,8 @@ std::vector<const char*> Generator::GetParamLocation(
 
 void Generator::VisitFuncDef(FuncDef* funcDef)
 {
+    _curFunc = funcDef;
+
     auto name = funcDef->Name();
 
     Emit(".text");
@@ -981,6 +983,10 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     for (auto stmt: funcDef->_body->_stmts) {
         Visit(stmt);
     }
+
+    EmitLabel(funcDef->_retLabel->Label());
+    Emit("leaveq");
+    Emit("retq");
 }
 
 
@@ -989,14 +995,14 @@ int Generator::GenSaveArea(void)
     static const int begin = -176;
     int offset = begin;
     for (auto reg: regs) {
-        Emit("movq #%s, %d(rbp)", reg, offset);
+        Emit("movq #%s, %d(#rbp)", reg, offset);
         offset += 8;
     }
     Emit("testb #al, #al");
     auto label = LabelStmt::New();
     Emit("je %s", label->Label().c_str());
     for (auto xreg: xregs) {
-        Emit("movaps #%s, %d(rbp)", xreg, offset);
+        Emit("movaps #%s, %d(#rbp)", xreg, offset);
         offset += 16;
     }
     assert(offset == 0);

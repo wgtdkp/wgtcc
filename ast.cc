@@ -612,6 +612,16 @@ void FuncCall::TypeChecking(void)
     if (arg != _args.end() && !funcType->Variadic()) {
         Error(_tok, "too many arguments for function ''");
     }
+
+    // c11 6.5.2.2 [6]: promote float to double if it has no prototype
+    while (arg != _args.end()) {
+        if ((*arg)->Type()->IsFloat() && (*arg)->Type()->Width() == 4) {
+            auto type = ArithmType::New(T_DOUBLE);
+            *arg = UnaryOp::New((*arg)->Tok(), Token::CAST, *arg, type);
+        }
+        ++arg;
+    }
+
     
     _type = funcType->Derived();
 }
@@ -792,10 +802,9 @@ LabelStmt* LabelStmt::New(void)
     return ret;
 }
 
-FuncDef* FuncDef::New(Identifier* ident, const ParamList& params,
-        CompoundStmt* stmt)
+FuncDef* FuncDef::New(Identifier* ident, LabelStmt* retLabel)
 {
-    auto ret = new (funcDefPool.Alloc()) FuncDef(ident, params, stmt);
+    auto ret = new (funcDefPool.Alloc()) FuncDef(ident, retLabel);
     ret->_pool = &funcDefPool;
 
     return ret;

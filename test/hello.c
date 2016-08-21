@@ -15,10 +15,21 @@ int main(void)
 }
 */
 
+int test(int a)
+{
+    if (a == 1)
+        return 1;
+    else
+        return 10;
+}
+
 int main(void)
 {
-    float d = ((int)7.5) + 5;
+    float d = 5.3;
     //printf("hello world\n");
-    printf("year: %f\n", d);
+    printf("test: %d\n", test(1));
+    printf("test: %d\n", test(2));
+    printf("test: %d\n", test(3));
+    
     return 0;
 }

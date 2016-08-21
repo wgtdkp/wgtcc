@@ -826,8 +826,7 @@ public:
     typedef std::vector<Object*> ParamList;
     
 public:
-    static FuncDef* New(Identifier* ident, const ParamList& params,
-            CompoundStmt* stmt);
+    static FuncDef* New(Identifier* ident, LabelStmt* retLabel);
 
     virtual ~FuncDef(void) {}
     
@@ -843,6 +842,10 @@ public:
         return _body;
     }
 
+    void SetBody(CompoundStmt* body) {
+        _body = body;
+    }
+
     std::string Name(void) const {
         return _ident->Name();
     }
@@ -854,11 +857,12 @@ public:
     virtual void Accept(Visitor* v);
 
 protected:
-    FuncDef(Identifier* ident, const ParamList& params, CompoundStmt* stmt)
-            : _ident(ident), _params(params), _body(stmt) {}
+    FuncDef(Identifier* ident, LabelStmt* retLabel)
+            : _ident(ident), _retLabel(retLabel) {}
 
 private:
     Identifier* _ident;
+    LabelStmt* _retLabel;
     ParamList _params;
     CompoundStmt* _body;
 };

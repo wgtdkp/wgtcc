@@ -13,13 +13,14 @@
 using namespace std;
 
 
-void Parser::EnterFunc(Identifier* func) {
+FuncDef* Parser::EnterFunc(Identifier* ident) {
     //TODO(wgtdkp): Add __func__ macro
 
     _curParamScope->SetParent(_curScope);
     _curScope = _curParamScope;
 
-    _curFunc = func;
+    _curFunc = FuncDef::New(ident, LabelStmt::New());
+    return _curFunc;
 }
 
 void Parser::ExitFunc(void) {
@@ -107,9 +108,8 @@ void Parser::ParseTranslationUnit(void)
 
 FuncDef* Parser::ParseFuncDef(Identifier* ident)
 {
-    EnterFunc(ident);
+    auto funcDef = EnterFunc(ident);
 
-    FuncDef::ParamList params;
     auto funcType = ident->Type()->ToFuncType();
     FuncType::TypeList& paramTypes = funcType->ParamTypes();
     if (_curScope->size() != paramTypes.size()) {
@@ -120,16 +120,16 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
         auto iter = _curScope->begin();
         for (; iter != _curScope->end(); iter++) {
             if (iter->second->Type() == paramType) {
-                params.push_back(iter->second->ToObject());
+                funcDef->Params().push_back(iter->second->ToObject());
                 break;
             }
         }
     }
 
-    auto stmt = ParseCompoundStmt(funcType);
+    funcDef->SetBody(ParseCompoundStmt(funcType));
     ExitFunc();
-
-    return FuncDef::New(ident, params, stmt);
+    
+    return funcDef;
 }
 
 Expr* Parser::ParseExpr(void)
