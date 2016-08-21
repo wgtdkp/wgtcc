@@ -412,20 +412,17 @@ void Generator::GenPointerArithm(BinaryOp* binary)
     // For '+', we have swap _lhs and _rhs to ensure that 
     // the pointer is at lhs.
     Visit(binary->_lhs);
-    Push("rax");
-    Push("rax");
+    Spill(false);
     Visit(binary->_rhs);
     
     auto type = binary->_lhs->Type()->ToPointerType()->Derived();
     if (type->Width() > 1)
         Emit("imul $%d, #rax", type->Width());
-    Emit("mov #rax, #rax");
-    Pop("rax");
+    Restore(false);
     if (binary->_op == '+')
-        Emit("add #rax, #rax");
+        Emit("add #r11, #rax");
     else
-        Emit("sub #rax, #rax");
-    Pop("rax");
+        Emit("sub #r11, #rax");
 }
 
 
@@ -466,7 +463,9 @@ void Generator::GenCastOp(UnaryOp* cast)
     } else if (desType->IsFloat()) {
         const char* inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
         Emit("%s #rax, #xmm8", inst);
-    } else if (srcType->ToPointerType()) {
+    } else if (srcType->ToPointerType()
+            || srcType->ToFuncType()
+            || srcType->ToArrayType()) {
         // Do nothing
     } else {
         int width = srcType->Width();
@@ -592,20 +591,25 @@ void Generator::Exchange(bool flt)
 
 void Generator::VisitConditionalOp(ConditionalOp* condOp)
 {
-
+    auto ifStmt = IfStmt::New(condOp->_cond,
+            condOp->_exprTrue, condOp->_exprFalse);
+    VisitIfStmt(ifStmt);
 }
-
 
 
 void Generator::VisitEnumerator(Enumerator* enumer)
 {
-
+    auto cons = Constant::New(enumer->Tok(), T_INT, (long)enumer->Val());
+    Visit(cons);
 }
 
 
+// Ident must be function
 void Generator::VisitIdentifier(Identifier* ident)
 {
-
+    // TODO(wgtdkp): handle function name
+    //Error("not implemented yet");
+    Emit("leaq %s, #rax", ident->Name().c_str());
 }
 
 
@@ -619,7 +623,7 @@ void Generator::VisitConstant(Constant* cons)
 
 void Generator::VisitTempVar(TempVar* tempVar)
 {
-
+    Error("not implemented yet");
 }
 
 
@@ -792,10 +796,9 @@ public:
 };
 
 
-int Generator::AllocObjects(int baseOffset, Scope* scope,
-        const FuncDef::ParamList& params)
+void Generator::AllocObjects(Scope* scope, const FuncDef::ParamList& params)
 {
-    int offset = baseOffset;
+    int offset = _offset;
 
     auto paramSet = std::set<Object*>(params.begin(), params.end());
     std::priority_queue<Object*, std::vector<Object*>, Comp> heap;
@@ -817,7 +820,7 @@ int Generator::AllocObjects(int baseOffset, Scope* scope,
         obj->SetOffset(offset);
     }
 
-    return offset;
+    _offset = offset;
 }
 
 
@@ -825,7 +828,7 @@ void Generator::VisitCompoundStmt(CompoundStmt* compStmt)
 {
     if (compStmt->_scope) {
         //compStmt
-        _offset = AllocObjects(_offset, compStmt->_scope);
+        AllocObjects(compStmt->_scope);
     }
 
     for (auto stmt: compStmt->_stmts) {
@@ -888,7 +891,15 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 
     _offset = Type::MakeAlign(_offset, 16);
     Emit("leaq %d(#rbp), #rsp", _offset);
-    Emit("call %s", funcCall->Name().c_str());
+
+    auto addr = LValGenerator().GenExpr(funcCall->Designator());
+    //if (addr._base == "rip")
+    if (addr._base.size() == 0 && addr._offset == 0) {
+        Emit("call %s", addr._label.c_str());
+    } else {
+        Emit("leaq %s, #r10", addr.Repr().c_str());
+        Emit("call *#r10");
+    }
     //Emit("leaq %d(#rbp), #rsp", beforePass);
 
     _offset = base;    
@@ -940,16 +951,15 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     FuncDef::ParamList& params = funcDef->Params();
 
     _offset = 0;
-    int offset = _offset;
 
     // Arrange space to store params passed by registers
     auto retType = funcDef->Type()->Derived()->ToStructUnionType();
     auto locations = GetParamLocation(funcDef->Type()->ParamTypes(), retType);
 
     if (funcDef->Type()->Variadic()) {
-        offset = GenSaveArea(); // 'offset' is now the begin of save area
-        int regOffset = retType ? offset + 8: offset;
-        int xregOffset = offset + 8 * 8;
+        GenSaveArea(); // 'offset' is now the begin of save area
+        int regOffset = retType ? _offset + 8: _offset;
+        int xregOffset = _offset + 8 * 8;
         int byMemOffset = 16;
         for (size_t i = 0; i < locations.size(); i++) {
             if (locations[i][0] == 'm') {
@@ -975,10 +985,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
         }
     }
 
-    offset = AllocObjects(offset, funcDef->Body()->Scope(), params);
-    
-    //Emit("subq $%d, #rsp", _offset - offset);
-    _offset = offset;
+    AllocObjects(funcDef->Body()->Scope(), params);
 
     for (auto stmt: funcDef->_body->_stmts) {
         Visit(stmt);
@@ -990,7 +997,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
 }
 
 
-int Generator::GenSaveArea(void)
+void Generator::GenSaveArea(void)
 {
     static const int begin = -176;
     int offset = begin;
@@ -1008,7 +1015,7 @@ int Generator::GenSaveArea(void)
     assert(offset == 0);
     EmitLabel(label->Label());
 
-    return begin;
+    _offset = begin;
 }
 
 
@@ -1147,9 +1154,9 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 {
     assert(unary->_op == Token::DEREF);
     Generator().GenExpr(unary->_operand);
-    Emit("movq #rax, #r11");
+    Emit("movq #rax, #r10");
 
-    _addr = {"", "r11", 0};
+    _addr = {"", "r10", 0};
 }
 
 
@@ -1169,14 +1176,14 @@ void LValGenerator::VisitIdentifier(Identifier* ident)
     assert(!ident->ToTypeName());
 
     // Function address
-    _addr = {ident->Name(), "rip", 0};
+    _addr = {ident->Name(), "", 0};
 }
 
 
 
 std::string ObjectAddr::Repr(void) const
 {
-    auto ret = "(%" + _base + ")";
+    auto ret = _base.size() ? "(%" + _base + ")": "";
     if (_label.size() == 0) {
         if (_offset == 0)
             return ret;

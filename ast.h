@@ -379,8 +379,8 @@ public:
     void AssignOpTypeChecking(void);
 
 protected:
-    BinaryOp(int op, Expr* lhs, Expr* rhs)
-            : Expr(lhs->Tok(), nullptr), _op(op),
+    BinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs)
+            : Expr(tok, nullptr), _op(op),
               _lhs(MayCast(lhs)), _rhs(MayCast(rhs)) {}
 
     int _op;
@@ -409,8 +409,7 @@ class UnaryOp : public Expr
     friend class LValGenerator;
 
 public:
-    static UnaryOp* New(const Token* tok,
-            int op, Expr* operand, ::Type* type=nullptr);
+    static UnaryOp* New(int op, Expr* operand, ::Type* type=nullptr);
 
     virtual ~UnaryOp(void) {}
     
@@ -512,7 +511,7 @@ public:
     }
 
     ::FuncType* FuncType(void) {
-        return _designator->Type()->ToPointerType()->Derived()->ToFuncType();
+        return _designator->Type()->ToFuncType();
     }
 
     virtual void TypeChecking(void);
@@ -520,7 +519,7 @@ public:
 protected:
     FuncCall(Expr* designator, const ArgList& args)
         : Expr(designator->Tok(), nullptr),
-          _designator(MayCast(designator)), _args(args) {}
+          _designator(designator), _args(args) {}
 
     Expr* _designator;
     ArgList _args;
@@ -636,7 +635,7 @@ public:
 
     virtual ~Identifier(void) {}
 
-    virtual void Accept(Visitor* v) { assert(false); }
+    virtual void Accept(Visitor* v);
 
     virtual bool IsLVal(void) {
         return false;

@@ -4,12 +4,9 @@
 int main(void)
 {
     float a = 5;
-    //if (a) {
-    //    ;//a = 2;
-    //} else {
-    //    ;//a = 3;
-    //}
-
-    printf("a: %f\n", a);
+    if (a < 4)
+        printf("a < 4 \n");
+    else
+        printf("a >= 4 \n");
     return 0;
 }

@@ -78,6 +78,10 @@ void FuncCall::Accept(Visitor* v) {
     v->VisitFuncCall(this);
 }
 
+void Identifier::Accept(Visitor* v) {
+    v->VisitIdentifier(this);
+}
+
 void Object::Accept(Visitor* v) {
     v->VisitObject(this);
 }
@@ -110,12 +114,12 @@ Expr* Expr::MayCast(Expr* expr)
     if (arrType) {
         auto pointer = PointerType::New(arrType->Derived());
         pointer->SetQual(Q_CONST);
-        return UnaryOp::New(expr->Tok(), Token::CAST, expr, pointer);
+        return UnaryOp::New(Token::CAST, expr, pointer);
     }
     auto funcType = expr->Type()->ToFuncType();
     if (funcType) {
         auto pointer = PointerType::New(funcType);
-        return UnaryOp::New(expr->Tok(), Token::CAST, expr, pointer);
+        return UnaryOp::New(Token::CAST, expr, pointer);
     }
     return expr;
 }
@@ -125,7 +129,7 @@ Expr* Expr::MayCast(Expr* expr, ::Type* desType)
 {
     expr = MayCast(expr);
     if (*desType != *expr->Type())
-        expr = UnaryOp::New(expr->Tok(), Token::CAST, expr, desType);
+        expr = UnaryOp::New(Token::CAST, expr, desType);
     return expr;
 }
 
@@ -165,7 +169,7 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
         assert(0);
     }
 
-    auto ret = new (binaryOpPool.Alloc()) BinaryOp(op, lhs, rhs);
+    auto ret = new (binaryOpPool.Alloc()) BinaryOp(tok, op, lhs, rhs);
     ret->_pool = &binaryOpPool;
     
     ret->TypeChecking();
@@ -181,10 +185,10 @@ ArithmType* BinaryOp::Promote(void)
     
     auto type = MaxType(lhsType, rhsType);
     if (lhsType != type) {// Pointer comparation is enough!
-        _lhs = UnaryOp::New(_tok, Token::CAST, _lhs, type);
+        _lhs = UnaryOp::New(Token::CAST, _lhs, type);
     }
     if (rhsType != type) {
-        _rhs = UnaryOp::New(_tok, Token::CAST, _rhs, type);
+        _rhs = UnaryOp::New(Token::CAST, _rhs, type);
     }
     
     return type;
@@ -397,7 +401,7 @@ void BinaryOp::AssignOpTypeChecking(void)
         Error(_lhs->Tok(), "uncompatible types");
     }
     // The other constraints are lefted to cast operator
-    _rhs = UnaryOp::New(_tok,Token::CAST, _rhs, _lhs->Type());
+    _rhs = UnaryOp::New(Token::CAST, _rhs, _lhs->Type());
     _type = _lhs->Type();
 }
 
@@ -406,8 +410,7 @@ void BinaryOp::AssignOpTypeChecking(void)
  * Unary Operators
  */
 
-UnaryOp* UnaryOp::New(const Token* tok,
-        int op, Expr* operand, ::Type* type)
+UnaryOp* UnaryOp::New(int op, Expr* operand, ::Type* type)
 {
     auto ret = new (unaryOpPool.Alloc()) UnaryOp(op, operand, type);
     ret->_pool = &unaryOpPool;
@@ -541,10 +544,10 @@ ArithmType* ConditionalOp::Promote(void)
     
     auto type = MaxType(lhsType, rhsType);
     if (lhsType != type) {// Pointer comparation is enough!
-        _exprTrue = UnaryOp::New(_tok, Token::CAST, _exprTrue, type);
+        _exprTrue = UnaryOp::New(Token::CAST, _exprTrue, type);
     }
     if (rhsType != type) {
-        _exprFalse = UnaryOp::New(_tok, Token::CAST, _exprFalse, type);
+        _exprFalse = UnaryOp::New(Token::CAST, _exprFalse, type);
     }
     
     return type;
@@ -588,12 +591,11 @@ FuncCall* FuncCall::New(Expr* designator, const ArgList& args)
 
 void FuncCall::TypeChecking(void)
 {
-    auto pointerType = _designator->Type()->ToPointerType();
-    ::FuncType* funcType;
-    if (!pointerType || !(funcType = pointerType->Derived()->ToFuncType())) {
-        Error(_tok, "'%s' is not a function", _tok->Str());
+    if (_designator->Type()->ToPointerType()) {
+        _designator = UnaryOp::New(Token::DEREF, _designator);
     }
 
+    auto funcType = _designator->Type()->ToFuncType();
     auto arg = _args.begin();
     for (auto paramType: funcType->ParamTypes()) {
         if (arg == _args.end()) {
@@ -617,7 +619,7 @@ void FuncCall::TypeChecking(void)
     while (arg != _args.end()) {
         if ((*arg)->Type()->IsFloat() && (*arg)->Type()->Width() == 4) {
             auto type = ArithmType::New(T_DOUBLE);
-            *arg = UnaryOp::New((*arg)->Tok(), Token::CAST, *arg, type);
+            *arg = UnaryOp::New(Token::CAST, *arg, type);
         }
         ++arg;
     }

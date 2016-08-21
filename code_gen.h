@@ -133,14 +133,18 @@ public:
     StaticInitializer GetStaticInit(const Initializer& init);
 
     void GenStaticDecl(Declaration* decl);
-    int GenSaveArea(void);
     
-    int AllocObjects(int baseOffset, Scope* scope,
+    void GenSaveArea(void);
+    
+    void AllocObjects(Scope* scope,
             const FuncDef::ParamList& params=FuncDef::ParamList());
 
     void CopyStruct(ObjectAddr desAddr, int len);
+    
     std::string ConsLabel(Constant* cons);
-    std::vector<const char*> GetParamLocation(FuncType::TypeList& types, bool retStruct);
+
+    std::vector<const char*> GetParamLocation(
+            FuncType::TypeList& types, bool retStruct);
 
     // gen and emit
     void Gen(void);

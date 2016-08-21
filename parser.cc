@@ -253,7 +253,7 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
             break;
         
         case Token::PTR_OP:
-            lhs = UnaryOp::New(tok, Token::DEREF, lhs);    
+            lhs = UnaryOp::New(Token::DEREF, lhs);    
         case '.':
             lhs = ParseMemberRef(tok, '.', lhs);
             break;
@@ -278,7 +278,7 @@ Expr* Parser::ParseSubScripting(Expr* lhs)
     _ts.Expect(']');
     //
     auto operand = BinaryOp::New(tok, '+', lhs, rhs);
-    return UnaryOp::New(tok, Token::DEREF, operand);
+    return UnaryOp::New(Token::DEREF, operand);
 }
 
 
@@ -306,14 +306,11 @@ UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
     auto op = tok->Tag() == Token::INC_OP ?
             Token::POSTFIX_INC: Token::POSTFIX_DEC;
 
-    return UnaryOp::New(tok, op, operand);
+    return UnaryOp::New(op, operand);
 }
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
 {
-    FuncType* type = designator->Type()->ToFuncType();
-    assert(type);
-
     FuncCall::ArgList args;
     while (!_ts.Try(')')) {
         args.push_back(ParseAssignExpr());
@@ -394,14 +391,14 @@ UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
             Token::PREFIX_INC: Token::PREFIX_DEC;
     auto operand = ParseUnaryExpr();
     
-    return UnaryOp::New(tok, op, operand);
+    return UnaryOp::New(op, operand);
 }
 
 UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
 {
     auto operand = ParseCastExpr();
 
-    return UnaryOp::New(tok, op, operand);
+    return UnaryOp::New(op, operand);
 }
 
 Type* Parser::ParseTypeName(void)
@@ -421,7 +418,7 @@ Expr* Parser::ParseCastExpr(void)
         _ts.Expect(')');
         auto operand = ParseCastExpr();
         
-        return UnaryOp::New(tok, Token::CAST, operand, desType);
+        return UnaryOp::New(Token::CAST, operand, desType);
     }
     
     _ts.PutBack();
