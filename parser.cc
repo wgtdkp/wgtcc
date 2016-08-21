@@ -1987,7 +1987,7 @@ CompoundStmt* Parser::ParseForStmt(void)
     stmts.push_back(condLabel);
     if (nullptr != condExpr) {
         auto gotoEndStmt = JumpStmt::New(endLabel);
-        auto ifStmt = IfStmt::New(condExpr, nullptr, gotoEndStmt);
+        auto ifStmt = IfStmt::New(condExpr, EmptyStmt::New(), gotoEndStmt);
         stmts.push_back(ifStmt);
     }
 

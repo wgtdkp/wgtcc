@@ -175,11 +175,13 @@ static const char* GetReg(int width)
 static inline void GetOperands(const char*& src,
         const char*& des, int width, bool flt)
 {
+    assert(width == 4 || width == 8);
     src = flt ? "xmm9": (width == 8 ? "r11": "r11d");
     des = flt ? "xmm8": (width == 8 ? "rax": "eax");
 }
 
 
+// The 'reg' must be 8 bytes  
 int Generator::Push(const char* reg)
 {
     _offset -= 8;
@@ -189,6 +191,7 @@ int Generator::Push(const char* reg)
 }
 
 
+// The 'reg' must be 8 bytes
 int Generator::Pop(const char* reg)
 {
     auto mov = reg[0] == 'x' ? "movsd": "movq";
@@ -217,14 +220,14 @@ void Generator::Restore(bool flt)
 
 std::string Generator::Save(const std::string& src)
 {
-    assert(src == "rax" || src == "xmm8");
-    if (src == "rax") {
-        Emit("movq #rax, #rcx");
-        return "rcx";
-    } else {
+    //assert(src == "rax" || src == "eax" || src == "xmm8");
+    if (src == "xmm8") {
         Emit("movsd #xmm8, xmm9");
         return "xmm9";
-    }
+    } else {
+        Emit("movq #rax, #rcx");
+        return "rcx";
+    } 
 }
 
 
@@ -330,7 +333,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
     auto addr = LValGenerator().GenExpr(ref).Repr();
 
     if (!ref->Type()->IsScalar()) {
-        Emit("lea %s, #rax", addr.c_str());
+        Emit("leaq %s, #rax", addr.c_str());
     } else {
         EmitLoad(addr, ref->Type());
     }
@@ -381,7 +384,7 @@ void Generator::GenCompOp(bool flt, int width, const char* set)
 
     Emit("%s #%s, #%s", cmp, src, des);
     Emit("%s #al", set);
-    Emit("movzbl #al, #rax");
+    Emit("movzbq #al, #rax");
 }
 
 
@@ -428,7 +431,7 @@ void Generator::GenPointerArithm(BinaryOp* binary)
 void Generator::GenDerefOp(UnaryOp* deref)
 {
     auto addr = LValGenerator().GenExpr(deref->_operand).Repr();
-    Emit("lea %s, #rax", addr.c_str());
+    Emit("leaq %s, #rax", addr.c_str());
 }
 
 
@@ -439,7 +442,7 @@ void Generator::VisitObject(Object* obj)
     // TODO(wgtdkp): handle static object
     if (!obj->Type()->IsScalar()) {
         // Return the address of the object in rax
-        Emit("lea %s, #rax", addr.c_str());
+        Emit("leaq %s, #rax", addr.c_str());
     } else {
         EmitLoad(addr, obj->Type());
     }
@@ -549,7 +552,7 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
     // Need a special base register to reduce register conflict
     auto addr = LValGenerator().GenExpr(operand).Repr();
     auto des = EmitLoad(addr, operand->Type());
-    auto saved = Save(des);
+    Save(des);
 
     Constant* cons;
     auto pointerType = operand->Type()->ToPointerType();
@@ -570,20 +573,19 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
     Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), des.c_str());
 
     EmitStore(addr, operand->Type());
-    Exchange(des, saved);
+    Exchange(operand->Type()->IsFloat());
 }
 
 
-void Generator::Exchange(const std::string& lhs, const std::string& rhs)
+void Generator::Exchange(bool flt)
 {
-    if (lhs == "xmm8" || rhs == "xmm8") {
-        Emit("movsd #%s, #xmm2", lhs.c_str());
-        Emit("movsd #%s, #%s", rhs.c_str(), lhs.c_str());
-        Emit("movsd #xmm2, #%s", rhs.c_str());
+    if (flt) {
+        Emit("movsd #xmm8, #xmm10");
+        Emit("movsd #xmm9, #xmm8");
+        Emit("movsd #xmm10, #xmm8");
     } else {
-        Emit("xchgq #%s, #%s", lhs.c_str(), rhs.c_str());
+        Emit("xchgq #rax, #rcx");
     }
-
 }
 
 
@@ -710,13 +712,43 @@ void Generator::GenStaticDecl(Declaration* decl)
 
 void Generator::VisitEmptyStmt(EmptyStmt* emptyStmt)
 {
-
+    assert(false);
 }
 
 
 void Generator::VisitIfStmt(IfStmt* ifStmt)
 {
+    VisitExpr(ifStmt->_cond);
 
+    auto flt = ifStmt->_cond->Type()->IsFloat();
+    auto width = ifStmt->_cond->Type()->Width();
+    // Compare to 0
+    auto elseLabel = LabelStmt::New()->Label();
+    auto endLabel = LabelStmt::New()->Label();
+
+    if (!flt) {
+        Emit("cmp $0, #%s", GetReg(width));
+    } else {
+        Emit("pxor #xmm9, #xmm9");
+        auto cmp = width == 8 ? "ucomisd": "ucomiss";
+        Emit("%s #xmm9, #xmm8", cmp);
+    }
+
+    if (ifStmt->_else) {
+        Emit("je %s", elseLabel.c_str());
+    } else {
+        Emit("je %s", endLabel.c_str());
+    }
+
+    VisitStmt(ifStmt->_then);
+    
+    if (ifStmt->_else) {
+        Emit("jmp %s", endLabel.c_str());
+        EmitLabel(elseLabel.c_str());
+        VisitStmt(ifStmt->_else);
+    }
+    
+    EmitLabel(endLabel.c_str());
 }
 
 
@@ -746,8 +778,8 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
         Emit("movq #r11, #rax");
     }
 
-    Emit("leave");
-    Emit("ret");
+    Emit("leaveq");
+    Emit("retq");
 }
 
 

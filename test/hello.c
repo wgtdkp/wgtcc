@@ -17,8 +17,8 @@ int main(void)
 
 int main(void)
 {
-    double d = ((int)7.5) + 5;
+    float d = ((int)7.5) + 5;
     //printf("hello world\n");
-    printf("year: %lf\n", d);
+    printf("year: %f\n", d);
     return 0;
 }

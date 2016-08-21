@@ -149,6 +149,14 @@ public:
         expr->Accept(this);
     }
 
+    void VisitExpr(Expr* expr) {
+        expr->Accept(this);
+    }
+
+    void VisitStmt(Stmt* stmt) {
+        stmt->Accept(this);
+    }
+
     void Emit(const char* format, ...);
     void EmitLabel(const std::string& label);
     std::string EmitLoad(const std::string& addr, Type* type);
@@ -163,7 +171,7 @@ public:
 
     std::string Save(const std::string& src);
 
-    void Exchange(const std::string& lhs, const std::string& rhs);
+    void Exchange(bool flt);
 
     static void SetInOut(Parser* parser, FILE* outFile) {
         _parser = parser;
