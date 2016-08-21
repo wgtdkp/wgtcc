@@ -33,6 +33,9 @@ struct ROData
         _label = ".LC" + std::to_string(GenTag());
     }
 
+    //ROData(const ROData& other) = delete;
+    //ROData& operator=(const ROData& other) = delete;
+
 
     ~ROData(void) {}
 
