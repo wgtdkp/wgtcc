@@ -172,7 +172,29 @@ static const char* GetReg(int width)
     }
 }
 
+static const char* GetDes(int width, bool flt)
+{
+    if (flt) {
+        return "xmm8";
+    }
+    return GetReg(width);
+}
 
+static const char* GetSrc(int width, bool flt)
+{
+    if (flt) {
+        return "xmm9";
+    }
+    switch (width) {
+    case 1: return "r11b";
+    case 2: return "r11w";
+    case 4: return "r11d";
+    case 8: return "r11";
+    default: assert(false); return "";
+    }
+}
+
+/*
 static inline void GetOperands(const char*& src,
         const char*& des, int width, bool flt)
 {
@@ -180,7 +202,7 @@ static inline void GetOperands(const char*& src,
     src = flt ? "xmm9": (width == 8 ? "r11": "r11d");
     des = flt ? "xmm8": (width == 8 ? "rax": "eax");
 }
-
+*/
 
 // The 'reg' must be 8 bytes  
 int Generator::Push(const char* reg)
@@ -210,25 +232,22 @@ void Generator::Spill(bool flt)
 
 void Generator::Restore(bool flt)
 {
-    const char* src;
-    const char* des;
-    GetOperands(des, src, 8, flt);
-    const char* inst = flt ? "movsd": "movq";
-    Emit("%s #%s, #%s", inst, src, des);
-    Pop(src);
+    auto src = GetSrc(8, flt);
+    auto des = GetDes(8, flt);
+    auto inst = GetInst("mov", 8, flt);
+    Emit("%s #%s, #%s", inst.c_str(), des, src);
+    Pop(des);
 }
 
 
-std::string Generator::Save(const std::string& src)
+void Generator::Save(bool flt)
 {
     //assert(src == "rax" || src == "eax" || src == "xmm8");
-    if (src == "xmm8") {
+    if (flt) {        
         Emit("movsd #xmm8, xmm9");
-        return "xmm9";
     } else {
-        Emit("movq #rax, #rcx");
-        return "rcx";
-    } 
+        Emit("movq #rax, #r11");
+    }
 }
 
 
@@ -309,10 +328,7 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     case Token::RIGHT_OP: inst = sign ? "sar": "shr"; break;
     }
 
-    const char* src;
-    const char* des;
-    GetOperands(src, des, width, flt);
-    Emit("%s #%s, #%s", inst, src, des);
+    Emit("%s #%s, #%s", inst, GetSrc(width, flt), GetDes(width, flt));
 }
 
 
@@ -377,13 +393,14 @@ void Generator::CopyStruct(ObjectAddr desAddr, int len)
 
 void Generator::GenCompOp(bool flt, int width, const char* set)
 {
-    auto cmp = flt ? (width == 8 ? "ucomisd": "ucomiss"): "cmp";
-    
-    const char* src;
-    const char* des;
-    GetOperands(src, des, width, flt);
+    std::string cmp;
+    if (flt) {
+        cmp = width == 8 ? "ucomisd": "ucomiss";
+    } else {
+        cmp = GetInst("cmp", width, flt);
+    }
 
-    Emit("%s #%s, #%s", cmp, src, des);
+    Emit("%s #%s, #%s", cmp.c_str(), GetSrc(width, flt), GetDes(width, flt));
     Emit("%s #al", set);
     Emit("movzbq #al, #rax");
 }
@@ -420,9 +437,9 @@ void Generator::GenPointerArithm(BinaryOp* binary)
         Emit("imul $%d, #rax", type->Width());
     Restore(false);
     if (binary->_op == '+')
-        Emit("add #r11, #rax");
+        Emit("addq #r11, #rax");
     else
-        Emit("sub #r11, #rax");
+        Emit("subq #r11, #rax");
 }
 
 
@@ -523,7 +540,7 @@ void Generator::GenPrefixIncDec(Expr* operand, const std::string& inst)
 {
     // Need a special base register to reduce register conflict
     auto addr = LValGenerator().GenExpr(operand).Repr();
-    auto des = EmitLoad(addr, operand->Type());
+    EmitLoad(addr, operand->Type());
 
     Constant* cons;
     auto pointerType = operand->Type()->ToPointerType();
@@ -540,8 +557,9 @@ void Generator::GenPrefixIncDec(Expr* operand, const std::string& inst)
     }
     auto consLabel = ConsLabel(cons);
 
-    auto addSub = GetInst(inst, operand->Type());    
-    Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), des.c_str());
+    auto addSub = GetInst(inst, operand->Type());  
+    auto des = GetDes(operand->Type()->Width(), operand->Type()->IsFloat());  
+    Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), des);
     
     EmitStore(addr, operand->Type());
 }
@@ -550,9 +568,12 @@ void Generator::GenPrefixIncDec(Expr* operand, const std::string& inst)
 void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
 {
     // Need a special base register to reduce register conflict
+    auto width = operand->Type()->Width();
+    auto flt = operand->Type()->IsFloat();
+    
     auto addr = LValGenerator().GenExpr(operand).Repr();
-    auto des = EmitLoad(addr, operand->Type());
-    Save(des);
+    EmitLoad(addr, operand->Type());
+    Save(flt);
 
     Constant* cons;
     auto pointerType = operand->Type()->ToPointerType();
@@ -570,10 +591,10 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
     auto consLabel = ConsLabel(cons);
 
     auto addSub = GetInst(inst, operand->Type());    
-    Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), des.c_str());
+    Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), GetDes(width, flt));
 
     EmitStore(addr, operand->Type());
-    Exchange(operand->Type()->IsFloat());
+    Exchange(flt);
 }
 
 
@@ -584,7 +605,7 @@ void Generator::Exchange(bool flt)
         Emit("movsd #xmm9, #xmm8");
         Emit("movsd #xmm10, #xmm8");
     } else {
-        Emit("xchgq #rax, #rcx");
+        Emit("xchgq #rax, #r11");
     }
 }
 
@@ -911,7 +932,6 @@ std::vector<const char*> Generator::GetParamLocation(
 {
     std::vector<const char*> locations;
 
-    size_t argOnStackOffset = 8;
     size_t regCnt = retStruct, xregCnt = 0;
     for (auto type: types) {
         auto cls = Classify(type);
@@ -1084,27 +1104,22 @@ void Generator::Gen(void)
 }
 
 
-std::string Generator::EmitLoad(const std::string& addr, Type* type)
+void Generator::EmitLoad(const std::string& addr, Type* type)
 {
     assert(type->IsScalar());
 
     auto width = type->Width();
     auto flt = type->IsFloat();
     auto load = GetLoad(width, flt);
-    const char* src;
-    const char* des;
-    GetOperands(src, des, width, flt);
+    auto des = GetDes(width == 4 ? 4: 8, flt);
     Emit("%s %s, #%s", load, addr.c_str(), des);
-    return des;
 }
 
 
 void Generator::EmitStore(const std::string& addr, Type* type)
 {
     auto store = GetInst("mov", type);
-    const char* src;
-    const char* des;
-    GetOperands(src, des, type->Width(), type->IsFloat());
+    auto des = GetDes(type->Width(), type->IsFloat());
     Emit("%s #%s, %s", store.c_str(), des, addr.c_str());
 }
 

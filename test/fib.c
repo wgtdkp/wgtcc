@@ -13,11 +13,22 @@ int fib(int n)
     return a;
 }
 
+int sum(int n)
+{
+    int sum = 0;
+    int i;
+    for (i = 0; i <= n; ++i) {
+        sum += i;
+    }
+    return sum;
+}
+
 int main(void)
 {
-    int i;
-    for (i = 0; i < 10; i++) {
-        printf("fib(%d): %d\n", i, fib(i));
+    unsigned char i;
+    for (i = 0; i < 128; ++i) {
+        //printf("fib(%d): %d\n", i, fib(i));
+        printf("sum(%d): %d\n", i, sum(i));
     }
     return 0;
 }

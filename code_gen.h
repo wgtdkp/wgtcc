@@ -163,7 +163,7 @@ public:
 
     void Emit(const char* format, ...);
     void EmitLabel(const std::string& label);
-    std::string EmitLoad(const std::string& addr, Type* type);
+    void EmitLoad(const std::string& addr, Type* type);
     void EmitStore(const std::string& addr, Type* type);
 
     int Push(const char* reg);
@@ -173,7 +173,7 @@ public:
 
     void Restore(bool flt);
 
-    std::string Save(const std::string& src);
+    void Save(bool flt);
 
     void Exchange(bool flt);
 
