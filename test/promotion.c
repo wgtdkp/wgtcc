@@ -1,18 +1,10 @@
+#include <stdio.h>
 
-void foo(void)
+int main(void)
 {
-    char a;
-    short b;
-    int c;
-    unsigned d;
-    long long e;
-    float f;
-    double g;
-
-    b = a + a;
-    c = b + a;
-    d = c + a;
-    e = e + d;
-    g = f + c;
+    long i = 5;
+    float j = 3;
+    printf("%d\n", sizeof(i + j));
+    return 0;    
 }
 

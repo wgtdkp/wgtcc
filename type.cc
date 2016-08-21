@@ -431,9 +431,11 @@ ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType)
         return ArithmType::New(T_INT);
     } else if (lhsType->Width() > rhsType->Width()) {
         if (rhsType->IsFloat())
-            return ArithmType::New(T_DOUBLE);
+            return rhsType;
         return lhsType;
     } else if (lhsType->Width() < rhsType->Width()) {
+        if (lhsType->IsFloat())
+            return lhsType;
         return rhsType;
     } else if (lhsType->IsFloat()) {
         return lhsType;
