@@ -294,8 +294,10 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
 
 
     const char* inst;
-    auto width = binary->Type()->Width();
-    auto flt = binary->Type()->IsFloat();
+    // Careful: for compare algorithm, the type of the expression
+    // is always integer, while the type of lhs and rhs could be float
+    auto width = binary->_lhs->Type()->Width();
+    auto flt = binary->_lhs->Type()->IsFloat();
     auto sign = !flt && !(binary->Type()->ToArithmType()->Tag() & T_UNSIGNED);
 
     Visit(binary->_lhs);

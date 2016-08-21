@@ -426,23 +426,22 @@ void StructUnionType::MergeAnony(StructUnionType* anonType)
 ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType)
 {
     int intWidth = ArithmType::CalcWidth(T_INT);
-    ArithmType* desType;
 
     if (lhsType->Width() < intWidth && rhsType->Width() < intWidth) {
-        desType = ArithmType::New(T_INT);
+        return ArithmType::New(T_INT);
     } else if (lhsType->Width() > rhsType->Width()) {
-        desType = lhsType;
+        if (rhsType->IsFloat())
+            return ArithmType::New(T_DOUBLE);
+        return lhsType;
     } else if (lhsType->Width() < rhsType->Width()) {
-        desType = rhsType;
-    } else if ((lhsType->Tag() & T_FLOAT) || (lhsType->Tag() & T_DOUBLE)) {
-        desType = lhsType;
-    } else if ((rhsType->Tag() & T_FLOAT) || (rhsType->Tag() & T_DOUBLE)) {
-        desType = rhsType;
+        return rhsType;
+    } else if (lhsType->IsFloat()) {
+        return lhsType;
+    } else if (rhsType->IsFloat()) {
+        return rhsType;
     } else if (lhsType->Tag() & T_UNSIGNED) {
-        desType = lhsType;
+        return lhsType;
     } else {
-        desType = rhsType;
+        return rhsType;
     }
-
-    return desType;
 }

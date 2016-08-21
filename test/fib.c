@@ -25,10 +25,12 @@ int sum(int n)
 
 int main(void)
 {
-    unsigned char i;
-    for (i = 0; i < 128; ++i) {
+    double j = 5;
+    //int d = j < 128;
+    //printf("%d\n", d);
+    for (j = 0; j < 128; ++j) {
         //printf("fib(%d): %d\n", i, fib(i));
-        printf("sum(%d): %d\n", i, sum(i));
+        printf("sum(%d): %d\n", (int)j, sum(j));
     }
     return 0;
 }
