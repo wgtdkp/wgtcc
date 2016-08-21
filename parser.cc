@@ -109,9 +109,9 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
 {
     EnterFunc(ident);
 
+    FuncDef::ParamList params;
     auto funcType = ident->Type()->ToFuncType();
-    std::list<Object*> params;
-    std::vector<Type*>& paramTypes = funcType->ParamTypes();
+    FuncType::TypeList& paramTypes = funcType->ParamTypes();
     if (_curScope->size() != paramTypes.size()) {
         Error(ident, "parameter name omitted");
     }
@@ -2223,9 +2223,7 @@ ReturnStmt* Parser::ParseReturnStmt(void)
     }
 
     auto retType = _curFunc->Type()->ToFuncType()->Derived();
-    if (*expr->Type() != *retType) {
-        expr = UnaryOp::New(expr->Tok(), Token::CAST, expr, retType);
-    }
+    expr = Expr::MayCast(expr, retType);
 
     return ReturnStmt::New(expr);
 }

@@ -180,19 +180,21 @@ static inline void GetOperands(const char*& src,
 }
 
 
-void Generator::Push(const char* reg)
+int Generator::Push(const char* reg)
 {
     _offset -= 8;
     auto mov = reg[0] == 'x' ? "movsd": "movq";
     Emit("%s #%s, %d(#rbp)", mov, reg, _offset);
+    return _offset;
 }
 
 
-void Generator::Pop(const char* reg)
+int Generator::Pop(const char* reg)
 {
     auto mov = reg[0] == 'x' ? "movsd": "movq";
     Emit("%s %d(#rbp), #%s", mov, _offset, reg);
     _offset += 8;
+    return _offset;
 }
 
 
@@ -792,7 +794,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         offset = Type::MakeAlign(offset, funcCall->Type()->Align());
         Emit("leaq %d(#rbp), #rdi", offset);
         
-        Emit("subq $%d, #rsp", _offset - offset);
+        //Emit("subq $%d, #rsp", _offset - offset);
         _offset = offset;
     }
 
@@ -801,7 +803,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         types.push_back(arg->Type());
     
     auto locations = GetParamLocation(types, retType);
-    auto beforePass = _offset;
+    //auto beforePass = _offset;
     for (int i = locations.size() - 1; i >=0; i--) {
         if (locations[i][0] == 'm') {
             Visit(funcCall->_args[i]);
@@ -813,7 +815,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     }
 
     int fltCnt = 0;
-    for (int i = locations.size() - 1; i >=0; i--) {
+    for (int i = locations.size() - 1; i >= 0; i--) {
         if (locations[i][0] == 'm')
             continue;
         Visit(funcCall->_args[i]);
@@ -827,19 +829,20 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         }
     }
 
-    // If variadic, set %al
+    // If variadic, set %al to floating param number
     if (funcType->Variadic()) {
         Emit("movq $%d, %rax", fltCnt);
     }
     Emit("leaq %d(#rbp), #rsp", _offset);
     Emit("call %s", funcCall->Name().c_str());
-    Emit("leaq %d(#rbp), #rsp", beforePass);
+    //Emit("leaq %d(#rbp), #rsp", beforePass);
 
     _offset = base;    
 }
 
 
-std::vector<const char*> Generator::GetParamLocation(std::vector<Type*> types, bool retStruct)
+std::vector<const char*> Generator::GetParamLocation(
+        FuncType::TypeList& types, bool retStruct)
 {
     std::vector<const char*> locations;
 
@@ -861,6 +864,7 @@ std::vector<const char*> Generator::GetParamLocation(std::vector<Type*> types, b
     return locations;
 }
 
+
 void Generator::VisitFuncDef(FuncDef* funcDef)
 {
     auto name = funcDef->Name();
@@ -881,29 +885,48 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
 
     _offset = 0;
     int offset = _offset;
-    if (funcDef->Type()->Variadic()) {
-        offset = GenSaveArea();
-    } else {
-        // Arrange space to store params passed by registers
-        auto retType = funcDef->Type()->Derived();
-        auto locations = GetParamLocation(funcDef->Type()->ParamTypes(),
-                retType->ToStructUnionType());
-        
 
+    // Arrange space to store params passed by registers
+    auto retType = funcDef->Type()->Derived()->ToStructUnionType();
+    auto locations = GetParamLocation(funcDef->Type()->ParamTypes(), retType);
+
+    if (funcDef->Type()->Variadic()) {
+        offset = GenSaveArea(); // 'offset' is now the begin of save area
+        int regOffset = retType ? offset + 8: offset;
+        int xregOffset = offset + 8 * 8;
+        int byMemOffset = 16;
+        for (size_t i = 0; i < locations.size(); i++) {
+            if (locations[i][0] == 'm') {
+                params[i]->SetOffset(byMemOffset);
+                byMemOffset += 8;
+            } else if (locations[i][0] == 'x') {
+                params[i]->SetOffset(xregOffset);
+                xregOffset += 16;
+            } else {
+                params[i]->SetOffset(regOffset);
+                regOffset += 8;
+            }
+        }
+    } else {
+        int byMemOffset = 16;
+        for (size_t i = 0; i < locations.size(); i++) {
+            if (locations[i][0] == 'm') {
+                params[i]->SetOffset(byMemOffset);
+                byMemOffset += 8;
+                continue;
+            }
+            params[i]->SetOffset(Push(locations[i]));
+        }
     }
 
     offset = AllocObjects(offset, funcDef->Body()->Scope(), params);
     
-    Emit("subq $%d, #rsp", _offset - offset);
+    //Emit("subq $%d, #rsp", _offset - offset);
     _offset = offset;
-
 
     for (auto stmt: funcDef->_body->_stmts) {
         Visit(stmt);
     }
-
-    // 
-
 }
 
 

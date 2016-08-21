@@ -316,6 +316,7 @@ public:
     }
 
     static Expr* MayCast(Expr* expr);
+    static Expr* MayCast(Expr* expr, ::Type* desType);
 
 protected:
     /*
@@ -821,7 +822,9 @@ class FuncDef : public ExtDecl
     friend class AddrEvaluator;
     friend class Generator;
 
-    typedef std::list<Object*> ParamList;
+public:
+    typedef std::vector<Object*> ParamList;
+    
 public:
     static FuncDef* New(Identifier* ident, const ParamList& params,
             CompoundStmt* stmt);

@@ -137,7 +137,7 @@ public:
 
     void CopyStruct(ObjectAddr desAddr, int len);
     std::string ConsLabel(Constant* cons);
-    std::vector<const char*> GetParamLocation(std::vector<Type*> types, bool retStruct);
+    std::vector<const char*> GetParamLocation(FuncType::TypeList& types, bool retStruct);
 
     // gen and emit
     void Gen(void);
@@ -151,8 +151,8 @@ public:
     std::string EmitLoad(const std::string& addr, Type* type);
     void EmitStore(const std::string& addr, Type* type);
 
-    void Push(const char* reg);
-    void Pop(const char* reg);
+    int Push(const char* reg);
+    int Pop(const char* reg);
 
     void Spill(bool flt) {
         Push(flt ? "xmm0": "rax");

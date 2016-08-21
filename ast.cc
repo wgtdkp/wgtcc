@@ -121,6 +121,15 @@ Expr* Expr::MayCast(Expr* expr)
 }
 
 
+Expr* Expr::MayCast(Expr* expr, ::Type* desType)
+{
+    expr = MayCast(expr);
+    if (*desType != *expr->Type())
+        expr = UnaryOp::New(expr->Tok(), Token::CAST, expr, desType);
+    return expr;
+}
+
+
 BinaryOp* BinaryOp::New(const Token* tok, Expr* lhs, Expr* rhs)
 {
     return New(tok, tok->Tag(), lhs, rhs);
@@ -594,9 +603,8 @@ void FuncCall::TypeChecking(void)
         if (!paramType->Compatible(*(*arg)->Type())) {
             // TODO(wgtdkp): function name
             Error(_tok, "incompatible type for argument 1 of ''");
-        } else if (*paramType != *(*arg)->Type()) {
-            *arg = UnaryOp::New((*arg)->Tok(), Token::CAST, *arg, paramType);
         }
+        *arg = Expr::MayCast(*arg, paramType);
 
         ++arg;
     }
