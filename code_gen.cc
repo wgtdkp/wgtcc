@@ -175,7 +175,7 @@ static const char* GetReg(int width)
 static inline void GetOperands(const char*& src,
         const char*& des, int width, bool flt)
 {
-    src = flt ? "xmm9": (width == 8 ? "rax": "eax");
+    src = flt ? "xmm9": (width == 8 ? "r11": "r11d");
     des = flt ? "xmm8": (width == 8 ? "rax": "eax");
 }
 
@@ -198,13 +198,33 @@ int Generator::Pop(const char* reg)
 }
 
 
+void Generator::Spill(bool flt)
+{
+    Push(flt ? "xmm8": "rax");
+}
+
+
 void Generator::Restore(bool flt)
 {
-    const char* src = flt ? "xmm8": "rax";
-    const char* des = flt ? "xmm9": "rax";
+    const char* src;
+    const char* des;
+    GetOperands(des, src, 8, flt);
     const char* inst = flt ? "movsd": "movq";
     Emit("%s #%s, #%s", inst, src, des);
     Pop(src);
+}
+
+
+std::string Generator::Save(const std::string& src)
+{
+    assert(src == "rax" || src == "xmm8");
+    if (src == "rax") {
+        Emit("movq #rax, #rcx");
+        return "rcx";
+    } else {
+        Emit("movsd #xmm8, xmm9");
+        return "xmm9";
+    }
 }
 
 

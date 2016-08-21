@@ -17,7 +17,7 @@ int main(void)
 
 int main(void)
 {
-    double d = 5.9;
+    double d = ((int)7.5) + 5;
     //printf("hello world\n");
     printf("year: %lf\n", d);
     return 0;

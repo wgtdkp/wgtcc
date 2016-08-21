@@ -157,22 +157,11 @@ public:
     int Push(const char* reg);
     int Pop(const char* reg);
 
-    void Spill(bool flt) {
-        Push(flt ? "xmm0": "rax");
-    }
+    void Spill(bool flt);
 
     void Restore(bool flt);
 
-    std::string Save(const std::string& src) {
-        assert(src == "rax" || src == "xmm0");
-        if (src == "rax") {
-            Emit("movq #rax, #rcx");
-            return "rcx";
-        } else {
-            Emit("movsd #xmm0, xmm1");
-            return "xmm1";
-        }
-    }
+    std::string Save(const std::string& src);
 
     void Exchange(const std::string& lhs, const std::string& rhs);
 
