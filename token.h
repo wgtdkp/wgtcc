@@ -439,13 +439,13 @@ public:
 
     bool IsBeginOfLine(void) const;
 
-    TokenList* _tokList;
-    TokenList::iterator _begin;
-    TokenList::iterator _end;
-
     void SetParser(Parser* parser) {
         _parser = parser;
     }
+
+    TokenList* _tokList;
+    TokenList::iterator _begin;
+    TokenList::iterator _end;
 
 private:
     Parser* _parser {nullptr};

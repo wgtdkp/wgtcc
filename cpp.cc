@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <unordered_map>
 
+extern std::string inFileName;
+extern std::string outFileName;
 
 typedef std::unordered_map<std::string, int> DirectiveMap;
 
@@ -36,6 +38,7 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
     Macro* macro = nullptr;
     int direcitve;
     while (!is.Empty()) {
+        UpdateTokenCoord(is.Peek());
         auto name = is.Peek()->Str();
 
         if ((direcitve = GetDirective(is)) != Token::INVALID) {
@@ -43,10 +46,19 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
         } else if (!inCond && !NeedExpand()) {
             is.Next();
         } else if (Hidden(name)) {
-            os.InsertBack(is.Peek());
-            is.Next();
+            os.InsertBack(is.Next());
         } else if ((macro = FindMacro(name))) {
             auto tok = is.Next();
+            
+            if (name == "__FILE__") {
+                HandleTheFileMacro(os, tok);
+                continue;
+            } else if (name == "__LINE__") {
+                HandleTheLineMacro(os, tok);
+                continue;
+            }
+            // FIXME(wgtdkp): dead loop when expand below macro
+            // #define stderr stderr
             _hs.insert(name);
             if (macro->ObjLike()) {
 
@@ -92,8 +104,7 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
             }
             _hs.erase(name);
         } else {
-            os.InsertBack(is.Peek());
-            is.Next();
+            os.InsertBack(is.Next());
         }
     }
 }
@@ -279,10 +290,18 @@ void HSAdd(TokenSeq& ts, HideSet& hs)
 void Preprocessor::Process(TokenSeq& os)
 {
     TokenSeq is;
-    // Add source file
-    IncludeFile(is, _curFileName);
+
     // Add predefined
-    Init(is);
+    Init();
+
+    // Add source file
+    IncludeFile(is, &inFileName);
+
+    // Becareful about the include order, as include file always puts
+    // the file to the header of the token sequence
+    // TODO(wgtdkp): 
+    auto wgtccHeaderFile = new std::string("/usr/local/include/wgtcc.h");
+    IncludeFile(is, wgtccHeaderFile);
 
 
 
@@ -524,7 +543,7 @@ void Preprocessor::ParseLine(TokenSeq ls)
 
     auto tok = ts.Expect(Token::I_CONSTANT);
 
-    long long line = atoi(tok->_begin);
+    int line = atoi(tok->_begin);
     if (line <= 0 || line > 0x7fffffff) {
         Error(tok, "illegal line number");
     }
@@ -794,10 +813,6 @@ void Preprocessor::IncludeFile(TokenSeq& is, const std::string* fileName)
     
     // We done including header file
     is._begin = ts._begin;
-
-    _curFileName = fileName;
-    auto tmp = std::string("\"") + *fileName + "\"";
-    AddMacro("__FILE__", new std::string(tmp), true);
 }
 
 std::string* Preprocessor::SearchFile(const std::string& name, bool libHeader)
@@ -860,7 +875,7 @@ static std::string* Date(void)
     return ret;
 }
 
-void Preprocessor::Init(TokenSeq& is)
+void Preprocessor::Init(void)
 {
     // Preinclude search paths
     AddSearchPath("/home/wgtdkp/wgtcc/include");
@@ -869,13 +884,40 @@ void Preprocessor::Init(TokenSeq& is)
     AddSearchPath("/usr/include/x86_64-linux-gnu");
     AddSearchPath("/usr/local/include");
     
-    AddMacro("__FILE__", new std::string("\"" + *_curFileName + "\""), true);
-    AddMacro("__LINE__", new std::string(std::to_string(_curLine)), true);
+    // The __FILE__ and __LINE__ macro is empty
+    AddMacro("__FILE__", Macro(TokenSeq(), true));
+    AddMacro("__LINE__", Macro(TokenSeq(), true));
+
     AddMacro("__DATE__", Date(), true);
     AddMacro("__STDC__", new std::string("1"), true);
     AddMacro("__STDC__HOSTED__", new std::string("0"), true);
     AddMacro("__STDC_VERSION__", new std::string("201103L"), true);
+}
 
-    auto wgtccHeaderFile = new std::string("/home/wgtdkp/wgtcc/include/wgtcc.h");
-    IncludeFile(is, wgtccHeaderFile);
+
+void Preprocessor::HandleTheFileMacro(TokenSeq& os, Token* macro)
+{
+    Token file(*macro);
+    file._tag = Token::STRING_LITERAL;
+
+    auto str = macro->_fileName;
+    file._begin = const_cast<char*>(str->c_str());
+    file._end = file._begin + str->size();
+    os.InsertBack(&file);
+}
+
+
+void Preprocessor::HandleTheLineMacro(TokenSeq& os, Token* macro)
+{
+    Token line(*macro);
+    line._tag = Token::I_CONSTANT;
+    auto str = new std::string(std::to_string(macro->_line));
+    line._begin = const_cast<char*>(str->c_str());
+    line._end = line._begin + str->size();
+    os.InsertBack(&line);
+}
+
+void Preprocessor::UpdateTokenCoord(Token* tok)
+{
+    tok->_line = _curLine  + tok->_line - _lineLine - 1;
 }

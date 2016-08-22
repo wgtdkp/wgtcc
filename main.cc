@@ -10,6 +10,9 @@
 #include <iostream>
 #include <string>
 
+#include <fcntl.h>
+#include <unistd.h>
+
 
 std::string program;
 std::string inFileName;
@@ -68,6 +71,16 @@ int main(int argc, char* argv[])
     if (inFileName.size() == 0) {
         Usage();
     }
+
+    // change current directory
+    auto pos = inFileName.rfind('/');
+    std::string dir = ".";
+    if (pos != std::string::npos) {
+        dir = inFileName.substr(0, pos);
+        inFileName = inFileName.substr(pos + 1);
+    }
+    assert(0 == chdir(dir.c_str()));
+    
     
     // Preprocessing
     Preprocessor cpp(&inFileName);

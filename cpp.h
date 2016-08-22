@@ -27,9 +27,9 @@ typedef std::list<std::string> PathList;
 class Macro
 {
 public:
-    Macro(TokenSeq& repSeq, bool preDef=false)
+    Macro(const TokenSeq& repSeq, bool preDef=false)
             : _funcLike(false), _variadic(false),
-              _preDef(preDef),_repSeq(repSeq) {}
+              _preDef(preDef), _repSeq(repSeq) {}
 
     Macro(bool variadic, ParamList& params,
             TokenSeq& repSeq, bool preDef=false)
@@ -89,8 +89,7 @@ class Preprocessor
 {
 public:
     Preprocessor(const std::string* fileName)
-            : _curFileName(fileName), _curLine(1), _curCond(true) {
-    }
+        : _curLine(1), _lineLine(0), _curCond(true) {}
 
     ~Preprocessor(void) {}
 
@@ -158,6 +157,10 @@ public:
         _searchPathList.push_back(path);
     }
 
+    void HandleTheFileMacro(TokenSeq& os, Token* macro);
+    void HandleTheLineMacro(TokenSeq& os, Token* macro);
+    void UpdateTokenCoord(Token* tok);
+
     bool Hidden(const std::string& name) {
         return _hs.find(name) != _hs.end();
     }
@@ -170,13 +173,12 @@ public:
     }
 
 private:
-    void Init(TokenSeq& is);
+    void Init(void);
 
     HideSet _hs;
     PPCondStack _ppCondStack;
-    const std::string* _curFileName;
-    int _curLine;
-    int _lineLine;
+    unsigned _curLine;
+    unsigned _lineLine;
     bool _curCond;
     
     

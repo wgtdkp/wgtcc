@@ -2217,10 +2217,10 @@ ReturnStmt* Parser::ParseReturnStmt(void)
     } else {
         expr = ParseExpr();
         _ts.Expect(';');
+        
+        auto retType = _curFunc->Type()->ToFuncType()->Derived();
+        expr = Expr::MayCast(expr, retType);
     }
-
-    auto retType = _curFunc->Type()->ToFuncType()->Derived();
-    expr = Expr::MayCast(expr, retType);
 
     return ReturnStmt::New(expr);
 }

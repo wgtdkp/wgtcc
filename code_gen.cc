@@ -796,17 +796,18 @@ void Generator::VisitLabelStmt(LabelStmt* labelStmt)
 void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
 {
     auto expr = returnStmt->_expr;
-    Visit(expr);
-    if (expr->Type()->ToStructUnionType()) {
-        // %rax now has the address of the struct/union
-        
-        ObjectAddr addr = {"", "rbp", _retAddrOffset};
-        Emit("movq %s, #r11", addr.Repr().c_str());
-        addr = {"", "r11", 0};
-        CopyStruct(addr, expr->Type()->Width());
-        Emit("movq #r11, #rax");
+    if (expr) {
+        Visit(expr);
+        if (expr->Type()->ToStructUnionType()) {
+            // %rax now has the address of the struct/union
+            
+            ObjectAddr addr = {"", "rbp", _retAddrOffset};
+            Emit("movq %s, #r11", addr.Repr().c_str());
+            addr = {"", "r11", 0};
+            CopyStruct(addr, expr->Type()->Width());
+            Emit("movq #r11, #rax");
+        }
     }
-
     Emit("jmp %s", _curFunc->_retLabel->Label().c_str());
 }
 
