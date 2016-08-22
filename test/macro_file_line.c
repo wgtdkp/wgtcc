@@ -12,7 +12,6 @@ void test1(void)
 }
 
 
-
 int main(void)
 {
     test1();

@@ -73,17 +73,15 @@ int main(int argc, char* argv[])
     }
 
     // change current directory
-    auto pos = inFileName.rfind('/');
-    std::string dir = ".";
-    if (pos != std::string::npos) {
-        dir = inFileName.substr(0, pos);
-        inFileName = inFileName.substr(pos + 1);
-    }
-    assert(0 == chdir(dir.c_str()));
-    
-    
+
     // Preprocessing
     Preprocessor cpp(&inFileName);
+    std::string dir = ".";
+    auto pos = inFileName.rfind('/');
+    if (pos != std::string::npos)
+        dir = inFileName.substr(0, pos);
+    cpp.AddSearchPath(dir);
+
     TokenSeq tokSeq;
     cpp.Process(tokSeq);
 

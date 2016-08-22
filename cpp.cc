@@ -299,8 +299,7 @@ void Preprocessor::Process(TokenSeq& os)
 
     // Becareful about the include order, as include file always puts
     // the file to the header of the token sequence
-    // TODO(wgtdkp): 
-    auto wgtccHeaderFile = new std::string("/usr/local/include/wgtcc.h");
+    auto wgtccHeaderFile = SearchFile("wgtcc.h", true);
     IncludeFile(is, wgtccHeaderFile);
 
 
@@ -878,7 +877,7 @@ static std::string* Date(void)
 void Preprocessor::Init(void)
 {
     // Preinclude search paths
-    AddSearchPath("/home/wgtdkp/wgtcc/include");
+    AddSearchPath("/usr/local/wgtcc/include");
     AddSearchPath("/usr/include");
     AddSearchPath("/usr/include/linux");
     AddSearchPath("/usr/include/x86_64-linux-gnu");
