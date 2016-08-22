@@ -535,7 +535,7 @@ class Constant: public Expr
 public:
     static Constant* New(const Token* tok, int tag, long val);
     static Constant* New(const Token* tok, int tag, double val);
-    static Constant* New(const Token* tok, const std::string* val);
+    static Constant* New(const Token* tok, int tag, const std::string* val);
 
     ~Constant(void) {}
     
@@ -560,7 +560,7 @@ public:
     }
 
     std::string Label(void) const {
-        return std::string(".LC") + std::to_string(_tag);
+        return std::string(".LC") + std::to_string(_id);
     }
 
 protected:
@@ -575,7 +575,7 @@ protected:
         long _ival;
         double _fval;
         struct {
-            long _tag;
+            long _id;
             const std::string* _sval;
         };
     };

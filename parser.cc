@@ -152,6 +152,7 @@ Expr* Parser::ParseCommaExpr(void)
 
 Expr* Parser::ParsePrimaryExpr(void)
 {
+    // TODO(wgtdkp): settting error ???
     if (_ts.Peek()->IsKeyWord()) //can never be a expression
         return nullptr;
 
@@ -169,8 +170,7 @@ Expr* Parser::ParsePrimaryExpr(void)
         auto ident = _curScope->Find(tok);
         /* if (ident == nullptr || ident->ToObject() == nullptr) { */
         if (ident == nullptr) {
-            Error(tok, "undefined symbol '%s'", 
-                    tok->Str().c_str());
+            Error(tok, "undefined symbol '%s'", tok->Str().c_str());
         }
         return ident;
     } else if (tok->IsConstant()) {
@@ -181,10 +181,12 @@ Expr* Parser::ParsePrimaryExpr(void)
         return ParseGeneric();
     }
 
-    Error(tok, "unexpected expect '%s'", tok->Str().c_str());
+    Error(tok, "'%s' unexpected", tok->Str().c_str());
     return nullptr; // Make compiler happy
 }
 
+
+// TODO(wgtdkp):
 Constant* Parser::ParseConstant(const Token* tok)
 {
     assert(tok->IsConstant());
@@ -201,14 +203,28 @@ Constant* Parser::ParseConstant(const Token* tok)
 // TODO(wgtdkp):
 Constant* Parser::ParseLiteral(const Token* tok)
 {
-    assert(tok->IsLiteral());
-    std::string str = tok->Str();
-    
-    auto begin = str.find('"') + 1;
-    auto end = str.rfind('"');
+    const char* p = tok->_begin;
+    int tag;
+    switch (p[0]) {
+    case 'u':
+        if (p[1] == '8') {
+            tag = T_CHAR; ++p;
+        } else {
+            tag = T_UNSIGNED | T_SHORT;
+        } ++p; break;
+    case 'U': tag = T_UNSIGNED | T_INT; ++p; break;
+    case 'L': tag = T_INT; ++p; break;
+    case '"': tag = T_CHAR; break;
+    default: assert(false);
+    }
+    ++p;
 
-    auto val = new std::string(str.begin() + begin, str.begin() + end);
-    return Constant::New(tok, val);
+    // TODO(wgtdkp): May handle in lexer
+    //while (p[0]) {
+    //
+    //}
+    auto val = new std::string(p, tok->_end - 1 - p);
+    return Constant::New(tok, tag, val);
 }
 
 // TODO(wgtdkp):
@@ -313,7 +329,7 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
 {
     FuncCall::ArgList args;
     while (!_ts.Try(')')) {
-        args.push_back(ParseAssignExpr());
+        args.push_back(Expr::MayCast(ParseAssignExpr()));
         if (!_ts.Test(')'))
             _ts.Expect(',');
     }
@@ -977,9 +993,8 @@ static inline string MakeStructUnionName(const char* name)
 Type* Parser::ParseEnumSpec(void)
 {
     std::string tagName;
-    auto tok = _ts.Next();
-    
-    if (tok->IsIdentifier()) {
+    auto tok = _ts.Peek();
+    if (_ts.Try(Token::IDENTIFIER)) {
         tagName = tok->Str();
         if (_ts.Try('{')) {
             //定义enum类型
@@ -1588,10 +1603,6 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
             Error(obj, "redefinition of variable '%s'", name.c_str());
         }
 
-        if (!obj->Type()->IsScalar() && !_ts.Test('{')) {
-            _ts.Expect('{');
-        }
-
         // There could be more than one declaration for 
         //     an object in the same scope.
         // But it must has external or internal linkage.
@@ -1636,10 +1647,17 @@ void Parser::ParseInitializer(Declaration* decl, Type* type, int offset)
 {
     auto arrType = type->ToArrayType();
     auto structType = type->ToStructUnionType();
-    if (arrType)
+    if (arrType) {
+        if (!_ts.Test('{') && !_ts.Test(Token::STRING_LITERAL)) {
+            _ts.Expect('{');
+        }
         return ParseArrayInitializer(decl, arrType, offset);
-    else if (structType)
+    } else if (structType) {
+        if (!_ts.Test('{')) {
+            _ts.Expect('{');
+        }
         return ParseStructInitializer(decl, structType, offset);
+    }
 
     // Scalar type
     auto hasBrace = _ts.Try('{');

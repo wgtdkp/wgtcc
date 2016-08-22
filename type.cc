@@ -74,8 +74,8 @@ static EnumType* Type::NewEnumType() {
 */
 
 /*************** ArithmType *********************/
-int ArithmType::CalcWidth(int tag) {
-    switch (tag) {
+int ArithmType::Width(void) const {
+    switch (_tag) {
     case T_BOOL:
     case T_CHAR:
     case T_UNSIGNED | T_CHAR:
@@ -87,6 +87,7 @@ int ArithmType::CalcWidth(int tag) {
 
     case T_INT:
     case T_UNSIGNED:
+    case T_UNSIGNED | T_INT:
         return _intWidth;
 
     case T_LONG:
@@ -125,53 +126,16 @@ int ArithmType::CalcWidth(int tag) {
 int ArithmType::Spec2Tag(int spec) {
     spec &= ~T_SIGNED;
     if ((spec & T_SHORT) || (spec & T_LONG)
-            || (spec & T_LONG_LONG) || (spec & T_UNSIGNED)) {
+            || (spec & T_LONG_LONG)) {
         spec &= ~T_INT;
     }
     return spec;
 }
 
-int ArithmType::Align(void) const
-{
-    switch (_tag) {
-    case T_BOOL:
-    case T_CHAR:
-    case T_UNSIGNED | T_CHAR:
-        return 1;
-    case T_SHORT:
-    case T_UNSIGNED | T_SHORT:
-        return 2;
-    case T_INT:
-    case T_UNSIGNED:
-        return 4;
-    case T_LONG:
-    case T_UNSIGNED | T_LONG:
-        return 4;
-    case T_LONG_LONG:
-    case T_UNSIGNED | T_LONG_LONG:
-        return 8;
-    case T_FLOAT:
-        return 4;
-    case T_DOUBLE: 
-        return 8;
-    case T_LONG | T_DOUBLE:
-        return 16;
-    case T_FLOAT | T_COMPLEX:
-        return 8;
-    case T_DOUBLE | T_COMPLEX:
-        return 16;
-    case T_LONG | T_DOUBLE | T_COMPLEX:
-        return 32;
-    default:
-        assert(0);    
-    }
-
-    return 0; // Make compiler happy
-}
 
 std::string ArithmType::Str(void) const
 {
-    std::string width = std::string(":") + std::to_string(_width);
+    std::string width = std::string(":") + std::to_string(Width());
 
     switch (_tag) {
     case T_BOOL:
@@ -330,7 +294,7 @@ std::string FuncType::Str(void) const
 
 StructUnionType::StructUnionType(MemPool* pool,
         bool isStruct, bool hasTag, Scope* parent)
-        : Type(pool, 0, false), _isStruct(isStruct), _hasTag(hasTag),
+        : Type(pool, false), _isStruct(isStruct), _hasTag(hasTag),
           _memberMap(new Scope(parent, S_BLOCK)),
           _offset(0), _width(0), _align(0) {}
 
@@ -425,7 +389,7 @@ void StructUnionType::MergeAnony(StructUnionType* anonType)
 
 ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType)
 {
-    int intWidth = ArithmType::CalcWidth(T_INT);
+    int intWidth = Type::_intWidth;
 
     if (lhsType->Width() < intWidth && rhsType->Width() < intWidth) {
         return ArithmType::New(T_INT);

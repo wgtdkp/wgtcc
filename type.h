@@ -76,8 +76,7 @@ public:
     bool operator!=(const Type& other) const { return !(*this == other); }
 
     virtual bool operator==(const Type& other) const {
-        return (_width == other._width && _qual == other._qual 
-                && _complete == other._complete);
+        return (_qual == other._qual && _complete == other._complete);
     }
 
     virtual bool Compatible(const Type& ohter) const = 0;
@@ -164,23 +163,13 @@ public:
     
     virtual const StructUnionType* ToStructUnionType(void) const { return nullptr; }
 
-
-    virtual EnumType* ToEnumType(void) { return nullptr; }
-
-    virtual const EnumType* ToEnumType(void) const { return nullptr; }
-
-    //static EnumType* NewEnumType();
-
-
 protected:
-    Type(MemPool* pool, int width, bool complete)
-        : _pool(pool), _width(width), _complete(complete) {}
+    Type(MemPool* pool, bool complete)
+            : _qual(0), _complete(complete), _pool(pool) {}
 
-    MemPool* _pool;
-    int _width;	// the bytes to store object of that type
-    int _align;
     int _qual;
     bool _complete;
+    MemPool* _pool;
     
 private:
     static MemPoolImp<VoidType>         _voidTypePool;
@@ -231,7 +220,7 @@ public:
     }
 
 protected:
-    explicit VoidType(MemPool* pool): Type(pool, 0, false) {}
+    explicit VoidType(MemPool* pool): Type(pool, false) {}
 };
 
 
@@ -263,11 +252,11 @@ public:
         return other.ToArithmType();
     }
 
-    virtual int Width(void) const {
-        return CalcWidth(_tag);
-    }
+    virtual int Width(void) const;
 
-    virtual int Align(void) const;
+    virtual int Align(void) const {
+        return Width();
+    }
 
     virtual std::string Str(void) const;
 
@@ -276,10 +265,7 @@ public:
     }
 
     bool IsInteger(void) const {
-        return (_tag & T_BOOL) || (_tag & T_CHAR)
-            || (_tag & T_SHORT) || (_tag & T_INT)
-            || (_tag & T_LONG) || (_tag & T_LONG_LONG)
-            || (_tag & T_UNSIGNED);
+        return !IsFloat() && !IsComplex();
     }
 
     bool IsFloat(void) const {
@@ -294,15 +280,13 @@ public:
         return _tag;
     }
 
-    static int CalcWidth(int tag);
-    
-    static int Spec2Tag(int spec);
-
 protected:
-    explicit ArithmType(MemPool* pool, int tag)
-        : Type(pool, CalcWidth(tag), true), _tag(tag) {}
+    explicit ArithmType(MemPool* pool, int spec)
+        : Type(pool, true), _tag(Spec2Tag(spec)) {}
 
 private:
+    static int Spec2Tag(int spec);
+
     int _tag;
 };
 
@@ -328,8 +312,8 @@ public:
     }
 
 protected:
-    DerivedType(MemPool* pool, Type* derived, int width)
-        : Type(pool, width, true), _derived(derived) {}
+    DerivedType(MemPool* pool, Type* derived)
+            : Type(pool, true), _derived(derived) {}
 
     Type* _derived;
 };
@@ -365,16 +349,16 @@ public:
     }
 
     virtual std::string Str(void) const {
-        return _derived->Str() + "*:" + std::to_string(_width);
+        return _derived->Str() + "*:" + std::to_string(Width());
     }
 
 protected:
-    PointerType(MemPool* pool, Type* derived)
-        : DerivedType(pool, derived, _intWidth << 1) {}
+    PointerType(MemPool* pool, Type* derived): DerivedType(pool, derived) {}
+
 };
 
 
-class ArrayType : public PointerType
+class ArrayType : public DerivedType
 {
     friend class Type;
 
@@ -401,7 +385,7 @@ public:
     virtual bool Compatible(const Type& other) const {
         auto otherArray = ToArrayType();
         return (nullptr != otherArray
-            && _width == otherArray->_width
+            && Width() == otherArray->Width()
             && _derived->Compatible(*otherArray->_derived));
     }
 
@@ -414,7 +398,7 @@ public:
     }
 
     virtual std::string Str(void) const {
-        return _derived->Str() + "[]:" + std::to_string(_width);
+        return _derived->Str() + "[]:" + std::to_string(Width());
     }
 
     int GetElementOffset(int idx) const {
@@ -436,7 +420,7 @@ public:
 
 protected:
     ArrayType(MemPool* pool, int len, Type* derived)
-            : PointerType(pool, derived), _len(len) {
+            : DerivedType(pool, derived), _len(len) {
         SetComplete(_len > 0);
         SetQual(Q_CONST);
     }
@@ -495,7 +479,7 @@ protected:
     //a function does not has the width property
     FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
             const TypeList& paramTypes)
-        : DerivedType(pool, derived, -1), _inlineNoReturn(inlineReturn),
+        : DerivedType(pool, derived), _inlineNoReturn(inlineReturn),
           _variadic(variadic), _paramTypes(paramTypes) {}
 
 private:

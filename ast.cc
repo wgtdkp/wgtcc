@@ -373,7 +373,7 @@ void BinaryOp::EqualityOpTypeChecking(void)
 
 void BinaryOp::BitwiseOpTypeChecking(void)
 {
-    if (_lhs->Type()->IsInteger() || _rhs->Type()->IsInteger()) {
+    if (!_lhs->Type()->IsInteger() || !_rhs->Type()->IsInteger()) {
         Error(_tok, "operands of '&' should be integer");
     }
     
@@ -382,8 +382,7 @@ void BinaryOp::BitwiseOpTypeChecking(void)
 
 void BinaryOp::LogicalOpTypeChecking(void)
 {
-    if (!_lhs->Type()->IsScalar()
-            || !_rhs->Type()->IsScalar()) {
+    if (!_lhs->Type()->IsScalar() || !_rhs->Type()->IsScalar()) {
         Error(_tok, "the operand should be arithmetic type or pointer");
     }
     
@@ -729,17 +728,17 @@ Constant* Constant::New(const Token* tok, int tag, double val)
     return ret;
 }
 
-Constant* Constant::New(const Token* tok, const std::string* val)
+Constant* Constant::New(const Token* tok, int tag, const std::string* val)
 {
-    static auto derived = ArithmType::New(T_CHAR);
+    static auto derived = ArithmType::New(tag);
     derived->SetQual(Q_CONST);
     static auto type = PointerType::New(derived);
 
     auto ret = new (constantPool.Alloc()) Constant(tok, type, val);
     ret->_pool = &constantPool;
 
-    static long tag = 0;
-    ret->_tag = tag++;
+    static long id = 0;
+    ret->_id = id++;
 
     return ret;
 }

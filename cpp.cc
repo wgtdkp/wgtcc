@@ -109,40 +109,41 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
     }
 }
 
-static TokenSeq* FindActualParam(ParamMap& params, const std::string& fp)
+static bool FindActualParam(TokenSeq& ap, ParamMap& params, const std::string& fp)
 {
     auto res = params.find(fp);
     if (res == params.end()) {
-        return nullptr;
+        return false;
     }
-    return &res->second;
+    ap = res->second;
+    return true;
 }
 
 void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
         HideSet& hs, ParamMap& params)
 {
-    TokenSeq* ap;
+    TokenSeq ap;
     if (is.Empty()) {
         return;
     } else if (is.Test('#')
-            && (ap = FindActualParam(params, is.Peek2()->Str()))) {
+            && FindActualParam(ap, params, is.Peek2()->Str())) {
         is.Next(); is.Next();
 
-        auto tok = *ap->Peek();
+        auto tok = *(ap.Peek());
         tok._tag = Token::STRING_LITERAL;
-        Stringize(tok._begin, tok._end, *ap);
+        Stringize(tok._begin, tok._end, ap);
 
         os.InsertBack(&tok);
         Subst(os, is, hs, params);
     } else if (is.Test(Token::DSHARP)
-            && (ap = FindActualParam(params, is.Peek2()->Str()))) {
+            && FindActualParam(ap, params, is.Peek2()->Str())) {
         is.Next();
         is.Next();
         
-        if (ap->Empty()) {
+        if (ap.Empty()) {
             Subst(os, is, hs, params);
         } else {
-            Glue(os, *ap);
+            Glue(os, ap);
             Subst(os, is, hs, params);
         }
     } else if (is.Test(Token::DSHARP)) {
@@ -152,25 +153,25 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
         Glue(os, tok);
         Subst(os, is, hs, params);
     } else if (is.Peek2()->_tag == Token::DSHARP 
-            && (ap = FindActualParam(params, is.Peek()->Str()))) {
+            && FindActualParam(ap, params, is.Peek()->Str())) {
         is.Next();
 
-        if (ap->Empty()) {
+        if (ap.Empty()) {
             is.Next();
-            if ((ap = FindActualParam(params, is.Peek()->Str()))) {
+            if (FindActualParam(ap, params, is.Peek()->Str())) {
                 is.Next();
-                os.InsertBack(*ap);
+                os.InsertBack(ap);
                 Subst(os, is, hs, params);
             } else {
                 Subst(os, is, hs, params);
             }
         } else {
-            os.InsertBack(*ap);
+            os.InsertBack(ap);
             Subst(os, is, hs, params);
         }
-    } else if ((ap = FindActualParam(params, is.Peek()->Str()))) {
+    } else if (FindActualParam(ap, params, is.Peek()->Str())) {
         is.Next();
-        Expand(os, *ap);
+        Expand(os, ap);
         Subst(os, is, hs, params);
     } else {
         os.InsertBack(is.Peek());
@@ -302,9 +303,7 @@ void Preprocessor::Process(TokenSeq& os)
     auto wgtccHeaderFile = SearchFile("wgtcc.h", true);
     IncludeFile(is, wgtccHeaderFile);
 
-
-
-    //std::string str;
+    std::string str;
     //Stringize(str, is);
     //std::cout << str << std::endl;
 
@@ -320,11 +319,11 @@ void Preprocessor::Process(TokenSeq& os)
         }
     }
 
-    //str.resize(0);
-    //Stringize(str, os);
-    //std::cout << std::endl << "###### Preprocessed ######" << std::endl;
-    //std::cout << str << std::endl << std::endl;
-    //std::cout << std::endl << "###### End ######" << std::endl;
+    str.resize(0);
+    Stringize(str, os);
+    std::cout << std::endl << "###### Preprocessed ######" << std::endl;
+    std::cout << str << std::endl << std::endl;
+    std::cout << std::endl << "###### End ######" << std::endl;
 }
 
 
@@ -884,6 +883,7 @@ void Preprocessor::Init(void)
     AddSearchPath("/usr/local/include");
     
     // The __FILE__ and __LINE__ macro is empty
+    // They are handled seperately
     AddMacro("__FILE__", Macro(TokenSeq(), true));
     AddMacro("__LINE__", Macro(TokenSeq(), true));
 

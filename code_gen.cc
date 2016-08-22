@@ -711,7 +711,6 @@ void Generator::GenStaticDecl(Declaration* decl)
         auto staticInit = GetStaticInit(init);
         if (staticInit._offset > offset) {
             Emit(".zero %d", staticInit._offset - offset);
-            offset += staticInit._width;
         }
 
         switch (staticInit._width) {
@@ -735,6 +734,8 @@ void Generator::GenStaticDecl(Declaration* decl)
             break;
         default: assert(false);
         }
+
+        offset = staticInit._offset + staticInit._width;
     }
 }
 

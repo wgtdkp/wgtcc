@@ -1,11 +1,16 @@
-//#include <stdio.h>
+#include "test.h"
+
+void test(void)
+{
+    char ch[] = "hello world";
+    printf("%s, %d\n", ch, sizeof(ch));
+}
+
+
 
 
 int main(void)
 {
-    int arr[10];
-    int t;
-    int** p = &arr + 3;
-        p = &t + 3;
+    test();
     return 0;
 }
