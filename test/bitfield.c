@@ -3,20 +3,20 @@
 int main(void)
 {
     typedef struct {
-        unsigned long a: 1;
-        unsigned long b: 1;
-        unsigned long c: 1;
-        unsigned long d: 1;
-        unsigned long e: 1;
-        unsigned long f: 1;
-        unsigned long g: 1;
-        unsigned long h: 1;
+        unsigned char a: 1;
+        unsigned int b: 1;
+        unsigned char c: 1;
+        unsigned char d: 1;
+        unsigned char e: 1;
+        unsigned char f: 1;
+        unsigned char g: 1;
+        unsigned char h: 1;
     } foo_t;
 
     foo_t foo = {0, 0, 0, 0, 0, 0, 0, 0};
     foo.d = 1;
 
-    printf("%d\n", sizeof(foo.d));
+    //printf("%d\n", sizeof(foo.d));
     //printf("%d\n", foo.b);
     //printf("%d\n", foo.c);
     //printf("%d\n", foo.d);

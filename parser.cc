@@ -23,6 +23,7 @@ FuncDef* Parser::EnterFunc(Identifier* ident) {
     return _curFunc;
 }
 
+
 void Parser::ExitFunc(void) {
     // Resolve 那些待定的jump；
 	// 如果有jump无法resolve，也就是有未定义的label，报错；
@@ -45,6 +46,7 @@ void Parser::ExitFunc(void) {
     _curFunc = nullptr;
 }
 
+
 void Parser::EnterBlock(FuncType* funcType)
 {
     if (funcType) {
@@ -61,13 +63,12 @@ void Parser::EnterBlock(FuncType* funcType)
     }
 }
 
+
 void Parser::Parse(void)
 {
-    
-
-    
     ParseTranslationUnit();
 }
+
 
 void Parser::ParseTranslationUnit(void)
 {
@@ -106,6 +107,7 @@ void Parser::ParseTranslationUnit(void)
     //_externalSymbols->Print();
 }
 
+
 FuncDef* Parser::ParseFuncDef(Identifier* ident)
 {
     auto funcDef = EnterFunc(ident);
@@ -132,10 +134,12 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
     return funcDef;
 }
 
+
 Expr* Parser::ParseExpr(void)
 {
     return ParseCommaExpr();
 }
+
 
 Expr* Parser::ParseCommaExpr(void)
 {
@@ -149,6 +153,7 @@ Expr* Parser::ParseCommaExpr(void)
     }
     return lhs;
 }
+
 
 Expr* Parser::ParsePrimaryExpr(void)
 {
@@ -200,6 +205,7 @@ Constant* Parser::ParseConstant(const Token* tok)
     }
 }
 
+
 // TODO(wgtdkp):
 Constant* Parser::ParseLiteral(const Token* tok)
 {
@@ -227,12 +233,14 @@ Constant* Parser::ParseLiteral(const Token* tok)
     return Constant::New(tok, tag, val);
 }
 
+
 // TODO(wgtdkp):
 Expr* Parser::ParseGeneric(void)
 {
     assert(0);
     return nullptr;
 }
+
 
 Expr* Parser::ParsePostfixExpr(void)
 {
@@ -252,6 +260,7 @@ Expr* Parser::ParsePostfixExpr(void)
     
     return ParsePostfixExprTail(primExpr);
 }
+
 
 //return the constructed postfix expression
 Expr* Parser::ParsePostfixExprTail(Expr* lhs)
@@ -286,6 +295,7 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
     }
 }
 
+
 Expr* Parser::ParseSubScripting(Expr* lhs)
 {
     auto rhs = ParseExpr();
@@ -317,6 +327,7 @@ BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs)
     return  BinaryOp::New(tok, op, lhs, rhs);
 }
 
+
 UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
 {
     auto op = tok->Tag() == Token::INC_OP ?
@@ -324,6 +335,7 @@ UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
 
     return UnaryOp::New(op, operand);
 }
+
 
 FuncCall* Parser::ParseFuncCall(Expr* designator)
 {
@@ -336,6 +348,7 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
 
     return FuncCall::New(designator, args);
 }
+
 
 Expr* Parser::ParseUnaryExpr(void)
 {
@@ -367,6 +380,7 @@ Expr* Parser::ParseUnaryExpr(void)
     }
 }
 
+
 Constant* Parser::ParseSizeof(void)
 {
     Type* type;
@@ -390,6 +404,7 @@ Constant* Parser::ParseSizeof(void)
     return Constant::New(tok, T_UNSIGNED | T_LONG, (long)type->Width());
 }
 
+
 Constant* Parser::ParseAlignof(void)
 {
     auto tok = _ts.Expect('(');
@@ -398,6 +413,7 @@ Constant* Parser::ParseAlignof(void)
 
     return Constant::New(tok, T_UNSIGNED | T_LONG, (long)type->Align());
 }
+
 
 UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
 {
@@ -410,12 +426,14 @@ UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
     return UnaryOp::New(op, operand);
 }
 
+
 UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
 {
     auto operand = ParseCastExpr();
 
     return UnaryOp::New(op, operand);
 }
+
 
 Type* Parser::ParseTypeName(void)
 {
@@ -425,6 +443,7 @@ Type* Parser::ParseTypeName(void)
     
     return type;
 }
+
 
 Expr* Parser::ParseCastExpr(void)
 {
@@ -441,6 +460,7 @@ Expr* Parser::ParseCastExpr(void)
     return ParseUnaryExpr();
 }
 
+
 Expr* Parser::ParseMultiplicativeExpr(void)
 {
     auto lhs = ParseCastExpr();
@@ -455,6 +475,7 @@ Expr* Parser::ParseMultiplicativeExpr(void)
     _ts.PutBack();
     return lhs;
 }
+
 
 Expr* Parser::ParseAdditiveExpr(void)
 {
@@ -471,6 +492,7 @@ Expr* Parser::ParseAdditiveExpr(void)
     return lhs;
 }
 
+
 Expr* Parser::ParseShiftExpr(void)
 {
     auto lhs = ParseAdditiveExpr();
@@ -485,6 +507,7 @@ Expr* Parser::ParseShiftExpr(void)
     _ts.PutBack();
     return lhs;
 }
+
 
 Expr* Parser::ParseRelationalExpr(void)
 {
@@ -502,6 +525,7 @@ Expr* Parser::ParseRelationalExpr(void)
     return lhs;
 }
 
+
 Expr* Parser::ParseEqualityExpr(void)
 {
     auto lhs = ParseRelationalExpr();
@@ -517,6 +541,7 @@ Expr* Parser::ParseEqualityExpr(void)
     return lhs;
 }
 
+
 Expr* Parser::ParseBitiwiseAndExpr(void)
 {
     auto lhs = ParseEqualityExpr();
@@ -530,6 +555,7 @@ Expr* Parser::ParseBitiwiseAndExpr(void)
     
     return lhs;
 }
+
 
 Expr* Parser::ParseBitwiseXorExpr(void)
 {
@@ -545,6 +571,7 @@ Expr* Parser::ParseBitwiseXorExpr(void)
     return lhs;
 }
 
+
 Expr* Parser::ParseBitwiseOrExpr(void)
 {
     auto lhs = ParseBitwiseXorExpr();
@@ -558,6 +585,7 @@ Expr* Parser::ParseBitwiseOrExpr(void)
     
     return lhs;
 }
+
 
 Expr* Parser::ParseLogicalAndExpr(void)
 {
@@ -573,6 +601,7 @@ Expr* Parser::ParseLogicalAndExpr(void)
     return lhs;
 }
 
+
 Expr* Parser::ParseLogicalOrExpr(void)
 {
     auto lhs = ParseLogicalAndExpr();
@@ -586,6 +615,7 @@ Expr* Parser::ParseLogicalOrExpr(void)
     
     return lhs;
 }
+
 
 Expr* Parser::ParseConditionalExpr(void)
 {
@@ -601,6 +631,7 @@ Expr* Parser::ParseConditionalExpr(void)
     
     return cond;
 }
+
 
 Expr* Parser::ParseAssignExpr(void)
 {
@@ -704,6 +735,7 @@ CompoundStmt* Parser::ParseDecl(void)
     return CompoundStmt::New(stmts);
 }
 
+
 //for state machine
 enum {
     //compatibility for these key words
@@ -719,6 +751,7 @@ enum {
     COMP_THREAD = S_EXTERN | S_STATIC,
 };
 
+
 static inline void TypeLL(int& typeSpec)
 {
     if (typeSpec & T_LONG) {
@@ -729,10 +762,12 @@ static inline void TypeLL(int& typeSpec)
     }
 }
 
+
 Type* Parser::ParseSpecQual(void)
 {
     return ParseDeclSpec(nullptr, nullptr);
 }
+
 
 /*
 param: storage: null, only type specifier and qualifier accepted;
@@ -966,6 +1001,7 @@ error:
     return nullptr;	// Make compiler happy
 }
 
+
 int Parser::ParseAlignas(void)
 {
     int align;
@@ -984,11 +1020,6 @@ int Parser::ParseAlignas(void)
     return align;
 }
 
-static inline string MakeStructUnionName(const char* name)
-{
-    static string ret = "struct/union@";
-    return ret + name;
-}
 
 Type* Parser::ParseEnumSpec(void)
 {
@@ -1035,6 +1066,7 @@ enum_decl:
     return ParseEnumerator(type);   //处理反大括号: '}'
 }
 
+
 Type* Parser::ParseEnumerator(ArithmType* type)
 {
     assert(type && !type->Complete() && type->IsInteger());
@@ -1070,6 +1102,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
     
     return type;
 }
+
 
 /*
  * 四种 name space：
@@ -1146,6 +1179,7 @@ struct_decl:
     return ParseStructUnionDecl(type); //处理反大括号: '}'
 }
 
+
 StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
 {
     //既然是定义，那输入肯定是不完整类型，不然就是重定义了
@@ -1154,8 +1188,9 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
     auto scopeBackup = _curScope;
     _curScope = type->MemberMap(); // Internal symbol lookup rely on _curScope
 
+    unsigned char begin = 0;
     while (!_ts.Try('}')) {
-        if (_ts.Peek()->IsEOF()) {
+        if (_ts.Empty()) {
             Error(_ts.Peek(), "premature end of input");
         }
         
@@ -1167,12 +1202,19 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
             auto tok = tokTypePair.first;
             memberType = tokTypePair.second;
             
+            if (_ts.Try(':')) {
+                begin = ParseBitField(type, tok, memberType, begin);
+                goto end_decl;
+            }
+
             if (tok == nullptr) {
                 auto suType = memberType->ToStructUnionType();
                 if (suType && !suType->HasTag()) {
                     type->MergeAnony(suType);
+                    continue;
+                } else {
+                    Error(_ts.Peek(), "expect member name");
                 }
-                continue;
             }
 
             auto name = tok->Str();
@@ -1181,17 +1223,18 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
             }
 
             if (!memberType->Complete()) {
-                Error(tok,
-                        "field '%s' has incomplete type", name.c_str());
+                Error(tok, "field '%s' has incomplete type", name.c_str());
             }
 
             if (memberType->ToFuncType()) {
-                Error(tok,
-                        "field '%s' declared as a function", name.c_str());
+                Error(tok, "field '%s' declared as a function", name.c_str());
             }
 
             auto member = Object::New(tok, memberType, _curScope);
-            type->AddMember(name, member);
+            type->AddMember(member);
+
+        end_decl:
+
         } while (_ts.Try(','));
         _ts.Expect(';');
     }
@@ -1202,6 +1245,44 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
     _curScope = scopeBackup;
 
     return type;
+}
+
+
+int Parser::ParseBitField(StructUnionType* structType,
+        Token* tok, type* Type, int begin)
+{
+    if (!type->IsInteger()) {
+        Error(tok ? tok: _ts.Peek(), "expect integer type for bitfield");
+    }
+
+    auto expr = ParseAssignExpr();
+    auto width = Evaluator<long>().Eval(expr);
+    if (width < 0) {
+        Error(expr, "expect non negative value");
+    } else if (width == 0 && tok) {
+        Error(tok, "no declarator expected for a bitfield with width 0");
+    } else if (width == 0) {
+        return 0;
+    } else if (width > type->Width() * 8) {
+        Error(expr, "width exceeds its type");
+    }
+
+    if (begin == 0) {
+        auto member = Object::New(tok, type, _curScope, 0, L_NONE, 0, width);
+        structType->AddBitField(member, true);
+        return width;
+    }
+
+    auto lastType = structType->Members().back()->Type();
+    if (width + begin > lastType->Width() * 8) {
+        auto member = Object::New(tok, type, _curScope, 0, L_NONE, 0, width);
+        structType->AddBitField(member, true);
+        return width;
+    } else {
+        auto member = Object::New(tok, type, _curScope, 0, L_NONE, begin, width);
+        structType->AddBitField(member, false);
+        return (begin + width) % (lastType->Width() * 8);
+    }
 }
 
 
@@ -1233,6 +1314,7 @@ int Parser::ParseQual(void)
     }
 }
 
+
 Type* Parser::ParsePointer(Type* typePointedTo)
 {
     Type* retType = typePointedTo;
@@ -1245,6 +1327,7 @@ Type* Parser::ParsePointer(Type* typePointedTo)
     return retType;
 }
 
+
 static Type* ModifyBase(Type* type, Type* base, Type* newBase)
 {
     if (type == base)
@@ -1255,6 +1338,7 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
     
     return ty;
 }
+
 
 /*
  * Return: pair of token(must be identifier) and it's type
@@ -1289,6 +1373,7 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
 
     return TokenTypePair(nullptr, pointerType);
 }
+
 
 Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         int storageSpec, int funcSpec)
@@ -1416,6 +1501,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     return ret;
 }
 
+
 Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
 {
     if (_ts.Try('[')) {
@@ -1458,6 +1544,7 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
     return base;
 }
 
+
 /*
  * return: -1, 没有指定长度；其它，长度；
  */
@@ -1489,6 +1576,7 @@ int Parser::ParseArrayLength(void)
     EnsureInteger(expr);
     return Evaluator<long>().Eval(expr);
 }
+
 
 /*
  * Return: true, has ellipsis;
@@ -1522,6 +1610,7 @@ bool Parser::ParseParamList(FuncType::TypeList& paramTypes)
     return false;
 }
 
+
 Type* Parser::ParseParamDecl(void)
 {
     int storageSpec, funcSpec;
@@ -1543,6 +1632,7 @@ Type* Parser::ParseParamDecl(void)
 
     return type;
 }
+
 
 Type* Parser::ParseAbstractDeclarator(Type* type)
 {
@@ -1566,6 +1656,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
     return ModifyBase(ret, pointerType, newBase);
     */
 }
+
 
 Identifier* Parser::ParseDirectDeclarator(Type* type,
         int storageSpec, int funcSpec)
@@ -1903,6 +1994,7 @@ Stmt* Parser::ParseStmt(void)
     return expr;
 }
 
+
 CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
 {
     if (!funcType)
@@ -1927,6 +2019,7 @@ CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
     return CompoundStmt::New(stmts, scope);
 }
 
+
 IfStmt* Parser::ParseIfStmt(void)
 {
     _ts.Expect('(');
@@ -1944,6 +2037,7 @@ IfStmt* Parser::ParseIfStmt(void)
     
     return IfStmt::New(cond, then, els);
 }
+
 
 /*
  * for 循环结构：
@@ -2025,6 +2119,7 @@ CompoundStmt* Parser::ParseForStmt(void)
     return CompoundStmt::New(stmts, scope);
 }
 
+
 /*
  * while 循环结构：
  * while (expression) statement
@@ -2066,6 +2161,7 @@ CompoundStmt* Parser::ParseWhileStmt(void)
     return CompoundStmt::New(stmts);
 }
 
+
 /*
  * do-while 循环结构：
  *      do statement while (expression)
@@ -2105,6 +2201,7 @@ CompoundStmt* Parser::ParseDoStmt(void)
     return CompoundStmt::New(stmts);
 }
 
+
 #define ENTER_SWITCH_BODY(breakDest, caseLabels)    \
 { 												    \
     CaseLabelList* caseLabelsBackup = _caseLabels;  \
@@ -2118,6 +2215,7 @@ CompoundStmt* Parser::ParseDoStmt(void)
     _breakDest = breakDestBackup;       \
     _defaultLabel = defaultLabelBackup;	\
 }
+
 
 /*
  * switch
@@ -2168,6 +2266,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
     return CompoundStmt::New(stmts);
 }
 
+
 CompoundStmt* Parser::ParseCaseStmt(void)
 {
     auto expr = ParseExpr();
@@ -2186,6 +2285,7 @@ CompoundStmt* Parser::ParseCaseStmt(void)
     return CompoundStmt::New(stmts);
 }
 
+
 CompoundStmt* Parser::ParseDefaultStmt(void)
 {
     auto tok = _ts.Peek();
@@ -2203,6 +2303,7 @@ CompoundStmt* Parser::ParseDefaultStmt(void)
     return CompoundStmt::New(stmts);
 }
 
+
 JumpStmt* Parser::ParseContinueStmt(void)
 {
     auto tok = _ts.Peek();
@@ -2213,6 +2314,7 @@ JumpStmt* Parser::ParseContinueStmt(void)
     
     return JumpStmt::New(_continueDest);
 }
+
 
 JumpStmt* Parser::ParseBreakStmt(void)
 {
@@ -2225,6 +2327,7 @@ JumpStmt* Parser::ParseBreakStmt(void)
     
     return JumpStmt::New(_breakDest);
 }
+
 
 ReturnStmt* Parser::ParseReturnStmt(void)
 {
@@ -2243,6 +2346,7 @@ ReturnStmt* Parser::ParseReturnStmt(void)
     return ReturnStmt::New(expr);
 }
 
+
 JumpStmt* Parser::ParseGotoStmt(void)
 {
     auto label = _ts.Peek();
@@ -2259,6 +2363,7 @@ JumpStmt* Parser::ParseGotoStmt(void)
     
     return unresolvedJump;
 }
+
 
 CompoundStmt* Parser::ParseLabelStmt(const Token* label)
 {

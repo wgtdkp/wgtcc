@@ -339,13 +339,13 @@ std::string StructUnionType::Str(void) const
 }
 
 
-void StructUnionType::AddMember(const std::string& name, Object* member)
+void StructUnionType::AddMember(Object* member)
 {
     auto offset = MakeAlign(_offset, member->Type()->Align());
     member->SetOffset(offset);
     
     _members.push_back(member);
-    _memberMap->Insert(name, member);
+    _memberMap->Insert(member->Name(), member);
 
     _align = std::max(_align, member->Type()->Align());
 
@@ -356,6 +356,18 @@ void StructUnionType::AddMember(const std::string& name, Object* member)
         assert(_offset == 0);
         _width = std::max(_width, member->Type()->Width());
     }
+}
+
+
+void StructUnionType::AddBitField(Object* bitField, bool firstOfUnit)
+{
+    if (firstOfUnit) {
+        return AddMember(bitField);
+    }
+    
+    bitField->SetOffset(_members.back()->Offset());
+    _members.push_back(member);
+    _memberMap->Insert(member->Name(), member);
 }
 
 

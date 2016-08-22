@@ -522,8 +522,10 @@ public:
     virtual std::string Str(void) const;
 
     // struct/union
-    void AddMember(const std::string& name, Object* member);
+    void AddMember(Object* member);
     
+    void AddBitField(Object* member, bool firstOfUnit);
+
     bool IsStruct(void) const {
         return _isStruct;
     }

@@ -85,29 +85,48 @@ public:
 
     /************* Declarations **************/
     CompoundStmt* ParseDecl(void);
+    
     Type* ParseDeclSpec(int* storage, int* func);
+    
     Type* ParseSpecQual(void);
+    
     int ParseAlignas(void);
+    
     Type* ParseStructUnionSpec(bool isStruct);
+    
     Type* ParseEnumSpec(void);
+    
     StructUnionType* ParseStructUnionDecl(StructUnionType* type);
+    
+    int ParseBitField(StructUnionType* structType,
+            Token* tok, type* Type, int begin);
+
     Type* ParseEnumerator(ArithmType* type);
+    
     //declarator
     int ParseQual(void);
+    
     Type* ParsePointer(Type* typePointedTo);
+    
     TokenTypePair ParseDeclarator(Type* type);
+    
     Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
+    
     int ParseArrayLength(void);
+    
     bool ParseParamList(FuncType::TypeList& paramTypes);
+    
     Type* ParseParamDecl(void);
 
     //typename
     Type* ParseAbstractDeclarator(Type* type);
+    
     Identifier* ParseDirectDeclarator(Type* type,
             int storageSpec, int funcSpec);
 
     //initializer
     void ParseInitializer(Declaration* init, Type* type, int offset);
+    
     void ParseArrayInitializer(Declaration* init,
             ArrayType* type, int offset);
             
@@ -121,18 +140,31 @@ public:
 
     /************* Statements ***************/
     Stmt* ParseStmt(void);
+    
     CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
+    
     IfStmt* ParseIfStmt(void);
+    
     CompoundStmt* ParseSwitchStmt(void);
+    
     CompoundStmt* ParseWhileStmt(void);
+    
     CompoundStmt* ParseDoStmt(void);
+    
     CompoundStmt* ParseForStmt(void);
+    
     JumpStmt* ParseGotoStmt(void);
+    
     JumpStmt* ParseContinueStmt(void);
+    
     JumpStmt* ParseBreakStmt(void);
+    
     ReturnStmt* ParseReturnStmt(void);
+    
     CompoundStmt* ParseLabelStmt(const Token* label);
+    
     CompoundStmt* ParseCaseStmt(void);
+    
     CompoundStmt* ParseDefaultStmt(void);
 
     Identifier* ProcessDeclarator(Token* tok, Type* type,

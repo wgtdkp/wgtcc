@@ -738,7 +738,8 @@ class Object : public Identifier
 
 public:
     static Object* New(const Token* tok, ::Type* type, ::Scope* scope,
-            int storage=0, enum Linkage linkage=L_NONE);
+            int storage=0, enum Linkage linkage=L_NONE,
+            unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
 
     ~Object(void) {}
 
@@ -781,6 +782,18 @@ public:
         _decl = decl;
     }
 
+    bool IsBitField(void) const {
+        return BitFieldMask();
+    }
+
+    unsigned char BitFieldBegin(void) const {
+        return _bitFieldBegin;
+    }
+
+    unsigned char bitFieldWidth(void) const {
+        return _bitFieldWidth;
+    }
+
     bool HasInit(void) const {
         return _decl && _decl->Inits().size();
     }
@@ -796,9 +809,11 @@ public:
 
 protected:
     Object(const Token* tok, ::Type* type, ::Scope* scope,
-            int storage=0, enum Linkage linkage=L_NONE)
+            int storage=0, enum Linkage linkage=L_NONE,
+            unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
             : Identifier(tok, type, scope, linkage),
-              _storage(storage), _offset(0), _decl(nullptr) {}
+              _storage(storage), _offset(0), _decl(nullptr),
+              _bitFieldBegin(bitFieldBegin), _bitFieldWidth(bitFieldWidth) {}
 
 private:
     int _storage;
@@ -807,6 +822,10 @@ private:
     int _offset;
 
     Declaration* _decl;
+
+    unsigned char _bitFieldBegin;
+    // 0 means it's not a bitfield
+    unsigned char _bitFieldWidth;
 
     //static size_t _labelId {0};
 };
