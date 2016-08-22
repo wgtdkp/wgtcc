@@ -900,7 +900,7 @@ void Preprocessor::HandleTheFileMacro(TokenSeq& os, Token* macro)
     Token file(*macro);
     file._tag = Token::STRING_LITERAL;
 
-    auto str = macro->_fileName;
+    auto str = new std::string("\"" + *macro->_fileName + "\"");
     file._begin = const_cast<char*>(str->c_str());
     file._end = file._begin + str->size();
     os.InsertBack(&file);

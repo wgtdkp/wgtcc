@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "test.h"
 
 #define LINE 125
 
@@ -6,6 +7,7 @@
 
 void test1(void)
 {
+    printf("__FILE__: %s\n", __FILE__);
     printf("__LINE__: %d\n", __LINE__);
 }
 
