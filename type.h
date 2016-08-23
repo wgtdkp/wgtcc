@@ -523,8 +523,8 @@ public:
 
     // struct/union
     void AddMember(Object* member);
-    
-    void AddBitField(Object* member, bool firstOfUnit);
+
+    void AddBitField(Object* member, int offset);
 
     bool IsStruct(void) const {
         return _isStruct;
@@ -538,6 +538,10 @@ public:
 
     MemberList& Members(void) {
         return _members;
+    }
+
+    int Offset(void) const {
+        return _offset;
     }
 
     bool HasTag(void) {
@@ -554,6 +558,11 @@ protected:
 
 private:
     void CalcWidth(void);
+
+    static std::string AnonymousBitField(void) {
+        static int id = 0;
+        return std::to_string(id++) + "<anonymous>";
+    }
 
     bool _isStruct;
     bool _hasTag;

@@ -782,17 +782,31 @@ public:
         _decl = decl;
     }
 
-    bool IsBitField(void) const {
-        return BitFieldMask();
+    static bool IsBitField(Object* obj) {
+        return obj->_bitFieldWidth;
     }
 
     unsigned char BitFieldBegin(void) const {
         return _bitFieldBegin;
     }
 
-    unsigned char bitFieldWidth(void) const {
+    unsigned char BitFieldEnd(void) const {
+        return _bitFieldBegin + _bitFieldWidth;
+    }
+
+    unsigned char BitFieldWidth(void) const {
         return _bitFieldWidth;
     }
+
+    static unsigned long BitFieldMask(Object* bitField) {
+        return BitFieldMask(bitField->_bitFieldBegin, bitField->_bitFieldWidth);
+    }
+
+    static unsigned long BitFieldMask(unsigned char begin, unsigned char width) {
+        auto end = begin + width;
+        return ((0xFFFFFFFFFFFFFFFFUL << (64 - end)) >> (64 - width)) << begin;
+    }
+
 
     bool HasInit(void) const {
         return _decl && _decl->Inits().size();

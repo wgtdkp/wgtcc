@@ -98,8 +98,8 @@ public:
     
     StructUnionType* ParseStructUnionDecl(StructUnionType* type);
     
-    int ParseBitField(StructUnionType* structType,
-            Token* tok, type* Type, int begin);
+    bool ParseBitField(StructUnionType* structType,
+            Token* tok, Type* type, bool packed);
 
     Type* ParseEnumerator(ArithmType* type);
     

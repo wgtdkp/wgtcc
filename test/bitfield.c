@@ -1,30 +1,65 @@
 #include <stdio.h>
 
-int main(void)
+
+void test1(void)
 {
     typedef struct {
         unsigned char a: 1;
-        unsigned int b: 1;
-        unsigned char c: 1;
-        unsigned char d: 1;
-        unsigned char e: 1;
-        unsigned char f: 1;
-        unsigned char g: 1;
-        unsigned char h: 1;
+        unsigned char b: 8;
+        unsigned char c: 3;
+        unsigned int d: 24;
+    } foo_t;
+    printf("%d\n", sizeof(foo_t));
+}
+
+void test2(void)
+{
+    typedef struct {
+        unsigned char a: 1;
+        unsigned char b: 3;
+        unsigned char: 8;
+        unsigned char c: 3;
+        unsigned int d: 24;
+    } foo_t;
+    printf("%d\n", sizeof(foo_t));
+}
+
+void test3(void)
+{
+    typedef struct {
+        unsigned short a: 8;
+        unsigned char: 0;
+        unsigned char b: 1;
+    } foo_t;
+    printf("%d\n", sizeof(foo_t));
+}
+
+void test4(void)
+{
+    typedef struct {
+        unsigned short a: 8;
+        unsigned int b: 9;
+    } foo_t;
+    printf("%d\n", sizeof(foo_t));
+}
+
+
+int main(void)
+{
+    typedef union {
+        struct {
+            unsigned int a: 8;
+            unsigned short b: 7;
+            unsigned int c: 10;
+        };
     } foo_t;
 
-    foo_t foo = {0, 0, 0, 0, 0, 0, 0, 0};
-    foo.d = 1;
+    foo_t foo;
+    printf("%ld\n", sizeof(foo_t));
 
-    //printf("%d\n", sizeof(foo.d));
-    //printf("%d\n", foo.b);
-    //printf("%d\n", foo.c);
-    //printf("%d\n", foo.d);
-    //printf("%d\n", foo.e);
-    //printf("%d\n", foo.f);
-    //printf("%d\n", foo.g);
-    //printf("%d\n", foo.h);
-
-
+    test1();
+    test2();
+    test3();
+    test4();
     return 0;
 }

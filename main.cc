@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
         Usage();
     }
 
+    clock_t begin = clock();
     // change current directory
 
     // Preprocessing
@@ -99,12 +100,17 @@ int main(int argc, char* argv[])
     Generator g;
     g.Gen();
 
+    clock_t end = clock(); 
+
     fclose(outFile);
 
     auto str = ReadFile(outFileName);
     std::cout << *str << std::endl;
     std::string sys = "gcc -std=c11 -Wall " + outFileName;
     system(sys.c_str());
+
+    std::cout << "time: " << (end - begin) * 1.0f / CLOCKS_PER_SEC << std::endl;
+
 
     return 0;
 }

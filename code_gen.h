@@ -58,11 +58,16 @@ typedef std::vector<ROData> RODataList;
 
 struct ObjectAddr
 {
+    ObjectAddr(const std::string& label, const std::string& base, int offset)
+            : _label(label), _base(base), _offset(offset) {}
+
     std::string Repr(void) const;
     
     std::string _label;
     std::string _base;
     int _offset;
+    unsigned char _bitFieldBegin {0};
+    unsigned char _bitFieldWidth {0};
 };
 
 
@@ -165,6 +170,8 @@ public:
     void EmitLabel(const std::string& label);
     void EmitLoad(const std::string& addr, Type* type);
     void EmitStore(const std::string& addr, Type* type);
+    void EmitLoadBitField(const std::string& addr, Object* bitField);
+    void EmitStoreBitField(const ObjectAddr& addr, Type* type);
 
     int Push(const char* reg);
     int Pop(const char* reg);
@@ -235,7 +242,7 @@ public:
         return _addr;
     }
 private:
-    ObjectAddr _addr;
+    ObjectAddr _addr {"", "", 0};
 };
 
 #endif

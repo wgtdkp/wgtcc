@@ -158,12 +158,16 @@ Expr* Parser::ParseCommaExpr(void)
 Expr* Parser::ParsePrimaryExpr(void)
 {
     // TODO(wgtdkp): settting error ???
-    if (_ts.Peek()->IsKeyWord()) //can never be a expression
-        return nullptr;
+    if (_ts.Peek()->IsKeyWord()) {//can never be a expression
+        //return nullptr;
+        Error(_ts.Peek(), "unexpected keyword");
+    }
 
     auto tok = _ts.Next();
-    if (tok->IsEOF())
-        return nullptr;
+    if (tok->IsEOF()) {
+        //return nullptr;
+        Error(tok, "premature end of input");
+    }
 
     if (tok->Tag() == '(') {
         auto expr = ParseExpr();
@@ -245,8 +249,10 @@ Expr* Parser::ParseGeneric(void)
 Expr* Parser::ParsePostfixExpr(void)
 {
     auto tok = _ts.Next();
-    if (tok->IsEOF())
-        return nullptr;
+    if (tok->IsEOF()) {
+        //return nullptr;
+        Error(tok, "premature end of input");
+    }
 
     if ('(' == tok->Tag() && IsTypeName(_ts.Peek())) {
         // TODO(wgtdkp):
@@ -1188,7 +1194,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
     auto scopeBackup = _curScope;
     _curScope = type->MemberMap(); // Internal symbol lookup rely on _curScope
 
-    unsigned char begin = 0;
+    bool packed = true;
     while (!_ts.Try('}')) {
         if (_ts.Empty()) {
             Error(_ts.Peek(), "premature end of input");
@@ -1201,9 +1207,10 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
             auto tokTypePair = ParseDeclarator(memberType);
             auto tok = tokTypePair.first;
             memberType = tokTypePair.second;
-            
+            std::string name;
+
             if (_ts.Try(':')) {
-                begin = ParseBitField(type, tok, memberType, begin);
+                packed = ParseBitField(type, tok, memberType, packed);
                 goto end_decl;
             }
 
@@ -1213,11 +1220,11 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
                     type->MergeAnony(suType);
                     continue;
                 } else {
-                    Error(_ts.Peek(), "expect member name");
+                    Error(_ts.Peek(), "declaration does not declare anything");
                 }
             }
 
-            auto name = tok->Str();
+            name = tok->Str();                
             if (type->GetMember(name)) {
                 Error(tok, "duplicate member '%s'", name.c_str());
             }
@@ -1230,10 +1237,9 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
                 Error(tok, "field '%s' declared as a function", name.c_str());
             }
 
-            auto member = Object::New(tok, memberType, _curScope);
-            type->AddMember(member);
+            type->AddMember(Object::New(tok, memberType, _curScope));
 
-        end_decl:
+        end_decl:;
 
         } while (_ts.Try(','));
         _ts.Expect(';');
@@ -1248,8 +1254,8 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
 }
 
 
-int Parser::ParseBitField(StructUnionType* structType,
-        Token* tok, type* Type, int begin)
+bool Parser::ParseBitField(StructUnionType* structType,
+        Token* tok, Type* type, bool packed)
 {
     if (!type->IsInteger()) {
         Error(tok ? tok: _ts.Peek(), "expect integer type for bitfield");
@@ -1262,27 +1268,46 @@ int Parser::ParseBitField(StructUnionType* structType,
     } else if (width == 0 && tok) {
         Error(tok, "no declarator expected for a bitfield with width 0");
     } else if (width == 0) {
-        return 0;
+        return true;
     } else if (width > type->Width() * 8) {
         Error(expr, "width exceeds its type");
     }
 
-    if (begin == 0) {
-        auto member = Object::New(tok, type, _curScope, 0, L_NONE, 0, width);
-        structType->AddBitField(member, true);
-        return width;
+    auto offset = structType->Offset() - type->Width();
+    offset = Type::MakeAlign(std::max(offset, 0), type->Align());
+
+
+    int bitFieldOffset;
+    unsigned char begin;
+
+    if (structType->Members().size() == 0) {
+        begin = 0;
+        bitFieldOffset = 0;
+    } else {
+        auto last = structType->Members().back();
+        auto totalBits = (last->Offset() - offset) * 8;
+        if (Object::IsBitField(last)) {
+            totalBits += last->BitFieldEnd();
+        } else {
+            totalBits += last->Type()->Width() * 8;
+        }
+
+        auto bitsOffset = Type::MakeAlign(totalBits, 8);
+        if (packed && (width + totalBits <= bitsOffset)) {
+            begin = totalBits % 8;
+            bitFieldOffset = totalBits / 8;
+        } else if (Type::MakeAlign(width, 8) + bitsOffset <= type->Width() * 8) {
+            begin = 0;
+            bitFieldOffset = bitsOffset / 8;
+        } else {
+            begin = 0;
+            bitFieldOffset = Type::MakeAlign(structType->Offset(), type->Width());
+        }
     }
 
-    auto lastType = structType->Members().back()->Type();
-    if (width + begin > lastType->Width() * 8) {
-        auto member = Object::New(tok, type, _curScope, 0, L_NONE, 0, width);
-        structType->AddBitField(member, true);
-        return width;
-    } else {
-        auto member = Object::New(tok, type, _curScope, 0, L_NONE, begin, width);
-        structType->AddBitField(member, false);
-        return (begin + width) % (lastType->Width() * 8);
-    }
+    auto bitField = Object::New(tok, type, _curScope, 0, L_NONE, begin, width);
+    structType->AddBitField(bitField, bitFieldOffset);
+    return false;
 }
 
 

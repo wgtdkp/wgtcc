@@ -359,15 +359,18 @@ void StructUnionType::AddMember(Object* member)
 }
 
 
-void StructUnionType::AddBitField(Object* bitField, bool firstOfUnit)
+void StructUnionType::AddBitField(Object* bitField, int offset)
 {
-    if (firstOfUnit) {
-        return AddMember(bitField);
-    }
-    
-    bitField->SetOffset(_members.back()->Offset());
-    _members.push_back(member);
-    _memberMap->Insert(member->Name(), member);
+    bitField->SetOffset(offset);
+    _members.push_back(bitField);
+    auto name = bitField->Tok() ? bitField->Name(): AnonymousBitField();
+    _memberMap->Insert(name, bitField);
+
+    auto bytes = MakeAlign(bitField->BitFieldEnd(), 8) / 8;
+    _align = std::max(_align, bitField->Type()->Align());
+    // Does not aligned 
+    _offset = offset + bytes;
+    _width = MakeAlign(_offset, _align);
 }
 
 

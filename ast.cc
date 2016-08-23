@@ -698,11 +698,12 @@ void Declaration::AddInit(int offset, Type* type, Expr* expr)
  * Object
  */
 
-Object* Object::New(const Token* tok,
-        ::Type* type, ::Scope* scope, int storage, enum Linkage linkage)
+Object* Object::New(const Token* tok, ::Type* type, 
+        ::Scope* scope, int storage, enum Linkage linkage,
+        unsigned char bitFieldBegin, unsigned char bitFieldWidth)
 {
     auto ret = new (objectPool.Alloc())
-            Object(tok, type, scope, storage, linkage);
+            Object(tok, type, scope, storage, linkage, bitFieldBegin, bitFieldWidth);
     ret->_pool = &objectPool;
     return ret;
 }

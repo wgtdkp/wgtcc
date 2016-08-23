@@ -195,6 +195,21 @@ static const char* GetSrc(int width, bool flt)
 }
 
 /*
+static const char* GetDes(Type* type)
+{
+    assert(type->IsScalar());
+    return GetDes(type->Width(), type->IsFloat());
+}
+
+
+static const char* GetSrc(Type* type)
+{
+    assert(type->IsScalar());
+    return GetSrc(type->Width(), type->IsFloat());
+}
+*/
+
+/*
 static inline void GetOperands(const char*& src,
         const char*& des, int width, bool flt)
 {
@@ -350,29 +365,79 @@ void Generator::GenOrOp(BinaryOp* orOp)
 void Generator::GenMemberRefOp(BinaryOp* ref)
 {
     // As the lhs will always be struct/union 
-    auto addr = LValGenerator().GenExpr(ref).Repr();
+    auto addr = LValGenerator().GenExpr(ref->_lhs);
+    auto name = ref->_rhs->Tok()->Str();
+    auto structType = ref->_lhs->Type()->ToStructUnionType();
+    auto member = structType->GetMember(name);
+
+    addr._offset += member->Offset();
 
     if (!ref->Type()->IsScalar()) {
-        Emit("leaq %s, #rax", addr.c_str());
+        Emit("leaq %s, #rax", addr.Repr().c_str());
     } else {
-        EmitLoad(addr, ref->Type());
+        // TODO(wgtdkp): handle bit field
+        if (Object::IsBitField(member)) {
+            EmitLoadBitField(addr.Repr(), member);
+        } else {
+            EmitLoad(addr.Repr(), ref->Type());
+        }
     }
+}
+
+
+void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
+{
+    auto type = bitField->Type()->ToArithmType();
+    assert(type && type->IsInteger());
+
+    EmitLoad(addr, type);
+
+    Emit("andq $%lu, #rax", Object::BitFieldMask(bitField));
+
+    auto shiftRight = (type->Tag() & T_UNSIGNED) ? "shrq": "sarq";    
+    auto left = 64 - bitField->_bitFieldBegin - bitField->_bitFieldWidth;
+    auto right = 64 - bitField->_bitFieldWidth;
+    Emit("salq $%d, #rax", left);
+    Emit("%s $%d, #rax", shiftRight, right);
 }
 
 
 void Generator::GenAssignOp(BinaryOp* assign)
 {
-    // The base register of addr is %r11
+    // The base register of addr is %r10
     auto addr = LValGenerator().GenExpr(assign->_lhs);
     GenExpr(assign->_rhs);
 
     if (assign->Type()->IsScalar()) {
-        EmitStore(addr.Repr(), assign->Type());
+        if (addr._bitFieldWidth != 0) {
+            EmitStoreBitField(addr, assign->Type());
+        } else {
+            EmitStore(addr.Repr(), assign->Type());
+        }
     } else {
         // struct/union type
         // The address of rhs is in %rax
         CopyStruct(addr, assign->Type()->Width());
     }
+}
+
+
+void Generator::EmitStoreBitField(const ObjectAddr& addr, Type* type)
+{
+    auto arithmType = type->ToArithmType();
+    assert(arithmType && arithmType->IsInteger());
+
+    // The value to be stored is in %rax now
+    auto mask = Object::BitFieldMask(addr._bitFieldBegin, addr._bitFieldWidth);
+
+    Emit("salq $%d, #rax", addr._bitFieldBegin);
+    Emit("andq $%lu, #rax", mask);
+    Emit("movq #rax, #r11");
+    EmitLoad(addr.Repr(), arithmType);
+    Emit("andq $%lu, #rax", ~mask);
+    Emit("orq #r11, #rax");
+
+    EmitStore(addr.Repr(), type);
 }
 
 
@@ -520,16 +585,23 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
         Emit("leaq %s, #rax", addr.c_str());
     } return;
     case Token::DEREF:
-        if (!unary->Type()->ToStructUnionType())
-            EmitLoad("(#rax)", unary->Type());
+        VisitExpr(unary->_operand);
+        if (unary->Type()->IsScalar()) {
+            ObjectAddr addr {"", "rax", 0};
+            EmitLoad(addr.Repr(), unary->Type());
+        } else {
+            // Just let it go!
+        }
         return;
     case Token::PLUS:
+        assert(false);
         return;
     case Token::MINUS:
         // TODO(wgtdkp): pxor %xmm9, %xmm9
+        assert(false);
         return;
-    case '~': return;
-    case '!': return;
+    case '~': assert(false); return;
+    case '!': assert(false); return;
     case Token::CAST:
         Visit(unary->_operand);
         GenCastOp(unary);
@@ -1079,32 +1151,6 @@ void Generator::Gen(void)
 {
     Emit(".file \"%s\"", inFileName.c_str());
 
-/*
-    for (auto obj: _parser->StaticObjects()) {
-        auto label = ObjectLabel(obj);
-        auto width = obj->Type()->Width();
-        auto align = obj->Type()->Align();
-
-        // omit the external without initilizer
-        if ((obj->Storage() & S_EXTERN) && !obj->Init())
-            continue;
-
-        auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
-        Emit("%s %s", glb, label.c_str());
-
-        if (!obj->Init()) {    
-            Emit(".comm %s, %d, %d", label.c_str(), width, align);
-        } else {
-            Emit(".align %d", align);
-            Emit(".type %s, @object", label.c_str());
-            Emit(".size %s, %d", label.c_str(), width);
-            EmitLabel(label.c_str());
-            VisitDeclaration(obj->Init());
-        }
-
-    }
-*/
-
     VisitTranslationUnit(_parser->Unit());
 }
 
@@ -1155,18 +1201,18 @@ void Generator::EmitLabel(const std::string& label)
 }
 
 
-
 void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 {
     assert(binary->_op == '.');
 
-    auto addr = LValGenerator().GenExpr(binary->_lhs);
+    _addr = LValGenerator().GenExpr(binary->_lhs);
     auto name = binary->_rhs->Tok()->Str();
     auto structType = binary->_lhs->Type()->ToStructUnionType();
     auto member = structType->GetMember(name);
-    addr._offset += member->Offset();
 
-    _addr = addr;
+    _addr._offset += member->Offset();
+    _addr._bitFieldBegin = member->_bitFieldBegin;
+    _addr._bitFieldWidth = member->_bitFieldWidth;
 }
 
 
@@ -1200,7 +1246,6 @@ void LValGenerator::VisitIdentifier(Identifier* ident)
 }
 
 
-
 std::string ObjectAddr::Repr(void) const
 {
     auto ret = _base.size() ? "(%" + _base + ")": "";
@@ -1216,8 +1261,6 @@ std::string ObjectAddr::Repr(void) const
             return _label + "+" + std::to_string(_offset) + ret;
     }
 }
-
-
 
 
 StaticInitializer Generator::GetStaticInit(const Initializer& init)
