@@ -12,6 +12,13 @@ static void func1(void)
     printf("func1\n");
 }
 
+static void test1(void)
+{
+    func_t f = func;
+    func_t* pf = &f;
+    pf();
+}
+
 int main(void)
 {
     func_t f = func;
@@ -20,4 +27,3 @@ int main(void)
     f();
     return 0;
 }
-

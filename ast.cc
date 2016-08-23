@@ -590,11 +590,19 @@ FuncCall* FuncCall::New(Expr* designator, const ArgList& args)
 
 void FuncCall::TypeChecking(void)
 {
-    if (_designator->Type()->ToPointerType()) {
+    auto pointerType = _designator->Type()->ToPointerType();
+    if (pointerType) {
+        if (!pointerType->Derived()->ToFuncType()) {
+            Error(_designator, "called object is not a function or function pointer");
+        }
+        // Convert function pointer to function type
         _designator = UnaryOp::New(Token::DEREF, _designator);
     }
-
     auto funcType = _designator->Type()->ToFuncType();
+    if (!funcType) {
+        Error(_designator, "called object is not a function or function pointer");
+    }
+
     auto arg = _args.begin();
     for (auto paramType: funcType->ParamTypes()) {
         if (arg == _args.end()) {
