@@ -4,24 +4,21 @@
 void test(void)
 {
     typedef enum {
-        P_ALL,
-        P_PID,
-        P_PGID
+        AA,
+        BB = 3,
+        CC,
+        DD,
     } idtype_t;
-
-    idtype_t id = P_ALL;
+    
+    expect(AA, 1);
+    expect(BB, 3);
+    expect(CC, 4);
+    expect(DD, 5);
     
 }
 
 int main(void)
 {
-
-    enum ee
-    {
-        AA,
-        BB = 1,
-    };
-
-
+    test();
     return 0;
 }

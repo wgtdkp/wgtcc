@@ -3,7 +3,11 @@
 
 #define LINE 125
 
-#line LINE
+//#line LINE
+
+#define PRINT_LINE \
+    printf("%d\n", __LINE__);
+
 
 void test1(void)
 {
@@ -14,6 +18,7 @@ void test1(void)
 
 int main(void)
 {
+    PRINT_LINE;
     test1();
     return 0;
 }

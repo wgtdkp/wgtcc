@@ -64,9 +64,7 @@ public:
         return _params;
     }
 
-    TokenSeq& RepSeq(void) {
-        return _repSeq;
-    }
+    TokenSeq RepSeq(const std::string* fileName, unsigned line);
 
 private:
     //Token* _tok;

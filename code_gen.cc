@@ -307,8 +307,6 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     if (binary->Type()->ToPointerType())
         return GenPointerArithm(binary);
 
-
-    const char* inst;
     // Careful: for compare algorithm, the type of the expression
     //     is always integer, while the type of lhs and rhs could be float
     // After convertion, lhs and rhs always has the same type
@@ -321,10 +319,9 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     Visit(binary->_rhs);
     Restore(flt);
 
+    const char* inst;
+
     switch (op) {
-    case '+': inst = flt ? (width == 4 ? "addss": "addsd"): "add"; break;
-    case '-': inst = flt ? (width == 4 ? "subss": "subsd"): "sub"; break;
-    case '*': inst = flt ? (width == 4 ? "mulss": "mulsd"): "mul"; break; 
     case '/': case '%': return GenDivOp(flt, sign, width, op);
     case '<': 
         return GenCompOp(flt, width, (flt || !sign) ? "setb": "setl");
@@ -339,14 +336,23 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     case Token::NE_OP:
         return GenCompOp(flt, width, "setne");
 
+    case '+': inst = "add"; break;
+    case '-': inst = "sub"; break;
+    case '*': inst = "mul"; break; 
+
     case '|': inst = "or"; break;
     case '&': inst = "and"; break;
     case '^': inst = "xor"; break;
-    case Token::LEFT_OP: inst = "sal"; break;
-    case Token::RIGHT_OP: inst = sign ? "sar": "shr"; break;
+    case Token::LEFT_OP: inst = "sal";
+    case Token::RIGHT_OP: inst = sign ? "sar": "shr";
+        inst = op == Token::LEFT_OP ? "sal": (sign ? "sar": "shr");
+        Emit("movq #r11, #rcx");
+        Emit("%s #cl, #%s", GetInst(inst, width, flt).c_str(),
+                GetDes(width, flt));
+        return;
     }
-
-    Emit("%s #%s, #%s", inst, GetSrc(width, flt), GetDes(width, flt));
+    Emit("%s #%s, #%s", GetInst(inst, width, flt).c_str(),
+            GetSrc(width, flt), GetDes(width, flt));
 }
 
 
