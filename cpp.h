@@ -19,7 +19,6 @@ struct CondDirective;
 typedef std::map<std::string, Macro> MacroMap; 
 typedef std::list<std::string> ParamList;
 typedef std::map<std::string, TokenSeq> ParamMap;
-typedef std::set<std::string> HideSet;
 typedef std::stack<CondDirective> PPCondStack;
 typedef std::list<std::string> PathList;
 
@@ -76,12 +75,14 @@ private:
 
 };
 
+
 struct CondDirective
 {
     int _tag;
     bool _enabled;
     bool _cond;
 };
+
 
 class Preprocessor
 {
@@ -93,12 +94,12 @@ public:
 
     void Process(TokenSeq& os);
     void Expand(TokenSeq& os, TokenSeq& is, bool inCond=false);
-    void Subst(TokenSeq& os, TokenSeq& is, HideSet& hs, ParamMap& params);
+    void Subst(TokenSeq& os, TokenSeq& is, HideSet* hs, ParamMap& params);
     void Glue(TokenSeq& os, TokenSeq& is);
     void Glue(TokenSeq& os, Token* tok);
     void Stringize(char*& begin, char*& end, TokenSeq is);
     void Stringize(std::string& str, TokenSeq is);
-    void ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap);
+    Token* ParseActualParam(TokenSeq& is, Macro* macro, ParamMap& paramMap);
     int GetDirective(TokenSeq& is);
     void ReplaceDefOp(TokenSeq& is);
     void ReplaceIdent(TokenSeq& is);
@@ -159,9 +160,9 @@ public:
     void HandleTheLineMacro(TokenSeq& os, Token* macro);
     void UpdateTokenCoord(Token* tok);
 
-    bool Hidden(const std::string& name) {
-        return _hs.find(name) != _hs.end();
-    }
+    //bool Hidden(const std::string& name) {
+    //    return _hs.find(name) != _hs.end();
+    //}
 
     bool NeedExpand(void) const {
         if (_ppCondStack.empty())
@@ -173,7 +174,7 @@ public:
 private:
     void Init(void);
 
-    HideSet _hs;
+    //HideSet _hs;
     PPCondStack _ppCondStack;
     unsigned _curLine;
     unsigned _lineLine;

@@ -5,8 +5,11 @@
 
 #include <cassert>
 #include <cstring>
+
 #include <iostream>
 #include <list>
+#include <set>
+#include <string>
 #include <unordered_map>
 
 
@@ -15,11 +18,14 @@ class Parser;
 class Token;
 class TokenSeq;
 
+
+typedef std::set<std::string> HideSet;
 typedef std::list<Token> TokenList;
 
 
 void PrintTokSeq(TokenSeq& tokSeq);
 void PrintTokList(TokenList& tokList);
+
 
 enum class Encoding {
     NONE,
@@ -28,6 +34,7 @@ enum class Encoding {
     UTF8,
     WCHAR
 };
+
 
 struct Token
 {
@@ -55,6 +62,8 @@ public:
         _begin = other._begin;
         _end = other._end;
 
+        _hs = other._hs;
+        
         return *this;
     }
 
@@ -297,25 +306,25 @@ public:
     
     int _tag;
     
-    const std::string* _fileName {nullptr};
+    const std::string* _fileName { nullptr };
 
     // Line index of the begin
-    unsigned _line {1};
-    unsigned _column {1};
+    unsigned _line { 1 };
+    unsigned _column { 1 };
     /*
         * _ws standards for weither there is preceding white space
         * This is to simplify the '#' operator(stringize) in macro expansion
         */
-    bool _ws {false};
+    bool _ws { false };
      
 
-    char* _lineBegin {nullptr};
+    char* _lineBegin { nullptr };
 
-    char* _begin {nullptr};
+    char* _begin { nullptr };
 
-    char* _end {nullptr};
+    char* _end { nullptr };
     
-    //bool _needFree;
+    HideSet* _hs { nullptr };
 
     static const std::unordered_map<std::string, int> _kwTypeMap;
     static const std::unordered_map<int, const char*> _TagLexemeMap;

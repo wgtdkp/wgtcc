@@ -40,17 +40,19 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
     Macro* macro = nullptr;
     int direcitve;
     while (!is.Empty()) {
-        UpdateTokenCoord(is.Peek());
-        auto name = is.Peek()->Str();
+        auto tok = is.Peek();
+        UpdateTokenCoord(tok);
+        auto name = tok->Str();
 
         if ((direcitve = GetDirective(is)) != Token::INVALID) {
             ParseDirective(os, is, direcitve);
         } else if (!inCond && !NeedExpand()) {
+            // Discards 
             is.Next();
-        } else if (Hidden(name)) {
+        } else if (tok->_hs && tok->_hs->find(name) != tok->_hs->end()) {
             os.InsertBack(is.Next());
         } else if ((macro = FindMacro(name))) {
-            auto tok = is.Next();
+            is.Next();
             
             if (name == "__FILE__") {
                 HandleTheFileMacro(os, tok);
@@ -61,7 +63,6 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
             }
             // FIXME(wgtdkp): dead loop when expand below macro
             // #define stderr stderr
-            _hs.insert(name);
             if (macro->ObjLike()) {
 
                 // Make a copy, as subst will change repSeq
@@ -81,30 +82,36 @@ void Preprocessor::Expand(TokenSeq& os, TokenSeq& is, bool inCond)
                 TokenSeq repSeqSubsted(&tokList);
                 ParamMap paramMap;
                 // TODO(wgtdkp): hideset is not right
-                Subst(repSeqSubsted, repSeq, _hs, paramMap);
+                // Make a copy of hideset
+                // HS U {name}
+                auto hs = tok->_hs ? new HideSet(*tok->_hs): new HideSet();
+                hs->insert(name);
+                Subst(repSeqSubsted, repSeq, hs, paramMap);
 
                 is.InsertFront(repSeqSubsted);
             } else if (is.Test('(')) {
                 is.Next();
-                auto tok = is.Peek();
-                ParamMap paramMap;
-                ParseActualParam(is, macro, paramMap);
 
-                // Make a copy, as subst will change repSeq
+                ParamMap paramMap;
+                auto rpar = ParseActualParam(is, macro, paramMap);
+
                 auto repSeq = macro->RepSeq(tok->_fileName, tok->_line);
                 repSeq.Peek()->_ws = tok->_ws;
-
                 TokenList tokList;
                 TokenSeq repSeqSubsted(&tokList);
-                
-                // TODO(wgtdkp): hideset is not right
-                Subst(repSeqSubsted, repSeq, _hs, paramMap);
+
+                // (HS ^ HS') U {name}
+                // Use HS' U {name} directly                
+                auto hs = rpar->_hs ? new HideSet(*rpar->_hs): new HideSet();
+                hs->insert(name);
+                Subst(repSeqSubsted, repSeq, hs, paramMap);
+
                 is.InsertFront(repSeqSubsted);
             } else {
                 Error(is.Peek(), "expect '(' for func-like macro '%s'",
                         name.c_str());
             }
-            _hs.erase(name);
+            //_hs.erase(name);
         } else {
             os.InsertBack(is.Next());
         }
@@ -124,7 +131,7 @@ static bool FindActualParam(TokenSeq& ap, ParamMap& params, const std::string& f
 
 
 void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
-        HideSet& hs, ParamMap& params)
+        HideSet* hs, ParamMap& params)
 {
     TokenSeq ap;
 
@@ -181,6 +188,11 @@ void Preprocessor::Subst(TokenSeq& os, TokenSeq& is,
             is.Next();
             //Subst(os, is, hs, params);
         }
+    }
+
+    TokenSeq ts = os;
+    while (!ts.Empty()) {
+        ts.Next()->_hs = hs;
     }
 }
 
@@ -337,17 +349,16 @@ void Preprocessor::Process(TokenSeq& os)
 }
 
 
-void Preprocessor::ParseActualParam(TokenSeq& is,
+Token* Preprocessor::ParseActualParam(TokenSeq& is,
         Macro* macro, ParamMap& paramMap)
 {
+    Token* ret;
     //TokenSeq ts(is);
     TokenSeq ap(is);
     auto fp = macro->Params().begin();
-
     ap._begin = is._begin;
 
     int cnt = 1;
-    
     while (cnt > 0) {
         if (is.Test('('))
             ++cnt;
@@ -367,13 +378,15 @@ void Preprocessor::ParseActualParam(TokenSeq& is,
             ap._begin = ++ap._end;  
         }
 
-        is.Next();
+        ret = is.Next();
     }
 
     if (fp != macro->Params().end()) {
         // TODO(wgtdkp): error
         Error(is.Peek(), "too few params");
     }
+
+    return ret;
 }
 
 
