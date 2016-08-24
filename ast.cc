@@ -522,14 +522,15 @@ void UnaryOp::UnaryArithmOpTypeChecking(void)
     }
 }
 
+
 void UnaryOp::CastOpTypeChecking(void)
 {
     // The _type has been initiated to dest type
-    if (!_type->IsScalar()) {
+    if (_type->ToVoidType()) {
+        // The expression becomes a void expression
+    } else if (!_type->IsScalar()) {
         Error(_tok, "the cast type should be arithemetic type or pointer");
-    }
-
-    if (_type->IsFloat() && _operand->Type()->ToPointerType()) {
+    } else if (_type->IsFloat() && _operand->Type()->ToPointerType()) {
         Error(_tok, "can't cast a pointer to floating");
     } else if (_type->ToPointerType() && _operand->Type()->IsFloat()) {
         Error(_tok, "can't cast a floating to pointer");
