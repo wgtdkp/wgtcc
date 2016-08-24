@@ -134,7 +134,7 @@ public:
     bool IsReal(void) const {
         return IsInteger() || IsFloat();
     }
-
+    
     virtual VoidType* ToVoidType(void) { return nullptr; }
     
     virtual const VoidType* ToVoidType(void) const { return nullptr; }

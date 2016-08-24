@@ -258,7 +258,6 @@ void Generator::Restore(bool flt)
 
 void Generator::Save(bool flt)
 {
-    //assert(src == "rax" || src == "eax" || src == "xmm8");
     if (flt) {        
         Emit("movsd #xmm8, xmm9");
     } else {
@@ -308,12 +307,12 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     if (binary->Type()->ToPointerType())
         return GenPointerArithm(binary);
 
-    // Careful: for compare algorithm, the type of the expression
+    // Careful: for compare operator, the type of the expression
     //     is always integer, while the type of lhs and rhs could be float
     // After convertion, lhs and rhs always has the same type
     auto width = binary->_lhs->Type()->Width();
     auto flt = binary->_lhs->Type()->IsFloat();
-    auto sign = !flt && !(binary->Type()->ToArithmType()->Tag() & T_UNSIGNED);
+    auto sign = !(binary->_lhs->Type()->ToArithmType()->Tag() & T_UNSIGNED);
 
     Visit(binary->_lhs);
     Spill(flt);
@@ -323,6 +322,7 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     const char* inst;
 
     switch (op) {
+    case '*': return GenMulOp(width, flt, sign); 
     case '/': case '%': return GenDivOp(flt, sign, width, op);
     case '<': 
         return GenCompOp(width, flt, (flt || !sign) ? "setb": "setl");
@@ -339,8 +339,6 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
 
     case '+': inst = "add"; break;
     case '-': inst = "sub"; break;
-    case '*': inst = "mul"; break; 
-
     case '|': inst = "or"; break;
     case '&': inst = "and"; break;
     case '^': inst = "xor"; break;
@@ -354,6 +352,18 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     }
     Emit("%s #%s, #%s", GetInst(inst, width, flt).c_str(),
             GetSrc(width, flt), GetDes(width, flt));
+}
+
+
+void Generator::GenMulOp(int width, bool flt, bool sign)
+{
+    auto inst = flt ? "mul": (sign ? "imul": "mul");
+    
+    if (flt) {
+        Emit("%s #xmm9, #xmm8", GetInst(inst, width, flt).c_str());
+    } else {
+        Emit("%s #%s", GetInst(inst, width, flt).c_str(), GetSrc(width, flt));
+    }
 }
 
 
@@ -556,7 +566,7 @@ void Generator::GenPointerArithm(BinaryOp* binary)
     
     auto type = binary->_lhs->Type()->ToPointerType()->Derived();
     if (type->Width() > 1)
-        Emit("imul $%d, #rax", type->Width());
+        Emit("imulq $%d, #rax", type->Width());
     Restore(false);
     if (binary->_op == '+')
         Emit("addq #r11, #rax");

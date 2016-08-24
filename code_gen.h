@@ -116,6 +116,7 @@ public:
     void GenMinusOp(UnaryOp* minus);
     void GenPointerArithm(BinaryOp* binary);
     void GenDivOp(bool flt, bool sign, int width, int op);
+    void GenMulOp(int width, bool flt, bool sign);
     void GenCompOp(int width, bool flt, const char* set);
     void GenCompZero(Type* type);
 
