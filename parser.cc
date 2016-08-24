@@ -112,6 +112,10 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
 {
     auto funcDef = EnterFunc(ident);
 
+    if (ident->Type()->Complete()) {
+        Error(ident, "redefinition of '%s'", ident->Name().c_str());
+    }
+
     auto funcType = ident->Type()->ToFuncType();
     FuncType::TypeList& paramTypes = funcType->ParamTypes();
     if (_curScope->size() != paramTypes.size()) {
@@ -128,6 +132,7 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
         }
     }
 
+    funcType->SetComplete(true);
     funcDef->SetBody(ParseCompoundStmt(funcType));
     ExitFunc();
     
@@ -157,18 +162,13 @@ Expr* Parser::ParseCommaExpr(void)
 
 Expr* Parser::ParsePrimaryExpr(void)
 {
-    // TODO(wgtdkp): settting error ???
-    if (_ts.Peek()->IsKeyWord()) {//can never be a expression
-        //return nullptr;
+    if (_ts.Empty()) {
+        Error(_ts.Peek(), "premature end of input");
+    } else if (_ts.Peek()->IsKeyWord()) {
         Error(_ts.Peek(), "unexpected keyword");
     }
 
     auto tok = _ts.Next();
-    if (tok->IsEOF()) {
-        //return nullptr;
-        Error(tok, "premature end of input");
-    }
-
     if (tok->Tag() == '(') {
         auto expr = ParseExpr();
         _ts.Expect(')');

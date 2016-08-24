@@ -480,7 +480,9 @@ protected:
     FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
             const TypeList& paramTypes)
         : DerivedType(pool, derived), _inlineNoReturn(inlineReturn),
-          _variadic(variadic), _paramTypes(paramTypes) {}
+          _variadic(variadic), _paramTypes(paramTypes) {
+        SetComplete(false);
+    }
 
 private:
     int _inlineNoReturn;
