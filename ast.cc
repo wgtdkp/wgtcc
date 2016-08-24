@@ -429,6 +429,18 @@ bool UnaryOp::IsLVal(void) {
 }
 
 
+ArithmType* UnaryOp::Promote(void)
+{
+    //
+    auto arithmType = _operand->Type()->ToArithmType(); 
+    auto type = MaxType(arithmType, arithmType);
+    if (type != arithmType) {
+        _operand = UnaryOp::New(Token::CAST, _operand, type);
+    }
+    return type;
+}
+
+
 void UnaryOp::TypeChecking(void)
 {
     switch (_op) {
@@ -492,17 +504,22 @@ void UnaryOp::DerefOpTypeChecking(void)
 void UnaryOp::UnaryArithmOpTypeChecking(void)
 {
     if (Token::PLUS == _op || Token::MINUS == _op) {
-        if (!_operand->Type()->IsArithm())
+        if (!_operand->Type()->IsArithm()) {
             Error(_tok, "Arithmetic type expected");
+        }
+        Promote();
+        _type = _operand->Type();
     } else if ('~' == _op) {
-        if (!_operand->Type()->IsInteger())
+        if (!_operand->Type()->IsInteger()) {
             Error(_tok, "integer expected for operator '~'");
+        }
+        Promote();
+        _type = _operand->Type();
     } else if (!_operand->Type()->IsScalar()) {
-        Error(_tok,
-                "arithmetic type or pointer expected for operator '!'");
+        Error(_tok, "arithmetic type or pointer expected for operator '!'");
+    } else {
+        _type = ArithmType::New(T_INT);
     }
-
-    _type = _operand->Type();
 }
 
 void UnaryOp::CastOpTypeChecking(void)

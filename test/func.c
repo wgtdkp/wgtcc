@@ -16,7 +16,7 @@ static void test1(void)
 {
     func_t f = func;
     func_t* pf = &f;
-    pf();
+    (*pf)();
 }
 
 int main(void)
@@ -25,5 +25,7 @@ int main(void)
     f();
     f = func1;
     f();
+
+    test1();
     return 0;
 }
