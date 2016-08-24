@@ -801,9 +801,13 @@ void Generator::VisitConstant(Constant* cons)
 }
 
 
+// Use %ecx as temp register
+// TempVar is only used for condition expression of 'switch'
 void Generator::VisitTempVar(TempVar* tempVar)
 {
-    Error("not implemented yet");
+    assert(tempVar->Type()->IsInteger());
+
+    Emit("movl #ecx, #eax");
 }
 
 
@@ -1318,6 +1322,12 @@ void LValGenerator::VisitIdentifier(Identifier* ident)
 
     // Function address
     _addr = {ident->Name(), "", 0};
+}
+
+
+void LValGenerator::VisitTempVar(TempVar* tempVar)
+{
+    _addr = {"%ecx", "", 0};
 }
 
 

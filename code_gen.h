@@ -236,9 +236,7 @@ public:
         assert(false);
     }
 
-    virtual void VisitTempVar(TempVar* tempVar) {
-        assert(false);
-    }
+    virtual void VisitTempVar(TempVar* tempVar);
 
     ObjectAddr GenExpr(Expr* expr) {
         expr->Accept(this);

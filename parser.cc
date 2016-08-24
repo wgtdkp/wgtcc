@@ -2170,7 +2170,7 @@ CompoundStmt* Parser::ParseWhileStmt(void)
     auto condLabel = LabelStmt::New();
     auto endLabel = LabelStmt::New();
     auto gotoEndStmt = JumpStmt::New(endLabel);
-    auto ifStmt = IfStmt::New(condExpr, nullptr, gotoEndStmt);
+    auto ifStmt = IfStmt::New(condExpr, EmptyStmt::New(), gotoEndStmt);
     stmts.push_back(condLabel);
     stmts.push_back(ifStmt);
     
@@ -2211,6 +2211,7 @@ CompoundStmt* Parser::ParseDoStmt(void)
     _ts.Expect('(');
     auto condExpr = ParseExpr();
     _ts.Expect(')');
+    _ts.Expect(';');
 
     auto gotoBeginStmt = JumpStmt::New(beginLabel);
     auto gotoEndStmt = JumpStmt::New(endLabel);
@@ -2273,6 +2274,7 @@ CompoundStmt* Parser::ParseSwitchStmt(void)
 
     auto bodyStmt = ParseStmt(); // Fill caseLabels and defaultLabel
     stmts.push_back(bodyStmt);
+    stmts.push_back(JumpStmt::New(endLabel));
     stmts.push_back(testLabel);
 
     for (auto iter = caseLabels.begin();
