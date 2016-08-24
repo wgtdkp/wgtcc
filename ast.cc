@@ -621,23 +621,22 @@ void FuncCall::TypeChecking(void)
         Error(_designator, "called object is not a function or function pointer");
     }
 
+    auto funcName = _designator->Tok()->Str();
     auto arg = _args.begin();
     for (auto paramType: funcType->ParamTypes()) {
         if (arg == _args.end()) {
-            Error(_tok, "too few arguments for function ''");
+            Error(_tok, "too few arguments for function '%s'", funcName.c_str());
         }
-
         if (!paramType->Compatible(*(*arg)->Type())) {
             // TODO(wgtdkp): function name
-            Error(_tok, "incompatible type for argument 1 of ''");
+            Error(_tok, "incompatible type for argument 1 of '%s'", funcName.c_str());
         }
         *arg = Expr::MayCast(*arg, paramType);
-
         ++arg;
     }
     
     if (arg != _args.end() && !funcType->Variadic()) {
-        Error(_tok, "too many arguments for function ''");
+        Error(_tok, "too many arguments for function '%s'", funcName.c_str());
     }
 
     // c11 6.5.2.2 [6]: promote float to double if it has no prototype
@@ -649,7 +648,6 @@ void FuncCall::TypeChecking(void)
         ++arg;
     }
 
-    
     _type = funcType->Derived();
 }
 
