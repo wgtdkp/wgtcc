@@ -310,9 +310,10 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     // Careful: for compare operator, the type of the expression
     //     is always integer, while the type of lhs and rhs could be float
     // After convertion, lhs and rhs always has the same type
-    auto width = binary->_lhs->Type()->Width();
-    auto flt = binary->_lhs->Type()->IsFloat();
-    auto sign = !(binary->_lhs->Type()->ToArithmType()->Tag() & T_UNSIGNED);
+    auto type = binary->_lhs->Type();
+    auto width = type->Width();
+    auto flt = type->IsFloat();
+    auto sign = type->ToPointerType() || !(type->ToArithmType()->Tag() & T_UNSIGNED);
 
     Visit(binary->_lhs);
     Spill(flt);
@@ -546,10 +547,10 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
         return;
     } else if (!sign) {
         Emit("xor #rdx, #rdx");
-        Emit("div #rax");
+        Emit("%s #%s", GetInst("div", width, flt).c_str(), GetSrc(width, flt));
     } else {
         Emit("cqto");
-        Emit("idiv #rax");            
+        Emit("%s #%s", GetInst("idiv", width, flt).c_str(), GetSrc(width, flt));      
     }
     if (op == '%')
         Emit("mov #rdx, #rax");

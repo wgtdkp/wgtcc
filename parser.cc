@@ -1932,7 +1932,7 @@ void Parser::ParseStructInitializer(Declaration* decl,
 
             member = iter;            
             if (member == type->Members().end()) {
-                Error(_ts.Peek(), "excess elements in array initializer");
+                Error(_ts.Peek(), "excess elements in struct initializer");
             }
         } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
             _ts.PutBack(); // Put the read comma(',') back
@@ -1943,7 +1943,12 @@ void Parser::ParseStructInitializer(Declaration* decl,
 
         ParseInitializer(decl, (*member)->Type(),
                 offset + (*member)->Offset());
-        member++;
+        // Handle anonymous union
+        auto lastEnd = (*member)->Offset() + (*member)->Type()->Width();
+         while (++member != type->Members().end()) {
+            if ((*member)->Offset() >= lastEnd)
+                break;
+        }
 
         // Union, just init the first member
         if (!type->IsStruct()) {
