@@ -1,15 +1,24 @@
-void foo(void)
-{
-    char a;
-    short b;
-    int c;
-    unsigned d;
-    long long e;
-    float f;
-    double g;
+#include "test.h"
 
-    //c = a * f / d % c;
-    d = (a < b) > f;
-    f = a == b;
-    g = (f = c) && (a != b);
+void test1(void)
+{
+    double a, b;
+    a = 3.5;
+    b = 4.5;
+    expect(15.75, a * b);
+}
+
+void test2(void)
+{
+    char a, b;
+    a = -200;
+    b = -20;
+    printf("%d\n", (unsigned)a * b);
+}
+
+int main(void)
+{
+    test1();
+    test2();
+    return 0;
 }

@@ -790,8 +790,6 @@ void Generator::VisitEnumerator(Enumerator* enumer)
 // Ident must be function
 void Generator::VisitIdentifier(Identifier* ident)
 {
-    // TODO(wgtdkp): handle function name
-    //Error("not implemented yet");
     Emit("leaq %s, #rax", ident->Name().c_str());
 }
 
@@ -801,7 +799,6 @@ void Generator::VisitConstant(Constant* cons)
     auto label = ConsLabel(cons);
     EmitLoad(label, cons->Type());
 }
-
 
 
 void Generator::VisitTempVar(TempVar* tempVar)
@@ -846,7 +843,7 @@ void Generator::GenStaticDecl(Declaration* decl)
     auto width = obj->Type()->Width();
     auto align = obj->Type()->Align();
 
-    // omit the external without initilizer
+    // Omit the external without initilizer
     if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
         return;
     
@@ -1070,15 +1067,14 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     Emit("leaq %d(#rbp), #rsp", _offset);
 
     auto addr = LValGenerator().GenExpr(funcCall->Designator());
-    //if (addr._base == "rip")
     if (addr._base.size() == 0 && addr._offset == 0) {
         Emit("call %s", addr._label.c_str());
     } else {
         Emit("leaq %s, #r10", addr.Repr().c_str());
         Emit("call *#r10");
     }
-    //Emit("leaq %d(#rbp), #rsp", beforePass);
 
+    // Reset stack frame
     _offset = base;    
 }
 
