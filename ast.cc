@@ -423,7 +423,7 @@ bool UnaryOp::IsLVal(void) {
     // so it's only deref will override this func
     switch (_op) {
     case Token::DEREF: return !Type()->ToArrayType();
-    case Token::CAST: return _operand->IsLVal();
+    //case Token::CAST: return _operand->IsLVal();
     default: return false;
     }
 }

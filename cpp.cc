@@ -325,13 +325,13 @@ void Preprocessor::Process(TokenSeq& os)
     auto wgtccHeaderFile = SearchFile("wgtcc.h", true);
     IncludeFile(is, wgtccHeaderFile);
 
-    std::string str;
+    //std::string str;
     //Stringize(str, is);
     //std::cout << str << std::endl;
 
     Expand(os, is);
 
-    // TODO(wgtdkp): Identify key word
+    // Identify key word
     auto ts = os;
     while (!ts.Empty()) {
         auto tok = ts.Next();
@@ -341,11 +341,11 @@ void Preprocessor::Process(TokenSeq& os)
         }
     }
 
-    str.resize(0);
-    Stringize(str, os);
-    std::cout << std::endl << "###### Preprocessed ######" << std::endl;
-    std::cout << str << std::endl << std::endl;
-    std::cout << std::endl << "###### End ######" << std::endl;
+    //str.resize(0);
+    //Stringize(str, os);
+    //std::cout << std::endl << "###### Preprocessed ######" << std::endl;
+    //std::cout << str << std::endl << std::endl;
+    //std::cout << std::endl << "###### End ######" << std::endl;
 }
 
 

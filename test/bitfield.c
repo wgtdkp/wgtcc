@@ -43,23 +43,42 @@ void test4(void)
     printf("%d\n", sizeof(foo_t));
 }
 
-
-int main(void)
+void test5(void)
 {
     typedef union {
         struct {
-            unsigned int a: 8;
-            unsigned short b: 7;
-            unsigned int c: 10;
+            unsigned long a: 15;
+            unsigned int b: 20;
         };
+        unsigned long c;
     } foo_t;
+    printf("%d\n", sizeof(foo_t));
+    //foo_t foo;
+    //foo.c = 0;
+    //foo.a = 33;
+    //foo.b = 33;
+    //printf("%lx\n", foo.a);   
+    //printf("%lx\n", foo.b);   
+    //printf("%lx\n", foo.c);    
+}
 
-    foo_t foo;
-    printf("%ld\n", sizeof(foo_t));
+void test6(void)
+{
+    typedef struct {
+        unsigned short a: 8;
+        unsigned short b: 9;
+    } foo_t;
+    printf("%d\n", sizeof(foo_t));
+}
 
+
+int main(void)
+{
     test1();
     test2();
     test3();
     test4();
+    test5();
+    test6();
     return 0;
 }

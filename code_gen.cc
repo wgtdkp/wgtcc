@@ -125,6 +125,7 @@ std::string Generator::ConsLabel(Constant* cons)
     }
 }
 
+
 static const char* GetLoad(int width, bool flt=false)
 {
     switch (width) {
@@ -324,17 +325,17 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     switch (op) {
     case '/': case '%': return GenDivOp(flt, sign, width, op);
     case '<': 
-        return GenCompOp(flt, width, (flt || !sign) ? "setb": "setl");
+        return GenCompOp(width, flt, (flt || !sign) ? "setb": "setl");
     case '>':
-        return GenCompOp(flt, width, (flt || !sign) ? "seta": "setg");
+        return GenCompOp(width, flt, (flt || !sign) ? "seta": "setg");
     case Token::LE_OP:
-        return GenCompOp(flt, width, (flt || !sign) ? "setbe": "setle");
+        return GenCompOp(width, flt, (flt || !sign) ? "setbe": "setle");
     case Token::GE_OP:
-        return GenCompOp(flt, width, (flt || !sign) ? "setae": "setge");
+        return GenCompOp(width, flt, (flt || !sign) ? "setae": "setge");
     case Token::EQ_OP:
-        return GenCompOp(flt, width, "sete");
+        return GenCompOp(width, flt, "sete");
     case Token::NE_OP:
-        return GenCompOp(flt, width, "setne");
+        return GenCompOp(width, flt, "setne");
 
     case '+': inst = "add"; break;
     case '-': inst = "sub"; break;
@@ -356,15 +357,62 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
 }
 
 
+void Generator::GenCompZero(Type* type)
+{
+    auto width = type->Width();
+    auto flt = type->IsFloat();
+    
+    if (!flt) {
+        Emit("cmp $0, #%s", GetReg(width));
+    } else {
+        Emit("pxor #xmm9, #xmm9");
+        auto cmp = width == 8 ? "ucomisd": "ucomiss";
+        Emit("%s #xmm9, #xmm8", cmp);
+    }
+}
+
+
 void Generator::GenAndOp(BinaryOp* andOp)
 {
-    // TODO(wgtdkp):
+    VisitExpr(andOp->_lhs);
+    GenCompZero(andOp->_lhs->Type());
+
+    auto labelFalse = LabelStmt::New();
+    Emit("je %s", labelFalse->Label().c_str());
+
+    VisitExpr(andOp->_rhs);
+    GenCompZero(andOp->_rhs->Type());
+
+    Emit("je %s", labelFalse->Label().c_str());
+    
+    Emit("movq $1, #rax");
+    auto labelTrue = LabelStmt::New();
+    Emit("jmp %s", labelTrue->Label().c_str());
+    EmitLabel(labelFalse->Label());
+    Emit("xorq #rax, #rax"); // Set %rax to 0
+    EmitLabel(labelTrue->Label());
 }
 
 
 void Generator::GenOrOp(BinaryOp* orOp)
 {
-    // TODO(wgtdkp):
+    VisitExpr(orOp->_lhs);
+    GenCompZero(orOp->_lhs->Type());
+
+    auto labelTrue = LabelStmt::New();
+    Emit("jne %s", labelTrue->Label().c_str());
+
+    VisitExpr(orOp->_rhs);
+    GenCompZero(orOp->_rhs->Type());
+
+    Emit("jne %s", labelTrue->Label().c_str());
+    
+    Emit("xorq #rax, #rax"); // Set %rax to 0
+    auto labelFalse = LabelStmt::New();
+    Emit("jmp %s", labelFalse->Label().c_str());
+    EmitLabel(labelTrue->Label());
+    Emit("movq $1, #rax");
+    EmitLabel(labelFalse->Label());    
 }
 
 
@@ -465,7 +513,7 @@ void Generator::CopyStruct(ObjectAddr desAddr, int len)
 }
 
 
-void Generator::GenCompOp(bool flt, int width, const char* set)
+void Generator::GenCompOp(int width, bool flt, const char* set)
 {
     std::string cmp;
     if (flt) {
@@ -514,13 +562,6 @@ void Generator::GenPointerArithm(BinaryOp* binary)
         Emit("addq #r11, #rax");
     else
         Emit("subq #r11, #rax");
-}
-
-
-void Generator::GenDerefOp(UnaryOp* deref)
-{
-    auto addr = LValGenerator().GenExpr(deref->_operand).Repr();
-    Emit("leaq %s, #rax", addr.c_str());
 }
 
 
@@ -591,21 +632,11 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
         Emit("leaq %s, #rax", addr.c_str());
     } return;
     case Token::DEREF:
-        VisitExpr(unary->_operand);
-        if (unary->Type()->IsScalar()) {
-            ObjectAddr addr {"", "rax", 0};
-            EmitLoad(addr.Repr(), unary->Type());
-        } else {
-            // Just let it go!
-        }
-        return;
+        return GenDerefOp(unary);
     case Token::PLUS:
-        assert(false);
-        return;
+        return VisitExpr(unary->_operand);
     case Token::MINUS:
-        // TODO(wgtdkp): pxor %xmm9, %xmm9
-        assert(false);
-        return;
+        return GenMinusOp(unary);
     case '~': assert(false); return;
     case '!': assert(false); return;
     case Token::CAST:
@@ -613,6 +644,35 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
         GenCastOp(unary);
         return;
     default: assert(false);
+    }
+}
+
+
+void Generator::GenDerefOp(UnaryOp* deref)
+{
+    VisitExpr(deref->_operand);
+    if (deref->Type()->IsScalar()) {
+        ObjectAddr addr {"", "rax", 0};
+        EmitLoad(addr.Repr(), deref->Type());
+    } else {
+        // Just let it go!
+    }
+}
+
+
+void Generator::GenMinusOp(UnaryOp* minus)
+{
+    auto width = minus->Type()->Width();
+    auto flt = minus->Type()->IsFloat();
+
+    VisitExpr(minus->_operand);
+
+    if (flt) {
+        Emit("pxor #xmm9, #xmm9");
+        Emit("%s #xmm8, #xmm9", GetInst("sub", width, flt).c_str());
+        Emit("%s #xmm9, #xmm8", GetInst("mov", width, flt).c_str());
+    } else {
+        Emit("%s #%s", GetInst("neg", width, flt).c_str(), GetDes(width, flt));
     }
 }
 
@@ -828,19 +888,11 @@ void Generator::VisitIfStmt(IfStmt* ifStmt)
 {
     VisitExpr(ifStmt->_cond);
 
-    auto flt = ifStmt->_cond->Type()->IsFloat();
-    auto width = ifStmt->_cond->Type()->Width();
     // Compare to 0
     auto elseLabel = LabelStmt::New()->Label();
     auto endLabel = LabelStmt::New()->Label();
 
-    if (!flt) {
-        Emit("cmp $0, #%s", GetReg(width));
-    } else {
-        Emit("pxor #xmm9, #xmm9");
-        auto cmp = width == 8 ? "ucomisd": "ucomiss";
-        Emit("%s #xmm9, #xmm8", cmp);
-    }
+    GenCompZero(ifStmt->_cond->Type());
 
     if (ifStmt->_else) {
         Emit("je %s", elseLabel.c_str());
