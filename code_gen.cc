@@ -604,14 +604,18 @@ void Generator::GenCastOp(UnaryOp* cast)
         auto sign = !(srcType->ToArithmType()->Tag() & T_UNSIGNED);
         const char* inst;
         switch (width) {
-        case 1: inst = sign ? "movsbq": "movzbq"; break;
-        case 2: inst = sign ? "movswq": "movzwq"; break;
-        case 4: inst = "movl"; break;
-        case 8: inst = "movq"; break;
-        }
-        if (inst[4] == 0)
+        case 1:
+            inst = sign ? "movsbq": "movzbq";
+            return Emit("%s #%s, #rax", inst, GetReg(width));
+        case 2:
+            inst = sign ? "movswq": "movzwq";
+            return Emit("%s #%s, #rax", inst, GetReg(width));
+        case 4: inst = "movl"; 
+            if (desType->Width() == 8)
+                Emit("cltq");
             return;
-        Emit("%s #%s, #rax", inst, GetReg(width));
+        case 8: return;
+        }
     }
 }
 
@@ -637,8 +641,15 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
         return VisitExpr(unary->_operand);
     case Token::MINUS:
         return GenMinusOp(unary);
-    case '~': assert(false); return;
-    case '!': assert(false); return;
+    case '~':
+        VisitExpr(unary->_operand);
+        return Emit("notq #rax");
+    case '!':
+        VisitExpr(unary->_operand);
+        GenCompZero(unary->_operand->Type());
+        Emit("sete #al");
+        Emit("movzbl #al, #eax"); // type of !operator is int
+        return;
     case Token::CAST:
         Visit(unary->_operand);
         GenCastOp(unary);
