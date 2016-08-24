@@ -1286,7 +1286,7 @@ bool Parser::ParseBitField(StructUnionType* structType,
     } else {
         auto last = structType->Members().back();
         auto totalBits = (last->Offset() - offset) * 8;
-        if (Object::IsBitField(last)) {
+        if (last->BitFieldWidth()) { // Is not bit field
             totalBits += last->BitFieldEnd();
         } else {
             totalBits += last->Type()->Width() * 8;

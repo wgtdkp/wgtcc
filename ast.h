@@ -782,10 +782,6 @@ public:
         _decl = decl;
     }
 
-    static bool IsBitField(Object* obj) {
-        return obj->_bitFieldWidth;
-    }
-
     unsigned char BitFieldBegin(void) const {
         return _bitFieldBegin;
     }

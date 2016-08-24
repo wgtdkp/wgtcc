@@ -440,7 +440,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
         Emit("leaq %s, #rax", addr.Repr().c_str());
     } else {
         // TODO(wgtdkp): handle bit field
-        if (Object::IsBitField(member)) {
+        if (member->BitFieldWidth()) {
             EmitLoadBitField(addr.Repr(), member);
         } else {
             EmitLoad(addr.Repr(), ref->Type());
