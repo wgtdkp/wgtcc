@@ -470,8 +470,10 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
 void Generator::GenAssignOp(BinaryOp* assign)
 {
     // The base register of addr is %r10
-    auto addr = LValGenerator().GenExpr(assign->_lhs);
     GenExpr(assign->_rhs);
+    Spill(assign->Type()->IsFloat());
+    auto addr = LValGenerator().GenExpr(assign->_lhs);
+    Restore(assign->Type()->IsFloat());
 
     if (assign->Type()->IsScalar()) {
         if (addr._bitFieldWidth != 0) {
