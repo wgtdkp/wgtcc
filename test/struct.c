@@ -105,6 +105,23 @@ void test6(void)
     expect(foo.d, 1);
 }
 
+void test7(void)
+{
+    typedef struct tree tree_t;
+    struct tree {
+        int val;
+        tree_t* left;
+        tree_t* right;
+    };
+
+    tree_t* root = malloc(sizeof(tree_t));
+    root->val = 5;
+    root->left = (void*)10;
+    root->right = (void*)20;
+    expect(5, root->val);
+    expect((void*)10, root->left);
+    expect((void*)20, root->right);
+}
 
 int main(void)
 {
@@ -114,5 +131,6 @@ int main(void)
     test4();
     test5();
     test6();
+    test7();
     return 0;
 }

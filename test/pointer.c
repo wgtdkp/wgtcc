@@ -1,11 +1,15 @@
+#include "test.h"
 
+void test1(void)
+{
+    int* p = (int*)4;
+    expect(0, p == NULL);
+    expect(1, p - 1 == NULL);
+}
 
 
 int main(void)
 {
-    int arr[10];
-    arr[3] = 5;
-    int* p = arr;
-    p[3] = 7;
+    test1();
     return 0;
 }
