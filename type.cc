@@ -363,8 +363,9 @@ void StructType::AddBitField(Object* bitField, int offset)
 {
     bitField->SetOffset(offset);
     _members.push_back(bitField);
-    auto name = bitField->Tok() ? bitField->Name(): AnonymousBitField();
-    _memberMap->Insert(name, bitField);
+    //auto name = bitField->Tok() ? bitField->Name(): AnonymousBitField();
+    if (bitField->Tok())
+        _memberMap->Insert(bitField->Name(), bitField);
 
     auto bytes = MakeAlign(bitField->BitFieldEnd(), 8) / 8;
     _align = std::max(_align, bitField->Type()->Align());
@@ -375,29 +376,34 @@ void StructType::AddBitField(Object* bitField, int offset)
 
 
 // Move members of Anonymous struct/union to external struct/union
-// TODO(wgtdkp):
-// Width of struct/union is not the sum of its members
-void StructType::MergeAnony(StructType* anonType)
+void StructType::MergeAnony(Object* anony)
 {   
-    auto offset = MakeAlign(_offset, anonType->Align());
-    for (auto member: anonType->_members) {
+    auto anonyType = anony->Type()->ToStructType();
+    auto offset = MakeAlign(_offset, anonyType->Align());
+
+    // Members in map are never anonymous
+    for (auto& kv: *anonyType->_memberMap) {
+        auto& name = kv.first;
+        auto member = kv.second->ToObject();
         member->SetOffset(offset + member->Offset());
 
-        auto name = member->Name();
         if (GetMember(name)) {
             Error(member->Tok(), "duplicated member '%s'", name.c_str());
         }
-        _members.push_back(member);
+        //_members.push_back(member);
+        // Simplify anony struct's member searching
         _memberMap->Insert(name, member);
     }
+    anony->SetOffset(offset);
+    _members.push_back(anony);
 
-    _align = std::max(_align, anonType->Align());
+    _align = std::max(_align, anonyType->Align());
     if (_isStruct) {
-        _offset = offset + anonType->Width();
+        _offset = offset + anonyType->Width();
         _width = MakeAlign(_offset, _align);
     } else {
         assert(_offset == 0);
-        _width = std::max(_width, anonType->Width());
+        _width = std::max(_width, anonyType->Width());
     }
 }
 

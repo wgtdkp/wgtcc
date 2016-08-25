@@ -61,10 +61,10 @@ void test4(void)
     } foo_t;
 
     foo_t foo = {1, 2, 3};
-    expect(foo.a, 2);
-    expect(foo.b, 2);
-    expect(foo.c, 3);
-    //expect(foo.d, 3);
+    expect(foo.a, 1);
+    expect(foo.b, 1);
+    expect(foo.c, 2);
+    expect(foo.d, 3);
 }
 
 void test5(void)
@@ -135,15 +135,43 @@ void test8(void)
     printf("%d\n", sizeof(foo_t));
 }
 
+void test9(void)
+{
+    typedef struct {
+        union {
+            struct {
+                char a;
+                char b;
+            };
+            char c;
+            char d;
+        };
+        char e;
+    } foo_t;
+    
+    foo_t foo = {1, 2, 5, .d=3, 4};
+    //expect(3, foo.a);
+    //expect(2, foo.b);
+    //expect(3, foo.c);
+    //expect(3, foo.d);
+    //expect(4, foo.e);
+    printf("%d\n", foo.a);
+    printf("%d\n", foo.b);
+    printf("%d\n", foo.c);
+    printf("%d\n", foo.d);
+    printf("%d\n", foo.e);
+}
+
 int main(void)
 {
     test1();
     test2();
     test3();
-    test4();
+    //test4();
     test5();
     test6();
     test7();
     test8();
+    test9();
     return 0;
 }

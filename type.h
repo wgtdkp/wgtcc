@@ -537,7 +537,7 @@ public:
     };
     */
 
-    typedef std::list<StructField> MemberList;
+    typedef std::list<Object*> MemberList;
 
 public:
     static StructType* New(bool isStruct, bool hasTag, Scope* parent);
@@ -593,7 +593,7 @@ public:
         return _hasTag;
     }
     
-    void MergeAnony(StructType* anonType);
+    void MergeAnony(Object* anony);
 
 protected:
     // default is incomplete

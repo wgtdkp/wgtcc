@@ -1053,7 +1053,7 @@ Type* Parser::ParseEnumSpec(void)
             }
             auto type = ArithmType::New(T_INT);
             type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
-            auto ident = Identifier::New(tok, type, _curScope, L_NONE);
+            auto ident = Identifier::New(tok, type, L_NONE);
             _curScope->InsertTag(ident);
             return type;
         }
@@ -1065,7 +1065,7 @@ enum_decl:
     auto type = ArithmType::New(T_INT);
     type->SetComplete(false);
     if (tagName.size() != 0) {
-        auto ident = Identifier::New(tok, type, _curScope, L_NONE);
+        auto ident = Identifier::New(tok, type, L_NONE);
         _curScope->InsertTag(ident);
     }
     
@@ -1096,7 +1096,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
             }
         }
         valSet.insert(val);
-        auto enumer = Enumerator::New(tok, _curScope, val);
+        auto enumer = Enumerator::New(tok, val);
         ++val;
 
         _curScope->Insert(enumer);
@@ -1165,7 +1165,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             auto type = StructType::New(isStruct, true, _curScope);
             
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
-            auto ident = Identifier::New(tok, type, _curScope, L_NONE);
+            auto ident = Identifier::New(tok, type, L_NONE);
             _curScope->InsertTag(ident);
             return type;
         }
@@ -1178,7 +1178,7 @@ struct_decl:
 	//所以现在是第一次开始定义一个完整的struct/union类型
     auto type = StructType::New(isStruct, tagName.size(), _curScope);
     if (tagName.size() != 0) {
-        auto ident = Identifier::New(tok, type, _curScope, L_NONE);
+        auto ident = Identifier::New(tok, type, L_NONE);
         _curScope->InsertTag(ident);
     }
     
@@ -1217,7 +1217,9 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
             if (tok == nullptr) {
                 auto suType = memberType->ToStructType();
                 if (suType && !suType->HasTag()) {
-                    type->MergeAnony(suType);
+                    // FIXME: setting 'tok' to nullptr is not good
+                    auto anony = Object::New(nullptr, suType);
+                    type->MergeAnony(anony);
                     continue;
                 } else {
                     Error(_ts.Peek(), "declaration does not declare anything");
@@ -1237,7 +1239,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
                 Error(tok, "field '%s' declared as a function", name.c_str());
             }
 
-            type->AddMember(Object::New(tok, memberType, _curScope));
+            type->AddMember(Object::New(tok, memberType));
 
         end_decl:;
 
@@ -1305,7 +1307,7 @@ bool Parser::ParseBitField(StructType* structType,
         }
     }
 
-    auto bitField = Object::New(tok, type, _curScope, 0, L_NONE, begin, width);
+    auto bitField = Object::New(tok, type, 0, L_NONE, begin, width);
     structType->AddBitField(bitField, bitFieldOffset);
     return false;
 }
@@ -1422,7 +1424,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             // TODO(wgtdkp): add previous declaration information
             Error(tok, "conflicting types for '%s'", name.c_str());
         }
-        ident = Identifier::New(tok, type, _curScope, L_NONE);
+        ident = Identifier::New(tok, type, L_NONE);
         _curScope->Insert(ident);
         return ident;
     }
@@ -1483,8 +1485,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
         ident = _curScope->Find(tok);
         if (ident) {
             if (*type != *ident->Type()) {
-            	Error(tok, "conflicting types for '%s'",
-                        name.c_str());
+            	Error(tok, "conflicting types for '%s'", name.c_str());
             }
             if (ident->Linkage() != L_NONE) {
                 linkage = ident->Linkage();
@@ -1494,8 +1495,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
             ident = _externalSymbols->FindInCurScope(tok);
             if (ident) {
                 if (*type != *ident->Type()) {
-                    Error(tok, "conflicting types for '%s'",
-                            name.c_str());
+                    Error(tok, "conflicting types for '%s'", name.c_str());
                 }
                 // TODO(wgtdkp): ???????
                 // Don't return
@@ -1512,9 +1512,9 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     Identifier* ret;
     // TODO(wgtdkp): Treat function as object ?
     if (type->ToFuncType()) {
-        ret = Identifier::New(tok, type, _curScope, linkage);
+        ret = Identifier::New(tok, type, linkage);
     } else {
-        ret = Object::New(tok, type, _curScope, storageSpec, linkage);
+        ret = Object::New(tok, type, storageSpec, linkage);
     }
 
     _curScope->Insert(ret);
@@ -1926,29 +1926,21 @@ void Parser::ParseStructInitializer(Declaration* decl,
             
             auto name = memberTok->Str();
             auto iter = type->Members().begin();
-            for (; iter != type->Members().end(); iter++)
+            for (; iter != type->Members().end(); ++iter)
                 if ((*iter)->Name() == name)
                     break;
 
-            member = iter;            
+            member = iter;
             if (member == type->Members().end()) {
-                Error(_ts.Peek(), "excess elements in struct initializer");
+                Error(memberTok, "member '%s' not found", name.c_str());
             }
         } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
             _ts.PutBack(); // Put the read comma(',') back
             return;
         }
         
-        
-
-        ParseInitializer(decl, (*member)->Type(),
-                offset + (*member)->Offset());
-        // Handle anonymous union
-        auto lastEnd = (*member)->Offset() + (*member)->Type()->Width();
-         while (++member != type->Members().end()) {
-            if ((*member)->Offset() >= lastEnd)
-                break;
-        }
+        ParseInitializer(decl, (*member)->Type(), offset + (*member)->Offset());
+        ++member;
 
         // Union, just init the first member
         if (!type->IsStruct()) {
@@ -1969,7 +1961,7 @@ void Parser::ParseStructInitializer(Declaration* decl,
     if (hasBrace) {
         _ts.Try(',');
         if (!_ts.Try('}')) {
-            Error(_ts.Peek(), "excess elements in array initializer");
+            Error(_ts.Peek(), "excess elements in struct initializer");
         }
     }
 }

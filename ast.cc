@@ -657,18 +657,17 @@ void FuncCall::TypeChecking(void)
  */
 
 Identifier* Identifier::New(const Token* tok,
-            ::Type* type, ::Scope* scope, enum Linkage linkage)
+        ::Type* type, enum Linkage linkage)
 {
-    auto ret = new (identifierPool.Alloc())
-            Identifier(tok, type, scope, linkage);
+    auto ret = new (identifierPool.Alloc()) Identifier(tok, type, linkage);
     ret->_pool = &identifierPool;
     return ret;
 }
 
 
-Enumerator* Enumerator::New(const Token* tok, ::Scope* scope, int val)
+Enumerator* Enumerator::New(const Token* tok, int val)
 {
-    auto ret = new (enumeratorPool.Alloc()) Enumerator(tok, scope, val);
+    auto ret = new (enumeratorPool.Alloc()) Enumerator(tok, val);
     ret->_pool = &enumeratorPool;
     return ret;
 }
@@ -687,7 +686,7 @@ void Declaration::AddInit(int offset, Type* type, Expr* expr)
     auto qual = type->Qual();
     type->SetQual(0);
     // To trigger type checking
-    auto obj = Object::New(expr->Tok(), type, nullptr);
+    auto obj = Object::New(expr->Tok(), type);
     auto binary = BinaryOp::New(expr->Tok(), '=', obj, expr);
     type->SetQual(qual);
     
@@ -723,11 +722,11 @@ void Declaration::AddInit(int offset, Type* type, Expr* expr)
  */
 
 Object* Object::New(const Token* tok, ::Type* type, 
-        ::Scope* scope, int storage, enum Linkage linkage,
+        int storage, enum Linkage linkage,
         unsigned char bitFieldBegin, unsigned char bitFieldWidth)
 {
     auto ret = new (objectPool.Alloc())
-            Object(tok, type, scope, storage, linkage, bitFieldBegin, bitFieldWidth);
+            Object(tok, type, storage, linkage, bitFieldBegin, bitFieldWidth);
     ret->_pool = &objectPool;
     return ret;
 }

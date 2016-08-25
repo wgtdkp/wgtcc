@@ -630,8 +630,7 @@ class Identifier: public Expr
     friend class LValGenerator;
 
 public:
-    static Identifier* New(const Token* tok,
-            ::Type* type, Scope* scope, Linkage linkage);
+    static Identifier* New(const Token* tok, ::Type* type, Linkage linkage);
 
     virtual ~Identifier(void) {}
 
@@ -666,10 +665,11 @@ public:
         return _tok->Str();
     }
 
-
+    /*
     ::Scope* Scope(void) {
         return _scope;
     }
+    */
 
     enum Linkage Linkage(void) const {
         return _linkage;
@@ -679,21 +679,23 @@ public:
         _linkage = linkage;
     }
 
+    /*
     virtual bool operator==(const Identifier& other) const {
         return Name() == other.Name()
             && *_type == *other._type
-            && _scope == other._scope;
     }
+    */
 
     virtual void TypeChecking(void) {}
 
 protected:
-    Identifier(const Token* tok, ::Type* type,
-            ::Scope* scope, enum Linkage linkage)
-            : Expr(tok, type), _scope(scope), _linkage(linkage) {}
+    Identifier(const Token* tok, ::Type* type, enum Linkage linkage)
+            : Expr(tok, type), _linkage(linkage) {}
     
+    /*
     // An identifier has property scope
     ::Scope* _scope;
+    */
     // An identifier has property linkage
     enum Linkage _linkage;
 };
@@ -706,7 +708,7 @@ class Enumerator: public Identifier
     friend class Generator;
 
 public:
-    static Enumerator* New(const Token* tok, ::Scope* scope, int val);
+    static Enumerator* New(const Token* tok, int val);
 
     virtual ~Enumerator(void) {}
 
@@ -721,8 +723,8 @@ public:
     }
 
 protected:
-    Enumerator(const Token* tok, ::Scope* scope, int val)
-            : Identifier(tok, ArithmType::New(T_INT), scope, L_NONE),
+    Enumerator(const Token* tok, int val)
+            : Identifier(tok, ArithmType::New(T_INT), L_NONE),
               _cons(Constant::New(tok, T_INT, (long)val)) {}
 
     Constant* _cons;
@@ -737,7 +739,7 @@ class Object : public Identifier
     friend class LValGenerator;
 
 public:
-    static Object* New(const Token* tok, ::Type* type, ::Scope* scope,
+    static Object* New(const Token* tok, ::Type* type,
             int storage=0, enum Linkage linkage=L_NONE,
             unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
 
@@ -808,6 +810,7 @@ public:
         return _decl && _decl->Inits().size();
     }
 
+    /*
     bool operator==(const Object& other) const {
         // TODO(wgtdkp): Not implemented
         assert(false);
@@ -816,12 +819,12 @@ public:
     bool operator!=(const Object& other) const {
         return !(*this == other);
     }
-
+    */
 protected:
-    Object(const Token* tok, ::Type* type, ::Scope* scope,
+    Object(const Token* tok, ::Type* type,
             int storage=0, enum Linkage linkage=L_NONE,
             unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
-            : Identifier(tok, type, scope, linkage),
+            : Identifier(tok, type, linkage),
               _storage(storage), _offset(0), _decl(nullptr),
               _bitFieldBegin(bitFieldBegin), _bitFieldWidth(bitFieldWidth) {}
 
