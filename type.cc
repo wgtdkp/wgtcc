@@ -16,7 +16,7 @@ static MemPoolImp<VoidType>         voidTypePool;
 static MemPoolImp<ArrayType>        arrayTypePool;
 static MemPoolImp<FuncType>         funcTypePool;
 static MemPoolImp<PointerType>      pointerTypePool;
-static MemPoolImp<StructUnionType>  structUnionTypePool;
+static MemPoolImp<StructType>  structUnionTypePool;
 static MemPoolImp<ArithmType>       arithmTypePool;
 
 
@@ -59,10 +59,10 @@ PointerType* PointerType::New(Type* derived) {
             PointerType(&pointerTypePool, derived);
 }
 
-StructUnionType* StructUnionType::New(
+StructType* StructType::New(
         bool isStruct, bool hasTag, Scope* parent) {
     return new (structUnionTypePool.Alloc())
-            StructUnionType(&structUnionTypePool, isStruct, hasTag, parent);
+            StructType(&structUnionTypePool, isStruct, hasTag, parent);
 }
 
 /*
@@ -289,24 +289,24 @@ std::string FuncType::Str(void) const
 }
 
 /*
- * StructUnionType
+ * StructType
  */
 
-StructUnionType::StructUnionType(MemPool* pool,
+StructType::StructType(MemPool* pool,
         bool isStruct, bool hasTag, Scope* parent)
         : Type(pool, false), _isStruct(isStruct), _hasTag(hasTag),
           _memberMap(new Scope(parent, S_BLOCK)),
           _offset(0), _width(0), _align(0) {}
 
 
-Object* StructUnionType::GetMember(const std::string& member) {
+Object* StructType::GetMember(const std::string& member) {
     auto ident = _memberMap->FindInCurScope(member);
     if (ident == nullptr)
         return nullptr;
     return ident->ToObject();
 }
 
-void StructUnionType::CalcWidth(void)
+void StructType::CalcWidth(void)
 {
     _width = 0;
     auto iter = _memberMap->_identMap.begin();
@@ -315,9 +315,9 @@ void StructUnionType::CalcWidth(void)
     }
 }
 
-bool StructUnionType::operator==(const Type& other) const
+bool StructType::operator==(const Type& other) const
 {
-    auto structUnionType = other.ToStructUnionType();
+    auto structUnionType = other.ToStructType();
     if (nullptr == structUnionType)
         return false;
 
@@ -325,21 +325,21 @@ bool StructUnionType::operator==(const Type& other) const
 }
 
 
-bool StructUnionType::Compatible(const Type& other) const {
+bool StructType::Compatible(const Type& other) const {
     // TODO: 
     return *this == other;
 }
 
 
 // TODO(wgtdkp): more detailed representation
-std::string StructUnionType::Str(void) const
+std::string StructType::Str(void) const
 {
     std::string str = _isStruct ? "struct": "union";
     return str + ":" + std::to_string(_width);
 }
 
 
-void StructUnionType::AddMember(Object* member)
+void StructType::AddMember(Object* member)
 {
     auto offset = MakeAlign(_offset, member->Type()->Align());
     member->SetOffset(offset);
@@ -359,7 +359,7 @@ void StructUnionType::AddMember(Object* member)
 }
 
 
-void StructUnionType::AddBitField(Object* bitField, int offset)
+void StructType::AddBitField(Object* bitField, int offset)
 {
     bitField->SetOffset(offset);
     _members.push_back(bitField);
@@ -377,7 +377,7 @@ void StructUnionType::AddBitField(Object* bitField, int offset)
 // Move members of Anonymous struct/union to external struct/union
 // TODO(wgtdkp):
 // Width of struct/union is not the sum of its members
-void StructUnionType::MergeAnony(StructUnionType* anonType)
+void StructType::MergeAnony(StructType* anonType)
 {   
     auto offset = MakeAlign(_offset, anonType->Align());
     for (auto member: anonType->_members) {

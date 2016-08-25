@@ -134,13 +134,13 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
         _addr._label = l._label;
         _addr._offset = l._offset + r._offset * width;
         break;
-    case ']':
-        _addr._label = l._label;
-        _addr._offset = l._offset + r._offset * width;
-        break;
+    //case ']':
+    //    _addr._label = l._label;
+    //    _addr._offset = l._offset + r._offset * width;
+    //    break;
     case '.': {
         _addr._label = l._label;
-        auto type = binary->_lhs->Type()->ToStructUnionType();
+        auto type = binary->_lhs->Type()->ToStructType();
         auto offset = type->GetMember(r._label)->Offset();
         _addr._offset = l._offset + offset;
         break;

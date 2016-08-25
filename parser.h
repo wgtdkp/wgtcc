@@ -96,9 +96,9 @@ public:
     
     Type* ParseEnumSpec(void);
     
-    StructUnionType* ParseStructUnionDecl(StructUnionType* type);
+    StructType* ParseStructUnionDecl(StructType* type);
     
-    bool ParseBitField(StructUnionType* structType,
+    bool ParseBitField(StructType* structType,
             Token* tok, Type* type, bool packed);
 
     Type* ParseEnumerator(ArithmType* type);
@@ -131,7 +131,7 @@ public:
             ArrayType* type, int offset);
             
     void ParseStructInitializer(Declaration* init,
-            StructUnionType* type, int offset);
+            StructType* type, int offset);
 
     void ParseLiteralInitializer(Declaration* init,
             ArrayType* type, int offset);

@@ -25,7 +25,7 @@ class DerivedType;
 class ArrayType;
 class FuncType;
 class PointerType;
-class StructUnionType;
+class StructType;
 class EnumType;
 
 enum {
@@ -159,9 +159,9 @@ public:
     
     virtual const DerivedType* ToDerivedType(void) const { return nullptr; }
     
-    virtual StructUnionType* ToStructUnionType(void) { return nullptr; }
+    virtual StructType* ToStructType(void) { return nullptr; }
     
-    virtual const StructUnionType* ToStructUnionType(void) const { return nullptr; }
+    virtual const StructType* ToStructType(void) const { return nullptr; }
 
 protected:
     Type(MemPool* pool, bool complete)
@@ -176,7 +176,7 @@ private:
     static MemPoolImp<ArrayType>        _arrayTypePool;
     static MemPoolImp<FuncType>         _funcTypePool;
     static MemPoolImp<PointerType>      _pointerTypePool;
-    static MemPoolImp<StructUnionType>  _structUnionTypePool;
+    static MemPoolImp<StructType>  _structUnionTypePool;
     static MemPoolImp<ArithmType>       _arithmTypePool;
 };
 
@@ -491,21 +491,64 @@ private:
 };
 
 
-class StructUnionType : public Type
+class StructType : public Type
 {
     friend class Type;
-    typedef std::list<Object*> MemberList;
+    
+public:
+    /*
+    struct StructField {
+        StructField(Object* member, bool isAnonyUnionField=false)
+                _member(member), _isAnonyUnionField(isAnonyUnionField) {}
+
+        Object* _member;
+        bool _isAnonyUnionField;
+    }
+
+    class Iterator {
+    public:
+        Object* operator*(void) {
+            return (*_iter);
+        }
+
+        Object* operator->(void) {
+            return (*iter);
+        }
+
+        Iterator& operator++(void) {
+
+        }
+
+        Iterator operator++(void) {
+
+        }
+
+        bool operator==(const Iterator& other) const {
+
+        }
+
+        bool operator!=(const Iterator& other) const {
+            return !(*this == other);
+        }
+
+    private:
+        MemberList::iterator _iter;
+
+    };
+    */
+
+    typedef std::list<StructField> MemberList;
 
 public:
-    static StructUnionType* New(bool isStruct, bool hasTag, Scope* parent);
+    static StructType* New(bool isStruct, bool hasTag, Scope* parent);
     
-    ~StructUnionType(void) {/*TODO: delete _env ?*/ }
+    ~StructType(void) {/*TODO: delete _env ?*/ }
     
-    virtual StructUnionType* ToStructUnionType(void) {
+    virtual StructType* ToStructType(void) {
         return this;
     }
     
-    virtual const StructUnionType* ToStructUnionType(void) const {
+    virtual const StructType* ToStructType(void) const {
         return this;
     }
     
@@ -550,13 +593,13 @@ public:
         return _hasTag;
     }
     
-    void MergeAnony(StructUnionType* anonType);
+    void MergeAnony(StructType* anonType);
 
 protected:
     // default is incomplete
-    StructUnionType(MemPool* pool, bool isStruct, bool hasTag, Scope* parent);
+    StructType(MemPool* pool, bool isStruct, bool hasTag, Scope* parent);
     
-    StructUnionType(const StructUnionType& other);
+    StructType(const StructType& other);
 
 private:
     void CalcWidth(void);

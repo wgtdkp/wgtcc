@@ -20,7 +20,7 @@ enum ScopeType {
 
 class Scope
 {
-    friend class StructUnionType;
+    friend class StructType;
     typedef std::map<std::string, Identifier*> IdentMap;
 
 public:

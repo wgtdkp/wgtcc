@@ -62,7 +62,7 @@ static ParamClass Classify(Type* paramType, int offset=0)
     // TODO(wgtdkp): Support agrregate type 
     assert(false);
     /*
-    auto type = paramType->ToStructUnionType();
+    auto type = paramType->ToStructType();
     assert(type);
 
     if (type->Width() > 4 * 8)
@@ -432,7 +432,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
     // As the lhs will always be struct/union 
     auto addr = LValGenerator().GenExpr(ref->_lhs);
     auto name = ref->_rhs->Tok()->Str();
-    auto structType = ref->_lhs->Type()->ToStructUnionType();
+    auto structType = ref->_lhs->Type()->ToStructType();
     auto member = structType->GetMember(name);
 
     addr._offset += member->Offset();
@@ -954,7 +954,7 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
     auto expr = returnStmt->_expr;
     if (expr) {
         Visit(expr);
-        if (expr->Type()->ToStructUnionType()) {
+        if (expr->Type()->ToStructType()) {
             // %rax now has the address of the struct/union
             
             ObjectAddr addr = {"", "rbp", _retAddrOffset};
@@ -1023,7 +1023,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     auto base = _offset;
     // Alloc memory for return value if it is struct/union
     auto funcType = funcCall->FuncType();
-    auto retType = funcCall->Type()->ToStructUnionType();
+    auto retType = funcCall->Type()->ToStructType();
     if (retType) {
         auto offset = _offset;
         offset -= funcCall->Type()->Width();
@@ -1132,7 +1132,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     _offset = 0;
 
     // Arrange space to store params passed by registers
-    auto retType = funcDef->Type()->Derived()->ToStructUnionType();
+    auto retType = funcDef->Type()->Derived()->ToStructType();
     auto locations = GetParamLocation(funcDef->Type()->ParamTypes(), retType);
 
     if (funcDef->Type()->Variadic()) {
@@ -1289,7 +1289,7 @@ void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 
     _addr = LValGenerator().GenExpr(binary->_lhs);
     auto name = binary->_rhs->Tok()->Str();
-    auto structType = binary->_lhs->Type()->ToStructUnionType();
+    auto structType = binary->_lhs->Type()->ToStructType();
     auto member = structType->GetMember(name);
 
     _addr._offset += member->Offset();

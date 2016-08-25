@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include "test.h"
 
 
 void test1(void)
@@ -71,6 +71,20 @@ void test6(void)
     printf("%d\n", sizeof(foo_t));
 }
 
+void test7(void)
+{
+    typedef struct {
+        unsigned int a: 8;
+        unsigned short b: 9;
+    } foo_t;
+    printf("%d\n", sizeof(foo_t));
+    foo_t foo;
+    
+    memset((void*)&foo, 0, sizeof(foo_t));
+    foo.a = 34;
+    foo.b = 34;
+    printf("%x\n", *((int*)&foo));
+}
 
 int main(void)
 {
@@ -80,5 +94,6 @@ int main(void)
     test4();
     test5();
     test6();
+    test7();
     return 0;
 }

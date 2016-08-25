@@ -319,7 +319,7 @@ BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs)
     auto memberName = _ts.Peek()->Str();
     _ts.Expect(Token::IDENTIFIER);
 
-    auto structUnionType = lhs->Type()->ToStructUnionType();
+    auto structUnionType = lhs->Type()->ToStructType();
     if (structUnionType == nullptr) {
         Error(tok, "an struct/union expected");
     }
@@ -1139,7 +1139,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             if (!tagIdent->Type()->Complete()) {
                 //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
                 return ParseStructUnionDecl(
-                        tagIdent->Type()->ToStructUnionType());
+                        tagIdent->Type()->ToStructType());
             } else {
                 //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
                 Error(tok, "redefinition of struct tag '%s'",
@@ -1162,7 +1162,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
             }
             
             //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
-            auto type = StructUnionType::New(isStruct, true, _curScope);
+            auto type = StructType::New(isStruct, true, _curScope);
             
             //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
             auto ident = Identifier::New(tok, type, _curScope, L_NONE);
@@ -1176,7 +1176,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 struct_decl:
     //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
 	//所以现在是第一次开始定义一个完整的struct/union类型
-    auto type = StructUnionType::New(isStruct, tagName.size(), _curScope);
+    auto type = StructType::New(isStruct, tagName.size(), _curScope);
     if (tagName.size() != 0) {
         auto ident = Identifier::New(tok, type, _curScope, L_NONE);
         _curScope->InsertTag(ident);
@@ -1186,7 +1186,7 @@ struct_decl:
 }
 
 
-StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
+StructType* Parser::ParseStructUnionDecl(StructType* type)
 {
     //既然是定义，那输入肯定是不完整类型，不然就是重定义了
     assert(type && !type->Complete());
@@ -1215,7 +1215,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
             }
 
             if (tok == nullptr) {
-                auto suType = memberType->ToStructUnionType();
+                auto suType = memberType->ToStructType();
                 if (suType && !suType->HasTag()) {
                     type->MergeAnony(suType);
                     continue;
@@ -1254,7 +1254,7 @@ StructUnionType* Parser::ParseStructUnionDecl(StructUnionType* type)
 }
 
 
-bool Parser::ParseBitField(StructUnionType* structType,
+bool Parser::ParseBitField(StructType* structType,
         Token* tok, Type* type, bool packed)
 {
     if (!type->IsInteger()) {
@@ -1762,7 +1762,7 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
 void Parser::ParseInitializer(Declaration* decl, Type* type, int offset)
 {
     auto arrType = type->ToArrayType();
-    auto structType = type->ToStructUnionType();
+    auto structType = type->ToStructType();
     if (arrType) {
         if (!_ts.Test('{') && !_ts.Test(Token::STRING_LITERAL)) {
             _ts.Expect('{');
@@ -1908,7 +1908,7 @@ end:
 
 
 void Parser::ParseStructInitializer(Declaration* decl,
-        StructUnionType* type, int offset)
+        StructType* type, int offset)
 {
     assert(type);
     auto hasBrace = _ts.Try('{');
