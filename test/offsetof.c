@@ -1,13 +1,15 @@
-#include <stdio.h>
+#include "test.h"
 #include <stddef.h>
 
-typedef struct {
-    int a;
-    int b;
-    int c;
-} foo_t;
+void test1(void)
+{
+    typedef struct {
+        int a;
+        struct {
+            int b;
+            int c;
+        } d;
+    } foo_t;
 
-int d = offsetof(foo_t, c);
-
-int* p = (int*)1;
-int dd = d;
+    int c = offsetof(foo_t, d.c);
+}

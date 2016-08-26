@@ -1732,11 +1732,11 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
         // Once again, we need not to worry about 
         //     the order of the initialization.
         if (obj->Decl()) {
-            ParseInitializer(obj->Decl(), obj->Type(), 0);
+            ParseInitializer(obj->Decl(), obj->Type(), 0, false);
             return nullptr;
         } else {
             auto decl = Declaration::New(obj);
-            ParseInitializer(decl, obj->Type(), 0);
+            ParseInitializer(decl, obj->Type(), 0, false);
             obj->SetDecl(decl);
             return decl;
         }
@@ -1759,20 +1759,28 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
 }
 
 
-void Parser::ParseInitializer(Declaration* decl, Type* type, int offset)
+void Parser::ParseInitializer(Declaration* decl, Type* type,
+        int offset, bool designated)
 {
+    if (designated && !_ts.Test('.')) {
+        _ts.Expect('=');
+    }
+
     auto arrType = type->ToArrayType();
     auto structType = type->ToStructType();
     if (arrType) {
-        if (!_ts.Test('{') && !_ts.Test(Token::STRING_LITERAL)) {
-            _ts.Expect('{');
-        }
-        return ParseArrayInitializer(decl, arrType, offset);
+        //if (forceBrace && !_ts.Test('{') && !_ts.Test(Token::STRING_LITERAL)) {
+        //    _ts.Expect('{');
+        //} else if (!ParseLiteralInitializer(decl, arrType, offset)) {
+            return ParseArrayInitializer(decl, arrType, offset);
+        //}
     } else if (structType) {
-        if (!_ts.Test('{')) {
-            _ts.Expect('{');
-        }
-        return ParseStructInitializer(decl, structType, offset);
+        //if (forceBrace && !_ts.Test('{')) {
+            // TODO(wgtdkp): Inited by a struct of compatible type
+            // Treat it as scalar type
+        //} else {
+            return ParseStructInitializer(decl, structType, offset, designated);
+        //}
     }
 
     // Scalar type
@@ -1881,7 +1889,7 @@ void Parser::ParseArrayInitializer(Declaration* decl,
             goto end;
         }
 
-        ParseInitializer(decl, type->Derived(), idx * width);
+        ParseInitializer(decl, type->Derived(), idx * width, false);
         ++idx;
 
         if (type->HasLen() && idx >= type->Len())
@@ -1907,10 +1915,36 @@ end:
 }
 
 
+StructType::Iterator Parser::ParseStructDesignator(StructType* type,
+        const std::string& name)
+{
+    auto iter = type->Members().begin();
+    for (; iter != type->Members().end(); ++iter) {
+        if ((*iter)->IsAnonymous()) {
+            auto anonyType = (*iter)->Type()->ToStructType();
+            assert(anonyType);
+            if (anonyType->GetMember(name)) {
+                return iter; //ParseStructDesignator(anonyType);
+            }
+        } else if ((*iter)->Name() == name)
+            break;
+    }
+    return iter;
+}
+
+/*
+void Parser::ParseDesignatedInitializer(Declaration* decl,
+        Type* type, int offset, bool designated)
+{
+    if ()
+}
+*/
+
 void Parser::ParseStructInitializer(Declaration* decl,
-        StructType* type, int offset)
+        StructType* type, int offset, bool designated)
 {
     assert(type);
+
     auto hasBrace = _ts.Try('{');
     auto member = type->Members().begin();
     while (true) {
@@ -1920,32 +1954,32 @@ void Parser::ParseStructInitializer(Declaration* decl,
             return;
         }
 
-        if (hasBrace && _ts.Try('.')) {
-            auto memberTok = _ts.Expect(Token::IDENTIFIER);
-            _ts.Expect('=');
-            
-            auto name = memberTok->Str();
-            auto iter = type->Members().begin();
-            for (; iter != type->Members().end(); ++iter)
-                if ((*iter)->Name() == name)
-                    break;
-
-            member = iter;
-            if (member == type->Members().end()) {
-                Error(memberTok, "member '%s' not found", name.c_str());
-            }
-        } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
+        if (!designated && !hasBrace && (_ts.Test('.') || _ts.Test('['))) {
             _ts.PutBack(); // Put the read comma(',') back
             return;
         }
         
-        ParseInitializer(decl, (*member)->Type(), offset + (*member)->Offset());
+        if ((designated = _ts.Try('.'))) {
+            auto tok = _ts.Expect(Token::IDENTIFIER);
+            auto name = tok->Str();
+            if (!type->GetMember(name)) {
+                Error(tok, "member '%s' not found", name.c_str());
+            }
+            member = ParseStructDesignator(type, name);
+        }
+
+        if ((*member)->IsAnonymous()) {
+            _ts.PutBack(); _ts.PutBack();
+            ParseInitializer(decl, (*member)->Type(), offset, designated);
+        } else {
+            ParseInitializer(decl, (*member)->Type(),
+                    offset + (*member)->Offset(), designated);
+        }
         ++member;
 
         // Union, just init the first member
-        if (!type->IsStruct()) {
+        if (!type->IsStruct())
             break;
-        }
 
         if (member == type->Members().end())
             break;
@@ -1961,10 +1995,12 @@ void Parser::ParseStructInitializer(Declaration* decl,
     if (hasBrace) {
         _ts.Try(',');
         if (!_ts.Try('}')) {
-            Error(_ts.Peek(), "excess elements in struct initializer");
+            Error(_ts.Peek(), "excess members in struct initializer");
         }
     }
 }
+
+
 
 
 /*

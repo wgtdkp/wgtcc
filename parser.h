@@ -125,13 +125,17 @@ public:
             int storageSpec, int funcSpec);
 
     //initializer
-    void ParseInitializer(Declaration* init, Type* type, int offset);
+    void ParseInitializer(Declaration* decl, Type* type,
+            int offset, bool designated);
     
     void ParseArrayInitializer(Declaration* init,
             ArrayType* type, int offset);
             
-    void ParseStructInitializer(Declaration* init,
-            StructType* type, int offset);
+    StructType::Iterator ParseStructDesignator(StructType* type,
+            const std::string& name);
+            
+    void ParseStructInitializer(Declaration* decl,
+            StructType* type, int offset, bool designated);
 
     void ParseLiteralInitializer(Declaration* init,
             ArrayType* type, int offset);

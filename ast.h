@@ -810,6 +810,10 @@ public:
         return _decl && _decl->Inits().size();
     }
 
+    bool IsAnonymous(void) const {
+        return !_tok;
+    }
+
     /*
     bool operator==(const Object& other) const {
         // TODO(wgtdkp): Not implemented

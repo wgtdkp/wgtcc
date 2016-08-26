@@ -539,7 +539,8 @@ public:
     */
 
     typedef std::list<Object*> MemberList;
-
+    typedef std::list<Object*>::iterator Iterator;
+    
 public:
     static StructType* New(bool isStruct, bool hasTag, Scope* parent);
     
