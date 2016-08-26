@@ -110,16 +110,9 @@ void TranslationUnit::Accept(Visitor* v) {
 
 Expr* Expr::MayCast(Expr* expr)
 {
-    auto arrType = expr->Type()->ToArrayType();
-    if (arrType) {
-        auto pointer = PointerType::New(arrType->Derived());
-        pointer->SetQual(Q_CONST);
-        return UnaryOp::New(Token::CAST, expr, pointer);
-    }
-    auto funcType = expr->Type()->ToFuncType();
-    if (funcType) {
-        auto pointer = PointerType::New(funcType);
-        return UnaryOp::New(Token::CAST, expr, pointer);
+    auto type = Type::MayCast(expr->Type());
+    if (type != expr->Type()) { // Pointer comparison is enough
+        return UnaryOp::New(Token::CAST, expr, type);
     }
     return expr;
 }

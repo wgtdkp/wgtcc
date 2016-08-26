@@ -131,6 +131,7 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
             }
         }
     }
+    assert(funcDef->Params().size() == paramTypes.size());
 
     funcType->SetComplete(true);
     funcDef->SetBody(ParseCompoundStmt(funcType));
@@ -1651,7 +1652,7 @@ Type* Parser::ParseParamDecl(void)
     
     auto tokTypePair = ParseDeclarator(type);
     auto tok = tokTypePair.first;
-    type = tokTypePair.second;
+    type = Type::MayCast(tokTypePair.second);
     if (tok == nullptr) { // Abstract declarator
         return type;
     }

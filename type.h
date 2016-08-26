@@ -99,6 +99,7 @@ public:
             return offset - align - (offset % align);
     } 
 
+    static Type* MayCast(Type* type);
 
     int Qual(void) const {
         return _qual;

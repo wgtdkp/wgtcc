@@ -30,6 +30,20 @@ bool Type::IsInteger(void) const {
     return arithmType && arithmType->IsInteger();
 }
 
+Type* Type::MayCast(Type* type)
+{
+    auto funcType = type->ToFuncType();
+    auto arrayType = type->ToArrayType();
+    if (funcType) {
+        return PointerType::New(funcType);
+    } else if (arrayType) {
+        auto ret = PointerType::New(arrayType->Derived());
+        ret->SetQual(Q_CONST);
+        return ret;
+    }
+    return type;
+}
+
 VoidType* VoidType::New(void)
 {
     return new (voidTypePool.Alloc()) VoidType(&voidTypePool);
