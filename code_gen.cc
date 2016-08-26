@@ -800,7 +800,12 @@ void Generator::VisitIdentifier(Identifier* ident)
 void Generator::VisitConstant(Constant* cons)
 {
     auto label = ConsLabel(cons);
-    EmitLoad(label, cons->Type());
+
+    auto width = cons->Type()->Width();
+    auto flt = cons->Type()->IsFloat();
+    auto load = GetInst("mov", width, flt);
+    auto des = GetDes(width, flt);
+    Emit("%s %s, #%s", load.c_str(), label.c_str(), des);
 }
 
 
@@ -886,7 +891,7 @@ void Generator::GenStaticDecl(Declaration* decl)
         case 4:
             Emit(".long %d", static_cast<int>(staticInit._val));
             break;
-        case 8: 
+        case 8:
             if (staticInit._label.size() == 0) {
                 Emit(".quad %ld", staticInit._val);
             } else if (staticInit._val != 0) {

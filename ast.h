@@ -380,8 +380,13 @@ public:
 
 protected:
     BinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs)
-            : Expr(tok, nullptr), _op(op),
-              _lhs(MayCast(lhs)), _rhs(MayCast(rhs)) {}
+            : Expr(tok, nullptr), _op(op) {
+                _lhs = lhs, _rhs = rhs;
+                if (op != '.') {
+                    _lhs = MayCast(lhs);
+                    _rhs = MayCast(rhs);
+                }
+            }
 
     int _op;
     Expr* _lhs;

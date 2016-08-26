@@ -416,13 +416,12 @@ public:
 
     void SetLen(int len) {
         _len = len;
-        SetComplete(true);
     }
 
 protected:
     ArrayType(MemPool* pool, int len, Type* derived)
             : DerivedType(pool, derived), _len(len) {
-        SetComplete(_len > 0);
+        SetComplete(_len >= 0);
         SetQual(Q_CONST);
     }
 

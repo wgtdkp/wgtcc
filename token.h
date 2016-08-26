@@ -408,6 +408,14 @@ public:
         return &(*--back);
     }
 
+    TokenList::iterator Mark(void) {
+        return _begin;
+    }
+
+    void ResetTo(TokenList::iterator mark) {
+        _begin = mark;
+    }
+
     // Could be costly
     /*
     size_t Size(void) {

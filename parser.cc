@@ -1536,9 +1536,9 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
         }
 
         auto len = ParseArrayLength();
-        if (0 == len) {
-            Error(_ts.Peek(), "can't declare an array of length 0");
-        }
+        //if (0 == len) {
+        //    Error(_ts.Peek(), "can't declare an array of length 0");
+        //}
         _ts.Expect(']');
         base = ParseArrayFuncDeclarator(ident, base);
         if (!base->Complete()) {
@@ -1599,7 +1599,11 @@ int Parser::ParseArrayLength(void)
     
     auto expr = ParseAssignExpr();
     EnsureInteger(expr);
-    return Evaluator<long>().Eval(expr);
+    auto ret = Evaluator<long>().Eval(expr);
+    if (ret < 0) {
+        Error(expr, "size of array is negative");
+    }
+    return ret;
 }
 
 
@@ -1760,32 +1764,41 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
 
 
 void Parser::ParseInitializer(Declaration* decl, Type* type,
-        int offset, bool designated)
+        int offset, bool designated, bool forceBrace)
 {
-    if (designated && !_ts.Test('.')) {
+    if (designated && !_ts.Test('.') && !_ts.Test('[')) {
         _ts.Expect('=');
     }
 
+    Expr* expr;
     auto arrType = type->ToArrayType();
     auto structType = type->ToStructType();
     if (arrType) {
-        //if (forceBrace && !_ts.Test('{') && !_ts.Test(Token::STRING_LITERAL)) {
-        //    _ts.Expect('{');
-        //} else if (!ParseLiteralInitializer(decl, arrType, offset)) {
-            return ParseArrayInitializer(decl, arrType, offset);
-        //}
+        if (forceBrace && !_ts.Test('{') && !_ts.Test(Token::STRING_LITERAL)) {
+            _ts.Expect('{');
+        } else if (!ParseLiteralInitializer(decl, arrType, offset)) {
+            ParseArrayInitializer(decl, arrType, offset, designated);
+        }
+        arrType->SetComplete(true);
+        return;
     } else if (structType) {
-        //if (forceBrace && !_ts.Test('{')) {
-            // TODO(wgtdkp): Inited by a struct of compatible type
-            // Treat it as scalar type
-        //} else {
-            return ParseStructInitializer(decl, structType, offset, designated);
-        //}
+        if (forceBrace && !_ts.Test('{')) {
+            _ts.Expect('{');
+        } else if (!designated && !_ts.Test('{')) {
+            auto mark = _ts.Mark();
+            expr = ParseAssignExpr();
+            if (structType == expr->Type()) { // pointer comparison is enough
+                decl->AddInit(offset, structType, expr);
+                return;
+            }
+            _ts.ResetTo(mark);
+        }
+        return ParseStructInitializer(decl, structType, offset, designated);
     }
 
     // Scalar type
     auto hasBrace = _ts.Try('{');
-    Expr* expr = ParseAssignExpr();
+    expr = ParseAssignExpr();
     if (hasBrace) {
         _ts.Try(',');
         _ts.Expect('}');
@@ -1795,11 +1808,24 @@ void Parser::ParseInitializer(Declaration* decl, Type* type,
 }
 
 
-void Parser::ParseLiteralInitializer(Declaration* decl,
+bool Parser::ParseLiteralInitializer(Declaration* decl,
         ArrayType* type, int offset)
 {
+    if (!type->Derived()->IsInteger())
+        return false;
+
+    auto hasBrace = _ts.Try('{');
+    if (!_ts.Test(Token::STRING_LITERAL)) {
+        if (hasBrace) _ts.PutBack();
+        return false;
+    }
     auto literal = ParseLiteral(_ts.Next());
     auto tok = literal->Tok();
+
+    if (hasBrace) {
+        _ts.Try(',');
+        _ts.Expect('}');
+    }
 
     if (!type->Complete())
         type->SetLen(literal->SVal()->size() + 1);
@@ -1808,6 +1834,15 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
             literal->SVal()->size() + 1);
     
     auto str = literal->SVal()->c_str();    
+    for (; width > 0; --width) {
+        auto p = str;
+        auto type = ArithmType::New(T_CHAR);
+        auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
+        decl->AddInit(offset, type, val);
+        offset++;
+        str++;
+    }
+    /*
     for (; width >= 8; width -= 8) {
         auto p = reinterpret_cast<const long*>(str);
         auto type = ArithmType::New(T_LONG);
@@ -1843,63 +1878,58 @@ void Parser::ParseLiteralInitializer(Declaration* decl,
         offset++;
         str++;
     }
+    */
+
+    return true;
 }
 
 
 void Parser::ParseArrayInitializer(Declaration* decl,
-        ArrayType* type, int offset)
+        ArrayType* type, int offset, bool designated)
 {
     assert(type);
 
+    if (!type->Complete())
+        type->SetLen(0);
+
+    int idx = 0;
     auto width = type->Derived()->Width();
-    long idx = 0;
-
     auto hasBrace = _ts.Try('{');
-    if (_ts.Test(Token::STRING_LITERAL) && width == 1) {
-        // TODO(wgtdkp): handle wide character
-        ParseLiteralInitializer(decl, type, offset);
-        if (hasBrace) {
-            _ts.Try(',');
-            if (!_ts.Try('}')) {
-                Error(_ts.Peek(), "excess elements in array initializer");
-            }
-        }
-        return;
-    }
-
     while (true) {
         if (_ts.Test('}')) {
             if (hasBrace)
                 _ts.Next();
-            goto end;
+            return;
         }
 
-        if (hasBrace && _ts.Try('[')) {
+        if (!designated && !hasBrace && (_ts.Test('.') || _ts.Test('['))) {
+            _ts.PutBack(); // Put the read comma(',') back
+            return;
+        } else if ((designated = _ts.Try('['))) {
             auto expr = ParseAssignExpr();
             EnsureInteger(expr);
             idx = Evaluator<long>().Eval(expr);
             _ts.Expect(']');
-            _ts.Expect('=');
 
-            if (idx < 0 || (type->HasLen() && idx >= type->Len())) {
+            if (idx < 0 || (type->Complete() && idx >= type->Len())) {
                 Error(_ts.Peek(), "excess elements in array initializer");
             }
-        } else if (!hasBrace && (_ts.Test('.') || _ts.Test('['))) {
-            _ts.PutBack(); // Put the read comma(',') back
-            goto end;
         }
 
-        ParseInitializer(decl, type->Derived(), idx * width, false);
+        ParseInitializer(decl, type->Derived(), offset + idx * width, designated);
         ++idx;
 
-        if (type->HasLen() && idx >= type->Len())
+        if (type->Complete() && idx >= type->Len()) {
             break;
+        } else if (!type->Complete()) {
+            type->SetLen(std::max(idx, type->Len()));
+        }
 
         // Needless comma at the end is allowed
         if (!_ts.Try(',')) {
             if (hasBrace)
                 _ts.Expect('}');
-            goto end;
+            return;
         }
     }
 
@@ -1909,9 +1939,6 @@ void Parser::ParseArrayInitializer(Declaration* decl,
             Error(_ts.Peek(), "excess elements in array initializer");
         }
     }
-end:
-    if (!type->HasLen())
-        type->SetLen(idx);
 }
 
 
@@ -1926,8 +1953,9 @@ StructType::Iterator Parser::ParseStructDesignator(StructType* type,
             if (anonyType->GetMember(name)) {
                 return iter; //ParseStructDesignator(anonyType);
             }
-        } else if ((*iter)->Name() == name)
+        } else if ((*iter)->Name() == name) {
             break;
+        }
     }
     return iter;
 }

@@ -126,18 +126,18 @@ public:
 
     //initializer
     void ParseInitializer(Declaration* decl, Type* type,
-            int offset, bool designated);
+            int offset, bool designated, bool forceBrace=false);
     
-    void ParseArrayInitializer(Declaration* init,
-            ArrayType* type, int offset);
+    void ParseArrayInitializer(Declaration* decl,
+            ArrayType* type, int offset, bool designated);
             
     StructType::Iterator ParseStructDesignator(StructType* type,
             const std::string& name);
-            
+
     void ParseStructInitializer(Declaration* decl,
             StructType* type, int offset, bool designated);
 
-    void ParseLiteralInitializer(Declaration* init,
+    bool ParseLiteralInitializer(Declaration* init,
             ArrayType* type, int offset);
 
     Declaration* ParseInitDeclarator(Identifier* ident);
