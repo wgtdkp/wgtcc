@@ -1,12 +1,19 @@
-#include <stdio.h>
+#include "test.h"
 
-
-static char arr[] = "12345";
+void test1(void)
+{
+    typedef struct {
+        struct {
+            char a;
+            char b;
+        } d;
+        char c;
+    } foo_t;
+    foo_t foo = {.d.a = 1};
+}
 
 int main(void)
 {
-    char* a = "123" + 2;
-    double b = 4.5;
-    float c = 5.5;
+    test1();
     return 0;
 }

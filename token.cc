@@ -195,9 +195,7 @@ Token* TokenSeq::Peek(void)
         eof._end = eof._begin + 1;
         return &eof;
     } else if (_parser && _begin->_tag == Token::IDENTIFIER
-            && _begin->Str() == "__func__")
-    {
-        
+            && _begin->Str() == "__func__") {
         _begin->_tag = Token::STRING_LITERAL;
 
         auto curFunc = _parser->CurFunc();
