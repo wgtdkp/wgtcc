@@ -1,14 +1,17 @@
 #include "test.h"
 
-const char* g_p = "hello world";
+#include <stddef.h>
 
-char g_arr[] = "1234567890987654321";
+char g_p[] = "hello\x00000 world";
+
+wchar_t g_arr[] = L"1234567890987654321";
 
 
 void test1(void)
 {
-    const char* p = g_arr;
+    const char* p = g_p;
     char arr[] = "1234567890987654321";
+    printf("sizeof(g_p):%d\n", sizeof(g_p));
     expect(8, sizeof(p));
     expect(20, sizeof(arr));
     printf("%s\n", p);

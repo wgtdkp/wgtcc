@@ -287,10 +287,8 @@ void Preprocessor::Stringize(std::string& str, TokenSeq is)
         auto tok = is.Peek();
         
         if (is.IsBeginOfLine()) {
-            //if (tok->_line > maxLine) {
-                str.push_back('\n');
-                //maxLine = tok->_line;
-            //}
+            str.push_back('\n');
+            str.append(std::max(is.Peek()->_column - 2, 0U), ' ');
         }
 
         line = tok->_line;

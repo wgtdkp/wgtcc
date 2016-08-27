@@ -747,6 +747,16 @@ Constant* Constant::New(const Token* tok, int tag, const std::string* val)
 }
 
 
+std::string Constant::SValRepr(void) const
+{
+    std::vector<char> buf(4 * _sval->size() + 1);
+    for (size_t i = 0; i < _sval->size(); ++i) {
+        sprintf(&buf[i * 4], "\\%03o", (*_sval)[i]);
+    }
+    return std::string(buf.begin(), buf.end() - 1);
+}
+
+
 /*
  * TempVar
  */

@@ -10,6 +10,9 @@
 #include <set>
 #include <string>
 
+#include <climits>
+
+
 using namespace std;
 
 
@@ -196,45 +199,260 @@ Expr* Parser::ParsePrimaryExpr(void)
 }
 
 
+Constant* Parser::ParseLiteral(const Token* tok)
+{
+    const auto& str = tok->Str();
+    auto val = new std::string();
+    
+    size_t pos = 0;
+    auto enc = ParseEncoding(str, pos);
+    for (++pos; str[pos] != '\"'; ++pos) {
+        int c;
+        if (str[pos] == '\\') {
+            c = ParseEscape(str, pos, enc);
+        } else {
+            c = str[pos];
+        }
+
+        switch (enc) {
+        case Encoding::NONE:
+        case Encoding::UTF8:
+            val->push_back(static_cast<char>(c & 0xff));
+            break;
+        case Encoding::CHAR16:
+            val->push_back(static_cast<char>(c & 0xff));
+            val->push_back(static_cast<char>((c >> 8) & 0xff));
+            break;
+        case Encoding::CHAR32:
+        case Encoding::WCHAR:        
+            val->push_back(static_cast<char>(c & 0xff));
+            val->push_back(static_cast<char>((c >> 8) & 0xff));
+            val->push_back(static_cast<char>((c >> 16) & 0xff));
+            val->push_back(static_cast<char>((c >> 24) & 0xff));
+            break;
+        }
+    }
+
+    int tag;
+    switch (enc) {
+    case Encoding::NONE:
+    case Encoding::UTF8:
+        tag = T_CHAR; val->append(1, '\0'); break;
+    case Encoding::CHAR16:
+        tag = T_UNSIGNED | T_SHORT; val->append(2, '\0'); break;
+    case Encoding::CHAR32:
+    case Encoding::WCHAR:
+        tag = T_UNSIGNED | T_INT; val->append(4, '\0'); break;
+    }
+
+    return Constant::New(tok, tag, val);
+}
+
+
 // TODO(wgtdkp):
 Constant* Parser::ParseConstant(const Token* tok)
 {
     assert(tok->IsConstant());
 
     if (tok->Tag() == Token::I_CONSTANT) {
-        long ival = stol(tok->Str());
-        return Constant::New(tok, T_LONG, ival);
+        return ParseInteger(tok);
+    } else if (tok->Tag() == Token::C_CONSTANT) {
+        return ParseCharacter(tok);
     } else {
-        double fval = stod(tok->Str());
-        return Constant::New(tok, T_DOUBLE, fval);
+        return ParseFloat(tok);
     }
 }
 
 
-// TODO(wgtdkp):
-Constant* Parser::ParseLiteral(const Token* tok)
+Constant* Parser::ParseFloat(const Token* tok)
 {
-    const char* p = tok->_begin;
-    int tag;
-    switch (p[0]) {
-    case 'u':
-        if (p[1] == '8') {
-            tag = T_CHAR; ++p;
+    const auto& str = tok->Str();
+    size_t end = 0;
+    double val;
+    try {
+        val = stod(str, &end);
+    } catch (const std::out_of_range& oor) {
+        Error(tok, "float out of range");
+    }
+
+    int tag = T_DOUBLE;
+    for (; str[end]; ++end) {
+        if (str[end] == 'f' || str[end] == 'F') {
+            if (tag & T_FLOAT)
+                Error(tok, "invalid suffix");
+            tag = T_FLOAT;
         } else {
-            tag = T_UNSIGNED | T_SHORT;
-        } ++p; break;
-    case 'U': tag = T_UNSIGNED | T_INT; ++p; break;
-    case 'L': tag = T_INT; ++p; break;
-    case '"': tag = T_CHAR; break;
+            if (str[end + 1] == 'l' || str[end + 1] =='L')
+                ++end;
+            if (tag & T_DOUBLE)
+                Error(tok, "invalid suffix");
+            tag = T_DOUBLE; // long double == double
+        }
+    }
+
+    return Constant::New(tok, tag, val);
+}
+
+
+Encoding Parser::ParseEncoding(const std::string& str, size_t& pos)
+{
+    switch (str[pos]) {
+    case 'u':
+        if (str[pos+1] == '8') {
+            pos +=2;
+            return Encoding::UTF8;
+        } else {
+            ++pos;
+            return Encoding::CHAR16;
+        } break;
+    case 'U': ++pos; return Encoding::CHAR32;
+    case 'L': ++pos; return Encoding::WCHAR;
+    default: return Encoding::NONE; 
+    }
+}
+
+
+static size_t EncodingWidth(Encoding enc)
+{
+    switch (enc) {
+    case Encoding::NONE: return 1;
+    case Encoding::UTF8: return 1;
+    case Encoding::CHAR16: return 2;
+    //case Encoding::CHAR32: return 4;
+    //case Encoding::WCHAR: return 4;
+    default: return 4;
+    }
+}
+
+
+static inline int XDigit(int c)
+{
+    if (isdigit(c))
+        return c - '0';
+    else if ('a' <= c && c <= 'f')
+        return c - 'a';
+    return c - 'A';
+}
+
+static inline bool isoct(int c)
+{
+    return '0' <= c && c <= '7';
+}
+
+
+int Parser::ParseEscape(const std::string& str, size_t& pos, Encoding enc)
+{
+    int c = 0;
+    auto encWidth = EncodingWidth(enc);
+    switch (str[++pos]) {
+    case '\\': case '\'': case '\"': case '\?':
+        return str[pos];
+    case 'a': return '\a'; 
+    case 'b': return '\b';
+    case 'f': return '\f';
+    case 'n': return '\n';
+    case 'r': return '\r';
+    case 't': return '\t';
+    case 'v': return '\v';
+    case 'x':
+        for (auto begin = ++pos; isxdigit(str[pos]); ++pos) {
+            c = (c << 4) + XDigit(str[pos]);
+            if (pos - begin >= encWidth * 2) {
+                //TODO(wgtdkp): warining
+            }
+        } --pos; break;
+    case '0' ... '7':
+        for (auto begin = pos; isoct(str[pos]); ++pos) {
+            if (pos - begin >= 3) break;
+            c = (c << 3) + XDigit(str[pos]);
+        } --pos; break;
     default: assert(false);
     }
-    ++p;
 
-    // TODO(wgtdkp): May handle in lexer
-    //while (p[0]) {
-    //
-    //}
-    auto val = new std::string(p, tok->_end - 1 - p);
+    return c;
+}
+
+
+Constant* Parser::ParseCharacter(const Token* tok)
+{
+    const auto& str = tok->Str();
+
+    size_t pos = 0;
+    auto enc = ParseEncoding(str, pos);
+    
+    int val = 0;
+    for (++pos; str[pos] != '\''; ++pos) {
+        int c = 0;
+        if (str[pos] == '\'') {
+            c = ParseEscape(str, pos, enc);
+        } else {
+            c = str[pos];
+        }
+
+        if (enc == Encoding::NONE) {
+            val = (val << 8) + c;
+        } else if (val == 0) {
+            val = c;
+        }
+    }
+    if (enc == Encoding::CHAR16)
+        val &= USHRT_MAX;
+    return Constant::New(tok, T_INT, static_cast<long>(val));
+}
+
+
+Constant* Parser::ParseInteger(const Token* tok)
+{
+    const auto& str = tok->Str();
+    size_t end;
+    long val;
+    try {
+        val = stoull(str, &end, 0);
+    } catch (const std::out_of_range& oor) {
+        Error(tok, "integer out of range");
+    }
+
+    int tag = 0;
+    for (; str[end]; ++end) {
+        if (str[end] == 'u' || str[end] == 'U') {
+            if (tag & T_UNSIGNED)
+                Error(tok, "invalid suffix");
+            tag |= T_UNSIGNED;
+        } else {
+            if (str[end + 1] == 'l' || str[end + 1] =='L')
+                ++end;
+            if (tag & T_LONG)
+                Error(tok, "invalid suffix");
+            tag |= T_LONG;
+        }
+    }
+
+    bool decimal = ('1' <= str[0] && str[0] <= '9');
+    if (decimal) {
+        switch (tag) {
+        case 0:
+            tag |= !(val & ~(long)INT_MAX) ? T_INT: T_LONG; break;
+        case T_UNSIGNED:
+            tag |= !(val & ~(long)UINT_MAX) ? T_INT: T_LONG; break;
+        case T_LONG: break;
+        case T_UNSIGNED | T_LONG: break;
+        }
+    } else {
+        switch (tag) {
+        case 0:
+            tag |= !(val & ~(long)INT_MAX) ? T_INT
+                    : !(val & ~(long)UINT_MAX) ? T_UNSIGNED
+                    : !(val & ~(long)LONG_MAX) ? T_LONG
+                    : T_UNSIGNED | T_LONG; break;
+        case T_UNSIGNED:
+            tag |= !(val & ~(long)UINT_MAX) ? T_INT: T_LONG; break;
+        case T_LONG:
+            tag |= !(val & ~(long)LONG_MAX) ? 0: T_UNSIGNED; break;
+        case T_UNSIGNED | T_LONG:
+            break;
+        }
+    }
+
     return Constant::New(tok, tag, val);
 }
 
@@ -1829,7 +2047,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     }
 
     if (!type->Complete()) {
-        type->SetLen(literal->SVal()->size() + 1);
+        type->SetLen(literal->SVal()->size());
         type->SetComplete(true);
     }
     
@@ -1839,7 +2057,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     //}
 
     auto width = std::min(static_cast<size_t>(type->Len()),
-            literal->SVal()->size() + 1);
+            literal->SVal()->size());
     auto str = literal->SVal()->c_str();    
     /*
     for (; width > 0; --width) {

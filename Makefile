@@ -7,7 +7,7 @@ CC = g++
 
 SRCS = main.cc  token.cc ast.cc scope.cc type.cc cpp.cc\
 	error.cc lexer.cc parser.cc evaluator.cc  code_gen.cc
-	   
+
 CFLAGS = -g -std=c++11 -Wall
 
 

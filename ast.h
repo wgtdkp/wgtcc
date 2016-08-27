@@ -568,6 +568,8 @@ public:
         return _sval;
     }
 
+    std::string SValRepr(void) const;
+
     std::string Label(void) const {
         return std::string(".LC") + std::to_string(_id);
     }

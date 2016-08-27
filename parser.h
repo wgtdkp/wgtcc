@@ -38,6 +38,11 @@ public:
     ~Parser(void) {}
 
     Constant* ParseConstant(const Token* tok);
+    Constant* ParseFloat(const Token* tok);
+    Constant* ParseInteger(const Token* tok);
+    Constant* ParseCharacter(const Token* tok);
+    Encoding ParseEncoding(const std::string& str, size_t& pos);
+    int ParseEscape(const std::string& str, size_t& pos, Encoding enc);
     Constant* ParseLiteral(const Token* tok);
 
     Expr* ParseGeneric(void);

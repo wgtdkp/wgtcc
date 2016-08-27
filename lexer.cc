@@ -35,7 +35,7 @@ static bool ReadConstant(char*& p)
         case 'f':
         case 'F':
         case 'x':
-        case 'X': 
+        case 'X':
             break;
         case 'e':
         case 'E':
@@ -363,7 +363,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
                     ++p;
             }
             
-            tok._tag = Token::CONSTANT;
+            tok._tag = Token::C_CONSTANT;
             
             tok._end = ++p; //keep the prefix and postfix('\'')
             tok._column = tok._begin - tok._lineBegin + 1; 
@@ -429,6 +429,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
         AddToken(tokSeq, tok);
     }
 }
+
 
 std::string* ReadFile(const std::string& fileName)
 {

@@ -1,6 +1,9 @@
+#include "test.h"
+
 void test1(void)
 {
-    char c = 0xff;
+    int c = '\77';
+    printf("%x\n", c);
 }
 
 int main(void)

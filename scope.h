@@ -42,7 +42,7 @@ public:
     }
     
     std::string TagName(const std::string& name) {
-        return name + "@tag";
+        return name + "@:tag";
     }
 
     Identifier* Find(const Token* tok);

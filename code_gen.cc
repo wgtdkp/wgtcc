@@ -119,7 +119,7 @@ std::string Generator::ConsLabel(Constant* cons)
         _rodatas.push_back(rodata);
         return rodata._label;
     } else { // Literal
-        const ROData& rodata = ROData(*cons->SVal());
+        const ROData& rodata = ROData(cons->SValRepr());
         _rodatas.push_back(rodata);
         return "$" + rodata._label;
     }
@@ -611,6 +611,7 @@ void Generator::GenCastOp(UnaryOp* cast)
             || srcType->ToArrayType()) {
         // Do nothing
     } else {
+        assert(srcType->ToArithmType());
         int width = srcType->Width();
         auto sign = !(srcType->ToArithmType()->Tag() & T_UNSIGNED);
         const char* inst;
@@ -829,7 +830,7 @@ void Generator::VisitDeclaration(Declaration* decl)
         if (!obj->HasInit())
             return;
 
-        for (auto init: decl->Inits()) {
+        for (const auto& init: decl->Inits()) {
             ObjectAddr addr = {"", "rbp", obj->Offset() + init._offset};
             if (init._type->IsScalar()) {
                 VisitExpr(init._expr);

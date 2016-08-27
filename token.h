@@ -197,6 +197,7 @@ public:
         IDENTIFIER,
         CONSTANT,
         I_CONSTANT,
+        C_CONSTANT,
         F_CONSTANT,
         STRING_LITERAL,
 
