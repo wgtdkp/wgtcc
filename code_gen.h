@@ -147,7 +147,7 @@ public:
     void AllocObjects(Scope* scope,
             const FuncDef::ParamList& params=FuncDef::ParamList());
 
-    void CopyStruct(ObjectAddr desAddr, int len);
+    void CopyStruct(ObjectAddr desAddr, int width);
     
     std::string ConsLabel(Constant* cons);
 
@@ -156,10 +156,6 @@ public:
 
     // gen and emit
     void Gen(void);
-
-    void GenExpr(Expr* expr) {
-        expr->Accept(this);
-    }
 
     void VisitExpr(Expr* expr) {
         expr->Accept(this);
@@ -172,7 +168,9 @@ public:
     void Emit(const char* format, ...);
     void EmitLabel(const std::string& label);
     void EmitLoad(const std::string& addr, Type* type);
+    void EmitLoad(const std::string& addr, int width, bool flt);
     void EmitStore(const std::string& addr, Type* type);
+    void EmitStore(const std::string& addr, int width, bool flt);
     void EmitLoadBitField(const std::string& addr, Object* bitField);
     void EmitStoreBitField(const ObjectAddr& addr, Type* type);
 

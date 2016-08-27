@@ -470,7 +470,7 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
 void Generator::GenAssignOp(BinaryOp* assign)
 {
     // The base register of addr is %r10
-    GenExpr(assign->_rhs);
+    VisitExpr(assign->_rhs);
     Spill(assign->Type()->IsFloat());
     auto addr = LValGenerator().GenExpr(assign->_lhs);
     Restore(assign->Type()->IsFloat());
@@ -508,19 +508,17 @@ void Generator::EmitStoreBitField(const ObjectAddr& addr, Type* type)
 }
 
 
-void Generator::CopyStruct(ObjectAddr desAddr, int len)
+void Generator::CopyStruct(ObjectAddr desAddr, int width)
 {
-    int widths[] = {8, 4, 2, 1};
-    int offset = 0;
-
-    for (auto width: widths) {
-        while (len >= width) {
-            auto mov = GetInst("mov", width, false);
-            Emit("%s %d(#rax), #rax", mov.c_str(), offset);
-            Emit("%s #rax, %s", mov.c_str(), desAddr.Repr().c_str());
-            desAddr._offset += width;
-            offset += width;
-            len -= width;
+    int units[] = {8, 4, 2, 1};
+    ObjectAddr srcAddr = {"", "rax", 0};
+    for (auto unit: units) {
+        while (width >= unit) {
+            EmitLoad(srcAddr.Repr(), width, false);
+            EmitStore(desAddr.Repr(), width, false);
+            desAddr._offset += unit;
+            srcAddr._offset += unit;
+            width -= unit;
         }
     }
 }
@@ -833,8 +831,15 @@ void Generator::VisitDeclaration(Declaration* decl)
 
         for (auto init: decl->Inits()) {
             ObjectAddr addr = {"", "rbp", obj->Offset() + init._offset};
-            GenExpr(init._expr);
-            EmitStore(addr.Repr(), init._type);
+            if (init._type->IsScalar()) {
+                VisitExpr(init._expr);
+                EmitStore(addr.Repr(), init._type);
+            } else if (init._type->ToStructType()) {
+                VisitExpr(init._expr);
+                CopyStruct(addr, init._type->Width());
+            } else {
+                assert(false);
+            }
         }
         return;
     }
@@ -845,6 +850,18 @@ void Generator::VisitDeclaration(Declaration* decl)
         GenStaticDecl(decl);
 }
 
+/*
+// literal initializer
+                GenLiteralInit(addr.Repr(), init._type->ToArrayType(), init._expr);
+
+void Generator::GenLiteralInit(const std::string& addr, ArrayType* type, Expr* expr)
+{
+    assert(type);
+    auto literal = Evaluator<Addr>().Eval(expr);
+    auto sval = 
+
+}
+*/
 
 void Generator::GenStaticDecl(Declaration* decl)
 {
@@ -1245,9 +1262,12 @@ void Generator::Gen(void)
 void Generator::EmitLoad(const std::string& addr, Type* type)
 {
     assert(type->IsScalar());
+    EmitLoad(addr, type->Width(), type->IsFloat());
+}
 
-    auto width = type->Width();
-    auto flt = type->IsFloat();
+
+void Generator::EmitLoad(const std::string& addr, int width, bool flt)
+{
     auto load = GetLoad(width, flt);
     auto des = GetDes(width == 4 ? 4: 8, flt);
     Emit("%s %s, #%s", load, addr.c_str(), des);
@@ -1256,8 +1276,14 @@ void Generator::EmitLoad(const std::string& addr, Type* type)
 
 void Generator::EmitStore(const std::string& addr, Type* type)
 {
-    auto store = GetInst("mov", type);
-    auto des = GetDes(type->Width(), type->IsFloat());
+    EmitStore(addr, type->Width(), type->IsFloat());
+}
+
+
+void Generator::EmitStore(const std::string& addr, int width, bool flt)
+{
+    auto store = GetInst("mov", width, flt);
+    auto des = GetDes(width, flt);
     Emit("%s #%s, %s", store.c_str(), des, addr.c_str());
 }
 
@@ -1306,7 +1332,7 @@ void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 {
     assert(unary->_op == Token::DEREF);
-    Generator().GenExpr(unary->_operand);
+    Generator().VisitExpr(unary->_operand);
     Emit("movq #rax, #r10");
 
     _addr = {"", "r10", 0};
