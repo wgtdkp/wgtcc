@@ -1,16 +1,22 @@
 #include "test.h"
 
-void test(void)
+static void test1(void)
 {
-    char ch[] = "hello world";
-    printf("%s, %d\n", ch, sizeof(ch));
+    int arr[3][4];
+    expect(48, sizeof(arr));
+    expect(16, sizeof(arr[0]));
+    expect(16, sizeof(arr[1]));
+    expect(16, sizeof(arr[2]));
+    expect(4, sizeof(arr[2][3]));
+    expect(8, sizeof(arr + 1));
+    expect(16, sizeof(*(arr + 1)));
+    expect(12, &arr[3][4] - arr);
 }
-
 
 
 
 int main(void)
 {
-    test();
+    test1();
     return 0;
 }

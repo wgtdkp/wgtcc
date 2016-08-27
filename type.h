@@ -606,10 +606,10 @@ protected:
 private:
     void CalcWidth(void);
 
-    static std::string AnonymousBitField(void) {
-        static int id = 0;
-        return std::to_string(id++) + "<anonymous>";
-    }
+    //static std::string AnonymousBitField(void) {
+    //    static int id = 0;
+    //    return std::to_string(id++) + "<anonymous>";
+    //}
 
     bool _isStruct;
     bool _hasTag;

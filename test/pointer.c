@@ -7,6 +7,16 @@ void test1(void)
     expect(1, p - 1 == NULL);
 }
 
+void test_arithm(void)
+{
+    int a;
+    unsigned int b;
+    float c, float d;
+    int* p = &a;
+    unsigned int* q = &b;
+    printf("%d\n", p - q);
+}
+
 
 int main(void)
 {

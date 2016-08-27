@@ -2,6 +2,7 @@
 
 static void test1(void)
 {
+    /*    
     typedef struct {
         union {
             struct {
@@ -21,13 +22,14 @@ static void test1(void)
     expect(1, foo.e);
     expect(2, foo.g);
     expect(3, foo.h);
+    */
 }
 
 static void test2(void)
 {
     typedef struct {
         char a;
-        char b;
+        float b;
     } bar_t;
 
     typedef struct {
@@ -41,9 +43,14 @@ static void test2(void)
         char d;
     } foo_t;
     
-    bar_t b;
-    //bar_t b2 = b;
-    //foo_t f = {b, 1, 2};
+    bar_t b = {1, 2};
+    bar_t b2 = b;
+    foo_t f = {b, 1, 2};
+
+    expect(1, b.a);
+    expect(2, b.b);
+    expect(1, b2.a);
+    expect(2, b2.b);
 }
 
 static void test_array(void)
@@ -72,11 +79,13 @@ static void test_array(void)
     expect(3, arr2[1][0]);
 }
 
+
 static void test_literal(void)
 {
     char arr[] = "123456789";
     expect(10, sizeof(arr));
 }
+
 
 int main(void)
 {

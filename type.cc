@@ -399,10 +399,12 @@ void StructType::MergeAnony(Object* anony)
     for (auto& kv: *anonyType->_memberMap) {
         auto& name = kv.first;
         auto member = kv.second->ToObject();
+        // Every member of anonymous struct/union
+        //     are offseted by external struct/union
         member->SetOffset(offset + member->Offset());
 
         if (GetMember(name)) {
-            Error(member->Tok(), "duplicated member '%s'", name.c_str());
+            Error(member, "duplicated member '%s'", name.c_str());
         }
         //_members.push_back(member);
         // Simplify anony struct's member searching

@@ -393,7 +393,7 @@ void BinaryOp::AssignOpTypeChecking(void)
         Error(_lhs->Tok(), "uncompatible types");
     }
     // The other constraints are lefted to cast operator
-    Expr::MayCast(_rhs, _lhs->Type());
+    _rhs = Expr::MayCast(_rhs, _lhs->Type());
     _type = _lhs->Type();
 }
 

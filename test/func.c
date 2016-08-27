@@ -19,6 +19,11 @@ static void test1(void)
     (*pf)();
 }
 
+static void test_param(int arr[])
+{
+
+}
+
 int main(void)
 {
     func_t f = func;
@@ -27,5 +32,7 @@ int main(void)
     f();
 
     test1();
+    int arr[3];    
+    test_param(arr);
     return 0;
 }
