@@ -42,7 +42,7 @@ static void test2(void)
     } foo_t;
     
     bar_t b = {1, 2};
-    bar2_t b2 = b;
+    bar_t b2 = b;
     foo_t f = {b, 1, 2};
 
     expect(1, b.a);

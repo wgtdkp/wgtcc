@@ -999,6 +999,7 @@ param: storage: null, only type specifier and qualifier accepted;
 */
 Type* Parser::ParseDeclSpec(int* storage, int* func)
 {
+    StructType* structType;
     Type* type = nullptr;
     int align = -1;
     int storageSpec = 0;
@@ -1218,6 +1219,13 @@ end_of_loop:
         *func = funcSpec;
     }
 
+    // Struct type is special, all objects of the same struct type
+    //    share the same StructType object.
+    // Thus, we here need to make a copy if we are changing the original
+    //    StrucType.
+    structType = type->ToStructType();
+    if (qualSpec && structType)
+        type = structType->Copy();
     type->SetQual(qualSpec);
     return type;
 
@@ -2006,7 +2014,7 @@ void Parser::ParseInitializer(Declaration* decl, Type* type,
         } else if (!designated && !_ts.Test('{')) {
             auto mark = _ts.Mark();
             expr = ParseAssignExpr();
-            if (structType == expr->Type()) { // pointer comparison is enough
+            if (*structType == *expr->Type()) {
                 decl->AddInit({offset, structType, expr});
                 return;
             }

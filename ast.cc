@@ -108,9 +108,11 @@ void TranslationUnit::Accept(Visitor* v) {
 }
 
 
+// Casting array to pointer, function to pointer to function
 Expr* Expr::MayCast(Expr* expr)
 {
     auto type = Type::MayCast(expr->Type());
+    // If the types are equal, no need cast
     if (type != expr->Type()) { // Pointer comparison is enough
         return UnaryOp::New(Token::CAST, expr, type);
     }
@@ -521,7 +523,9 @@ void UnaryOp::CastOpTypeChecking(void)
     // The _type has been initiated to dest type
     if (_type->ToVoidType()) {
         // The expression becomes a void expression
-    } else if (!_type->IsScalar()) {
+    } else if (_type->ToPointerType() && _operand->Type()->ToArrayType()) {
+    } else if (_type->ToPointerType() && _operand->Type()->ToFuncType()) {
+    } else if (!_type->IsScalar() || !_operand->Type()->IsScalar()) {
         Error(_tok, "the cast type should be arithemetic type or pointer");
     } else if (_type->IsFloat() && _operand->Type()->ToPointerType()) {
         Error(_tok, "can't cast a pointer to floating");
@@ -675,17 +679,6 @@ Declaration* Declaration::New(Object* obj)
 
 void Declaration::AddInit(Initializer init)
 {
-    /*
-    auto qual = type->Qual();
-    type->SetQual(0);
-    // To trigger type checking
-    auto obj = Object::New(expr->Tok(), type);
-    auto binary = BinaryOp::New(expr->Tok(), '=', obj, expr);
-    type->SetQual(qual);
-    
-    expr = binary->_rhs; // Maybe added cast
-    */
-
     init._expr = Expr::MayCast(init._expr, init._type);
 
     auto res = _inits.insert(init);

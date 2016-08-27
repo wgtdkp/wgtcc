@@ -77,7 +77,8 @@ public:
     bool operator!=(const Type& other) const { return !(*this == other); }
 
     virtual bool operator==(const Type& other) const {
-        return (_qual == other._qual && _complete == other._complete);
+        //return (_qual == other._qual && _complete == other._complete);
+        return _complete == other._complete;
     }
 
     virtual bool Compatible(const Type& ohter) const = 0;
@@ -172,14 +173,6 @@ protected:
     int _qual;
     bool _complete;
     MemPool* _pool;
-    
-private:
-    static MemPoolImp<VoidType>         _voidTypePool;
-    static MemPoolImp<ArrayType>        _arrayTypePool;
-    static MemPoolImp<FuncType>         _funcTypePool;
-    static MemPoolImp<PointerType>      _pointerTypePool;
-    static MemPoolImp<StructType>  _structUnionTypePool;
-    static MemPoolImp<ArithmType>       _arithmTypePool;
 };
 
 
@@ -596,6 +589,12 @@ public:
     }
     
     void MergeAnony(Object* anony);
+
+    StructType* Copy(void) const {
+        auto ret = StructType::New(false, false, nullptr);
+        *ret = *this;
+        return ret;
+    }
 
 protected:
     // default is incomplete

@@ -335,7 +335,16 @@ bool StructType::operator==(const Type& other) const
     if (nullptr == structUnionType)
         return false;
 
-    return *_memberMap == *structUnionType->_memberMap;
+    // Yes, i am doing pointer comparison
+    // Two struct type are equal only if they have
+    //     identical definition(at the same place).
+    // As we do a copy of StructType when setting it's
+    //     qualification, we can't compare two struct type
+    //     as: this == &other;
+    // But, even we do a copy, the two types with different
+    //     qualification share the same _memberMap, thus, 
+    //     _memberMap could be the proof of equality.
+    return _memberMap == structUnionType->_memberMap;
 }
 
 
