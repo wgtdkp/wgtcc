@@ -1,8 +1,7 @@
 #include "test.h"
 
 static void test1(void)
-{
-    /*    
+{  
     typedef struct {
         union {
             struct {
@@ -22,7 +21,6 @@ static void test1(void)
     expect(1, foo.e);
     expect(2, foo.g);
     expect(3, foo.h);
-    */
 }
 
 static void test2(void)
@@ -86,14 +84,21 @@ static void test_literal(void)
     expect(10, sizeof(arr));
 }
 
+static void test_dup(void)
+{
+    int arr[] = {[0] = 1, 2, 3, 4, 5, [0] = 5};
+    expect(5, arr[0]);
+}
+
 
 int main(void)
 {
     test1();
     test2();
-    int arr[0] = {};
-    //printf("sizeof(arr): %d\n", sizeof(arr));
     test_array();
     test_literal();
+    test_dup();
     return 0;
 }
+
+

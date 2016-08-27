@@ -84,6 +84,10 @@ struct Initializer
     int _offset;
     Type* _type;
     Expr* _expr;
+
+    bool operator<(const Initializer& rhs) const {
+        return _offset < rhs._offset;
+    }
 };
 
 class Declaration: public Stmt
@@ -92,7 +96,7 @@ class Declaration: public Stmt
     friend class AddrEvaluator;
     friend class Generator;
     
-    typedef std::vector<Initializer> InitList;
+    typedef std::set<Initializer> InitList;
 
 public:
     static Declaration* New(Object* obj);
@@ -113,7 +117,7 @@ public:
         return _obj;
     }
 
-    void AddInit(int offset, Type* type, Expr* _expr);
+    void AddInit(Initializer init);
 
 protected:
     Declaration(Object* obj): _obj(obj) {}

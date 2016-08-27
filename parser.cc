@@ -1789,7 +1789,7 @@ void Parser::ParseInitializer(Declaration* decl, Type* type,
             auto mark = _ts.Mark();
             expr = ParseAssignExpr();
             if (structType == expr->Type()) { // pointer comparison is enough
-                decl->AddInit(offset, structType, expr);
+                decl->AddInit({offset, structType, expr});
                 return;
             }
             _ts.ResetTo(mark);
@@ -1805,7 +1805,7 @@ void Parser::ParseInitializer(Declaration* decl, Type* type,
         _ts.Expect('}');
     }
 
-    decl->AddInit(offset, type, expr);
+    decl->AddInit({offset, type, expr});
 }
 
 
@@ -1834,7 +1834,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     }
     
     //if (decl->Obj()->IsStatic()) {
-    //    decl->AddInit(0, type, literal);
+    //    decl->AddInit({0, type, literal});
     //    return;
     //}
 
@@ -1846,7 +1846,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
         auto p = str;
         auto type = ArithmType::New(T_CHAR);
         auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
-        decl->AddInit(offset, type, val);
+        decl->AddInit({offset, type, val});
         offset++;
         str++;
     }*/
@@ -1854,7 +1854,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
         auto p = reinterpret_cast<const long*>(str);
         auto type = ArithmType::New(T_LONG);
         auto val = Constant::New(tok, T_LONG, static_cast<long>(*p));
-        decl->AddInit(offset, type, val);
+        decl->AddInit({offset, type, val});
         offset += 8;
         str += 8;
     }
@@ -1863,7 +1863,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
         auto p = reinterpret_cast<const int*>(str);
         auto type = ArithmType::New(T_INT);
         auto val = Constant::New(tok, T_INT, static_cast<long>(*p));
-        decl->AddInit(offset, type, val);
+        decl->AddInit({offset, type, val});
         offset += 4;
         str += 4;
     }
@@ -1872,7 +1872,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
         auto p = reinterpret_cast<const short*>(str);
         auto type = ArithmType::New(T_SHORT);
         auto val = Constant::New(tok, T_SHORT, static_cast<long>(*p));
-        decl->AddInit(offset, type, val);
+        decl->AddInit({offset, type, val});
         offset += 2;
         str += 2;
     }
@@ -1881,7 +1881,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
         auto p = str;
         auto type = ArithmType::New(T_CHAR);
         auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
-        decl->AddInit(offset, type, val);
+        decl->AddInit({offset, type, val});
         offset++;
         str++;
     }

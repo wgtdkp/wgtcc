@@ -673,9 +673,9 @@ Declaration* Declaration::New(Object* obj)
     return ret;
 }
 
-void Declaration::AddInit(int offset, Type* type, Expr* expr)
+void Declaration::AddInit(Initializer init)
 {
-    
+    /*
     auto qual = type->Qual();
     type->SetQual(0);
     // To trigger type checking
@@ -684,29 +684,15 @@ void Declaration::AddInit(int offset, Type* type, Expr* expr)
     type->SetQual(qual);
     
     expr = binary->_rhs; // Maybe added cast
-    
-    /*
-    if (_obj->IsStatic()) {
-        // Delay until code gen
-        auto width = type->Width();
-        if (type->IsInteger()) {
-            auto val = Evaluator<long>().Eval(expr);
-            _staticInits.push_back({offset, width, val, ""});
-        } else if (type->IsFloat()) {
-            auto val = Evaluator<double>().Eval(expr);
-            auto lval = *reinterpret_cast<long*>(&val);
-            printf("%lf\n%ld\n", val, lval);
-            _staticInits.push_back({offset, width, lval, ""});
-        } else if (type->ToPointerType()) {
-            auto addr = Evaluator<Addr>().Eval(expr);
-            _staticInits.push_back({offset, width, addr._offset, addr._label});
-        } else { assert(false); }
-    } else {
-        _inits.push_back({offset, type, expr});
-    }
     */
 
-    _inits.push_back({offset, type, expr});
+    init._expr = Expr::MayCast(init._expr, init._type);
+
+    auto res = _inits.insert(init);
+    if (!res.second) {
+        _inits.erase(res.first);
+        _inits.insert(init);
+    }
 }
 
 
