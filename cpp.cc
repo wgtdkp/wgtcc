@@ -358,7 +358,9 @@ Token* Preprocessor::ParseActualParam(TokenSeq& is,
 
     int cnt = 1;
     while (cnt > 0) {
-        if (is.Test('('))
+        if (is.Empty())
+            Error(is.Peek(), "premature end of input");
+        else if (is.Test('('))
             ++cnt;
         else if (is.Test(')'))
             --cnt;

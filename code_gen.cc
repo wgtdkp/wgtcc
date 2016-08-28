@@ -121,7 +121,7 @@ std::string Generator::ConsLabel(Constant* cons)
     } else { // Literal
         const ROData& rodata = ROData(cons->SValRepr());
         _rodatas.push_back(rodata);
-        return "$" + rodata._label;
+        return rodata._label; // return address
     }
 }
 
@@ -800,11 +800,15 @@ void Generator::VisitConstant(Constant* cons)
 {
     auto label = ConsLabel(cons);
 
-    auto width = cons->Type()->Width();
-    auto flt = cons->Type()->IsFloat();
-    auto load = GetInst("mov", width, flt);
-    auto des = GetDes(width, flt);
-    Emit("%s %s, #%s", load.c_str(), label.c_str(), des);
+    if (!cons->Type()->IsScalar()) {
+        Emit("leaq %s, #rax", label.c_str());
+    } else {
+        auto width = cons->Type()->Width();
+        auto flt = cons->Type()->IsFloat();
+        auto load = GetInst("mov", width, flt);
+        auto des = GetDes(width, flt);
+        Emit("%s %s, #%s", load.c_str(), label.c_str(), des);
+    }
 }
 
 

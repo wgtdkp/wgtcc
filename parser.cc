@@ -241,8 +241,9 @@ Constant* Parser::ParseLiteral(const Token* tok)
     case Encoding::CHAR16:
         tag = T_UNSIGNED | T_SHORT; val->append(2, '\0'); break;
     case Encoding::CHAR32:
-    case Encoding::WCHAR:
         tag = T_UNSIGNED | T_INT; val->append(4, '\0'); break;
+    case Encoding::WCHAR:
+        tag = T_INT; val->append(4, '\0'); break;
     }
 
     return Constant::New(tok, tag, val);
@@ -395,9 +396,19 @@ Constant* Parser::ParseCharacter(const Token* tok)
             val = c;
         }
     }
-    if (enc == Encoding::CHAR16)
-        val &= USHRT_MAX;
-    return Constant::New(tok, T_INT, static_cast<long>(val));
+
+    int tag;
+    switch (enc) {
+    case Encoding::NONE: tag = T_INT; break;
+    case Encoding::CHAR16:
+        val &= USHRT_MAX; 
+        tag = T_UNSIGNED | T_SHORT; break;
+    case Encoding::CHAR32:
+        tag = T_UNSIGNED | T_INT; break;
+    case Encoding::WCHAR: tag = T_INT; break;
+    default: assert(false);
+    }
+    return Constant::New(tok, tag, static_cast<long>(val));
 }
 
 
@@ -2055,7 +2066,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     }
 
     if (!type->Complete()) {
-        type->SetLen(literal->SVal()->size());
+        type->SetLen(literal->Type()->ToArrayType()->Len());
         type->SetComplete(true);
     }
     
@@ -2064,9 +2075,8 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     //    return;
     //}
 
-    auto width = std::min(static_cast<size_t>(type->Len()),
-            literal->SVal()->size());
-    auto str = literal->SVal()->c_str();    
+    auto width = std::min(type->Width(), literal->Type()->Width());
+    auto str = literal->SVal()->c_str();
     /*
     for (; width > 0; --width) {
         auto p = str;

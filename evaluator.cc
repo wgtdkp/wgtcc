@@ -116,8 +116,10 @@ void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp)
 
 void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
 {
+#define LR   Evaluator<long>().Eval(binary->_rhs)
+#define R   Evaluator<Addr>().Eval(binary->_rhs)
     auto l = Evaluator<Addr>().Eval(binary->_lhs);
-    auto r = Evaluator<Addr>().Eval(binary->_rhs);
+    //auto r = Evaluator<Addr>().Eval(binary->_rhs);
     
     int width;
     auto pointerType = binary->_lhs->Type()->ToPointerType();
@@ -128,11 +130,11 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
     switch (binary->_op) {
     case '+':
         _addr._label = l._label;
-        _addr._offset = l._offset + r._offset * width;
+        _addr._offset = l._offset + LR * width;
         break;
     case '-':
         _addr._label = l._label;
-        _addr._offset = l._offset + r._offset * width;
+        _addr._offset = l._offset + LR * width;
         break;
     //case ']':
     //    _addr._label = l._label;
@@ -141,12 +143,13 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
     case '.': {
         _addr._label = l._label;
         auto type = binary->_lhs->Type()->ToStructType();
-        auto offset = type->GetMember(r._label)->Offset();
+        auto offset = type->GetMember(R._label)->Offset();
         _addr._offset = l._offset + offset;
         break;
     }
     default: assert(false);
     }
+#undef R
 }
 
 
@@ -191,7 +194,7 @@ void Evaluator<Addr>::VisitConstant(Constant* cons)
 {
     if (cons->Type()->IsInteger()) {
         _addr._offset = cons->IVal();
-    } else if (cons->Type()->ToPointerType()) {
+    } else if (cons->Type()->ToArrayType()) {
         Generator().ConsLabel(cons); // Add the literal to _rodatas.
         _addr._label = Generator::_rodatas.back()._label;
         _addr._offset = 0;

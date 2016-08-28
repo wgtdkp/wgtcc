@@ -365,7 +365,7 @@ void Lexer::Tokenize(TokenSeq& tokSeq)
             
             tok._tag = Token::C_CONSTANT;
             
-            tok._end = ++p; //keep the prefix and postfix('\'')
+            tok._end = p + 1; //keep the prefix and postfix('\'')
             tok._column = tok._begin - tok._lineBegin + 1; 
             AddToken(tokSeq, tok);
             ++p; continue;
