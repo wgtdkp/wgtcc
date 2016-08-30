@@ -5,7 +5,7 @@
 
 
 Token Scanner::Scan(bool ws) {
-  ws_ = ws;
+  tok_.ws_ = ws;
   SkipWhiteSpace();
 
   Mark();
@@ -94,7 +94,7 @@ Token Scanner::Scan(bool ws) {
     return ScanIdentifier();
   case '\\':
     // Universal character name is allowed in identifier
-    if (Peek() == 'u' || Peek() == 'U')
+    if (Test('u') || Test('U'))
       return ScanIdentifier();
     return MakeToken(Token::INVALID);
   case '\0': return MakeToken(Token::END);
@@ -105,7 +105,7 @@ Token Scanner::Scan(bool ws) {
 
 void Scanner::SkipWhiteSpace(void) {
   while (isspace(Peek()) && Peek() != '\n') {
-    ws_ = true;
+    tok_.ws_ = true;
     Next();
   }
 }
@@ -367,14 +367,31 @@ std::string* ReadFile(const std::string& fileName) {
 
 
 int Scanner::Next(void) {
-  int c = *_p++;
-  if (c == '\\' && *_p == '\n') {
-    ++loc_._line;
-    loc_._lineBegin = ++_p;
+  int c = *p_++;
+  if (c == '\\' && *p_ == '\n') {
+    ++loc_.line_;
+    loc_.column_ = 1;
+    loc_.lineBegin_ = ++p_;
     return Next();
   } else if (c == '\n') {
-    ++loc_._line;
-    loc_._lineBegin = _p;
+    ++loc_.line_;
+    loc_.column_ = 1;
+    loc_.lineBegin_ = p_;
+  } else {
+    ++loc_.column_;
+  }
+  return c;
+}
+
+
+int Scanner::Peek() {
+  int c = *p_;
+  if (c == '\\' && p_[1] == '\n') {
+    p_ += 2;
+    ++loc_.line_;
+    loc_.column_ = 1;
+    loc_.lineBegin_ = p_;
+    return Peek();
   }
   return c;
 }
@@ -383,26 +400,39 @@ int Scanner::Next(void) {
 // cross two line, so just leave lineBegin, because
 // we never care about the pos of newline token
 void Scanner::PutBack() {
-  int c = *--_p;
-  if (c == '\n' && _p[-1] == '\\') {
-    --loc_._line;
+  int c = *--p_;
+  if (c == '\n' && p_[-1] == '\\') {
+    --loc_.line_;
     // lineBegin
-    --_p;
+    --p_;
     return PutBack();
   } else if (c == '\n') {
-    --loc_._line;
+    --loc_.line_;
+  } else {
+    --loc_.column_;
   }
 }
 
 
-Token Scanner::MakeToken(int tag) const {
-  auto begin = loc_._column - 1 + loc_._lineBegin;
-  return {tag, loc_, std::string(begin, _p), ws_};
+Token Scanner::MakeToken(int tag) {
+  tok_.tag_ = tag;
+  auto& str = tok_.str_;
+  str.resize(0);
+  const char* p = tok_.loc_.lineBegin_ + tok_.loc_.column_ - 1;
+  for (; p < p_; ++p) {
+    if (p[0] == '\n' && p[-1] == '\\')
+      str.pop_back();
+    else
+      str.push_back(p[0]);
+  }
+  return tok_;
 }
 
 
 // New line is special
 // It is generated before reading the character '\n'
-Token Scanner::MakeNewLine() const {
-  return {'\n', loc_, std::string(_p, _p + 1), ws_};
+Token Scanner::MakeNewLine() {
+  tok_.tag_ = '\n';
+  tok_.str_ = std::string(p_, p_ + 1);
+  return tok_;
 }

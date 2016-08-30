@@ -39,18 +39,18 @@ void Error(const char* format, ...)
 
 static void VError(const SourceLocation& loc, const char* format, va_list args)
 {
-  assert(loc._fileName);
+  assert(loc.fileName_);
   fprintf(stderr,
           "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-          loc._fileName->c_str(),
-          loc._line,
-          loc._column);
+          loc.fileName_->c_str(),
+          loc.line_,
+          loc.column_);
   vfprintf(stderr, format, args);
   fprintf(stderr, "\n    ");
 
   bool sawNoSpace = false;
   int nspaces = 0;
-  for (auto p = loc._lineBegin; *p != '\n' && *p != 0; p++) {
+  for (auto p = loc.lineBegin_; *p != '\n' && *p != 0; p++) {
     if (!sawNoSpace && (*p == ' ' || *p == '\t')) {
       ++nspaces;
     } else {
@@ -60,7 +60,7 @@ static void VError(const SourceLocation& loc, const char* format, va_list args)
   }
   
   fprintf(stderr, "\n    ");
-  for (unsigned i = 1; i + nspaces < loc._column; i++)
+  for (unsigned i = 1; i + nspaces < loc.column_; i++)
     fputc(' ', stderr);
   fprintf(stderr, ANSI_COLOR_GREEN "^\n");
   exit(0);	

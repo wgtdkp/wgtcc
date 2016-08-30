@@ -1,2 +1,2 @@
-int a\
+int/*****/a\
 bcd;

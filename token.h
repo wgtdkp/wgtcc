@@ -28,10 +28,10 @@ void PrintTokList(TokenList& tokList);
 
 
 struct SourceLocation {
-  const std::string* _fileName;
-  const char* _lineBegin;
-  unsigned _line;
-  unsigned _column;
+  const std::string* fileName_;
+  const char* lineBegin_;
+  unsigned line_;
+  unsigned column_;
 };
 
 
@@ -202,8 +202,8 @@ public:
       : tag_(tag), ws_(ws), loc_(loc), str_(str) {}
   //Token(int tag, const char* fileName, int line,
   //        int column, char* lineBegin, StrPair& str)
-  //        : tag_(tag), _fileName(fileName), _line(line),
-  //          _column(column), _lineBegin(lineBegin), str_(str) {}
+  //        : tag_(tag), fileName_(fileName), line_(line),
+  //          column_(column), lineBegin_(lineBegin), str_(str) {}
   
   Token(const Token& other) {
     *this = other;
@@ -211,11 +211,11 @@ public:
 
   Token& operator=(const Token& other) {
     tag_ = other.tag_;
-    //_fileName = other._fileName;
-    //_line = other._line;
+    //fileName_ = other.fileName_;
+    //line_ = other.line_;
     ws_ = other.ws_;
-    //_column = other._column;
-    //_lineBegin = other._lineBegin;
+    //column_ = other.column_;
+    //lineBegin_ = other.lineBegin_;
     loc_ = other.loc_;
     //begin_ = other.begin_;
     //end_ = other.end_;
@@ -304,10 +304,10 @@ public:
   
 
   // Line index of the begin
-  //unsigned _line { 1 };
-  //unsigned _column { 1 };		 
-  //const std::string* _fileName { nullptr };
-  //const char* _lineBegin { nullptr };
+  //unsigned line_ { 1 };
+  //unsigned column_ { 1 };		 
+  //const std::string* fileName_ { nullptr };
+  //const char* lineBegin_ { nullptr };
   SourceLocation loc_;
   /*
   * ws_ standards for weither there is preceding white space

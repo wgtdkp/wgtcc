@@ -8,8 +8,8 @@ std::string program;
 
 void PrintToken(const Token& tok) {
   std::cout << tok.str_ << "\t"
-            << tok.loc_._line << "\t"
-            << tok.loc_._column << "\t"
+            << tok.loc_.line_ << "\t"
+            << tok.loc_.column_ << "\t"
             << tok.ws_ << std::endl; 
 }
 

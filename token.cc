@@ -181,8 +181,8 @@ bool TokenSequence::IsBeginOfLine(void) const
   auto pre = begin_;
   --pre;
 
-  return (begin_->loc_._fileName != pre->loc_._fileName
-      ||  begin_->loc_._line > pre->loc_._line);
+  return (begin_->loc_.fileName_ != pre->loc_.fileName_
+      ||  begin_->loc_.line_ > pre->loc_.line_);
 }
 
 Token* TokenSequence::Peek(void)

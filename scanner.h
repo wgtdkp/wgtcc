@@ -13,12 +13,10 @@ class Scanner {
 public:
   explicit Scanner(std::string* text,
                    const std::string* fileName=nullptr,
-                   unsigned line=1): _text(text)  {
+                   unsigned line=1): text_(text)  {
     // TODO(wgtdkp): initialization
-    _p = &(*_text)[0];
-    _tokBegin = _p;
-    tok_.loc_ = {fileName, _p, line, 1};
-    ws_ = false;
+    p_ = &(*text_)[0];
+    loc_ = {fileName, p_, line, 1};
   }
 
   virtual ~Scanner() {}
@@ -40,8 +38,8 @@ private:
   //Token ScanLiteral(Encoding enc);
   Token ScanLiteral();
   Token ScanCharacter();
-  Token MakeToken(int tag) const;
-  Token MakeNewLine() const;
+  Token MakeToken(int tag);
+  Token MakeNewLine();
   Encoding ScanEncoding(int c);
   int ScanEscaped();
   int ScanHexEscaped();
@@ -58,15 +56,10 @@ private:
     return '0' <= c && c <= '7';
   }
 
-  bool Empty() const { return *_p == 0; }
-  int Peek(int offset=0) const {
-    int c = _p[offset];
-    if (c == '\\' && _p[offset + 1] == '\n')
-      return Peek(offset + 2);
-    return c;
-  }
+  bool Empty() const { return *p_ == 0; }
+  int Peek();
 
-  bool Test(int c) const { return Peek() == c; };
+  bool Test(int c) { return Peek() == c; };
   int Next(void);
   
   void PutBack();
@@ -80,15 +73,15 @@ private:
   };
 
   void Mark() {
-    loc_._column = _p - loc_._lineBegin + 1;
+    tok_.loc_ = loc_;
   };
 
   const std::string* text_;
-  const std::string* fileName_;
+  SourceLocation loc_;
+  Token tok_;
   const char* p_;
-  const char* lineBegin_;
-  unsigned column_;
-  
+  const char* tokLineBegin_;
+  unsigned tokColumn_;
 };
 
 

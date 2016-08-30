@@ -66,7 +66,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence& is, bool inCond)
       if (macro->ObjLike()) {
 
         // Make a copy, as subst will change repSeq
-        auto repSeq = macro->RepSeq(tok->loc_._fileName, tok->loc_._line);
+        auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
         
         // The first token of the replcement sequence should 
         // derived the ws_ property of the macro to be replaced.
@@ -95,7 +95,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence& is, bool inCond)
         ParamMap paramMap;
         auto rpar = ParseActualParam(is, macro, paramMap);
 
-        auto repSeq = macro->RepSeq(tok->loc_._fileName, tok->loc_._line);
+        auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
         repSeq.Peek()->ws_ = tok->ws_;
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
@@ -215,7 +215,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence& is)
   auto str = new std::string(lhs->Str() + rhs->Str());
 
   TokenSequence ts;
-  Scanner lexer(str, lhs->_fileName, lhs->_line);
+  Scanner lexer(str, lhs->fileName_, lhs->line_);
   lexer.Tokenize(ts);
   
   //--os.end_;
@@ -286,11 +286,11 @@ std::string Preprocessor::Stringize(TokenSequence is)
     
     if (is.IsBeginOfLine()) {
       str.push_back('\n');
-      str.append(std::max(is.Peek()->_column - 2, 0U), ' ');
+      str.append(std::max(is.Peek()->column_ - 2, 0U), ' ');
     }
 
-    line = tok->_line;
-    while (!is.Empty() && is.Peek()->_line == line) {
+    line = tok->line_;
+    while (!is.Empty() && is.Peek()->line_ == line) {
       tok = is.Next();
       str.append(tok->ws_, ' ');
       str.append(tok->begin_, tok->Size());
@@ -451,7 +451,7 @@ void Preprocessor::ReplaceIdent(TokenSequence& is)
 TokenSequence Preprocessor::GetLine(TokenSequence& is)
 {
   auto begin = is.begin_;
-  while (!is.Empty() && is.begin_->_line == begin->_line)
+  while (!is.Empty() && is.begin_->line_ == begin->line_)
     is.Next();
   auto end = is.begin_;
   return  TokenSequence(is.tokList_, begin, end);
@@ -576,7 +576,7 @@ void Preprocessor::ParseLine(TokenSequence ls)
   }
   
   curLine_ = line;
-  lineLine_ = directive->_line;
+  lineLine_ = directive->line_;
 
   if (ts.Empty())
     return;
@@ -937,7 +937,7 @@ void Preprocessor::HandleTheFileMacro(TokenSequence& os, Token* macro)
   Token file(*macro);
   file.tag_ = Token::LITERAL;
 
-  auto str = new std::string("\"" + *macro->_fileName + "\"");
+  auto str = new std::string("\"" + *macro->fileName_ + "\"");
   file.begin_ = const_cast<char*>(str->c_str());
   file.end_ = file.begin_ + str->size();
   os.InsertBack(&file);
@@ -948,7 +948,7 @@ void Preprocessor::HandleTheLineMacro(TokenSequence& os, Token* macro)
 {
   Token line(*macro);
   line.tag_ = Token::I_CONSTANT;
-  auto str = new std::string(std::to_string(macro->_line));
+  auto str = new std::string(std::to_string(macro->line_));
   line.begin_ = const_cast<char*>(str->c_str());
   line.end_ = line.begin_ + str->size();
   os.InsertBack(&line);
@@ -957,7 +957,7 @@ void Preprocessor::HandleTheLineMacro(TokenSequence& os, Token* macro)
 
 void Preprocessor::UpdateTokenLocation(Token* tok)
 {
-  tok->_line = curLine_  + tok->_line - lineLine_ - 1;
+  tok->line_ = curLine_  + tok->line_ - lineLine_ - 1;
 }
 
 
@@ -967,8 +967,8 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
   TokenSequence ts = repSeq_;
   while (!ts.Empty()) {
     auto tok = ts.Next();
-    tok->_fileName = fileName;
-    tok->_line = line;
+    tok->fileName_ = fileName;
+    tok->line_ = line;
   }
   return repSeq_;
 }
