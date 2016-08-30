@@ -14,129 +14,129 @@ template<typename T>
 class Evaluator: public Visitor
 {
 public:
-	Evaluator(void) {}
+  Evaluator(void) {}
 
-	virtual ~Evaluator(void) {}
+  virtual ~Evaluator(void) {}
 
-	virtual void VisitBinaryOp(BinaryOp* binary);
-	virtual void VisitUnaryOp(UnaryOp* unary);
-	virtual void VisitConditionalOp(ConditionalOp* cond);
-	
-	virtual void VisitFuncCall(FuncCall* funcCall) {
-		Error(funcCall, "expect constant expression");
-	}
+  virtual void VisitBinaryOp(BinaryOp* binary);
+  virtual void VisitUnaryOp(UnaryOp* unary);
+  virtual void VisitConditionalOp(ConditionalOp* cond);
+  
+  virtual void VisitFuncCall(FuncCall* funcCall) {
+    Error(funcCall, "expect constant expression");
+  }
 
-	virtual void VisitEnumerator(Enumerator* enumer) {
-		val_ = static_cast<T>(enumer->Val());
-	}
+  virtual void VisitEnumerator(Enumerator* enumer) {
+    val_ = static_cast<T>(enumer->Val());
+  }
 
-	virtual void VisitIdentifier(Identifier* ident) {
-		Error(ident, "expect constant expression");
-	}
+  virtual void VisitIdentifier(Identifier* ident) {
+    Error(ident, "expect constant expression");
+  }
 
-	virtual void VisitObject(Object* obj) {
-		Error(obj, "expect constant expression");
-	}
+  virtual void VisitObject(Object* obj) {
+    Error(obj, "expect constant expression");
+  }
 
-	virtual void VisitConstant(Constant* cons) {
-		if (cons->Type()->IsFloat()) {
-			val_ = static_cast<T>(cons->FVal());
-		} else if (cons->Type()->IsInteger()) {
-			val_ = static_cast<T>(cons->IVal());
-		} else {
-			assert(false);
-		}
-	}
+  virtual void VisitConstant(Constant* cons) {
+    if (cons->Type()->IsFloat()) {
+      val_ = static_cast<T>(cons->FVal());
+    } else if (cons->Type()->IsInteger()) {
+      val_ = static_cast<T>(cons->IVal());
+    } else {
+      assert(false);
+    }
+  }
 
-	virtual void VisitTempVar(TempVar* tempVar) {
-		assert(false);
-	}
+  virtual void VisitTempVar(TempVar* tempVar) {
+    assert(false);
+  }
 
-	// We may should assert here
-	virtual void VisitDeclaration(Declaration* init) {}
-	virtual void VisitIfStmt(IfStmt* ifStmt) {}
-	virtual void VisitJumpStmt(JumpStmt* jumpStmt) {}
-	virtual void VisitReturnStmt(ReturnStmt* returnStmt) {}
-	virtual void VisitLabelStmt(LabelStmt* labelStmt) {}
-	virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) {}
-	virtual void VisitCompoundStmt(CompoundStmt* compStmt) {}
-	virtual void VisitFuncDef(FuncDef* funcDef) {}
-	virtual void VisitTranslationUnit(TranslationUnit* unit) {}
+  // We may should assert here
+  virtual void VisitDeclaration(Declaration* init) {}
+  virtual void VisitIfStmt(IfStmt* ifStmt) {}
+  virtual void VisitJumpStmt(JumpStmt* jumpStmt) {}
+  virtual void VisitReturnStmt(ReturnStmt* returnStmt) {}
+  virtual void VisitLabelStmt(LabelStmt* labelStmt) {}
+  virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) {}
+  virtual void VisitCompoundStmt(CompoundStmt* compStmt) {}
+  virtual void VisitFuncDef(FuncDef* funcDef) {}
+  virtual void VisitTranslationUnit(TranslationUnit* unit) {}
 
-	T Eval(Expr* expr) {
-		expr->Accept(this);
-		return val_;
-	}
+  T Eval(Expr* expr) {
+    expr->Accept(this);
+    return val_;
+  }
 
 private:
-	T val_;
+  T val_;
 };
 
 
 struct Addr
 {
-	std::string label_;
-	int offset_;
+  std::string label_;
+  int offset_;
 };
 
 template<>
 class Evaluator<Addr>: public Visitor
 {
-	
+  
 public:
-	Evaluator<Addr>(void) {}
-	
-	virtual ~Evaluator<Addr>(void) {}
+  Evaluator<Addr>(void) {}
+  
+  virtual ~Evaluator<Addr>(void) {}
 
-	virtual void VisitBinaryOp(BinaryOp* binary);
-	virtual void VisitUnaryOp(UnaryOp* unary);
-	virtual void VisitConditionalOp(ConditionalOp* cond);
-	
-	virtual void VisitFuncCall(FuncCall* funcCall) {
-		Error(funcCall, "expect constant expression");
-	}
+  virtual void VisitBinaryOp(BinaryOp* binary);
+  virtual void VisitUnaryOp(UnaryOp* unary);
+  virtual void VisitConditionalOp(ConditionalOp* cond);
+  
+  virtual void VisitFuncCall(FuncCall* funcCall) {
+    Error(funcCall, "expect constant expression");
+  }
 
-	virtual void VisitEnumerator(Enumerator* enumer) {
-		addr_.offset_ = enumer->Val();
-	}
+  virtual void VisitEnumerator(Enumerator* enumer) {
+    addr_.offset_ = enumer->Val();
+  }
 
-	virtual void VisitIdentifier(Identifier* ident) {
-		addr_.label_ = ident->Name();
-		addr_.offset_ = 0;
-	}
+  virtual void VisitIdentifier(Identifier* ident) {
+    addr_.label_ = ident->Name();
+    addr_.offset_ = 0;
+  }
 
-	virtual void VisitObject(Object* obj) {
-		if (!obj->IsStatic()) {
-			Error(obj, "expect static object");
-		}
-		addr_.label_ = ObjectLabel(obj);
-		addr_.offset_ = 0;
-	}
+  virtual void VisitObject(Object* obj) {
+    if (!obj->IsStatic()) {
+      Error(obj, "expect static object");
+    }
+    addr_.label_ = ObjectLabel(obj);
+    addr_.offset_ = 0;
+  }
 
-	virtual void VisitConstant(Constant* cons);
+  virtual void VisitConstant(Constant* cons);
 
-	virtual void VisitTempVar(TempVar* tempVar) {
-		assert(false);
-	}
+  virtual void VisitTempVar(TempVar* tempVar) {
+    assert(false);
+  }
 
-	// We may should assert here
-	virtual void VisitDeclaration(Declaration* init) {}
-	virtual void VisitIfStmt(IfStmt* ifStmt) {}
-	virtual void VisitJumpStmt(JumpStmt* jumpStmt) {}
-	virtual void VisitReturnStmt(ReturnStmt* returnStmt) {}
-	virtual void VisitLabelStmt(LabelStmt* labelStmt) {}
-	virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) {}
-	virtual void VisitCompoundStmt(CompoundStmt* compStmt) {}
-	virtual void VisitFuncDef(FuncDef* funcDef) {}
-	virtual void VisitTranslationUnit(TranslationUnit* unit) {}
+  // We may should assert here
+  virtual void VisitDeclaration(Declaration* init) {}
+  virtual void VisitIfStmt(IfStmt* ifStmt) {}
+  virtual void VisitJumpStmt(JumpStmt* jumpStmt) {}
+  virtual void VisitReturnStmt(ReturnStmt* returnStmt) {}
+  virtual void VisitLabelStmt(LabelStmt* labelStmt) {}
+  virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) {}
+  virtual void VisitCompoundStmt(CompoundStmt* compStmt) {}
+  virtual void VisitFuncDef(FuncDef* funcDef) {}
+  virtual void VisitTranslationUnit(TranslationUnit* unit) {}
 
-	Addr Eval(Expr* expr) {
-		expr->Accept(this);
-		return addr_;
-	}
+  Addr Eval(Expr* expr) {
+    expr->Accept(this);
+    return addr_;
+  }
 
 private:
-	Addr addr_;
+  Addr addr_;
 };
 
 #endif

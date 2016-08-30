@@ -23,73 +23,73 @@ extern std::string program;
 
 void Error(const char* format, ...)
 {
-	fprintf(stderr,  "%s: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-					program.c_str());
-	
-	va_list args;
-	va_start(args, format);
-	vfprintf(stderr, format, args);
-	va_end(args);
-	
-	fprintf(stderr, "\n");
+  fprintf(stderr,  "%s: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
+          program.c_str());
+  
+  va_list args;
+  va_start(args, format);
+  vfprintf(stderr, format, args);
+  va_end(args);
+  
+  fprintf(stderr, "\n");
 
-	exit(0);
+  exit(0);
 }
 
 
 static void VError(const SourceLocation& loc, const char* format, va_list args)
 {
-	assert(loc._fileName);
-	fprintf(stderr,
-					"%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-					loc._fileName->c_str(),
-					loc._line,
-					loc._column);
-	vfprintf(stderr, format, args);
-	fprintf(stderr, "\n    ");
+  assert(loc._fileName);
+  fprintf(stderr,
+          "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
+          loc._fileName->c_str(),
+          loc._line,
+          loc._column);
+  vfprintf(stderr, format, args);
+  fprintf(stderr, "\n    ");
 
-	bool sawNoSpace = false;
-	int nspaces = 0;
-	for (auto p = loc._lineBegin; *p != '\n' && *p != 0; p++) {
-		if (!sawNoSpace && (*p == ' ' || *p == '\t')) {
-			++nspaces;
-		} else {
-			sawNoSpace = true;
-			fputc(*p, stderr);
-		}
-	}
-	
-	fprintf(stderr, "\n    ");
-	for (unsigned i = 1; i + nspaces < loc._column; i++)
-		fputc(' ', stderr);
-	fprintf(stderr, ANSI_COLOR_GREEN "^\n");
-	exit(0);	
+  bool sawNoSpace = false;
+  int nspaces = 0;
+  for (auto p = loc._lineBegin; *p != '\n' && *p != 0; p++) {
+    if (!sawNoSpace && (*p == ' ' || *p == '\t')) {
+      ++nspaces;
+    } else {
+      sawNoSpace = true;
+      fputc(*p, stderr);
+    }
+  }
+  
+  fprintf(stderr, "\n    ");
+  for (unsigned i = 1; i + nspaces < loc._column; i++)
+    fputc(' ', stderr);
+  fprintf(stderr, ANSI_COLOR_GREEN "^\n");
+  exit(0);	
 }
 
 
 void Error(const SourceLocation& loc, const char* format, ...)
 {
-	va_list args;
-	va_start(args, format);
-	VError(loc, format, args);
-	va_end(args);
+  va_list args;
+  va_start(args, format);
+  VError(loc, format, args);
+  va_end(args);
 }
 
 /*
 void Error(const Token* tok, const char* format, ...)
 {
-	va_list args;
-	va_start(args, format);
-	VError(tok->loc_, format, args);
-	va_end(args);
+  va_list args;
+  va_start(args, format);
+  VError(tok->loc_, format, args);
+  va_end(args);
 }
 
 
 void Error(const Expr* expr, const char* format, ...)
 {
-	va_list args;
-	va_start(args, format);
-	VError(expr->Tok()->loc_, format, args);
-	va_end(args);
+  va_list args;
+  va_start(args, format);
+  VError(expr->Tok()->loc_, format, args);
+  va_end(args);
 }
 */

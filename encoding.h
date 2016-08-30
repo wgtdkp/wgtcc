@@ -4,11 +4,11 @@
 #include <string>
 
 enum class Encoding {
-	NONE,
-	CHAR16,
-	CHAR32,
-	UTF8,
-	WCHAR
+  NONE,
+  CHAR16,
+  CHAR32,
+  UTF8,
+  WCHAR
 };
 
 void Append32BE(std::string& str, int c);

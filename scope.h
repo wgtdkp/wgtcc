@@ -11,86 +11,86 @@ class Token;
 
 
 enum ScopeType {
-	S_FILE,
-	S_PROTO,
-	S_BLOCK,
-	S_FUNC,
+  S_FILE,
+  S_PROTO,
+  S_BLOCK,
+  S_FUNC,
 };
 
 
 class Scope
 {
-	friend class StructType;
-	typedef std::map<std::string, Identifier*> IdentMap;
+  friend class StructType;
+  typedef std::map<std::string, Identifier*> IdentMap;
 
 public:
-	explicit Scope(Scope* parent, enum ScopeType type)
-			: parent_(parent), type_(type) {}
-	
-	~Scope(void) {}
+  explicit Scope(Scope* parent, enum ScopeType type)
+      : parent_(parent), type_(type) {}
+  
+  ~Scope(void) {}
 
-	Scope* Parent(void) {
-		return parent_;
-	}
+  Scope* Parent(void) {
+    return parent_;
+  }
 
-	void SetParent(Scope* parent) {
-		parent_ = parent;
-	}
+  void SetParent(Scope* parent) {
+    parent_ = parent;
+  }
 
-	enum ScopeType Type(void) const {
-		return type_;
-	}
-	
-	std::string TagName(const std::string& name) {
-		return name + "@:tag";
-	}
+  enum ScopeType Type(void) const {
+    return type_;
+  }
+  
+  std::string TagName(const std::string& name) {
+    return name + "@:tag";
+  }
 
-	Identifier* Find(const Token* tok);
-	Identifier* FindInCurScope(const Token* tok);
-	Identifier* FindTag(const Token* tok);
-	Identifier* FindTagInCurScope(const Token* tok);
+  Identifier* Find(const Token* tok);
+  Identifier* FindInCurScope(const Token* tok);
+  Identifier* FindTag(const Token* tok);
+  Identifier* FindTagInCurScope(const Token* tok);
 
-	void Insert(Identifier* ident);
+  void Insert(Identifier* ident);
 
-	void InsertTag(Identifier* ident);
+  void InsertTag(Identifier* ident);
 
-	void Print(void);
+  void Print(void);
 
-	bool operator==(const Scope& other) const {
-		return type_ == other.type_;
-	}
+  bool operator==(const Scope& other) const {
+    return type_ == other.type_;
+  }
 
-	IdentMap::iterator begin(void) {
-		return identMap_.begin();
-	}
+  IdentMap::iterator begin(void) {
+    return identMap_.begin();
+  }
 
-	IdentMap::iterator end(void) {
-		return identMap_.end();
-	}
+  IdentMap::iterator end(void) {
+    return identMap_.end();
+  }
 
-	size_t size(void) const {
-		return identMap_.size();
-	}
+  size_t size(void) const {
+    return identMap_.size();
+  }
 
 private:
-	Identifier* Find(const std::string& name);
+  Identifier* Find(const std::string& name);
 
-	Identifier* FindInCurScope(const std::string& name);
+  Identifier* FindInCurScope(const std::string& name);
 
-	Identifier* FindTag(const std::string& name);
+  Identifier* FindTag(const std::string& name);
 
-	Identifier* FindTagInCurScope(const std::string& name);
+  Identifier* FindTagInCurScope(const std::string& name);
 
-	void Insert(const std::string& name, Identifier* ident);
+  void Insert(const std::string& name, Identifier* ident);
 
-	const Scope& operator=(const Scope& other);
-	Scope(const Scope& scope);
-	//typedef std::map<std::string, Type*> TagMap;
+  const Scope& operator=(const Scope& other);
+  Scope(const Scope& scope);
+  //typedef std::map<std::string, Type*> TagMap;
 
-	Scope* parent_;
-	enum ScopeType type_;
+  Scope* parent_;
+  enum ScopeType type_;
 
-	IdentMap identMap_;
+  IdentMap identMap_;
 };
 
 #endif
