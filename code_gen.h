@@ -12,44 +12,44 @@ class Evaluator<Addr>;
 
 enum class ParamClass
 {
-    INTEGER,
-    SSE,
-    SSEUP,
-    X87,
-    X87_UP,
-    COMPLEX_X87,
-    NO_CLASS,
-    MEMORY
+	INTEGER,
+	SSE,
+	SSEUP,
+	X87,
+	X87_UP,
+	COMPLEX_X87,
+	NO_CLASS,
+	MEMORY
 };
 
 
 struct ROData
 {
-    ROData(long ival, int align): _ival(ival), _align(align) {
-        _label = ".LC" + std::to_string(GenTag());
-    }
+	ROData(long ival, int align): ival_(ival), align_(align) {
+		label_ = ".LC" + std::to_string(GenTag());
+	}
 
-    explicit ROData(const std::string& sval): _sval(sval), _align(1) {
-        _label = ".LC" + std::to_string(GenTag());
-    }
+	explicit ROData(const std::string& sval): sval_(sval), align_(1) {
+		label_ = ".LC" + std::to_string(GenTag());
+	}
 
-    //ROData(const ROData& other) = delete;
-    //ROData& operator=(const ROData& other) = delete;
+	//ROData(const ROData& other) = delete;
+	//ROData& operator=(const ROData& other) = delete;
 
 
-    ~ROData(void) {}
+	~ROData(void) {}
 
-    std::string _sval;
-    long _ival;
+	std::string sval_;
+	long ival_;
 
-    int _align;
-    std::string _label;
+	int align_;
+	std::string label_;
 
 private:
-    static long GenTag(void) {
-        static long tag = 0;
-        return tag++;
-    }
+	static long GenTag(void) {
+		static long tag = 0;
+		return tag++;
+	}
 };
 
 
@@ -58,25 +58,25 @@ typedef std::vector<ROData> RODataList;
 
 struct ObjectAddr
 {
-    ObjectAddr(const std::string& label, const std::string& base, int offset)
-            : _label(label), _base(base), _offset(offset) {}
+	ObjectAddr(const std::string& label, const std::string& base, int offset)
+			: label_(label), _base(base), offset_(offset) {}
 
-    std::string Repr(void) const;
-    
-    std::string _label;
-    std::string _base;
-    int _offset;
-    unsigned char _bitFieldBegin {0};
-    unsigned char _bitFieldWidth {0};
+	std::string Repr(void) const;
+	
+	std::string label_;
+	std::string _base;
+	int offset_;
+	unsigned char bitFieldBegin_ {0};
+	unsigned char bitFieldWidth_ {0};
 };
 
 
 struct StaticInitializer
 {
-    int _offset;
-    int _width;
-    long _val;
-    std::string _label;        
+	int offset_;
+	int width_;
+	long val_;
+	std::string label_;        
 };
 
 typedef std::vector<StaticInitializer> StaticInitList;
@@ -84,164 +84,164 @@ typedef std::vector<StaticInitializer> StaticInitList;
 
 class Generator: public Visitor
 {
-    friend class Evaluator<Addr>;
+	friend class Evaluator<Addr>;
 public:
-    Generator(void) {}
+	Generator(void) {}
 
-    virtual void Visit(ASTNode* node) {
-        node->Accept(this);
-    }
+	virtual void Visit(ASTNode* node) {
+		node->Accept(this);
+	}
 
-    //Expression
-    virtual void VisitBinaryOp(BinaryOp* binaryOp);
-    virtual void VisitUnaryOp(UnaryOp* unaryOp);
-    virtual void VisitConditionalOp(ConditionalOp* condOp);
-    virtual void VisitFuncCall(FuncCall* funcCall);
-    virtual void VisitObject(Object* obj);
-    virtual void VisitEnumerator(Enumerator* enumer);
-    virtual void VisitIdentifier(Identifier* ident);
-    virtual void VisitConstant(Constant* cons);
-    virtual void VisitTempVar(TempVar* tempVar);
+	void VisitExpr(Expr* expr) {
+		expr->Accept(this);
+	}
 
-    // Binary
-    void GenMemberRefOp(BinaryOp* binaryOp);
-    //void GenSubScriptingOp(BinaryOp* binaryOp);
-    void GenAndOp(BinaryOp* binaryOp);
-    void GenOrOp(BinaryOp* binaryOp);
-    void GenAddOp(BinaryOp* binaryOp);
-    void GenSubOp(BinaryOp* binaryOp);
-    void GenAssignOp(BinaryOp* assign);
-    void GenCastOp(UnaryOp* cast);
-    void GenDerefOp(UnaryOp* deref);
-    void GenMinusOp(UnaryOp* minus);
-    void GenPointerArithm(BinaryOp* binary);
-    void GenDivOp(bool flt, bool sign, int width, int op);
-    void GenMulOp(int width, bool flt, bool sign);
-    void GenCompOp(int width, bool flt, const char* set);
-    void GenCompZero(Type* type);
+	void VisitStmt(Stmt* stmt) {
+		stmt->Accept(this);
+	}
 
-    // Unary
-    void GenPrefixIncDec(Expr* operand, const std::string& inst);
-    void GenPostfixIncDec(Expr* operand, const std::string& inst);
+	//Expression
+	virtual void VisitBinaryOp(BinaryOp* binaryOp);
+	virtual void VisitUnaryOp(UnaryOp* unaryOp);
+	virtual void VisitConditionalOp(ConditionalOp* condOp);
+	virtual void VisitFuncCall(FuncCall* funcCall);
+	virtual void VisitObject(Object* obj);
+	virtual void VisitEnumerator(Enumerator* enumer);
+	virtual void VisitIdentifier(Identifier* ident);
+	virtual void VisitConstant(Constant* cons);
+	virtual void VisitTempVar(TempVar* tempVar);
 
+	//statement
+	virtual void VisitDeclaration(Declaration* init);
+	virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
+	virtual void VisitIfStmt(IfStmt* ifStmt);
+	virtual void VisitJumpStmt(JumpStmt* jumpStmt);
+	virtual void VisitReturnStmt(ReturnStmt* returnStmt);
+	virtual void VisitLabelStmt(LabelStmt* labelStmt);
+	virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
+
+	virtual void VisitFuncDef(FuncDef* funcDef);
+	virtual void VisitTranslationUnit(TranslationUnit* unit);
 
 
-    //statement
-    virtual void VisitDeclaration(Declaration* init);
-    virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
-    virtual void VisitIfStmt(IfStmt* ifStmt);
-    virtual void VisitJumpStmt(JumpStmt* jumpStmt);
-    virtual void VisitReturnStmt(ReturnStmt* returnStmt);
-    virtual void VisitLabelStmt(LabelStmt* labelStmt);
-    virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
+	static void SetInOut(Parser* parser, FILE* outFile) {
+		parser_ = parser;
+		outFile_ = outFile;
+	}
 
-    virtual void VisitFuncDef(FuncDef* funcDef);
-    virtual void VisitTranslationUnit(TranslationUnit* unit);
+	void Gen(void);
+	
+protected:
+	// Binary
+	void GenCommaOp(BinaryOp* comma);
+	void GenMemberRefOp(BinaryOp* binaryOp);
+	//void GenSubScriptingOp(BinaryOp* binaryOp);
+	void GenAndOp(BinaryOp* binaryOp);
+	void GenOrOp(BinaryOp* binaryOp);
+	void GenAddOp(BinaryOp* binaryOp);
+	void GenSubOp(BinaryOp* binaryOp);
+	void GenAssignOp(BinaryOp* assign);
+	void GenCastOp(UnaryOp* cast);
+	void GenDerefOp(UnaryOp* deref);
+	void GenMinusOp(UnaryOp* minus);
+	void GenPointerArithm(BinaryOp* binary);
+	void GenDivOp(bool flt, bool sign, int width, int op);
+	void GenMulOp(int width, bool flt, bool sign);
+	void GenCompOp(int width, bool flt, const char* set);
+	void GenCompZero(Type* type);
 
-    StaticInitializer GetStaticInit(const Initializer& init);
+	// Unary
+	void GenPrefixIncDec(Expr* operand, const std::string& inst);
+	void GenPostfixIncDec(Expr* operand, const std::string& inst);
 
-    void GenStaticDecl(Declaration* decl);
-    
-    void GenSaveArea(void);
-    
-    void AllocObjects(Scope* scope,
-            const FuncDef::ParamList& params=FuncDef::ParamList());
+	StaticInitializer GetStaticInit(const Initializer& init);
 
-    void CopyStruct(ObjectAddr desAddr, int width);
-    
-    std::string ConsLabel(Constant* cons);
+	void GenStaticDecl(Declaration* decl);
+	
+	void GenSaveArea(void);
+	
+	void AllocObjects(Scope* scope,
+			const FuncDef::ParamList& params=FuncDef::ParamList());
 
-    std::vector<const char*> GetParamLocation(
-            FuncType::TypeList& types, bool retStruct);
+	void CopyStruct(ObjectAddr desAddr, int width);
+	
+	std::string ConsLabel(Constant* cons);
 
-    // gen and emit
-    void Gen(void);
+	std::vector<const char*> GetParamLocation(
+			FuncType::TypeList& types, bool retStruct);
 
-    void VisitExpr(Expr* expr) {
-        expr->Accept(this);
-    }
+	void Emit(const char* format, ...);
+	void EmitLabel(const std::string& label);
+	void EmitLoad(const std::string& addr, Type* type);
+	void EmitLoad(const std::string& addr, int width, bool flt);
+	void EmitStore(const std::string& addr, Type* type);
+	void EmitStore(const std::string& addr, int width, bool flt);
+	void EmitLoadBitField(const std::string& addr, Object* bitField);
+	void EmitStoreBitField(const ObjectAddr& addr, Type* type);
 
-    void VisitStmt(Stmt* stmt) {
-        stmt->Accept(this);
-    }
+	int Push(const char* reg);
+	int Pop(const char* reg);
 
-    void Emit(const char* format, ...);
-    void EmitLabel(const std::string& label);
-    void EmitLoad(const std::string& addr, Type* type);
-    void EmitLoad(const std::string& addr, int width, bool flt);
-    void EmitStore(const std::string& addr, Type* type);
-    void EmitStore(const std::string& addr, int width, bool flt);
-    void EmitLoadBitField(const std::string& addr, Object* bitField);
-    void EmitStoreBitField(const ObjectAddr& addr, Type* type);
+	void Spill(bool flt);
 
-    int Push(const char* reg);
-    int Pop(const char* reg);
+	void Restore(bool flt);
 
-    void Spill(bool flt);
+	void Save(bool flt);
 
-    void Restore(bool flt);
-
-    void Save(bool flt);
-
-    void Exchange(bool flt);
-
-    static void SetInOut(Parser* parser, FILE* outFile) {
-        _parser = parser;
-        _outFile = outFile;
-    }
+	void Exchange(bool flt);
 
 protected:
-    static Parser* _parser;
-    static FILE* _outFile;
+	static Parser* parser_;
+	static FILE* outFile_;
 
-    //static std::string _cons;
-    static RODataList _rodatas;
-    static int _offset;
+	//static std::string _cons;
+	static RODataList rodatas_;
+	static int offset_;
 
-    // The address that store the register %rdi,
-    //     when the return value is a struct/union
-    static int _retAddrOffset;
-    static FuncDef* _curFunc;
+	// The address that store the register %rdi,
+	//     when the return value is a struct/union
+	static int retAddrOffset_;
+	static FuncDef* curFunc_;
 
-    static std::vector<Declaration*> _staticDecls;
+	static std::vector<Declaration*> staticDecls_;
 };
 
 
 class LValGenerator: public Generator
 {
 public:
-    LValGenerator(void) {}
-    
-    //Expression
-    virtual void VisitBinaryOp(BinaryOp* binaryOp);
-    virtual void VisitUnaryOp(UnaryOp* unaryOp);
-    virtual void VisitObject(Object* obj);
-    virtual void VisitIdentifier(Identifier* ident);
+	LValGenerator(void) {}
+	
+	//Expression
+	virtual void VisitBinaryOp(BinaryOp* binaryOp);
+	virtual void VisitUnaryOp(UnaryOp* unaryOp);
+	virtual void VisitObject(Object* obj);
+	virtual void VisitIdentifier(Identifier* ident);
 
-    virtual void VisitConditionalOp(ConditionalOp* condOp) {
-        assert(false);
-    }
-    
-    virtual void VisitFuncCall(FuncCall* funcCall) {
-        assert(false);
-    }
+	virtual void VisitConditionalOp(ConditionalOp* condOp) {
+		assert(false);
+	}
+	
+	virtual void VisitFuncCall(FuncCall* funcCall) {
+		assert(false);
+	}
 
-    virtual void VisitEnumerator(Enumerator* enumer) {
-        assert(false);
-    }
+	virtual void VisitEnumerator(Enumerator* enumer) {
+		assert(false);
+	}
 
-    virtual void VisitConstant(Constant* cons) {
-        assert(false);
-    }
+	virtual void VisitConstant(Constant* cons) {
+		assert(false);
+	}
 
-    virtual void VisitTempVar(TempVar* tempVar);
+	virtual void VisitTempVar(TempVar* tempVar);
 
-    ObjectAddr GenExpr(Expr* expr) {
-        expr->Accept(this);
-        return _addr;
-    }
+	ObjectAddr GenExpr(Expr* expr) {
+		expr->Accept(this);
+		return addr_;
+	}
 private:
-    ObjectAddr _addr {"", "", 0};
+	ObjectAddr addr_ {"", "", 0};
 };
 
 #endif

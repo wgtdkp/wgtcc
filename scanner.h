@@ -15,12 +15,10 @@ public:
 									 const std::string* fileName=nullptr,
 									 unsigned line=1): _text(text)  {
 		// TODO(wgtdkp): initialization
-
-
 		_p = &(*_text)[0];
-
-		_loc = {fileName, _p, line, 1};
 		_tokBegin = _p;
+		tok_.loc_ = {fileName, _p, line, 1};
+		ws_ = false;
 	}
 
 	virtual ~Scanner() {}
@@ -30,16 +28,20 @@ public:
 	// Scan plain text and generate tokens in ts.
 	// The param 'ts' need not be empty, if so, the tokens
 	// are inserted at the *header* of 'ts'.
-	Token Scan();
+	// The param 'ws' tells if there is leading white space
+	// before this token, it is only SkipComment() that will 
+	// set this param.
+	Token Scan(bool ws=false);
 
 private:
 	Token ScanIdentifier();
 	Token ScanNumber();
-	Token ScanCharacter(Encoding enc);
-	Token ScanLiteral(Encoding enc);
-	Token MakeToken(int tag) const {
-		return {tag, _loc, std::string(_tokBegin, _p)};
-	}
+	//Token ScanCharacter(Encoding enc);
+	//Token ScanLiteral(Encoding enc);
+	Token ScanLiteral();
+	Token ScanCharacter();
+	Token MakeToken(int tag) const;
+	Token MakeNewLine() const;
 	Encoding ScanEncoding(int c);
 	int ScanEscaped();
 	int ScanHexEscaped();
@@ -47,7 +49,6 @@ private:
 	int ScanUCN(int len);
 	void SkipWhiteSpace();
 	void SkipComment();
-	void UpdateLoc();
 	bool IsUCN(int c) {
 		return c == '\\' && (Test('u') || Test('U')); 
 	}
@@ -58,32 +59,36 @@ private:
 	}
 
 	bool Empty() const { return *_p == 0; }
-	int Peek() const { return *_p; }
-	bool Test(int c) const { return Peek() == c; };
-	int Next(void) { 
-		++_loc._column;
-		return *_p++;
-	};
-	
-	void PutBack() {
-		assert(_p >= &(*_text)[0]);
-		--_loc._column; // Maybe handle '\n' ?
-		--_p;
+	int Peek(int offset=0) const {
+		int c = _p[offset];
+		if (c == '\\' && _p[offset + 1] == '\n')
+			return Peek(offset + 2);
+		return c;
 	}
 
+	bool Test(int c) const { return Peek() == c; };
+	int Next(void);
+	
+	void PutBack();
+
 	bool Try(int c) {
-		if (Next() == c)
+		if (Peek() == c) {
+			Next();
 			return true;
-		PutBack();
+		}
 		return false;
 	};
 
-	void Mark() { _tokBegin = _p; };
+	void Mark() {
+		loc_._column = _p - loc_._lineBegin + 1;
+	};
 
-	const std::string* _text;
-	SourceLocation _loc;
-	const char* _p;
-	const char* _tokBegin;
+	const std::string* text_;
+	const std::string* fileName_;
+	const char* p_;
+	const char* lineBegin_;
+	unsigned column_;
+	
 };
 
 

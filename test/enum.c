@@ -6,7 +6,7 @@ void test(void)
     typedef enum {
         AA,
         BB = 3,
-        CC,
+        CC = 3,
         DD,
     } idtype_t;
     

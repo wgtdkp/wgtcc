@@ -8,115 +8,115 @@
 class StrPair
 {
 public:
-    StrPair(void): _begin(nullptr), _end(nullptr), _needFree(false) {}
+	StrPair(void): begin_(nullptr), end_(nullptr), _needFree(false) {}
 
-    StrPair(char* begin, char* end, bool needFree=false)
-            : _begin(begin), _end(end), _needFree(needFree) {}
-    
-    StrPair(char* begin, size_t len, bool needFree=false)
-            : _begin(begin), _end(begin + len), _needFee(needFree) {}
+	StrPair(char* begin, char* end, bool needFree=false)
+			: begin_(begin), end_(end), _needFree(needFree) {}
+	
+	StrPair(char* begin, size_t len, bool needFree=false)
+			: begin_(begin), end_(begin + len), _needFee(needFree) {}
 
-    ~StrPair(void) {
-        if (_needFree)
-            delete[] _begin;
-    }
+	~StrPair(void) {
+		if (_needFree)
+			delete[] begin_;
+	}
 
-    StrPair(const StrPair& other) {
-        *this = other;
-    }
+	StrPair(const StrPair& other) {
+		*this = other;
+	}
 
-    const StrPair& operator=(const StrPair& other) {
-        //_needFree = other._needFree;
+	const StrPair& operator=(const StrPair& other) {
+		//_needFree = other._needFree;
 
-        if (other._needFree) {
-            this->~StrPair();
-            
-            size_t len = other._end - other._begin;
-            _begin = new char[len];
-            memcpy(_begin, other._begin, len);
-            _end = _begin + len;
-        } else {
-            _begin = other._begin;
-            _end = other._end;
-        }
+		if (other._needFree) {
+			this->~StrPair();
+			
+			size_t len = other.end_ - other.begin_;
+			begin_ = new char[len];
+			memcpy(begin_, other.begin_, len);
+			end_ = begin_ + len;
+		} else {
+			begin_ = other.begin_;
+			end_ = other.end_;
+		}
 
-        _needFree = other._needFree;
+		_needFree = other._needFree;
 
-        return *this;
-    }
+		return *this;
+	}
 
-    bool operator<(const StrPair& other) const {
-        char* p = _begin;
-        char* q = other._begin;
-        for (; p != _end && q != other._end; p++, q++) {
-            if (*p < *q)
-                return true;
-            else if (*p > *q)
-                return false;
-        }
-        return p == _end;
-    }
+	bool operator<(const StrPair& other) const {
+		char* p = begin_;
+		char* q = other.begin_;
+		for (; p != end_ && q != other.end_; p++, q++) {
+			if (*p < *q)
+				return true;
+			else if (*p > *q)
+				return false;
+		}
+		return p == end_;
+	}
 
-    size_t Len(void) {
-        return _end - _begin;
-    }
+	size_t Len(void) {
+		return end_ - begin_;
+	}
 
-    // Always deep copy
-    operator std::string(void) {
-        return std::string(_begin, _end);
-    }
+	// Always deep copy
+	operator std::string(void) {
+		return std::string(begin_, end_);
+	}
 
-    char* _begin;
-    char* _end;
-    bool _needFree;
+	char* begin_;
+	char* end_;
+	bool _needFree;
 };
 */
 
 struct StrPair
 {
 public:
-    StrPair(void): _begin(nullptr), _end(nullptr) {}
+	StrPair(void): begin_(nullptr), end_(nullptr) {}
 
-    StrPair(char* begin, char* end): _begin(begin), _end(end) {}
+	StrPair(char* begin, char* end): begin_(begin), end_(end) {}
 
-    StrPair(char* begin, size_t len): _begin(begin), _end(begin + len) {}
+	StrPair(char* begin, size_t len): begin_(begin), end_(begin + len) {}
 
-    ~StrPair(void) {}
+	~StrPair(void) {}
 
-    StrPair(const StrPair& other) {
-        *this = other;
-    }
+	StrPair(const StrPair& other) {
+		*this = other;
+	}
 
-    const StrPair& operator=(const StrPair& other) {
-        _begin = other._begin;
-        _end = other._end;
+	const StrPair& operator=(const StrPair& other) {
+		begin_ = other.begin_;
+		end_ = other.end_;
 
-        return *this;
-    }
+		return *this;
+	}
 
-    bool operator<(const StrPair& other) const {
-        char* p = _begin;
-        char* q = other._begin;
-        for (; p != _end && q != other._end; p++, q++) {
-            if (*p < *q)
-                return true;
-            else if (*p > *q)
-                return false;
-        }
-        return p == _end;
-    }
+	bool operator<(const StrPair& other) const {
+		char* p = begin_;
+		char* q = other.begin_;
+		for (; p != end_ && q != other.end_; p++, q++) {
+			if (*p < *q)
+				return true;
+			else if (*p > *q)
+				return false;
+		}
+		return p == end_;
+	}
 
-    size_t Len(void) {
-        return _end - _begin;
-    }
+	size_t Len(void) {
+		return end_ - begin_;
+	}
 
-    // Always deep copy
-    operator std::string(void) const {
-        return std::string(_begin, _end);
-    }
+	// Always deep copy
+	operator std::string(void) const {
+		return std::string(begin_, end_);
+	}
 
-    char* _begin;
-    char* _end;
+	char* begin_;
+	char* end_;
 };
 
 #endif

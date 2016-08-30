@@ -11,7 +11,13 @@ static void test_character_constant(void)
 
 static void test_string_literal(void)
 {
-    printf("%u\n", sizeof(u"hello world"));
+    expect(12, sizeof("hello world"));
+    expect(12, sizeof(u8"hello world"));
+    expect(24, sizeof(u"hello world"));
+    expect(48, sizeof(U"hello world"));
+    expect(48, sizeof(L"hello world"));
+    printf("%u\n", sizeof("hello\e world"));
+    
 }
 
 

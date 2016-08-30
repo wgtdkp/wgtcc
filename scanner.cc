@@ -4,10 +4,17 @@
 #include <climits>
 
 
-Token Scanner::Scan() {
+Token Scanner::Scan(bool ws) {
+	ws_ = ws;
 	SkipWhiteSpace();
 
 	Mark();
+
+	if (Test('\n')) {
+		const auto& ret = MakeNewLine();
+		Next();
+		return ret;
+	}
 	auto c = Next();
 	switch (c) {
 	case '#': return MakeToken(Try('#') ? Token::DSHARP: c);
@@ -60,7 +67,7 @@ Token Scanner::Scan() {
 	case '/':
 		if (Peek() == '/' || Peek() == '*') {
 			SkipComment();
-			return Scan();
+			return Scan(true);
 		}
 		return MakeToken(c);
 	case '^': return MakeToken(Try('=') ? Token::XOR_ASSIGN: c);
@@ -72,38 +79,33 @@ Token Scanner::Scan() {
 			return MakeToken('.');
 		}
 		return MakeToken(c);
+	case '0' ... '9': return ScanNumber();	
 	case 'u': case 'U': case 'L': {
-		auto enc = ScanEncoding(c);
-		if (Try('\'')) return ScanCharacter(enc);
-		if (Try('\"')) return ScanLiteral(enc);
+		/*auto enc = */ScanEncoding(c);
+		if (Try('\'')) return ScanCharacter();
+		if (Try('\"')) return ScanLiteral();
 		return ScanIdentifier();
 	}
-	case '\'': return ScanCharacter(Encoding::NONE);
-	case '\"': return ScanLiteral(Encoding::NONE);
+	case '\'': return ScanCharacter();
+	case '\"': return ScanLiteral();
 	case 'a' ... 't': case 'v' ... 'z': case 'A' ... 'K':
 	case 'M' ... 'T': case 'V' ... 'Z': case '_': case '$':
 	case 0x80 ... 0xfd:
 		return ScanIdentifier();
 	case '\\':
-		// Drop back slash and newline
-		//if (Try('\n')) return Scan();
 		// Universal character name is allowed in identifier
 		if (Peek() == 'u' || Peek() == 'U')
 			return ScanIdentifier();
-		Error(_loc, "stray '%c' in program", c);
-	case '0' ... '9': return ScanNumber();
-	case EOF:	return MakeToken(Token::END);
-	default: Error(_loc, "stray '%c' in program", c);
+		return MakeToken(Token::INVALID);
+	case '\0': return MakeToken(Token::END);
+	default: return MakeToken(Token::INVALID);
 	}
-	return MakeToken(Token::END); // Make Compiler happy
 }
 
 
 void Scanner::SkipWhiteSpace(void) {
-	while (isspace(Peek())) {
-		if (Peek() == '\n') { 
-			UpdateLoc();
-		}
+	while (isspace(Peek()) && Peek() != '\n') {
+		ws_ = true;
 		Next();
 	}
 }
@@ -118,21 +120,20 @@ void Scanner::SkipComment(void) {
 			Next();
 		}
 		return;
-	}
-
-	while (!Empty()) {
-		auto c = Next();
-		if (c  == '*' && Peek() == '/') {
-			Next();
-			return;
-		} else if (c == '\n') {
-			UpdateLoc();
+	} else if (Try('*')) {
+		while (!Empty()) {
+			auto c = Next();
+			if (c  == '*' && Peek() == '/') {
+				Next();
+				return;
+			}
 		}
+		Error(loc_, "unterminated block comment");
 	}
-	Error(_loc, "unterminated block comment");
+	assert(false);
 }
 
-
+/*
 Token Scanner::ScanIdentifier() {
 	PutBack();
 	std::string str;
@@ -152,29 +153,47 @@ Token Scanner::ScanIdentifier() {
 		c = Next();
 	}
 	PutBack();
-	return {Token::LITERAL, _loc, str};
+	return {Token::IDENTIFIER, loc_, str};
+}
+*/
+
+Token Scanner::ScanIdentifier() {
+	PutBack();
+	auto c = Peek();
+	while (isalnum(c)
+			 || (0x80 <= c && c <= 0xfd)
+			 || c == '_'
+			 || c == '$'
+			 || IsUCN(c)) {
+		if (IsUCN(c))
+			c = ScanEscaped(); // Just read it
+		Next();
+		c = Peek();
+	}
+	return MakeToken(Token::IDENTIFIER);
 }
 
 // Scan PP-Number 
 Token Scanner::ScanNumber() {
+	PutBack();
 	int tag = Token::I_CONSTANT;	
-	auto c = Next();
+	auto c = Peek();
 	while (c == '.' || isdigit(c) || isalpha(c) || c == '_' || IsUCN(c)) {
 		if (c == 'e' || c =='E' || c == 'p' || c == 'P') {
-			Try('-');
-			Try('+');
+			if (!Try('-')) Try('+');
 			tag = Token::F_CONSTANT;
 		}  else if (IsUCN(c)) {
 			ScanEscaped();
 		} else if (c == '.') {
 			tag = Token::F_CONSTANT;
 		}
-		c = Next();
+		Next();
+		c = Peek();
 	}
-	PutBack();
 	return MakeToken(tag);
 }
 
+/*
 // Encoding literal: |str|val|
 Token Scanner::ScanLiteral(Encoding enc) {
 	std::string str;
@@ -190,11 +209,24 @@ Token Scanner::ScanLiteral(Encoding enc) {
 		c = Next();
 	}
 	if (c != '\"')
-		Error(_loc, "unterminated string literal");
+		Error(loc_, "unterminated string literal");
 	str.push_back(static_cast<int>(enc));
-	return {Token::LITERAL, _loc, str};
+	return {Token::LITERAL, loc_, str};
+}
+*/
+
+Token Scanner::ScanLiteral() {
+	auto c = Next();
+	while (c != '\"' && c != '\n' && c != '\0') {
+		if (c == '\\') Next();
+		c = Next();
+	}
+	if (c != '\"')
+		Error(loc_, "unterminated string literal");
+	return MakeToken(Token::LITERAL);
 }
 
+/*
 // Encode character: |val|enc|
 Token Scanner::ScanCharacter(Encoding enc) {
 	std::string str;
@@ -209,12 +241,25 @@ Token Scanner::ScanCharacter(Encoding enc) {
 			val = c;
 	}
 	if (c != '\'')
-		Error(_loc, "unterminated character constant");
+		Error(loc_, "unterminated character constant");
 	if (enc == Encoding::CHAR16)
 		val &= USHRT_MAX;
-	Append32(str, val);
+	Append32BE(str, val);
 	str.push_back(static_cast<int>(enc));
-	return {Token::C_CONSTANT, _loc, str};
+	return {Token::C_CONSTANT, loc_, str};
+}
+*/
+
+
+Token Scanner::ScanCharacter() {
+	auto c = Next();
+	while (c != '\'' && c != '\n' && c != '\0') {
+		if (c == '\\') Next();
+		c = Next();
+	}
+	if (c != '\'')
+		Error(loc_, "unterminated character constant");
+	return MakeToken(Token::C_CONSTANT);
 }
 
 
@@ -236,42 +281,43 @@ int Scanner::ScanEscaped() {
 	case '0' ... '7': return ScanOctEscaped();
 	case 'u': return ScanUCN(4);
 	case 'U': return ScanUCN(8);
-	default: Error(_loc, "unrecognized escape character '%c'", c);
+	default: Error(loc_, "unrecognized escape character '%c'", c);
 	}
 	return c; // Make compiler happy
 }
 
 
 int Scanner::ScanHexEscaped() {
-	int val = 0, c = Next();
+	int val = 0, c = Peek();
 	if (!isxdigit(c))
-		Error(_loc, "expect xdigit, but got '%c'", c);
+		Error(loc_, "expect xdigit, but got '%c'", c);
 	while (isxdigit(c)) {
 		val = (val << 4) + XDigit(c);
-		c = Next();
+		Next();
+		c = Peek();
 	}
-	PutBack();
 	return val;
 }
 
 
 int Scanner::ScanOctEscaped() {
-	int val = 0, c = Next();
+	int val = 0, c = Peek();
 	if (!IsOctal(c))
-		Error(_loc, "expect octal, but got '%c'", c);
+		Error(loc_, "expect octal, but got '%c'", c);
 	val = (val << 3) + XDigit(c);
-	c = Next();
+	Next();
+	c = Peek();
 	if (!IsOctal(c)) {
-		PutBack();
 		return val;
 	}
 	val = (val << 3) + XDigit(c);
-	c = Next();
+	Next();
+	c = Peek();
 	if (!IsOctal(c)) {
-		PutBack();
 		return val;
 	}
 	val = (val << 3) + XDigit(c);
+	Next();
 	return val;
 }
 
@@ -282,7 +328,7 @@ int Scanner::ScanUCN(int len) {
 	for (auto i = 0; i < len; ++i) {
 		auto c = Next();
 		if (!isxdigit(c))
-			Error(_loc, "expect xdigit, but got '%c'", c);
+			Error(loc_, "expect xdigit, but got '%c'", c);
 		val = (val << 4) + XDigit(c);
 	}
 	return val;
@@ -309,23 +355,54 @@ Encoding Scanner::ScanEncoding(int c) {
 }
 
 
-void Scanner::UpdateLoc() {
-		++_loc._line;
-		_loc._column = 1;
-		_loc._lineBegin = _p + 1;
-}
-
-
 std::string* ReadFile(const std::string& fileName) {
 	FILE* f = fopen(fileName.c_str(), "r");
 	if (!f) Error("%s: No such file or directory", fileName.c_str());
 	auto text = new std::string;
 	int c;
-	while (EOF != (c = fgetc(f))) {
-		if (c == '\n' && text->size() && text->back() == '\\')
-			text->pop_back();
-		else 
+	while (EOF != (c = fgetc(f)))
 			text->push_back(c);
-	}
 	return text;
+}
+
+
+int Scanner::Next(void) {
+	int c = *_p++;
+	if (c == '\\' && *_p == '\n') {
+		++loc_._line;
+		loc_._lineBegin = ++_p;
+		return Next();
+	} else if (c == '\n') {
+		++loc_._line;
+		loc_._lineBegin = _p;
+	}
+	return c;
+}
+
+// There couldn't be more than one PutBack() that
+// cross two line, so just leave lineBegin, because
+// we never care about the pos of newline token
+void Scanner::PutBack() {
+	int c = *--_p;
+	if (c == '\n' && _p[-1] == '\\') {
+		--loc_._line;
+		// lineBegin
+		--_p;
+		return PutBack();
+	} else if (c == '\n') {
+		--loc_._line;
+	}
+}
+
+
+Token Scanner::MakeToken(int tag) const {
+	auto begin = loc_._column - 1 + loc_._lineBegin;
+	return {tag, loc_, std::string(begin, _p), ws_};
+}
+
+
+// New line is special
+// It is generated before reading the character '\n'
+Token Scanner::MakeNewLine() const {
+	return {'\n', loc_, std::string(_p, _p + 1), ws_};
 }

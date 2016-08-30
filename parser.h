@@ -2,6 +2,7 @@
 #define _PARSER_H_
 
 #include "ast.h"
+#include "encoding.h"
 #include "error.h"
 #include "mem_pool.h"
 #include "scope.h"
@@ -17,275 +18,273 @@ typedef std::pair<Token*, Type*> TokenTypePair;
 
 class Parser
 {
-    typedef std::vector<Constant*> LiteralList;
-    typedef std::vector<Object*> StaticObjectList;
-    typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
-    typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
-    typedef std::map<std::string, LabelStmt*> LabelMap;
-    
+	typedef std::vector<Constant*> LiteralList;
+	typedef std::vector<Object*> StaticObjectList;
+	typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
+	typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
+	typedef std::map<std::string, LabelStmt*> LabelMap;
+	
 public:
-    explicit Parser(const TokenSeq& ts) 
-        : _unit(TranslationUnit::New()),
-          _inEnumeration(false), _ts(ts),
-          _externalSymbols(new Scope(nullptr, S_BLOCK)),
-          _errTok(nullptr), _curScope(new Scope(nullptr, S_FILE)),
-          _curParamScope(nullptr), _curFunc(nullptr),
-          _breakDest(nullptr), _continueDest(nullptr),
-          _caseLabels(nullptr), _defaultLabel(nullptr) {
-              _ts.SetParser(this);
-          }
+	explicit Parser(const TokenSequence& ts) 
+		: unit_(TranslationUnit::New()),
+		  ts_(ts),
+		  externalSymbols_(new Scope(nullptr, S_BLOCK)),
+		  errTok_(nullptr), curScope_(new Scope(nullptr, S_FILE)),
+		  curParamScope_(nullptr), curFunc_(nullptr),
+		  breakDest_(nullptr), _continueDest(nullptr),
+		  caseLabels_(nullptr), defaultLabel_(nullptr) {
+			  ts_.SetParser(this);
+		  }
 
-    ~Parser(void) {}
+	~Parser(void) {}
 
-    Constant* ParseConstant(const Token* tok);
-    Constant* ParseFloat(const Token* tok);
-    Constant* ParseInteger(const Token* tok);
-    Constant* ParseCharacter(const Token* tok);
-    Encoding ParseEncoding(const std::string& str, size_t& pos);
-    int ParseEscape(const std::string& str, size_t& pos, Encoding enc);
-    Constant* ParseLiteral(const Token* tok);
+	Constant* ParseConstant(const Token* tok);
+	Constant* ParseFloat(const Token* tok);
+	Constant* ParseInteger(const Token* tok);
+	Constant* ParseCharacter(const Token* tok);
+	std::string ParseLiteral(Encoding& enc, const Token* tok);
+	Constant* ConcatLiterals(const Token* tok);
 
-    Expr* ParseGeneric(void);
+	Expr* ParseGeneric(void);
 
-    void Parse(void);
-    void ParseTranslationUnit(void);
-    FuncDef* ParseFuncDef(Identifier* ident);
-    /************ Expressions ************/
-    
-    Expr* ParseExpr(void);
+	void Parse(void);
+	void ParseTranslationUnit(void);
+	FuncDef* ParseFuncDef(Identifier* ident);
+	/************ Expressions ************/
+	
+	Expr* ParseExpr(void);
 
-    Expr* ParsePrimaryExpr(void);
+	Expr* ParsePrimaryExpr(void);
 
-    Expr* ParsePostfixExpr(void);
-    Expr* ParsePostfixExprTail(Expr* primExpr);
-    Expr* ParseSubScripting(Expr* pointer);
-    BinaryOp* ParseMemberRef(const Token* tok, int op, Expr* lhs);
-    UnaryOp* ParsePostfixIncDec(const Token* tok, Expr* operand);
-    FuncCall* ParseFuncCall(Expr* caller);
+	Expr* ParsePostfixExpr(void);
+	Expr* ParsePostfixExprTail(Expr* primExpr);
+	Expr* ParseSubScripting(Expr* pointer);
+	BinaryOp* ParseMemberRef(const Token* tok, int op, Expr* lhs);
+	UnaryOp* ParsePostfixIncDec(const Token* tok, Expr* operand);
+	FuncCall* ParseFuncCall(Expr* caller);
 
-    Expr* ParseUnaryExpr(void);
-    Constant* ParseSizeof(void);
-    Constant* ParseAlignof(void);
-    UnaryOp* ParsePrefixIncDec(const Token* tok);
-    UnaryOp* ParseUnaryOp(const Token* tok, int op);
-    //UnaryOp* ParseDerefOperand(void);
+	Expr* ParseUnaryExpr(void);
+	Constant* ParseSizeof(void);
+	Constant* ParseAlignof(void);
+	UnaryOp* ParsePrefixIncDec(const Token* tok);
+	UnaryOp* ParseUnaryOp(const Token* tok, int op);
+	//UnaryOp* ParseDerefOperand(void);
 
-    Type* ParseTypeName(void);
-    Expr* ParseCastExpr(void);
-    Expr* ParseMultiplicativeExpr(void);
-    Expr* ParseAdditiveExpr(void);
-    Expr* ParseShiftExpr(void);
-    Expr* ParseRelationalExpr(void);
-    Expr* ParseEqualityExpr(void);
-    Expr* ParseBitiwiseAndExpr(void);
-    Expr* ParseBitwiseXorExpr(void);
-    Expr* ParseBitwiseOrExpr(void);
-    Expr* ParseLogicalAndExpr(void);
-    Expr* ParseLogicalOrExpr(void);
-    Expr* ParseConditionalExpr(void);
+	Type* ParseTypeName(void);
+	Expr* ParseCastExpr(void);
+	Expr* ParseMultiplicativeExpr(void);
+	Expr* ParseAdditiveExpr(void);
+	Expr* ParseShiftExpr(void);
+	Expr* ParseRelationalExpr(void);
+	Expr* ParseEqualityExpr(void);
+	Expr* ParseBitiwiseAndExpr(void);
+	Expr* ParseBitwiseXorExpr(void);
+	Expr* ParseBitwiseOrExpr(void);
+	Expr* ParseLogicalAndExpr(void);
+	Expr* ParseLogicalOrExpr(void);
+	Expr* ParseConditionalExpr(void);
 
-    Expr* ParseCommaExpr(void);
+	Expr* ParseCommaExpr(void);
 
-    Expr* ParseAssignExpr(void);
+	Expr* ParseAssignExpr(void);
 
-    /************* Declarations **************/
-    CompoundStmt* ParseDecl(void);
-    
-    Type* ParseDeclSpec(int* storage, int* func);
-    
-    Type* ParseSpecQual(void);
-    
-    int ParseAlignas(void);
-    
-    Type* ParseStructUnionSpec(bool isStruct);
-    
-    Type* ParseEnumSpec(void);
-    
-    StructType* ParseStructUnionDecl(StructType* type);
-    
-    bool ParseBitField(StructType* structType,
-            Token* tok, Type* type, bool packed);
+	/************* Declarations **************/
+	CompoundStmt* ParseDecl(void);
+	
+	Type* ParseDeclSpec(int* storage, int* func);
+	
+	Type* ParseSpecQual(void);
+	
+	int ParseAlignas(void);
+	
+	Type* ParseStructUnionSpec(bool isStruct);
+	
+	Type* ParseEnumSpec(void);
+	
+	StructType* ParseStructUnionDecl(StructType* type);
+	
+	bool ParseBitField(StructType* structType,
+			Token* tok, Type* type, bool packed);
 
-    Type* ParseEnumerator(ArithmType* type);
-    
-    //declarator
-    int ParseQual(void);
-    
-    Type* ParsePointer(Type* typePointedTo);
-    
-    TokenTypePair ParseDeclarator(Type* type);
-    
-    Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
-    
-    int ParseArrayLength(void);
-    
-    bool ParseParamList(FuncType::TypeList& paramTypes);
-    
-    Type* ParseParamDecl(void);
+	Type* ParseEnumerator(ArithmType* type);
+	
+	//declarator
+	int ParseQual(void);
+	
+	Type* ParsePointer(Type* typePointedTo);
+	
+	TokenTypePair ParseDeclarator(Type* type);
+	
+	Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
+	
+	int ParseArrayLength(void);
+	
+	bool ParseParamList(FuncType::TypeList& paramTypes);
+	
+	Type* ParseParamDecl(void);
 
-    //typename
-    Type* ParseAbstractDeclarator(Type* type);
-    
-    Identifier* ParseDirectDeclarator(Type* type,
-            int storageSpec, int funcSpec);
+	//typename
+	Type* ParseAbstractDeclarator(Type* type);
+	
+	Identifier* ParseDirectDeclarator(Type* type,
+			int storageSpec, int funcSpec);
 
-    //initializer
-    void ParseInitializer(Declaration* decl, Type* type,
-            int offset, bool designated, bool forceBrace=false);
-    
-    void ParseArrayInitializer(Declaration* decl,
-            ArrayType* type, int offset, bool designated);
-            
-    StructType::Iterator ParseStructDesignator(StructType* type,
-            const std::string& name);
+	//initializer
+	void ParseInitializer(Declaration* decl, Type* type,
+			int offset, bool designated, bool forceBrace=false);
+	
+	void ParseArrayInitializer(Declaration* decl,
+			ArrayType* type, int offset, bool designated);
+			
+	StructType::Iterator ParseStructDesignator(StructType* type,
+			const std::string& name);
 
-    void ParseStructInitializer(Declaration* decl,
-            StructType* type, int offset, bool designated);
+	void ParseStructInitializer(Declaration* decl,
+			StructType* type, int offset, bool designated);
 
-    bool ParseLiteralInitializer(Declaration* init,
-            ArrayType* type, int offset);
+	bool ParseLiteralInitializer(Declaration* init,
+			ArrayType* type, int offset);
 
-    Declaration* ParseInitDeclarator(Identifier* ident);
+	Declaration* ParseInitDeclarator(Identifier* ident);
 
-    /************* Statements ***************/
-    Stmt* ParseStmt(void);
-    
-    CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
-    
-    IfStmt* ParseIfStmt(void);
-    
-    CompoundStmt* ParseSwitchStmt(void);
-    
-    CompoundStmt* ParseWhileStmt(void);
-    
-    CompoundStmt* ParseDoStmt(void);
-    
-    CompoundStmt* ParseForStmt(void);
-    
-    JumpStmt* ParseGotoStmt(void);
-    
-    JumpStmt* ParseContinueStmt(void);
-    
-    JumpStmt* ParseBreakStmt(void);
-    
-    ReturnStmt* ParseReturnStmt(void);
-    
-    CompoundStmt* ParseLabelStmt(const Token* label);
-    
-    CompoundStmt* ParseCaseStmt(void);
-    
-    CompoundStmt* ParseDefaultStmt(void);
+	/************* Statements ***************/
+	Stmt* ParseStmt(void);
+	
+	CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
+	
+	IfStmt* ParseIfStmt(void);
+	
+	CompoundStmt* ParseSwitchStmt(void);
+	
+	CompoundStmt* ParseWhileStmt(void);
+	
+	CompoundStmt* ParseDoStmt(void);
+	
+	CompoundStmt* ParseForStmt(void);
+	
+	JumpStmt* ParseGotoStmt(void);
+	
+	JumpStmt* ParseContinueStmt(void);
+	
+	JumpStmt* ParseBreakStmt(void);
+	
+	ReturnStmt* ParseReturnStmt(void);
+	
+	CompoundStmt* ParseLabelStmt(const Token* label);
+	
+	CompoundStmt* ParseCaseStmt(void);
+	
+	CompoundStmt* ParseDefaultStmt(void);
 
-    Identifier* ProcessDeclarator(Token* tok, Type* type,
-            int storageSpec, int funcSpec);
+	Identifier* ProcessDeclarator(Token* tok, Type* type,
+			int storageSpec, int funcSpec);
 
-    bool IsTypeName(Token* tok) const{
-        if (tok->IsTypeSpecQual())
-            return true;
+	bool IsTypeName(Token* tok) const{
+		if (tok->IsTypeSpecQual())
+			return true;
 
-        if (tok->IsIdentifier()) {
-            auto ident = _curScope->Find(tok);
-            if (ident && ident->ToTypeName())
-                return true;
-        }
-        return false;
-    }
+		if (tok->IsIdentifier()) {
+			auto ident = curScope_->Find(tok);
+			if (ident && ident->ToTypeName())
+				return true;
+		}
+		return false;
+	}
 
-    bool IsType(Token* tok) const{
-        if (tok->IsDecl())
-            return true;
+	bool IsType(Token* tok) const{
+		if (tok->IsDecl())
+			return true;
 
-        if (tok->IsIdentifier()) {
-            auto ident = _curScope->Find(tok);
-            return (ident && ident->ToTypeName());
-        }
+		if (tok->IsIdentifier()) {
+			auto ident = curScope_->Find(tok);
+			return (ident && ident->ToTypeName());
+		}
 
-        return false;
-    }
+		return false;
+	}
 
-    void EnsureInteger(Expr* expr) {
-        if (!expr->Type()->IsInteger()) {
-            Error(expr, "expect integer expression");
-        }
-    }
+	void EnsureInteger(Expr* expr) {
+		if (!expr->Type()->IsInteger()) {
+			Error(expr, "expect integer expression");
+		}
+	}
 
-    void EnterBlock(FuncType* funcType=nullptr);
-    
-    Scope* ExitBlock(void) {
-        auto scope = _curScope;
-        _curScope = _curScope->Parent();
-        return scope;
-    }
+	void EnterBlock(FuncType* funcType=nullptr);
+	
+	Scope* ExitBlock(void) {
+		auto scope = curScope_;
+		curScope_ = curScope_->Parent();
+		return scope;
+	}
 
-    void EnterProto(void) {
-        _curScope = new Scope(_curScope, S_PROTO);
-        if (_curParamScope == nullptr)
-            _curParamScope = _curScope;
-    }
+	void EnterProto(void) {
+		curScope_ = new Scope(curScope_, S_PROTO);
+		if (curParamScope_ == nullptr)
+			curParamScope_ = curScope_;
+	}
 
-    void ExitProto(void) {
-        _curScope = _curScope->Parent();
-    }
+	void ExitProto(void) {
+		curScope_ = curScope_->Parent();
+	}
 
-    FuncDef* EnterFunc(Identifier* ident);
+	FuncDef* EnterFunc(Identifier* ident);
 
-    void ExitFunc(void);
+	void ExitFunc(void);
 
-    LabelStmt* FindLabel(const std::string& label) {
-        auto ret = _curLabels.find(label);
-        if (_curLabels.end() == ret)
-            return nullptr;
-        return ret->second;
-    }
+	LabelStmt* FindLabel(const std::string& label) {
+		auto ret = curLabels_.find(label);
+		if (curLabels_.end() == ret)
+			return nullptr;
+		return ret->second;
+	}
 
-    void AddLabel(const std::string& label, LabelStmt* labelStmt) {
-        assert(nullptr == FindLabel(label));
-        _curLabels[label] = labelStmt;
-    }
+	void AddLabel(const std::string& label, LabelStmt* labelStmt) {
+		assert(nullptr == FindLabel(label));
+		curLabels_[label] = labelStmt;
+	}
 
-    TranslationUnit* Unit(void) {
-        return _unit;
-    }
+	TranslationUnit* Unit(void) {
+		return unit_;
+	}
 
-    //StaticObjectList& StaticObjects(void) {
-    //    return _staticObjects;
-    //}
-    
-    FuncDef* CurFunc(void) {
-        return _curFunc;
-    }
+	//StaticObjectList& StaticObjects(void) {
+	//    return _staticObjects;
+	//}
+	
+	FuncDef* CurFunc(void) {
+		return curFunc_;
+	}
 
 private:
-    
-    // The root of the AST
-    TranslationUnit* _unit;
-    
-    bool _inEnumeration;
-    TokenSeq _ts;
+	
+	// The root of the AST
+	TranslationUnit* unit_;
+	
+	TokenSequence ts_;
 
-    // It is not the real scope,
-    // It contains all external symbols(resolved and not resolved)
-    Scope* _externalSymbols;
-    
-    //LiteralList _literals;
-    //StaticObjectList _staticObjects;
+	// It is not the real scope,
+	// It contains all external symbols(resolved and not resolved)
+	Scope* externalSymbols_;
+	
+	//LiteralList _literals;
+	//StaticObjectList _staticObjects;
 
 
-    Token* _errTok;
-    //std::stack<Token*> _buf;
+	Token* errTok_;
+	//std::stack<Token*> _buf;
 
-    Scope* _curScope;
-    Scope* _curParamScope;
-    //Identifier* _curFunc;
-    FuncDef* _curFunc;
-    LabelMap _curLabels;
-    LabelJumpList _unresolvedJumps;
-    
-    
-    LabelStmt* _breakDest;
-    LabelStmt* _continueDest;
-    CaseLabelList* _caseLabels;
-    LabelStmt* _defaultLabel;
+	Scope* curScope_;
+	Scope* curParamScope_;
+	//Identifier* curFunc_;
+	FuncDef* curFunc_;
+	LabelMap curLabels_;
+	LabelJumpList unresolvedJumps_;
+	
+	
+	LabelStmt* breakDest_;
+	LabelStmt* _continueDest;
+	CaseLabelList* caseLabels_;
+	LabelStmt* defaultLabel_;
 };
 
 #endif
