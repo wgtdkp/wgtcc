@@ -244,7 +244,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence& is)
  */
 std::string Preprocessor::Stringize(TokenSequence is)
 {
-  std::string str;
+  std::string str = "\"";
   while (!is.Empty()) {
     auto tok = is.Next();
     // Have preceding white space 
@@ -260,6 +260,7 @@ std::string Preprocessor::Stringize(TokenSequence is)
       str += tok->str_;
     }
   }
+  str.push_back('\"');
   return str;
 }
 
@@ -316,7 +317,7 @@ void Preprocessor::Process(TokenSequence& os)
   //std::string str;
   //Stringize(str, is);
   //std::cout << str << std::endl;
-  is.Print();
+  //is.Print();
   Expand(os, is);
 
   // Identify key word
@@ -442,16 +443,6 @@ void Preprocessor::ReplaceIdent(TokenSequence& is)
 }
 
 
-TokenSequence Preprocessor::GetLine(TokenSequence& is)
-{
-  auto begin = is.begin_;
-  while (is.begin_ != is.end_ && is.begin_->tag_ != Token::NEW_LINE)
-    is.Next();
-  auto end = is.begin_;
-  return  TokenSequence(is.tokList_, begin, end);
-}
-
-
 int Preprocessor::GetDirective(TokenSequence& is)
 {
   if (!is.Test('#') || !is.IsBeginOfLine())
@@ -486,7 +477,7 @@ void Preprocessor::ParseDirective(TokenSequence& os, TokenSequence& is, int dire
     if (directive == Token::PP_EMPTY)
       return;
     
-    auto ls = GetLine(is);
+    auto ls = is.GetLine();
     
     switch(directive) {
     case Token::PP_IF:
@@ -694,7 +685,7 @@ void Preprocessor::ParseElse(TokenSequence ls)
   }
   auto top = ppCondStack_.top();
   if (top.tag_ == Token::PP_ELSE) {
-    Error(directive, "unexpected 'elif' directive");
+    Error(directive, "unexpected 'else' directive");
   }
 
   auto cond = !top.cond_;
@@ -737,9 +728,8 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
     if (!ls.Empty()) {
       Error(ls.Peek(), "expect new line");
     }
-    // TODO(wgtdkp): include file
-    const auto& fileName = tok->str_;
-    // FIXME(wgtdkp): memory leakage
+    std::string fileName;
+    Scanner(tok).ScanLiteral(fileName);
     auto fullPath = SearchFile(fileName, false);
     if (fullPath == nullptr) {
       Error(tok, "%s: No such file or directory", fileName.c_str());
@@ -928,7 +918,7 @@ void Preprocessor::HandleTheFileMacro(TokenSequence& os, Token* macro)
 {
   Token file(*macro);
   file.tag_ = Token::LITERAL;
-  file.str_ = *macro->loc_.fileName_;
+  file.str_ = "\"" + *macro->loc_.fileName_ + "\"";
   os.InsertBack(&file);
 }
 

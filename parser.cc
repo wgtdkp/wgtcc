@@ -214,12 +214,14 @@ static void ConvertLiteral(std::string& val, Encoding enc)
 
 Constant* Parser::ConcatLiterals(const Token* tok)
 {
-  auto val = new std::string;	
-  auto enc = ParseLiteral(*val, tok);
+  auto val = new std::string;
+  auto enc = Scanner(tok).ScanLiteral(*val);
+  ConvertLiteral(*val, enc);	
   while (ts_.Test(Token::LITERAL)) {
     auto nextTok = ts_.Next();
     std::string nextVal;
-    auto nextEnc = ParseLiteral(nextVal, nextTok);
+    auto nextEnc = Scanner(nextTok).ScanLiteral(nextVal);
+    ConvertLiteral(nextVal, nextEnc);
     if (enc == Encoding::NONE) {
       ConvertLiteral(*val, nextEnc);
       enc = nextEnc;
@@ -247,12 +249,7 @@ Constant* Parser::ConcatLiterals(const Token* tok)
 
 Encoding Parser::ParseLiteral(std::string& str, const Token* tok)
 {
-  str = tok->str_;
-  auto enc = static_cast<Encoding>(str.back());
-  str.pop_back();
-
-  ConvertLiteral(str, enc);
-  return enc;
+  return Scanner(tok).ScanLiteral(str);
 }
 
 
@@ -299,18 +296,17 @@ Constant* Parser::ParseFloat(const Token* tok)
 
 Constant* Parser::ParseCharacter(const Token* tok)
 {
-  const auto& str = tok->str_;
-  assert(str.size() == 5);
-  auto enc = static_cast<Encoding>(str.back());
-  //str.pop_back();
-  int val = 0;
-  for (int i = 0; i < 4; ++i)
-    val = (val << 8) | (str[i] & UCHAR_MAX);
+  int val;
+  auto enc = Scanner(tok).ScanCharacter(val);
 
   int tag;
   switch (enc) {
-  case Encoding::NONE: tag = T_INT; break;
-  case Encoding::CHAR16: tag = T_UNSIGNED | T_SHORT; break;
+  case Encoding::NONE:
+    val = (char)val;
+    tag = T_INT; break;
+  case Encoding::CHAR16:
+    val = (char16_t)val; 
+    tag = T_UNSIGNED | T_SHORT; break;
   case Encoding::WCHAR:
   case Encoding::CHAR32: tag = T_UNSIGNED | T_INT; break;
   default: assert(false);

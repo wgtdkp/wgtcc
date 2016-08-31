@@ -77,22 +77,27 @@ int main(int argc, char* argv[])
 
   // Preprocessing
   Preprocessor cpp(&inFileName);
-  std::string dir = ".";
+  
+  outFileName = inFileName;
+  std::string dir = ".";  
   auto pos = inFileName.rfind('/');
-  if (pos != std::string::npos)
+  if (pos != std::string::npos) {
     dir = inFileName.substr(0, pos);
+    outFileName = inFileName.substr(pos + 1);
+  }
+  outFileName.back() = 's';
+  
   cpp.AddSearchPath(dir);
 
   TokenSequence ts;
   cpp.Process(ts);
-/*
+
   // Parsing
   Parser parser(ts);
   parser.Parse();
   
   // CodeGen
-  outFileName = inFileName;
-  outFileName.back() = 's';
+  
   auto outFile = fopen(outFileName.c_str(), "w");
   assert(outFile);
 
@@ -110,7 +115,6 @@ int main(int argc, char* argv[])
   system(sys.c_str());
 
   std::cout << "time: " << (end - begin) * 1.0f / CLOCKS_PER_SEC << std::endl;
-*/
 
   return 0;
 }

@@ -23,10 +23,6 @@ typedef std::set<std::string> HideSet;
 typedef std::list<Token> TokenList;
 
 
-void PrintTokSeq(TokenSequence& tokSeq);
-void PrintTokList(TokenList& tokList);
-
-
 struct SourceLocation {
   const std::string* fileName_;
   const char* lineBegin_;
@@ -451,12 +447,12 @@ public:
 
   void Print() const;
 
-
   TokenList* tokList_;
   TokenList::iterator begin_;
   TokenList::iterator end_;
-
+  
 private:
+
   Parser* parser_ {nullptr};
 };
 

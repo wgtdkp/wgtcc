@@ -11,10 +11,13 @@
 
 class Scanner {
 public:
-  explicit Scanner(std::string* text, SourceLocation& loc)
+  explicit Scanner(const Token* tok)
+      : Scanner(&tok->str_, tok->loc_) {}
+  
+  Scanner(const std::string* text, const SourceLocation& loc)
       : Scanner(text, loc.fileName_, loc.line_, loc.column_) {}
 
-  explicit Scanner(std::string* text,
+  explicit Scanner(const std::string* text,
                    const std::string* fileName=nullptr,
                    unsigned line=1, unsigned column=1): text_(text)  {
     // TODO(wgtdkp): initialization
@@ -35,20 +38,22 @@ public:
   Token Scan(bool ws=false);
   void Tokenize(TokenSequence& ts);
   static std::string ScanHeadName(const Token* lhs, const Token* rhs);
+  Encoding ScanCharacter(int& val);
+  Encoding ScanLiteral(std::string& val);
+  std::string ScanIdentifier();
 
 private:
-  Token ScanIdentifier();
-  Token ScanNumber();
-  //Token ScanCharacter(Encoding enc);
-  //Token ScanLiteral(Encoding enc);
-  Token ScanLiteral();
-  Token ScanCharacter();
+
+  Token SkipIdentifier();
+  Token SkipNumber();
+  Token SkipLiteral();
+  Token SkipCharacter();
   Token MakeToken(int tag);
   Token MakeNewLine();
   Encoding ScanEncoding(int c);
   int ScanEscaped();
   int ScanHexEscaped();
-  int ScanOctEscaped();
+  int ScanOctEscaped(int c);
   int ScanUCN(int len);
   void SkipWhiteSpace();
   void SkipComment();

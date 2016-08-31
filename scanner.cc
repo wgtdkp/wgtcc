@@ -104,30 +104,30 @@ Token Scanner::Scan(bool ws) {
     return MakeToken(c);
   case '^': return MakeToken(Try('=') ? Token::XOR_ASSIGN: c);
   case '.':
-    if (isdigit(Peek())) return ScanNumber();
+    if (isdigit(Peek())) return SkipNumber();
     if (Try('.')) {
       if (Try('.')) return MakeToken(Token::ELLIPSIS);
       PutBack();
       return MakeToken('.');
     }
     return MakeToken(c);
-  case '0' ... '9': return ScanNumber();	
+  case '0' ... '9': return SkipNumber();	
   case 'u': case 'U': case 'L': {
     /*auto enc = */ScanEncoding(c);
-    if (Try('\'')) return ScanCharacter();
-    if (Try('\"')) return ScanLiteral();
-    return ScanIdentifier();
+    if (Try('\'')) return SkipCharacter();
+    if (Try('\"')) return SkipLiteral();
+    return SkipIdentifier();
   }
-  case '\'': return ScanCharacter();
-  case '\"': return ScanLiteral();
+  case '\'': return SkipCharacter();
+  case '\"': return SkipLiteral();
   case 'a' ... 't': case 'v' ... 'z': case 'A' ... 'K':
   case 'M' ... 'T': case 'V' ... 'Z': case '_': case '$':
   case 0x80 ... 0xfd:
-    return ScanIdentifier();
+    return SkipIdentifier();
   case '\\':
     // Universal character name is allowed in identifier
     if (Test('u') || Test('U'))
-      return ScanIdentifier();
+      return SkipIdentifier();
     return MakeToken(Token::INVALID);
   case '\0': return MakeToken(Token::END);
   default: return MakeToken(Token::INVALID);
@@ -165,31 +165,23 @@ void Scanner::SkipComment(void) {
   assert(false);
 }
 
-/*
-Token Scanner::ScanIdentifier() {
-  PutBack();
-  std::string str;
-  auto c = Next();
-  while (isalnum(c)
-       || (0x80 <= c && c <= 0xfd)
-       || c == '_'
-       || c == '$'
-       || IsUCN(c)) {
-    if (IsUCN(c)) {
-      c = ScanEscaped(); // Call ScanUCN()
-      // convert 'c' to utf8 characters
-      AppendUCN(str, c);
-      continue;
-    }
-    str.push_back(c);
-    c = Next();
-  }
-  PutBack();
-  return {Token::IDENTIFIER, loc_, str};
-}
-*/
 
-Token Scanner::ScanIdentifier() {
+std::string Scanner::ScanIdentifier() {
+  std::string val;
+  while (!Empty()) {
+      auto c = Next();
+      if (IsUCN(c)) {
+        c = ScanEscaped(); // Call ScanUCN()
+        AppendUCN(val, c);
+      } else {
+        val.push_back(c);
+      }
+  }
+  return val;
+}
+
+
+Token Scanner::SkipIdentifier() {
   PutBack();
   auto c = Peek();
   while (isalnum(c)
@@ -206,10 +198,10 @@ Token Scanner::ScanIdentifier() {
 }
 
 // Scan PP-Number 
-Token Scanner::ScanNumber() {
+Token Scanner::SkipNumber() {
   PutBack();
   int tag = Token::I_CONSTANT;	
-  auto c = Peek();
+  auto c = Next();
   while (c == '.' || isdigit(c) || isalpha(c) || c == '_' || IsUCN(c)) {
     if (c == 'e' || c =='E' || c == 'p' || c == 'P') {
       if (!Try('-')) Try('+');
@@ -219,35 +211,32 @@ Token Scanner::ScanNumber() {
     } else if (c == '.') {
       tag = Token::F_CONSTANT;
     }
-    Next();
-    c = Peek();
+    c = Next();
   }
+  PutBack();
   return MakeToken(tag);
 }
 
-/*
-// Encoding literal: |str|val|
-Token Scanner::ScanLiteral(Encoding enc) {
-  std::string str;
-  auto c = Next();
-  while (c != '\"' && c != '\n' && c != '\0') {
+
+Encoding Scanner::ScanLiteral(std::string& val) {
+  auto enc = Test('\"') ? Encoding::NONE: ScanEncoding(Next());
+  Next();
+  val.resize(0);
+  while (!Test('\"')) {
+    auto c = Next();
     bool isucn = IsUCN(c);
     if (c == '\\')
       c = ScanEscaped();
     if (isucn)
-      AppendUCN(str, c);
+      AppendUCN(val, c);
     else
-      str.push_back(c);
-    c = Next();
+      val.push_back(c);
   }
-  if (c != '\"')
-    Error(loc_, "unterminated string literal");
-  str.push_back(static_cast<int>(enc));
-  return {Token::LITERAL, loc_, str};
+  return enc;
 }
-*/
 
-Token Scanner::ScanLiteral() {
+
+Token Scanner::SkipLiteral() {
   auto c = Next();
   while (c != '\"' && c != '\n' && c != '\0') {
     if (c == '\\') Next();
@@ -258,13 +247,13 @@ Token Scanner::ScanLiteral() {
   return MakeToken(Token::LITERAL);
 }
 
-/*
-// Encode character: |val|enc|
-Token Scanner::ScanCharacter(Encoding enc) {
-  std::string str;
-  int val = 0;
-  auto c = Next();
-  while (c != '\'' && c != '\n' && c != '\0') {
+
+Encoding Scanner::ScanCharacter(int& val) {
+  auto enc = Test('\'') ? Encoding::NONE: ScanEncoding(Next());
+  Next();
+  val = 0;
+  while (!Test('\'')) {
+    auto c = Next();
     if (c == '\\')
       c = ScanEscaped();
     if (enc == Encoding::NONE)
@@ -272,18 +261,13 @@ Token Scanner::ScanCharacter(Encoding enc) {
     else
       val = c;
   }
-  if (c != '\'')
-    Error(loc_, "unterminated character constant");
   if (enc == Encoding::CHAR16)
     val &= USHRT_MAX;
-  Append32BE(str, val);
-  str.push_back(static_cast<int>(enc));
-  return {Token::C_CONSTANT, loc_, str};
+  return enc;
 }
-*/
 
 
-Token Scanner::ScanCharacter() {
+Token Scanner::SkipCharacter() {
   auto c = Next();
   while (c != '\'' && c != '\n' && c != '\0') {
     if (c == '\\') Next();
@@ -310,7 +294,7 @@ int Scanner::ScanEscaped() {
   // Non-standard GCC extention
   case 'e': return '\033';
   case 'x': return ScanHexEscaped();
-  case '0' ... '7': return ScanOctEscaped();
+  case '0' ... '7': return ScanOctEscaped(c);
   case 'u': return ScanUCN(4);
   case 'U': return ScanUCN(8);
   default: Error(loc_, "unrecognized escape character '%c'", c);
@@ -332,22 +316,17 @@ int Scanner::ScanHexEscaped() {
 }
 
 
-int Scanner::ScanOctEscaped() {
-  int val = 0, c = Peek();
+int Scanner::ScanOctEscaped(int c) {
+  int val = XDigit(c); 
+  c = Peek();
   if (!IsOctal(c))
-    Error(loc_, "expect octal, but got '%c'", c);
+    return val;
   val = (val << 3) + XDigit(c);
   Next();
+  
   c = Peek();
-  if (!IsOctal(c)) {
+  if (!IsOctal(c))
     return val;
-  }
-  val = (val << 3) + XDigit(c);
-  Next();
-  c = Peek();
-  if (!IsOctal(c)) {
-    return val;
-  }
   val = (val << 3) + XDigit(c);
   Next();
   return val;
@@ -370,8 +349,8 @@ int Scanner::ScanUCN(int len) {
 int Scanner::XDigit(int c) {
   switch (c) {
   case '0' ... '9': return c - '0';
-  case 'a' ... 'z': return c - 'a';
-  case 'A' ... 'Z': return c - 'A';
+  case 'a' ... 'z': return c - 'a' + 10;
+  case 'A' ... 'Z': return c - 'A' + 10;
   default: assert(false); return c;
   }
 }

@@ -11,7 +11,6 @@ enum class Encoding {
   WCHAR
 };
 
-void Append32BE(std::string& str, int c);
 void ConvertToUTF16(std::string& str);
 void ConvertToUTF32(std::string& str);
 void AppendUCN(std::string& str, int c);

@@ -1,7 +1,3 @@
-//#include <features.h>
-#include <stdio.h>
-#include <stdarg.h>
-#if 0
 #if 0
     #if 1
         int a = "hello world1";
@@ -12,11 +8,10 @@
     #if 0
         int a = "hello world2";
     #else
-        int a = "Hello World2";
+        int a = 2;
     #endif
 #endif
 
 #if 1
-int c = "cccc";
-#endif
+int c = 1;
 #endif

@@ -17,7 +17,6 @@ static void test_string_literal(void)
     expect(48, sizeof(U"hello world"));
     expect(48, sizeof(L"hello world"));
     printf("%u\n", sizeof("hello\e world"));
-    
 }
 
 

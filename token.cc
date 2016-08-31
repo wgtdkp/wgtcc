@@ -151,24 +151,6 @@ const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
 };
 
 
-void PrintTokSeq(TokenSequence& tokSeq)
-{
-  auto iter = tokSeq.begin_;
-  for (; iter != tokSeq.end_; iter++) {
-    std::cout << iter->tag_ << "\t";
-    std::cout << iter->str_ << std::endl;
-  }
-  std::cout << std::endl;
-}
-
-
-void PrintTokList(TokenList& tokList)
-{
-  TokenSequence tokSeq(&tokList);
-  PrintTokSeq(tokSeq);
-}
-
-
 bool TokenSequence::Empty(void)
 {
   return Peek()->tag_ == Token::END;
@@ -221,7 +203,7 @@ Token* TokenSequence::Peek(void)
     begin_->tag_ = Token::LITERAL;
 
     //auto curFunc = parser_->CurFunc();
-    begin_->str_ = parser_->CurFunc()->Name();
+    begin_->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
     //std::string* name;
     //if(curFunc)
     //    name = new std::string("\"" + curFunc->Name() + "\"");
@@ -246,11 +228,12 @@ Token* TokenSequence::Expect(int expect)
 
 void TokenSequence::Print() const
 {
+  unsigned lastLine = 0;
   auto ts = *this;
   while (!ts.Empty()) {
-    bool isBegin = ts.IsBeginOfLine();
+    //bool isBegin = ts.IsBeginOfLine();
     auto tok = ts.Next();
-    if (isBegin > 0) {
+    if (lastLine != tok->loc_.line_) {
       std::cout << std::endl;
       std::cout << std::string(tok->loc_.column_, ' ');
     } else if (tok->ws_) {
@@ -258,6 +241,7 @@ void TokenSequence::Print() const
     }
     std::cout << tok->str_;
     std::cout << std::flush;
+    lastLine = tok->loc_.line_;
   }
   std::cout << std::endl;
 }

@@ -6,15 +6,15 @@
 #include <iostream>
 
 
-static void Append16BE(std::string& str, char16_t c) {
-  str.push_back((c >> 8) & UCHAR_MAX);
+static void Append16LE(std::string& str, char16_t c) {
   str.push_back(c & UCHAR_MAX);
+  str.push_back((c >> 8) & UCHAR_MAX);
 }
 
 
-void Append32BE(std::string& str, char32_t c) {
-  Append16BE(str, (c >> 16) & USHRT_MAX);
-  Append16BE(str, c & USHRT_MAX);
+static void Append32LE(std::string& str, char32_t c) {
+  Append16LE(str, c & USHRT_MAX);  
+  Append16LE(str, (c >> 16) & USHRT_MAX);
 }
 
 
@@ -23,7 +23,7 @@ void ConvertToUTF16(std::string& str) {
   auto str16 = utf8_ucs2_cvt.from_bytes(str);
   str.resize(0);
   for (auto c16: str16)
-    Append16BE(str, c16);
+    Append16LE(str, c16);
 }
 
 
@@ -32,7 +32,7 @@ void ConvertToUTF32(std::string& str) {
   auto str32 = utf8_ucs4_cvt.from_bytes(str);
   str.resize(0);
   for (auto c32: str32)
-    Append32BE(str, c32);
+    Append32LE(str, c32);
 }
 
 

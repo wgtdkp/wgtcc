@@ -103,8 +103,6 @@ public:
   void ReplaceDefOp(TokenSequence& is);
   void ReplaceIdent(TokenSequence& is);
   void ParseDirective(TokenSequence& os, TokenSequence& is, int directive);
-  
-  TokenSequence GetLine(TokenSequence& is);
   void ParseIf(TokenSequence ls);
   void ParseIfdef(TokenSequence ls);
   void ParseIfndef(TokenSequence ls);
