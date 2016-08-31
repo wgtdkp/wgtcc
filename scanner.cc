@@ -183,7 +183,7 @@ std::string Scanner::ScanIdentifier() {
 
 Token Scanner::SkipIdentifier() {
   PutBack();
-  auto c = Peek();
+  auto c = Next();
   while (isalnum(c)
        || (0x80 <= c && c <= 0xfd)
        || c == '_'
@@ -191,9 +191,9 @@ Token Scanner::SkipIdentifier() {
        || IsUCN(c)) {
     if (IsUCN(c))
       c = ScanEscaped(); // Just read it
-    Next();
-    c = Peek();
+    c = Next();
   }
+  PutBack();
   return MakeToken(Token::IDENTIFIER);
 }
 
@@ -261,8 +261,6 @@ Encoding Scanner::ScanCharacter(int& val) {
     else
       val = c;
   }
-  if (enc == Encoding::CHAR16)
-    val &= USHRT_MAX;
   return enc;
 }
 
@@ -376,7 +374,7 @@ std::string* ReadFile(const std::string& fileName) {
   return text;
 }
 
-
+/*
 int Scanner::Next(void) {
   int c = *p_++;
   if (c == '\\' && *p_ == '\n') {
@@ -393,10 +391,23 @@ int Scanner::Next(void) {
   }
   return c;
 }
+*/
 
+int Scanner::Next(void) {
+  int c = Peek();
+  ++p_;
+  if (c == '\n') {
+    ++loc_.line_;
+    loc_.column_ = 1;
+    loc_.lineBegin_ = p_;
+  } else {
+    ++loc_.column_;
+  }
+  return c;
+}
 
 int Scanner::Peek() {
-  int c = *p_;
+  int c = (uint8_t)(*p_);
   if (c == '\\' && p_[1] == '\n') {
     p_ += 2;
     ++loc_.line_;

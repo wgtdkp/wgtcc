@@ -90,7 +90,7 @@ public:
     : curLine_(1), lineLine_(0), curCond_(true) {}
 
   ~Preprocessor(void) {}
-
+  void Finalize(TokenSequence os);
   void Process(TokenSequence& os);
   void Expand(TokenSequence& os, TokenSequence& is, bool inCond=false);
   void Subst(TokenSequence& os, TokenSequence& is, HideSet* hs, ParamMap& params);

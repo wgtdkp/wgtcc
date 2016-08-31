@@ -298,6 +298,24 @@ void HSAdd(TokenSequence& ts, HideSet& hs)
 }
 
 
+void Preprocessor::Finalize(TokenSequence os)
+{
+  while (!os.Empty()) {
+    auto tok = os.Next();
+    if (tok->tag_ == Token::INVALID) {
+      Error(tok, "stray token in program");
+    } else if (tok->tag_ == Token::IDENTIFIER) {
+      auto tag = Token::KeyWordTag(tok->str_);
+      if (Token::IsKeyWord(tag)) {
+        tok->tag_ = tag;
+      } else {
+        tok->str_ = Scanner(tok).ScanIdentifier();
+      }
+    }
+  }
+}
+
+
 // TODO(wgtdkp): add predefined macros
 void Preprocessor::Process(TokenSequence& os)
 {
@@ -323,14 +341,7 @@ void Preprocessor::Process(TokenSequence& os)
   // Identify key word
   // TODO(wgtdkp): finalize
   
-  auto ts = os;
-  while (!ts.Empty()) {
-    auto tok = ts.Next();
-    auto tag = Token::KeyWordTag(tok->str_);
-    if (Token::IsKeyWord(tag)) {
-      tok->tag_ = tag;
-    }
-  }
+  Finalize(os);
   
   std::cout << std::endl << "###### Preprocessed ######" << std::endl;
   os.Print();
