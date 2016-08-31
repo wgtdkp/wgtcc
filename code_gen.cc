@@ -43,9 +43,9 @@ static ParamClass Classify(Type* paramType, int offset=0)
   
   if (paramType->ToArithmType()) {
     auto type = paramType->ToArithmType();
-    if (type->tag_ == T_FLOAT || type->tag_ == T_DOUBLE)
+    if (type->Tag() == T_FLOAT || type->Tag() == T_DOUBLE)
       return ParamClass::SSE;
-    if (type->tag_ == (T_LONG | T_DOUBLE)) {
+    if (type->Tag() == (T_LONG | T_DOUBLE)) {
       // TODO(wgtdkp):
       assert(false); 
       return ParamClass::X87;
@@ -54,7 +54,7 @@ static ParamClass Classify(Type* paramType, int offset=0)
     // TODO(wgtdkp):
     assert(false);
     // It is complex
-    if ((type->tag_ & T_LONG) && (type->tag_ & T_DOUBLE))
+    if ((type->Tag() & T_LONG) && (type->Tag() & T_DOUBLE))
       return ParamClass::COMPLEX_X87;
     
   }
@@ -296,9 +296,9 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
 
   if (op == '=')
     return GenAssignOp(binary);
-  if (op == Token::AND)
+  if (op == Token::LOGICAL_AND)
     return GenAndOp(binary);
-  if (op == Token::OR)
+  if (op == Token::LOGICAL_OR)
     return GenOrOp(binary);
   if (op == '.')
     return GenMemberRefOp(binary);
@@ -313,7 +313,8 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   auto type = binary->lhs_->Type();
   auto width = type->Width();
   auto flt = type->IsFloat();
-  auto sign = type->ToPointerType() || !(type->ToArithmType()->tag_ & T_UNSIGNED);
+  auto sign = type->ToPointerType() 
+           || !(type->ToArithmType()->Tag() & T_UNSIGNED);
 
   Visit(binary->lhs_);
   Spill(flt);
@@ -438,7 +439,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
 {
   // As the lhs will always be struct/union 
   auto addr = LValGenerator().GenExpr(ref->lhs_);
-  auto name = ref->rhs_->Tok()->Str();
+  const auto& name = ref->rhs_->Tok()->str_;
   auto structType = ref->lhs_->Type()->ToStructType();
   auto member = structType->GetMember(name);
 
@@ -466,7 +467,7 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
 
   Emit("andq $%lu, #rax", Object::BitFieldMask(bitField));
 
-  auto shiftRight = (type->tag_ & T_UNSIGNED) ? "shrq": "sarq";    
+  auto shiftRight = (type->Tag() & T_UNSIGNED) ? "shrq": "sarq";    
   auto left = 64 - bitField->bitFieldBegin_ - bitField->bitFieldWidth_;
   auto right = 64 - bitField->bitFieldWidth_;
   Emit("salq $%d, #rax", left);
@@ -620,7 +621,7 @@ void Generator::GenCastOp(UnaryOp* cast)
   } else {
     assert(srcType->ToArithmType());
     int width = srcType->Width();
-    auto sign = !(srcType->ToArithmType()->tag_ & T_UNSIGNED);
+    auto sign = !(srcType->ToArithmType()->Tag() & T_UNSIGNED);
     const char* inst;
     switch (width) {
     case 1:
@@ -1331,7 +1332,7 @@ void LValGenerator::VisitBinaryOp(BinaryOp* binary)
   assert(binary->op_ == '.');
 
   addr_ = LValGenerator().GenExpr(binary->lhs_);
-  auto name = binary->rhs_->Tok()->Str();
+  const auto& name = binary->rhs_->Tok()->str_;
   auto structType = binary->lhs_->Type()->ToStructType();
   auto member = structType->GetMember(name);
 

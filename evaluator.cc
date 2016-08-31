@@ -47,8 +47,8 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary)
 
   case '<': val_ = L < R; break;
   case '>': val_ = L > R; break;
-  case Token::AND: val_ = L && R; break;
-  case Token::OR: val_ = L || R; break;
+  case Token::LOGICAL_AND: val_ = L && R; break;
+  case Token::LOGICAL_OR: val_ = L || R; break;
   case Token::EQ: val_ = L == R; break;
   case Token::NE: val_ = L != R; break;
   case Token::LE: val_ = L <= R; break;

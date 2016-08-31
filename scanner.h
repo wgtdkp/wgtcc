@@ -11,9 +11,12 @@
 
 class Scanner {
 public:
+  explicit Scanner(std::string* text, SourceLocation& loc)
+      : Scanner(text, loc.fileName_, loc.line_, loc.column_) {}
+
   explicit Scanner(std::string* text,
                    const std::string* fileName=nullptr,
-                   unsigned line=1): text_(text)  {
+                   unsigned line=1, unsigned column=1): text_(text)  {
     // TODO(wgtdkp): initialization
     p_ = &(*text_)[0];
     loc_ = {fileName, p_, line, 1};
@@ -30,6 +33,8 @@ public:
   // before this token, it is only SkipComment() that will 
   // set this param.
   Token Scan(bool ws=false);
+  void Tokenize(TokenSequence& ts);
+  static std::string ScanHeadName(const Token* lhs, const Token* rhs);
 
 private:
   Token ScanIdentifier();

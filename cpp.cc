@@ -141,12 +141,12 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
 
       auto tok = *(ap.Peek());
       tok.tag_ = Token::LITERAL;
-      Stringize(tok.begin_, tok.end_, ap);
+      tok.str_ = Stringize(ap);
 
       os.InsertBack(&tok);
       //Subst(os, is, hs, params);
     } else if (is.Test(Token::DSHARP)
-        && FindActualParam(ap, params, is.Peek2()->Str())) {
+        && FindActualParam(ap, params, is.Peek2()->str_)) {
       is.Next();
       is.Next();
       
@@ -163,12 +163,12 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
       Glue(os, tok);
       //Subst(os, is, hs, params);
     } else if (is.Peek2()->tag_ == Token::DSHARP 
-        && FindActualParam(ap, params, is.Peek()->Str())) {
+        && FindActualParam(ap, params, is.Peek()->str_)) {
       is.Next();
 
       if (ap.Empty()) {
         is.Next();
-        if (FindActualParam(ap, params, is.Peek()->Str())) {
+        if (FindActualParam(ap, params, is.Peek()->str_)) {
           is.Next();
           os.InsertBack(ap);
           //Subst(os, is, hs, params);
@@ -179,7 +179,7 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
         os.InsertBack(ap);
         //Subst(os, is, hs, params);
       }
-    } else if (FindActualParam(ap, params, is.Peek()->Str())) {
+    } else if (FindActualParam(ap, params, is.Peek()->str_)) {
       is.Next();
       Expand(os, ap);
       //Subst(os, is, hs, params);
@@ -212,11 +212,11 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence& is)
   auto lhs = os.Back();
   auto rhs = is.Peek();
 
-  auto str = new std::string(lhs->Str() + rhs->Str());
+  auto str = new std::string(lhs->str_ + rhs->str_);
 
   TokenSequence ts;
-  Scanner lexer(str, lhs->fileName_, lhs->line_);
-  lexer.Tokenize(ts);
+  Scanner scanner(str, lhs->loc_);
+  scanner.Tokenize(ts);
   
   //--os.end_;
   is.Next();
@@ -225,16 +225,10 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence& is)
     // TODO(wgtdkp): 
     // No new Token generated
     // How to handle it???
-
   } else {
-    // FIXME(wgtdkp): memory leakage
-    //Token* tok = new Token(*lhs);
     Token* newTok = ts.Next();
-
     lhs->tag_ = newTok->tag_;
-    lhs->begin_ = newTok->begin_;
-    lhs->end_ = newTok->end_;
-    //os.InsertBack(tok); // Copy once again in InsertBack() 
+    lhs->str_ = newTok->str_;
   }
 
   if (!ts.Empty()) {
@@ -255,16 +249,13 @@ std::string Preprocessor::Stringize(TokenSequence is)
     auto tok = is.Next();
     // Have preceding white space 
     // and is not the first token of the sequence
-    str->append(tok->ws_ && str.size(), ' ');
+    str.append(tok->ws_ && str.size(), ' ');
     if (tok->tag_ == Token::LITERAL || tok->tag_) {
-      if (tok->tag_ == Token::LITERAL)
-        str.push_back('"');
-      for (auto p = tok->begin_; p != tok->end_; p++) {
-        if (*p == '"' || *p == '\\')
-          str->push_back('\\');
-        str->push_back(*p);
+      for (auto c: tok->str_) {
+        if (c == '"' || c == '\\')
+          str.push_back('\\');
+        str.push_back(c);
       }
-      if 
     } else {
       str += tok->str_;
     }
@@ -272,10 +263,10 @@ std::string Preprocessor::Stringize(TokenSequence is)
   return str;
 }
 
-
 /*
  * For debug: print a token sequence
  */
+/*
 std::string Preprocessor::Stringize(TokenSequence is)
 {
   std::string str;
@@ -298,7 +289,7 @@ std::string Preprocessor::Stringize(TokenSequence is)
   }
   return str;
 }
-
+*/
 
 void HSAdd(TokenSequence& ts, HideSet& hs)
 {
@@ -325,18 +316,23 @@ void Preprocessor::Process(TokenSequence& os)
   //std::string str;
   //Stringize(str, is);
   //std::cout << str << std::endl;
-
+  is.Print();
   Expand(os, is);
 
   // Identify key word
+  // TODO(wgtdkp): finalize
+  
   auto ts = os;
   while (!ts.Empty()) {
     auto tok = ts.Next();
-    auto tag = Token::KeyWordTag(tok->begin_, tok->end_);
+    auto tag = Token::KeyWordTag(tok->str_);
     if (Token::IsKeyWord(tag)) {
       tok->tag_ = tag;
     }
   }
+  
+  std::cout << std::endl << "###### Preprocessed ######" << std::endl;
+  os.Print();
 
   //str.resize(0);
   //Stringize(str, os);
@@ -395,18 +391,18 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
   //        && is.end_ == is.tokList_->end());
 
 #define ERASE(iter) {                                   \
-  auto tmp = iter;                                    \
-  iter = is.tokList_->erase(iter);                    \
-  if (tmp == is.begin_) {                             \
-    is.begin_ = iter;                               \
-  }                                                   \
-  if (iter == is.end_) {                              \
-    Error(&(*tmp), "unexpected end of line");       \
-  }                                                   \
-}
+  auto tmp = iter;                                      \
+  iter = is.tokList_->erase(iter);                      \
+  if (tmp == is.begin_) {                               \
+    is.begin_ = iter;                                   \
+  }                                                     \
+  if (iter == is.end_) {                                \
+    Error(&(*tmp), "unexpected end of line");           \
+  }                                                     \
+};
 
   for (auto iter = is.begin_; iter != is.end_; iter++) {
-    if (iter->tag_== Token::IDENTIFIER && iter->Str() == "defined") {
+    if (iter->tag_== Token::IDENTIFIER && iter->str_ == "defined") {
       ERASE(iter);
       bool hasPar = false;
       if (iter->tag_ == '(') {
@@ -418,7 +414,7 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
         Error(&(*iter), "expect identifer in 'defined' operator");
       }
       
-      auto name = iter->Str();
+      auto name = iter->str_;
 
       if (hasPar) {
         ERASE(iter);
@@ -428,8 +424,7 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
       }
 
       iter->tag_ = Token::I_CONSTANT;
-      iter->begin_ = const_cast<char*>(FindMacro(name) ? "1": "0");
-      iter->end_ = iter->begin_ + 1;
+      iter->str_ = FindMacro(name) ? "1": "0";
     }
   }
 #undef ERASE
@@ -441,8 +436,7 @@ void Preprocessor::ReplaceIdent(TokenSequence& is)
   for (auto iter = is.begin_; iter != is.end_; iter++) {
     if (iter->tag_ == Token::IDENTIFIER) {
       iter->tag_ = Token::I_CONSTANT;
-      *iter->begin_ = '0';
-      iter->end_ = iter->begin_ + 1;
+      iter->str_ = "0";
     }
   }
 }
@@ -451,7 +445,7 @@ void Preprocessor::ReplaceIdent(TokenSequence& is)
 TokenSequence Preprocessor::GetLine(TokenSequence& is)
 {
   auto begin = is.begin_;
-  while (!is.Empty() && is.begin_->line_ == begin->line_)
+  while (is.begin_ != is.end_ && is.begin_->tag_ != Token::NEW_LINE)
     is.Next();
   auto end = is.begin_;
   return  TokenSequence(is.tokList_, begin, end);
@@ -470,7 +464,7 @@ int Preprocessor::GetDirective(TokenSequence& is)
 
   auto tag = is.Peek()->tag_;
   if (tag == Token::IDENTIFIER || Token::IsKeyWord(tag)) {
-    auto str = is.Peek()->Str();
+    auto str = is.Peek()->str_;
     auto res = directiveMap.find(str);
     if (res == directiveMap.end()) {
       Error(is.Peek(), "'%s': unrecognized directive", str.c_str());
@@ -480,7 +474,7 @@ int Preprocessor::GetDirective(TokenSequence& is)
     return res->second;
   } else {
     Error(is.Peek(), "'%s': unexpected directive",
-        is.Peek()->Str().c_str());
+        is.Peek()->str_.c_str());
   }
   return Token::INVALID;
 }
@@ -555,8 +549,7 @@ void Preprocessor::ParseError(TokenSequence ls)
 {
   ls.Next();
   
-  std::string msg;
-  Stringize(msg, ls);
+  const auto& msg = Stringize(ls);
   Error(ls.Peek(), "%s", msg.c_str());
 }
 
@@ -564,31 +557,31 @@ void Preprocessor::ParseError(TokenSequence ls)
 void Preprocessor::ParseLine(TokenSequence ls)
 {
   auto directive = ls.Next(); // Skip directive 'line'
-
   TokenSequence ts;
   Expand(ts, ls);
-
   auto tok = ts.Expect(Token::I_CONSTANT);
 
-  int line = atoi(tok->begin_);
-  if (line <= 0 || line > 0x7fffffff) {
+  int line;
+  size_t end;
+  try {
+    line = stoi(tok->str_, &end, 10);
+  } catch (const std::out_of_range oor) {
+    Error(tok, "line number out of range");
+  }
+  if (line == 0 || end != tok->str_.size()) {
     Error(tok, "illegal line number");
   }
   
   curLine_ = line;
-  lineLine_ = directive->line_;
-
+  lineLine_ = directive->loc_.line_;
   if (ts.Empty())
     return;
-
   tok = ts.Expect(Token::LITERAL);
   
   // Enusure "s-char-sequence"
-  if (*tok->begin_ != '"' || *(tok->end_ - 1) != '"') {
+  if (tok->str_.front() != '"' || tok->str_.back() != '"') {
     Error(tok, "expect s-char-sequence");
   }
-  
-  //_curFileName = std::string(tok->begin_, tok->end_);
 }
 
 
@@ -629,13 +622,12 @@ void Preprocessor::ParseIfdef(TokenSequence ls)
   }
 
   ls.Next();
-  
   auto ident = ls.Expect(Token::IDENTIFIER);
   if (!ls.Empty()) {
     Error(ls.Peek(), "expect new line");
   }
 
-  int cond = FindMacro(ident->Str()) != nullptr;
+  int cond = FindMacro(ident->str_) != nullptr;
 
   ppCondStack_.push({Token::PP_IFDEF, NeedExpand(), cond});
 }
@@ -746,7 +738,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
       Error(ls.Peek(), "expect new line");
     }
     // TODO(wgtdkp): include file
-    auto fileName = tok->Literal();
+    const auto& fileName = tok->str_;
     // FIXME(wgtdkp): memory leakage
     auto fullPath = SearchFile(fileName, false);
     if (fullPath == nullptr) {
@@ -772,7 +764,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
       Error(ls.Peek(), "expect new line");
     }
 
-    auto fileName = std::string(lhs->end_, rhs->begin_);
+    const auto& fileName = Scanner::ScanHeadName(lhs, rhs);
     auto fullPath = SearchFile(fileName, true);
     if (fullPath == nullptr) {
       Error(tok, "%s: No such file or directory", fileName.c_str());
@@ -793,7 +785,7 @@ void Preprocessor::ParseUndef(TokenSequence ls)
     Error(ls.Peek(), "expect new line");
   }
 
-  RemoveMacro(ident->Str());
+  RemoveMacro(ident->str_);
 }
 
 
@@ -803,7 +795,7 @@ void Preprocessor::ParseDef(TokenSequence ls)
   auto ident = ls.Expect(Token::IDENTIFIER);
 
   auto tok = ls.Peek();
-  if (tok->tag_ == '(' && tok->begin_ == ident->end_) {
+  if (tok->tag_ == '(' && !tok->ws_) {
     // There is no white space between ident and '('
     // Hence, we are defining function-like macro
 
@@ -811,9 +803,9 @@ void Preprocessor::ParseDef(TokenSequence ls)
     ls.Next(); // Skip '('
     ParamList params;
     auto variadic = ParseIdentList(params, ls);
-    AddMacro(ident->Str(), Macro(variadic, params, ls));
+    AddMacro(ident->str_, Macro(variadic, params, ls));
   } else {
-    AddMacro(ident->Str(), Macro(ls));
+    AddMacro(ident->str_, Macro(ls));
   }
 }
 
@@ -830,7 +822,7 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
       Error(tok, "expect indentifier");
     }
     
-    params.push_back(tok->Str());
+    params.push_back(tok->str_);
 
     if (!is.Try(',')) {
       is.Expect(')');
@@ -846,8 +838,8 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
 void Preprocessor::IncludeFile(TokenSequence& is, const std::string* fileName)
 {
   TokenSequence ts(is.tokList_, is.begin_, is.begin_);
-  Scanner lexer(ReadFile(*fileName), fileName);
-  lexer.Tokenize(ts);
+  Scanner scanner(ReadFile(*fileName), fileName);
+  scanner.Tokenize(ts);
   
   // We done including header file
   is.begin_ = ts.begin_;
@@ -891,8 +883,8 @@ void Preprocessor::AddMacro(const std::string& name,
     std::string* text, bool preDef)
 {
   TokenSequence ts;
-  Scanner lexer(text);
-  lexer.Tokenize(ts);
+  Scanner scanner(text);
+  scanner.Tokenize(ts);
   Macro macro(ts, preDef);
 
   AddMacro(name, macro);
@@ -936,10 +928,7 @@ void Preprocessor::HandleTheFileMacro(TokenSequence& os, Token* macro)
 {
   Token file(*macro);
   file.tag_ = Token::LITERAL;
-
-  auto str = new std::string("\"" + *macro->fileName_ + "\"");
-  file.begin_ = const_cast<char*>(str->c_str());
-  file.end_ = file.begin_ + str->size();
+  file.str_ = *macro->loc_.fileName_;
   os.InsertBack(&file);
 }
 
@@ -948,16 +937,14 @@ void Preprocessor::HandleTheLineMacro(TokenSequence& os, Token* macro)
 {
   Token line(*macro);
   line.tag_ = Token::I_CONSTANT;
-  auto str = new std::string(std::to_string(macro->line_));
-  line.begin_ = const_cast<char*>(str->c_str());
-  line.end_ = line.begin_ + str->size();
+  line.str_ = std::to_string(macro->loc_.line_);
   os.InsertBack(&line);
 }
 
 
 void Preprocessor::UpdateTokenLocation(Token* tok)
 {
-  tok->line_ = curLine_  + tok->line_ - lineLine_ - 1;
+  tok->loc_.line_ = curLine_  + tok->loc_.line_ - lineLine_ - 1;
 }
 
 
@@ -967,8 +954,8 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
   TokenSequence ts = repSeq_;
   while (!ts.Empty()) {
     auto tok = ts.Next();
-    tok->fileName_ = fileName;
-    tok->line_ = line;
+    tok->loc_.fileName_ = fileName;
+    tok->loc_.line_ = line;
   }
   return repSeq_;
 }

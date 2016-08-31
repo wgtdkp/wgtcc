@@ -474,11 +474,11 @@ public:
 protected:
   ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
       : Expr(cond->Tok(), nullptr), cond_(MayCast(cond)),
-        _exprTrue(MayCast(exprTrue)), exprFalse_(MayCast(exprFalse)) {}
+        exprTrue_(MayCast(exprTrue)), exprFalse_(MayCast(exprFalse)) {}
 
 private:
   Expr* cond_;
-  Expr* _exprTrue;
+  Expr* exprTrue_;
   Expr* exprFalse_;
 };
 

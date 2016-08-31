@@ -1,6 +1,6 @@
 #include "error.h"
 
-//#include "ast.h"
+#include "ast.h"
 #include "token.h"
 
 #include <cstdarg>
@@ -75,7 +75,7 @@ void Error(const SourceLocation& loc, const char* format, ...)
   va_end(args);
 }
 
-/*
+
 void Error(const Token* tok, const char* format, ...)
 {
   va_list args;
@@ -92,4 +92,3 @@ void Error(const Expr* expr, const char* format, ...)
   VError(expr->Tok()->loc_, format, args);
   va_end(args);
 }
-*/

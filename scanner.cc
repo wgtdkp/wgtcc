@@ -4,6 +4,38 @@
 #include <climits>
 
 
+void Scanner::Tokenize(TokenSequence& ts) {
+  while (true) {
+    const auto& tok = Scan();
+    if (tok.tag_ == Token::END) {
+      if (ts.Back()->tag_ != Token::NEW_LINE) {
+        auto t = tok;
+        t.tag_ = Token::NEW_LINE;
+        t.str_ = "\n";
+        ts.InsertBack(&t);
+      } else {
+        break;
+      }
+    } else {
+      ts.InsertBack(&tok);
+    }
+  }
+}
+
+std::string Scanner::ScanHeadName(const Token* lhs, const Token* rhs) {
+  std::string str;
+  const char* begin = lhs->loc_.Begin() + 1;
+  const char* end = rhs->loc_.Begin();
+  for (; begin != end; ++begin) {
+    if (*begin == '\n' && str.back() == '\\')
+      str.pop_back();
+    else
+      str.push_back(*begin);
+  }
+  return str;
+}
+
+
 Token Scanner::Scan(bool ws) {
   tok_.ws_ = ws;
   SkipWhiteSpace();

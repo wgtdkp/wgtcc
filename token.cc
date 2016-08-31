@@ -86,8 +86,8 @@ const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
   { Token::GE, ">=" },
   { Token::EQ, "==" },
   { Token::NE, "!=" },
-  { Token::AND, "&&" },
-  { Token::OR, "||" },
+  { Token::LOGICAL_AND, "&&" },
+  { Token::LOGICAL_OR, "||" },
   { Token::MUL_ASSIGN, "*=" },
   { Token::DIV_ASSIGN, "/=" },
   { Token::MOD_ASSIGN, "%=" },
@@ -169,6 +169,21 @@ void PrintTokList(TokenList& tokList)
 }
 
 
+bool TokenSequence::Empty(void)
+{
+  return Peek()->tag_ == Token::END;
+}
+
+
+TokenSequence TokenSequence::GetLine(void)
+{
+  auto begin = begin_;
+  while (begin_ != end_ && begin_->tag_ != Token::NEW_LINE)
+    ++begin_;
+  auto end = begin_;
+  return {tokList_, begin, end};
+}
+
 /*
  * If this seq starts from the begin of a line.
  * Called only after we have saw '#' in the token sequence.
@@ -181,16 +196,22 @@ bool TokenSequence::IsBeginOfLine(void) const
   auto pre = begin_;
   --pre;
 
-  return (begin_->loc_.fileName_ != pre->loc_.fileName_
-      ||  begin_->loc_.line_ > pre->loc_.line_);
+  // We do not insert a newline at the end of a source file.
+  // Thus if two token have different filename, the second is 
+  // the begin of a line.
+  return (pre->tag_ == Token::NEW_LINE
+       || pre->loc_.fileName_ != begin_->loc_.fileName_);
 }
 
 Token* TokenSequence::Peek(void)
 {
   static Token eof;
-  if (Empty()) {
-    auto back = Back();
-    eof = *back;
+  if (begin_ != end_ && begin_->tag_ == Token::NEW_LINE) {
+    ++begin_;
+    return Peek();
+  } else if (begin_ == end_) {
+    if (end_ != tokList_->begin())
+      eof = *Back();
     eof.tag_ = Token::END;
     //eof.begin_ = back->end_;
     //eof.end_ = eof.begin_ + 1;
@@ -220,4 +241,23 @@ Token* TokenSequence::Expect(int expect)
         Token::Lexeme(expect), tok->str_.c_str());
   }
   return tok;
+}
+
+
+void TokenSequence::Print() const
+{
+  auto ts = *this;
+  while (!ts.Empty()) {
+    bool isBegin = ts.IsBeginOfLine();
+    auto tok = ts.Next();
+    if (isBegin > 0) {
+      std::cout << std::endl;
+      std::cout << std::string(tok->loc_.column_, ' ');
+    } else if (tok->ws_) {
+      std::cout << " ";
+    }
+    std::cout << tok->str_;
+    std::cout << std::flush;
+  }
+  std::cout << std::endl;
 }

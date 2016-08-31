@@ -3,7 +3,7 @@
 #include <climits>
 #include <codecvt>
 #include <locale>
-#include <iotream>
+#include <iostream>
 
 
 static void Append16BE(std::string& str, char16_t c) {
@@ -38,5 +38,5 @@ void ConvertToUTF32(std::string& str) {
 
 void AppendUCN(std::string& str, int c) {
   std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> utf8_ucs4_cvt;
-  str += utf8_ucs4_cvt.to_bytes({c});
+  str += utf8_ucs4_cvt.to_bytes({static_cast<char32_t>(c)});
 }

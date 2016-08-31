@@ -31,7 +31,7 @@ public:
       externalSymbols_(new Scope(nullptr, S_BLOCK)),
       errTok_(nullptr), curScope_(new Scope(nullptr, S_FILE)),
       curParamScope_(nullptr), curFunc_(nullptr),
-      breakDest_(nullptr), _continueDest(nullptr),
+      breakDest_(nullptr), continueDest_(nullptr),
       caseLabels_(nullptr), defaultLabel_(nullptr) {
         ts_.SetParser(this);
       }
@@ -42,7 +42,7 @@ public:
   Constant* ParseFloat(const Token* tok);
   Constant* ParseInteger(const Token* tok);
   Constant* ParseCharacter(const Token* tok);
-  std::string ParseLiteral(Encoding& enc, const Token* tok);
+  Encoding ParseLiteral(std::string& str, const Token* tok);
   Constant* ConcatLiterals(const Token* tok);
 
   Expr* ParseGeneric(void);
@@ -282,7 +282,7 @@ private:
   
   
   LabelStmt* breakDest_;
-  LabelStmt* _continueDest;
+  LabelStmt* continueDest_;
   CaseLabelList* caseLabels_;
   LabelStmt* defaultLabel_;
 };

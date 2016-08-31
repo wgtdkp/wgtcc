@@ -1,6 +1,7 @@
 #include "parser.h"
 
 #include "cpp.h"
+#include "encoding.h"
 #include "error.h"
 #include "scope.h"
 #include "type.h"
@@ -33,10 +34,10 @@ void Parser::ExitFunc(void) {
   for (auto iter = unresolvedJumps_.begin();
       iter != unresolvedJumps_.end(); iter++) {
     auto label = iter->first;
-    auto labelStmt = FindLabel(label->Str());
+    auto labelStmt = FindLabel(label->str_);
     if (labelStmt == nullptr) {
       Error(label, "label '%s' used but not defined",
-          label->Str().c_str());
+          label->str_.c_str());
     }
     
     iter->second->SetLabel(labelStmt);
@@ -183,7 +184,7 @@ Expr* Parser::ParsePrimaryExpr(void)
     auto ident = curScope_->Find(tok);
     /* if (ident == nullptr || ident->ToObject() == nullptr) { */
     if (ident == nullptr) {
-      Error(tok, "undefined symbol '%s'", tok->Str().c_str());
+      Error(tok, "undefined symbol '%s'", tok->str_.c_str());
     }
     return ident;
   } else if (tok->IsConstant()) {
@@ -194,7 +195,7 @@ Expr* Parser::ParsePrimaryExpr(void)
     return ParseGeneric();
   }
 
-  Error(tok, "'%s' unexpected", tok->Str().c_str());
+  Error(tok, "'%s' unexpected", tok->str_.c_str());
   return nullptr; // Make compiler happy
 }
 
@@ -204,9 +205,9 @@ static void ConvertLiteral(std::string& val, Encoding enc)
   switch (enc) {
   case Encoding::NONE:
   case Encoding::UTF8: break;
-  case Encoding::CHAR16: ConvertToUTF16(str); break;
+  case Encoding::CHAR16: ConvertToUTF16(val); break;
   case Encoding::CHAR32:
-  case Encoding::WCHAR: ConvertToUTF32(str); break;
+  case Encoding::WCHAR: ConvertToUTF32(val); break;
   }
 }
 
@@ -214,8 +215,9 @@ static void ConvertLiteral(std::string& val, Encoding enc)
 Constant* Parser::ConcatLiterals(const Token* tok)
 {
   auto val = new std::string;	
-  auto enc = ParseLiteral(val, *tok);
+  auto enc = ParseLiteral(*val, tok);
   while (ts_.Test(Token::LITERAL)) {
+    auto nextTok = ts_.Next();
     std::string nextVal;
     auto nextEnc = ParseLiteral(nextVal, nextTok);
     if (enc == Encoding::NONE) {
@@ -271,7 +273,7 @@ Constant* Parser::ParseConstant(const Token* tok)
 
 Constant* Parser::ParseFloat(const Token* tok)
 {
-  const auto& str = tok->Str();
+  const auto& str = tok->str_;
   size_t end = 0;
   double val;
   try {
@@ -298,7 +300,7 @@ Constant* Parser::ParseFloat(const Token* tok)
 Constant* Parser::ParseCharacter(const Token* tok)
 {
   const auto& str = tok->str_;
-  assert(str->size() == 5);
+  assert(str.size() == 5);
   auto enc = static_cast<Encoding>(str.back());
   //str.pop_back();
   int val = 0;
@@ -319,7 +321,7 @@ Constant* Parser::ParseCharacter(const Token* tok)
 
 Constant* Parser::ParseInteger(const Token* tok)
 {
-  const auto& str = tok->Str();
+  const auto& str = tok->str_;
   size_t end;
   long val;
   try {
@@ -451,7 +453,7 @@ Expr* Parser::ParseSubScripting(Expr* lhs)
 
 BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs)
 {
-  auto memberName = ts_.Peek()->Str();
+  auto memberName = ts_.Peek()->str_;
   ts_.Expect(Token::IDENTIFIER);
 
   auto structUnionType = lhs->Type()->ToStructType();
@@ -732,7 +734,7 @@ Expr* Parser::ParseLogicalAndExpr(void)
 {
   auto lhs = ParseBitwiseOrExpr();
   auto tok = ts_.Peek();
-  while (ts_.Try(Token::AND)) {
+  while (ts_.Try(Token::LOGICAL_AND)) {
     auto rhs = ParseBitwiseOrExpr();
     lhs = BinaryOp::New(tok, lhs, rhs);
 
@@ -747,7 +749,7 @@ Expr* Parser::ParseLogicalOrExpr(void)
 {
   auto lhs = ParseLogicalAndExpr();
   auto tok = ts_.Peek();
-  while (ts_.Try(Token::OR)) {
+  while (ts_.Try(Token::LOGICAL_OR)) {
     auto rhs = ParseLogicalAndExpr();
     lhs = BinaryOp::New(tok, lhs, rhs);
 
@@ -1175,7 +1177,7 @@ Type* Parser::ParseEnumSpec(void)
   std::string tagName;
   auto tok = ts_.Peek();
   if (ts_.Try(Token::IDENTIFIER)) {
-    tagName = tok->Str();
+    tagName = tok->str_;
     if (ts_.Try('{')) {
       //定义enum类型
       auto tagIdent = curScope_->FindTagInCurScope(tok);
@@ -1225,7 +1227,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
   do {
     auto tok = ts_.Expect(Token::IDENTIFIER);
     
-    auto enumName = tok->Str();
+    const auto& enumName = tok->str_;
     auto ident = curScope_->FindInCurScope(tok);
     if (ident) {
       Error(tok, "redefinition of enumerator '%s'", enumName.c_str());
@@ -1265,7 +1267,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
   std::string tagName;
   auto tok = ts_.Peek();
   if (ts_.Try(Token::IDENTIFIER)) {
-    tagName = tok->Str();
+    tagName = tok->str_;
     if (ts_.Try('{')) {
       //看见大括号，表明现在将定义该struct/union类型
       auto tagIdent = curScope_->FindTagInCurScope(tok);
@@ -1354,6 +1356,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
 
       if (ts_.Try(':')) {
         packed = ParseBitField(type, tok, memberType, packed);
+        // TODO(wgtdkp): continue; ?
         goto end_decl;
       }
 
@@ -1369,7 +1372,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
         }
       }
 
-      name = tok->Str();                
+      name = tok->str_;                
       if (type->GetMember(name)) {
         Error(tok, "duplicate member '%s'", name.c_str());
       }
@@ -1555,7 +1558,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
    * 定义 void 类型变量是非法的，只能是指向void类型的指针
    * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
    */
-  auto name = tok->Str();
+  const auto& name = tok->str_;
   Identifier* ident;
 
   if (storageSpec & S_TYPEDEF) {
@@ -1686,7 +1689,7 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
     base = ParseArrayFuncDeclarator(ident, base);
     if (!base->Complete()) {
       Error(ident, "'%s' has incomplete element type",
-          ident->Str().c_str());
+          ident->str_.c_str());
     }
     return ArrayType::New(len, base);
   } else if (ts_.Try('(')) {	//function declaration
@@ -1811,8 +1814,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
   auto tok = tokenTypePair.first;
   type = tokenTypePair.second;
   if (tok) { // Not a abstract declarator!
-    Error(tok, "unexpected identifier '%s'",
-        tok->Str().c_str());
+    Error(tok, "unexpected identifier '%s'", tok->str_.c_str());
   }
   return type;
   /*
@@ -2135,7 +2137,7 @@ void Parser::ParseStructInitializer(Declaration* decl,
     
     if ((designated = ts_.Try('.'))) {
       auto tok = ts_.Expect(Token::IDENTIFIER);
-      auto name = tok->Str();
+      const auto& name = tok->str_;
       if (!type->GetMember(name)) {
         Error(tok, "member '%s' not found", name.c_str());
       }
@@ -2587,7 +2589,7 @@ JumpStmt* Parser::ParseGotoStmt(void)
   ts_.Expect(Token::IDENTIFIER);
   ts_.Expect(';');
 
-  auto labelStmt = FindLabel(label->Str());
+  auto labelStmt = FindLabel(label->str_);
   if (labelStmt) {
     return JumpStmt::New(labelStmt);
   }
@@ -2601,7 +2603,7 @@ JumpStmt* Parser::ParseGotoStmt(void)
 
 CompoundStmt* Parser::ParseLabelStmt(const Token* label)
 {
-  auto labelStr = label->Str();
+  const auto& labelStr = label->str_;
   auto stmt = ParseStmt();
   if (nullptr != FindLabel(labelStr)) {
     Error(label, "redefinition of label '%s'", labelStr.c_str());

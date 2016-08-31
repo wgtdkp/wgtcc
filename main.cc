@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
 
   TokenSequence ts;
   cpp.Process(ts);
-
+/*
   // Parsing
   Parser parser(ts);
   parser.Parse();
@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
   system(sys.c_str());
 
   std::cout << "time: " << (end - begin) * 1.0f / CLOCKS_PER_SEC << std::endl;
-
+*/
 
   return 0;
 }

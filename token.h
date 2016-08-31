@@ -32,6 +32,10 @@ struct SourceLocation {
   const char* lineBegin_;
   unsigned line_;
   unsigned column_;
+
+  const char* Begin(void) const {
+    return lineBegin_ + column_ - 1; 
+  }
 };
 
 
@@ -67,6 +71,7 @@ public:
     NOT = '!',
     COND = '?',
     SHARP = '#',
+    NEW_LINE = '\n',
 
     DSHARP = 128, //'##'
     PTR,
@@ -187,7 +192,6 @@ public:
     PP_PRAGMA,
     PP_EMPTY,
 
-    NEW_LINE,
     IGNORE,
     INVALID,
     END,
@@ -229,8 +233,7 @@ public:
   virtual ~Token(void) {}
   
   //Token::NOTOK represents not a kw.
-  static int KeyWordTag(const char* begin, const char* end) {
-    std::string key(begin, end);
+  static int KeyWordTag(const std::string& key) {
     auto kwIter = kwTypeMap_.find(key);
     
     if (kwTypeMap_.end() == kwIter)
@@ -288,7 +291,6 @@ public:
   bool IsDecl(void) const {
     return CONST <= tag_ && tag_ <= REGISTER;
   }
-  
 
   static const char* Lexeme(int tag) {
     auto iter = TagLexemeMap_.find(tag);
@@ -363,9 +365,10 @@ public:
   Token* Expect(int expect);
 
   bool Try(int tag) {
-    if (Next()->tag_ == tag)
+    if (Peek()->tag_ == tag) {
+      Next();
       return true;
-    PutBack();
+    }
     return false;
   }
 
@@ -381,10 +384,10 @@ public:
   }
 
   void PutBack(void) {
-    //assert(begin_ != tokList_->begin());
-    if (begin_ == tokList_->begin()) {
-      PrintTokList(*tokList_);
-    }
+    assert(begin_ != tokList_->begin());
+    //if (begin_ == tokList_->begin()) {
+    //  PrintTokList(*tokList_);
+    //}
     --begin_;
   }
 
@@ -412,19 +415,7 @@ public:
     begin_ = mark;
   }
 
-  // Could be costly
-  /*
-  size_t Size(void) {
-    size_t size = 0;
-    for (auto iter = begin_; iter != end_; iter++)
-      ++size;
-    return size;
-  }
-  */
-
-  bool Empty(void) {
-    return begin_ == end_;
-  }
+  bool Empty(void);
 
   void InsertBack(const TokenSequence& ts) {
     //assert(tokList_ == seq.tokList_);
@@ -451,10 +442,15 @@ public:
   }
 
   bool IsBeginOfLine(void) const;
+  TokenSequence GetLine(void);
+
 
   void SetParser(Parser* parser) {
     parser_ = parser;
   }
+
+  void Print() const;
+
 
   TokenList* tokList_;
   TokenList::iterator begin_;
