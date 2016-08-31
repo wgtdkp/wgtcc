@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
   std::string dir = ".";  
   auto pos = inFileName.rfind('/');
   if (pos != std::string::npos) {
-    dir = inFileName.substr(0, pos);
+    dir = inFileName.substr(0, pos + 1);
     outFileName = inFileName.substr(pos + 1);
   }
   outFileName.back() = 's';

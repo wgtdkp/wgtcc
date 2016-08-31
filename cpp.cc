@@ -22,6 +22,8 @@ static const DirectiveMap directiveMap = {
   {"else", Token::PP_ELSE},
   {"endif", Token::PP_ENDIF},
   {"include", Token::PP_INCLUDE},
+  // Non-standard GNU extension
+  {"include_next", Token::PP_INCLUDE},
   {"define", Token::PP_DEFINE},
   {"undef", Token::PP_UNDEF},
   {"line", Token::PP_LINE},
@@ -108,8 +110,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence& is, bool inCond)
 
         is.InsertFront(repSeqSubsted);
       } else {
-        Error(is.Peek(), "expect '(' for func-like macro '%s'",
-            name.c_str());
+        os.InsertBack(tok);
       }
       //hs_.erase(name);
     } else {
@@ -329,7 +330,7 @@ void Preprocessor::Process(TokenSequence& os)
 
   // Becareful about the include order, as include file always puts
   // the file to the header of the token sequence
-  auto wgtccHeaderFile = SearchFile("wgtcc.h", true);
+  auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false);
   IncludeFile(is, wgtccHeaderFile);
 
   //std::string str;
@@ -358,6 +359,13 @@ Token* Preprocessor::ParseActualParam(TokenSequence& is,
     Macro* macro, ParamMap& paramMap)
 {
   Token* ret;
+  if (macro->Params().size() == 0 && !macro->Variadic()) {
+    ret = is.Next();
+    if (ret->tag_ != ')')
+      Error(ret, "too many arguments");
+    return ret;
+  }
+
   //TokenSequence ts(is);
   TokenSequence ap(is);
   auto fp = macro->Params().begin();
@@ -376,13 +384,15 @@ Token* Preprocessor::ParseActualParam(TokenSequence& is,
       ap.end_ = is.begin_;
 
       if (fp == macro->Params().end()) {
-        Error(is.Peek(), "too many params");
+        if (!macro->Variadic())
+          Error(is.Peek(), "too many arguments");
+        if (cnt == 0)
+          paramMap.insert(std::make_pair("__VA_ARGS__", ap));
+      } else {
+        paramMap.insert(std::make_pair(*fp, ap));
+        ap.begin_ = ++ap.end_;
+        ++fp;
       }
-      
-      paramMap.insert(std::make_pair(*fp, ap));
-      ++fp;
-
-      ap.begin_ = ++ap.end_;  
     }
 
     ret = is.Next();
@@ -423,7 +433,7 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
       }
 
       if (iter->tag_ != Token::IDENTIFIER) {
-        Error(&(*iter), "expect identifer in 'defined' operator");
+        Error(&(*iter), "expect identifier in 'defined' operator");
       }
       
       auto name = iter->str_;
@@ -733,7 +743,7 @@ void Preprocessor::ParseEndif(TokenSequence ls)
 // Have Read the '#'
 void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
 {
-  ls.Next(); // Skip 'include'
+  bool next = ls.Next()->str_ == "include_next"; // Skip 'include'
   auto tok = ls.Next();
   if (tok->tag_ == Token::LITERAL) {
     if (!ls.Empty()) {
@@ -741,7 +751,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
     }
     std::string fileName;
     Scanner(tok).ScanLiteral(fileName);
-    auto fullPath = SearchFile(fileName, false);
+    auto fullPath = SearchFile(fileName, false, next, tok->loc_.fileName_);
     if (fullPath == nullptr) {
       Error(tok, "%s: No such file or directory", fileName.c_str());
     }
@@ -766,7 +776,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
     }
 
     const auto& fileName = Scanner::ScanHeadName(lhs, rhs);
-    auto fullPath = SearchFile(fileName, true);
+    auto fullPath = SearchFile(fileName, true, next, tok->loc_.fileName_);
     if (fullPath == nullptr) {
       Error(tok, "%s: No such file or directory", fileName.c_str());
     }
@@ -816,13 +826,19 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
   Token* tok;
   while (!is.Empty()) {
     tok = is.Next();
-    if (tok->tag_ == Token::ELLIPSIS) {
+    if (tok->tag_ == ')') {
+      return false;
+    } else if (tok->tag_ == Token::ELLIPSIS) {
       is.Expect(')');
       return true;
     } else if (tok->tag_ != Token::IDENTIFIER) {
-      Error(tok, "expect indentifier");
+      Error(tok, "expect identifier");
     }
-    
+
+    for (const auto& param: params) {
+      if (param == tok->str_)
+        Error(tok, "duplicated param");
+    }
     params.push_back(tok->str_);
 
     if (!is.Try(',')) {
@@ -847,10 +863,14 @@ void Preprocessor::IncludeFile(TokenSequence& is, const std::string* fileName)
 }
 
 
-std::string* Preprocessor::SearchFile(const std::string& name, bool libHeader)
+std::string* Preprocessor::SearchFile(
+    const std::string& name,
+    bool libHeader,
+    bool next,
+    const std::string* curPath)
 {
   PathList::iterator begin, end;
-  if (libHeader) {
+  if (libHeader && !next) {
     auto iter = searchPathList_.begin();
     for (; iter != searchPathList_.end(); iter++) {
       auto dd = open(iter->c_str(), O_RDONLY);
@@ -871,7 +891,16 @@ std::string* Preprocessor::SearchFile(const std::string& name, bool libHeader)
       auto fd = openat(dd, name.c_str(), O_RDONLY);
       if (fd != -1) {
         close(fd);
-        return new std::string(*iter + "/" + name);
+        auto path = *iter + name;
+        if (next) {
+          assert(curPath);
+          if (path != *curPath)
+            continue;
+          else 
+            next = false;
+        } else {
+          return new std::string(path);
+        }
       }
     }
   }
@@ -907,11 +936,11 @@ static std::string* Date(void)
 void Preprocessor::Init(void)
 {
   // Preinclude search paths
-  AddSearchPath("/usr/local/wgtcc/include");
-  AddSearchPath("/usr/include");
-  AddSearchPath("/usr/include/linux");
-  AddSearchPath("/usr/include/x86_64-linux-gnu");
-  AddSearchPath("/usr/local/include");
+  AddSearchPath("/usr/local/wgtcc/include/");
+  AddSearchPath("/usr/include/");
+  AddSearchPath("/usr/include/linux/");
+  AddSearchPath("/usr/include/x86_64-linux-gnu/");
+  AddSearchPath("/usr/local/include/");
   
   // The __FILE__ and __LINE__ macro is empty
   // They are handled seperately
@@ -959,4 +988,12 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
     tok->loc_.line_ = line;
   }
   return repSeq_;
+}
+
+
+void Preprocessor::AddSearchPath(const std::string& path)
+{
+  //if (path != "/" && path.back() == '/')
+  //  path.pop_back();
+  searchPathList_.push_back(path);
 }

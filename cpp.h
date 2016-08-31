@@ -31,9 +31,9 @@ public:
         preDef_(preDef), repSeq_(repSeq) {}
 
   Macro(bool variadic, ParamList& params,
-      TokenSequence& repSeq, bool preDef=false)
-      : funcLike_(true), preDef_(preDef), params_(params),
-        repSeq_(repSeq) {}
+        TokenSequence& repSeq, bool preDef=false)
+      : funcLike_(true), variadic_(variadic), preDef_(preDef),
+        params_(params), repSeq_(repSeq) {}
   
   ~Macro(void) {}
 
@@ -147,12 +147,13 @@ public:
     macroMap_.erase(res);
   }
 
-  std::string* SearchFile(const std::string& name, bool libHeader=false);
+  std::string* SearchFile(
+      const std::string& name,
+      bool libHeader,
+      bool next,
+      const std::string* curPath=nullptr);
 
-  void AddSearchPath(const std::string& path) {
-    searchPathList_.push_back(path);
-  }
-
+  void AddSearchPath(const std::string& path);
   void HandleTheFileMacro(TokenSequence& os, Token* macro);
   void HandleTheLineMacro(TokenSequence& os, Token* macro);
   void UpdateTokenLocation(Token* tok);
