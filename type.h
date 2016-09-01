@@ -117,10 +117,6 @@ public:
   void SetComplete(bool complete) {
     complete_ = complete;
   }
-
-  bool IsConst(void) const {
-    return qual_ & Q_CONST;
-  }
   
   bool IsScalar(void) const {
     return (ToArithmType() || ToPointerType());
@@ -416,7 +412,7 @@ protected:
   ArrayType(MemPool* pool, int len, Type* derived)
       : DerivedType(pool, derived), len_(len) {
     SetComplete(len_ >= 0);
-    SetQual(Q_CONST);
+    //SetQual(Q_CONST);
   }
 
   int len_;

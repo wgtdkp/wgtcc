@@ -396,9 +396,9 @@ void BinaryOp::AssignOpTypeChecking(void)
 {
   if (!lhs_->IsLVal()) {
     Error(lhs_->Tok(), "lvalue expression expected");
-  } else if (lhs_->Type()->IsConst()) {
+  }/* else if (lhs_->Type()->IsConst()) {
     Error(lhs_->Tok(), "can't modifiy 'const' qualified expression");
-  } else if (!lhs_->Type()->Compatible(*rhs_->Type())) {
+  } */else if (!lhs_->Type()->Compatible(*rhs_->Type())) {
     Error(lhs_->Tok(), "uncompatible types");
   }
   // The other constraints are lefted to cast operator
@@ -476,9 +476,9 @@ void UnaryOp::IncDecOpTypeChecking(void)
 {
   if (!operand_->IsLVal()) {
     Error(tok_, "lvalue expression expected");
-  } else if (operand_->Type()->IsConst()) {
+  }/* else if (operand_->Type()->IsConst()) {
     Error(tok_, "can't modifiy 'const' qualified expression");
-  }
+  }*/
 
   type_ = operand_->Type();
 }

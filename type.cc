@@ -75,7 +75,8 @@ ArithmType* ArithmType::New(int typeSpec) {
   case T_SHORT: return shortType;
   case T_UNSIGNED | T_SHORT: return ushortType;
   case T_INT: return intType;
-  case T_UNSIGNED: case T_UNSIGNED | T_INT: return uintType;
+  case T_UNSIGNED:
+  case T_UNSIGNED | T_INT: return uintType;
   case T_LONG: return longType;
   case T_UNSIGNED | T_LONG: return ulongType;
   case T_LLONG: return llongType;
