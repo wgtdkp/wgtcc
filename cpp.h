@@ -87,7 +87,10 @@ class Preprocessor
 {
 public:
   Preprocessor(const std::string* fileName)
-    : curLine_(1), lineLine_(0), curCond_(true) {}
+      : curLine_(1), lineLine_(0), curCond_(true) {
+    // Add predefined
+    Init();
+  }
 
   ~Preprocessor() {}
   void Finalize(TokenSequence os);

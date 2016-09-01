@@ -323,9 +323,6 @@ void Preprocessor::Process(TokenSequence& os)
 {
   TokenSequence is;
 
-  // Add predefined
-  Init();
-
   // Add source file
   IncludeFile(is, &inFileName);
 
