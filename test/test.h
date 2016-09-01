@@ -11,7 +11,7 @@
 #define expect(a, b)                                                \
     if ((a) != (b)) {                                               \
         printf("error:%s:%s:%d: failed, %d != %d\n",                \
-                __FILE__, __func__, __LINE__, (int)(a), (int)(b));  \
+                __FILE__, __func__, __LINE__, (a), (b));            \
     };
 
 

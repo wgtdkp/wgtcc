@@ -557,7 +557,7 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
     Emit("xor #rdx, #rdx");
     Emit("%s #%s", GetInst("div", width, flt).c_str(), GetSrc(width, flt));
   } else {
-    Emit("cltd");
+    Emit(width == 4 ? "cltd": "cqto");
     Emit("%s #%s", GetInst("idiv", width, flt).c_str(), GetSrc(width, flt));      
   }
   if (op == '%')
