@@ -19,7 +19,8 @@ public:
 
   explicit Scanner(const std::string* text,
                    const std::string* fileName=nullptr,
-                   unsigned line=1, unsigned column=1): text_(text)  {
+                   unsigned line=1, unsigned column=1)
+      : text_(text), tok_(Token::END) {
     // TODO(wgtdkp): initialization
     p_ = &(*text_)[0];
     loc_ = {fileName, p_, line, 1};

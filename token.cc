@@ -155,8 +155,8 @@ const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
 };
 
 
-Token* Token::New() {
-  return new (TokenPool.Alloc()) Token();
+Token* Token::New(int tag) {
+  return new (TokenPool.Alloc()) Token(tag);
 }
 
 Token* Token::New(const Token& other) {
@@ -205,7 +205,7 @@ bool TokenSequence::IsBeginOfLine() const
 
 Token* TokenSequence::Peek()
 {
-  static auto eof = Token::New();
+  static auto eof = Token::New(Token::END);
   if (begin_ != end_ && (*begin_)->tag_ == Token::NEW_LINE) {
     ++begin_;
     return Peek();

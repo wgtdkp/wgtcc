@@ -194,16 +194,12 @@ public:
     NOTOK = -1,
   };
 
-  static Token* New();
+  static Token* New(int tag);
   static Token* New(const Token& other);
   static Token* New(int tag,
         const SourceLocation& loc,
         const std::string& str,
         bool ws=false);
-
-  Token(const Token& other) {
-    *this = other;
-  }
 
   Token& operator=(const Token& other) {
     tag_ = other.tag_;
@@ -305,12 +301,16 @@ public:
   HideSet* hs_ { nullptr };
 
 private:
-  explicit Token(int tag=Token::END): tag_(tag) {}
+  explicit Token(int tag): tag_(tag) {}
   Token(int tag,
         const SourceLocation& loc,
         const std::string& str,
         bool ws=false)
       : tag_(tag), ws_(ws), loc_(loc), str_(str) {}
+
+  Token(const Token& other) {
+    *this = other;
+  }
 
   static const std::unordered_map<std::string, int> kwTypeMap_;
   static const std::unordered_map<int, const char*> TagLexemeMap_;
@@ -320,6 +320,7 @@ private:
 
 struct TokenSequence
 {
+  friend class Preprocessor;
 public:
   TokenSequence(): tokList_(new TokenList()),
       begin_(tokList_->begin()), end_(tokList_->end()) {}
@@ -355,6 +356,13 @@ public:
     begin_ = tokList_->begin();
     end_ = tokList_->end();
   }
+
+  // Reset token sequence to the full token list
+  //static TokenSequence Join(TokenSequence& lhs, TokenSequence& rhs) {
+  //  assert(lhs.tokList_ == rhs.tokList_);
+  //  assert(lhs.end_ == rhs.begin_);
+  //  return {lhs.tokList_, lhs.begin_, rhs.end_};
+  //}
 
   Token* Expect(int expect);
 

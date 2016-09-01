@@ -139,12 +139,10 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
   while (!is.Empty()) {
     if (is.Test('#') && FindActualParam(ap, params, is.Peek2()->str_)) {
       is.Next(); is.Next();
-
-      auto tok = *(ap.Peek());
-      tok.tag_ = Token::LITERAL;
-      tok.str_ = Stringize(ap);
-
-      os.InsertBack(&tok);
+      auto tok = Token::New(*ap.Peek());
+      tok->tag_ = Token::LITERAL;
+      tok->str_ = Stringize(ap);
+      os.InsertBack(tok);
       //Subst(os, is, hs, params);
     } else if (is.Test(Token::DSHARP)
         && FindActualParam(ap, params, is.Peek2()->str_)) {
@@ -313,6 +311,9 @@ void Preprocessor::Finalize(TokenSequence os)
         tok->str_ = Scanner(tok).ScanIdentifier();
       }
     }
+    if (!tok->loc_.fileName_) {
+      assert(false);
+    }
   }
 }
 
@@ -380,7 +381,7 @@ Token* Preprocessor::ParseActualParam(TokenSequence& is,
       --cnt;
     
     if ((is.Test(',') && cnt == 1) || cnt == 0) {
-      ap.end_ = is.begin_;
+      //ap.end_ = is.begin_;
 
       if (fp == macro->Params().end()) {
         if (!macro->Variadic())
@@ -389,12 +390,16 @@ Token* Preprocessor::ParseActualParam(TokenSequence& is,
           paramMap.insert(std::make_pair("__VA_ARGS__", ap));
       } else {
         paramMap.insert(std::make_pair(*fp, ap));
-        ap.begin_ = ++ap.end_;
+        //ap.begin_ = ++ap.end_;
+        ap = TokenSequence();
         ++fp;
       }
+    } else {
+      ap.InsertBack(is.Peek());
     }
 
     ret = is.Next();
+
   }
 
   if (fp != macro->Params().end()) {
@@ -873,7 +878,7 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
 
 void Preprocessor::IncludeFile(TokenSequence& is, const std::string* fileName)
 {
-  TokenSequence ts(is.tokList_, is.begin_, is.begin_);
+  TokenSequence ts {is.tokList_, is.begin_, is.begin_};
   Scanner scanner(ReadFile(*fileName), fileName);
   scanner.Tokenize(ts);
   
@@ -975,19 +980,19 @@ void Preprocessor::Init()
 
 void Preprocessor::HandleTheFileMacro(TokenSequence& os, Token* macro)
 {
-  Token file(*macro);
-  file.tag_ = Token::LITERAL;
-  file.str_ = "\"" + *macro->loc_.fileName_ + "\"";
-  os.InsertBack(&file);
+  auto file = Token::New(*macro);
+  file->tag_ = Token::LITERAL;
+  file->str_ = "\"" + *macro->loc_.fileName_ + "\"";
+  os.InsertBack(file);
 }
 
 
 void Preprocessor::HandleTheLineMacro(TokenSequence& os, Token* macro)
 {
-  Token line(*macro);
-  line.tag_ = Token::I_CONSTANT;
-  line.str_ = std::to_string(macro->loc_.line_);
-  os.InsertBack(&line);
+  auto line = Token::New(*macro);
+  line->tag_ = Token::I_CONSTANT;
+  line->str_ = std::to_string(macro->loc_.line_);
+  os.InsertBack(line);
 }
 
 

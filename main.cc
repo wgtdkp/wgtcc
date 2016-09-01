@@ -90,12 +90,15 @@ int main(int argc, char* argv[])
   outFileName = inFileName;
   std::string dir = "./";  
   auto pos = inFileName.rfind('/');
+  
   if (pos != std::string::npos) {
     dir = inFileName.substr(0, pos + 1);
     outFileName = inFileName.substr(pos + 1);
   }
   outFileName.back() = 's';
   
+  std::cout << inFileName << std::endl;
+  std::cout << dir << std::endl;
   cpp.AddSearchPath(dir);
 
   TokenSequence ts;
