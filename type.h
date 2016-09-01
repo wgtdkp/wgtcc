@@ -74,23 +74,19 @@ class Type
 public:
   static const int _intWidth = 4;
 
-  bool operator!=(const Type& other) const { return !(*this == other); }
+  bool operator!=(const Type& other) const = delete;
+  bool operator==(const Type& other) const = delete;
 
-  virtual bool operator==(const Type& other) const {
-    //return (qual_ == other.qual_ && complete_ == other.complete_);
+  virtual bool Compatible(const Type& other) const {
     return complete_ == other.complete_;
   }
 
-  virtual bool Compatible(const Type& ohter) const = 0;
-  virtual ~Type(void) {}
+  virtual ~Type() {}
 
   // For Debugging
-  virtual std::string Str(void) const = 0; 
-
-  virtual int Width(void) const = 0;
-  
-  virtual int Align(void) const = 0;
-
+  virtual std::string Str() const = 0; 
+  virtual int Width() const = 0;
+  virtual int Align() const { return Width(); }
   static int MakeAlign(int offset, int align) {
     if ((offset % align) == 0)
       return offset;
@@ -101,72 +97,39 @@ public:
   } 
 
   static Type* MayCast(Type* type);
+  int Qual() const { return qual_; }
+  void SetQual(int qual) { qual_ = qual; }
+  bool Complete() const { return complete_; }
+  void SetComplete(bool complete) { complete_ = complete; }
 
-  int Qual(void) const {
-    return qual_;
-  }
-  
-  void SetQual(int qual) {
-    qual_ = qual;
-  }
-  
-  bool Complete(void) const { 
-    return complete_;
-  }
-  
-  void SetComplete(bool complete) {
-    complete_ = complete;
-  }
-  
-  bool IsScalar(void) const {
-    return (ToArithmType() || ToPointerType());
-  }
-  
-  bool IsFloat(void) const;
-  
-  bool IsInteger(void) const;
-  
-  bool IsArithm(void) const {
-    return ToArithmType();
-  }
+  virtual bool IsScalar() const { return false; }
+  virtual bool IsFloat() const { return false; }
+  virtual bool IsInteger() const { return false; }
 
-  bool IsReal(void) const {
-    return IsInteger() || IsFloat();
-  }
-  
-  virtual VoidType* ToVoidType(void) { return nullptr; }
-  
-  virtual const VoidType* ToVoidType(void) const { return nullptr; }
-  
-  virtual ArithmType* ToArithmType(void) { return nullptr; }
-  
-  virtual const ArithmType* ToArithmType(void) const { return nullptr; }
-  
-  virtual ArrayType* ToArrayType(void) { return nullptr; }
-  
-  virtual const ArrayType* ToArrayType(void) const { return nullptr; }
-  
-  virtual FuncType* ToFuncType(void) { return nullptr; }
-  
-  virtual const FuncType* ToFuncType(void) const { return nullptr; }
-  
-  virtual PointerType* ToPointerType(void) { return nullptr; }
-  
-  virtual const PointerType* ToPointerType(void) const { return nullptr; }
-  
-  virtual DerivedType* ToDerivedType(void) { return nullptr; }
-  
-  virtual const DerivedType* ToDerivedType(void) const { return nullptr; }
-  
-  virtual StructType* ToStructType(void) { return nullptr; }
-  
-  virtual const StructType* ToStructType(void) const { return nullptr; }
+  virtual VoidType* ToVoidType() { return nullptr; }
+  virtual const VoidType* ToVoidType() const { return nullptr; }
+  virtual ArithmType* ToArithmType() { return nullptr; }  
+  virtual const ArithmType* ToArithmType() const { return nullptr; }  
+  virtual ArrayType* ToArrayType() { return nullptr; }
+  virtual const ArrayType* ToArrayType() const { return nullptr; }
+  virtual FuncType* ToFuncType() { return nullptr; }
+  virtual const FuncType* ToFuncType() const { return nullptr; }
+  virtual PointerType* ToPointerType() { return nullptr; }
+  virtual const PointerType* ToPointerType() const { return nullptr; }
+  virtual DerivedType* ToDerivedType() { return nullptr; }
+  virtual const DerivedType* ToDerivedType() const { return nullptr; }
+  virtual StructType* ToStructType() { return nullptr; }
+  virtual const StructType* ToStructType() const { return nullptr; }
 
 protected:
   Type(MemPool* pool, bool complete)
       : qual_(0), complete_(complete), pool_(pool) {}
 
-  int qual_;
+  // C11 6.7.3 [4]: The properties associated with qualified types
+  // are meaningful only for expressions that are lvalues.
+  // It is convenient to carry qualification within type
+  // But it's not used to decide the compatibility of two types.
+  mutable int qual_;
   bool complete_;
   MemPool* pool_;
 };
@@ -177,38 +140,25 @@ class VoidType : public Type
   friend class Type;
 
 public:
-  static VoidType* New(void);
+  static VoidType* New();
 
-  virtual ~VoidType(void) {}
+  virtual ~VoidType() {}
 
-  virtual VoidType* ToVoidType(void) {
-    return this;
-  }
-
-  virtual const VoidType* ToVoidType(void) const {
-    return this;
-  }
-
-  virtual bool operator==(const Type& other) const {
-    return Type::operator==(other) && other.ToVoidType() != nullptr;
-  }
-
+  virtual VoidType* ToVoidType() { return this; }
+  virtual const VoidType* ToVoidType() const { return this; }
   virtual bool Compatible(const Type& other) const {
-    //return *this == other;
+    // The void Type is compatible to all types,
+    // so that a pointer to void type (void*) is
+    // always compatible to all pointer types.
     return true;
   }
 
-  virtual int Width(void) const {
+  virtual int Width() const {
+    // Non-standard GNU extension
     return 1;
   }
 
-  virtual int Align(void) const {
-    return Width();
-  }
-
-  virtual std::string Str(void) const {
-    return "void:0";
-  }
+  virtual std::string Str() const { return "void:1"; }
 
 protected:
   explicit VoidType(MemPool* pool): Type(pool, false) {}
@@ -222,54 +172,24 @@ class ArithmType : public Type
 public:
   static ArithmType* New(int typeSpec);
 
-  virtual ~ArithmType(void) {}
-
-  virtual ArithmType* ToArithmType(void) {
-    return this;
-  }
-
-  virtual const ArithmType* ToArithmType(void) const {
-    return this;
-  }
-
-  virtual bool operator==(const Type& other) const {
-    auto arithmType = other.ToArithmType();
-    return (Type::operator==(other) 
-        && (nullptr != arithmType && tag_ == arithmType->tag_));
-  }
-
+  virtual ~ArithmType() {}
+  virtual ArithmType* ToArithmType() { return this; }
+  virtual const ArithmType* ToArithmType() const { return this; }
   virtual bool Compatible(const Type& other) const {
-    // Compatible if both are arithmetic type
-    return other.ToArithmType();
+    // C11 6.2.7 [1]: Two types have compatible type if their types are the same
+    return this == &other;
   }
 
-  virtual int Width(void) const;
-
-  virtual int Align(void) const {
-    return Width();
-  }
-
-  virtual std::string Str(void) const;
-
-  bool IsBool(void) const {
-    return T_BOOL == tag_;
-  }
-
-  bool IsInteger(void) const {
-    return !IsFloat() && !IsComplex();
-  }
-
-  bool IsFloat(void) const {
+  virtual int Width() const;
+  virtual std::string Str() const;
+  virtual bool IsScalar() const { return true; }
+  virtual bool IsInteger() const { return !IsFloat() && !IsComplex(); }
+  virtual bool IsFloat() const {
     return (tag_ & T_FLOAT) || (tag_ & T_DOUBLE);
   }
 
-  bool IsComplex(void) const {
-    return tag_ & T_COMPLEX;
-  }
-
-  int Tag(void) const {
-    return tag_;
-  }
+  bool IsComplex() const { return tag_ & T_COMPLEX; }
+  int Tag() const { return tag_; }
 
 protected:
   explicit ArithmType(MemPool* pool, int spec)
@@ -286,7 +206,7 @@ class DerivedType : public Type
 {
   //friend class Type;
 public:
-  Type* Derived(void) {
+  Type* Derived() {
     return derived_;
   }
   
@@ -294,11 +214,11 @@ public:
     derived_ = derived;
   }
   
-  virtual DerivedType* ToDerivedType(void) {
+  virtual DerivedType* ToDerivedType() {
     return this;
   }
   
-  virtual const DerivedType* ToDerivedType(void) const {
+  virtual const DerivedType* ToDerivedType() const {
     return this;
   }
 
@@ -317,35 +237,18 @@ class PointerType : public DerivedType
 public:
   static PointerType* New(Type* derived);
 
-  ~PointerType(void) {}
-
-  virtual PointerType* ToPointerType(void) {
-    return this;
-  }
-
-  virtual const PointerType* ToPointerType(void) const {
-    return this;
-  }
-
-  virtual bool operator==(const Type& other) const;
-  
+  ~PointerType() {}
+  virtual PointerType* ToPointerType() { return this; }
+  virtual const PointerType* ToPointerType() const { return this; }
   virtual bool Compatible(const Type& other) const;
-
-  virtual int Width(void) const {
-    return 8;
-  }
-
-  virtual int Align(void) const {
-    return Width();
-  }
-
-  virtual std::string Str(void) const {
+  virtual int Width() const { return 8; }
+  virtual bool IsScalar() const { return true; }
+  virtual std::string Str() const {
     return derived_->Str() + "*:" + std::to_string(Width());
   }
 
 protected:
   PointerType(MemPool* pool, Type* derived): DerivedType(pool, derived) {}
-
 };
 
 
@@ -355,64 +258,26 @@ class ArrayType : public DerivedType
 
 public:
   static ArrayType* New(int len, Type* eleType);
-  virtual ~ArrayType(void) {
-    delete derived_;
-  }
+  virtual ~ArrayType() { /*delete derived_;*/ }
 
-  virtual ArrayType* ToArrayType(void) {
-    return this;
-  }
-
-  virtual const ArrayType* ToArrayType(void) const {
-    return this;
-  }
-
-  virtual bool operator==(const Type& other) const {
-    auto otherArray = ToArrayType();
-    return Type::operator==(other) && (nullptr != otherArray
-      && *derived_ == *otherArray->derived_);
-  }
-
-  virtual bool Compatible(const Type& other) const {
-    auto otherArray = ToArrayType();
-    return (nullptr != otherArray
-      && Width() == otherArray->Width()
-      && derived_->Compatible(*otherArray->derived_));
-  }
-
-  virtual int Width(void) const {
-    return derived_->Width() * len_;
-  }
-
-  virtual int Align(void) const {
-    return derived_->Align();
-  }
-
-  virtual std::string Str(void) const {
+  virtual ArrayType* ToArrayType() { return this; }
+  virtual const ArrayType* ToArrayType() const { return this; }
+  virtual bool Compatible(const Type& other) const;
+  virtual int Width() const { return derived_->Width() * len_; }
+  virtual int Align() const { return derived_->Align(); }
+  virtual std::string Str() const {
     return derived_->Str() + "[]:" + std::to_string(Width());
   }
 
-  int GetElementOffset(int idx) const {
-    return derived_->Width() * idx;
-  }
-
-  int Len(void) const {
-    return len_;
-  }
-
-  bool HasLen(void) const {
-    return len_ > 0;
-  }
-
-  void SetLen(int len) {
-    len_ = len;
-  }
+  int GetElementOffset(int idx) const { return derived_->Width() * idx; }
+  int Len() const { return len_; }
+  void SetLen(int len) { len_ = len; }
 
 protected:
   ArrayType(MemPool* pool, int len, Type* derived)
       : DerivedType(pool, derived), len_(len) {
     SetComplete(len_ >= 0);
-    //SetQual(Q_CONST);
+    SetQual(Q_CONST);
   }
 
   int len_;
@@ -430,47 +295,24 @@ public:
   static FuncType* New(Type* derived, int funcSpec,
       bool hasEllipsis, const FuncType::TypeList& params);
 
-  ~FuncType(void) {}
+  ~FuncType() {}
   
-  virtual FuncType* ToFuncType(void) {
-    return this;
-  }
-  
-  virtual const FuncType* ToFuncType(void) const {
-    return this;
-  }
-  
-  virtual bool operator==(const Type& other) const;
-  
+  virtual FuncType* ToFuncType() { return this; }
+  virtual const FuncType* ToFuncType() const { return this; }
   virtual bool Compatible(const Type& other) const;
-
-  virtual int Width(void) const {
-    return 1;
-  }
-
-  virtual int Align(void) const {
-    return Width();
-  }
-
-  virtual std::string Str(void) const;
-
-  //bool IsInline(void) const { inlineNoReturn_ & F_INLINE; }
-  //bool IsNoReturn(void) const { return inlineNoReturn_ & F_NORETURN; }
-
-  TypeList& ParamTypes(void) {
-    return paramTypes_;
-  }
-
-  bool Variadic(void) {
-    return variadic_;
-  }
+  virtual int Width() const { return 1; }
+  virtual std::string Str() const;
+  //bool IsInline() const { inlineNoReturn_ & F_INLINE; }
+  //bool IsNoReturn() const { return inlineNoReturn_ & F_NORETURN; }
+  TypeList& ParamTypes() { return paramTypes_; }
+  bool Variadic() const { return variadic_; }
 
 protected:
   //a function does not has the width property
   FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
-      const TypeList& paramTypes)
-    : DerivedType(pool, derived), inlineNoReturn_(inlineReturn),
-      variadic_(variadic), paramTypes_(paramTypes) {
+           const TypeList& paramTypes)
+      : DerivedType(pool, derived), inlineNoReturn_(inlineReturn),
+        variadic_(variadic), paramTypes_(paramTypes) {
     SetComplete(false);
   }
 
@@ -486,111 +328,30 @@ class StructType : public Type
   friend class Type;
   
 public:
-  /*
-  struct StructField {
-    StructField(Object* member, bool isAnonyUnionField=false)
-        _member(member), _isAnonyUnionField(isAnonyUnionField) {}
-
-    Object* _member;
-    bool _isAnonyUnionField;
-  }
-
-  class Iterator {
-  public:
-    Object* operator*(void) {
-      return (*_iter);
-    }
-
-    Object* operator->(void) {
-      return (*iter);
-    }
-
-    Iterator& operator++(void) {
-
-    }
-
-    Iterator operator++(void) {
-
-    }
-
-    bool operator==(const Iterator& other) const {
-
-    }
-
-    bool operator!=(const Iterator& other) const {
-      return !(*this == other);
-    }
-
-  private:
-    MemberList::iterator _iter;
-
-  };
-  */
-
   typedef std::list<Object*> MemberList;
   typedef std::list<Object*>::iterator Iterator;
   
 public:
   static StructType* New(bool isStruct, bool hasTag, Scope* parent);
   
-  ~StructType(void) {/*TODO: delete _env ?*/ }
-  
-  virtual StructType* ToStructType(void) {
-    return this;
-  }
-  
-  virtual const StructType* ToStructType(void) const {
-    return this;
-  }
-  
-  virtual bool operator==(const Type& other) const;
-  
+  ~StructType() {/*TODO: delete _env ?*/ }
+  virtual StructType* ToStructType() { return this; }
+  virtual const StructType* ToStructType() const { return this; }
   virtual bool Compatible(const Type& other) const;
-
-  virtual int Width(void) const {
-    return width_;
-  }
-
-  virtual int Align(void) const {
-    return align_;
-  }
-
-  virtual std::string Str(void) const;
+  virtual int Width() const { return width_; }
+  virtual int Align() const { return align_; }
+  virtual std::string Str() const;
 
   // struct/union
   void AddMember(Object* member);
-
   void AddBitField(Object* member, int offset);
-
-  bool IsStruct(void) const {
-    return isStruct_;
-  }
-
+  bool IsStruct() const { return isStruct_; }
   Object* GetMember(const std::string& member);
-
-  Scope* MemberMap(void) {
-    return memberMap_;
-  }
-
-  MemberList& Members(void) {
-    return members_;
-  }
-
-  int Offset(void) const {
-    return offset_;
-  }
-
-  bool HasTag(void) {
-    return hasTag_;
-  }
-  
+  Scope* MemberMap() { return memberMap_; }
+  MemberList& Members() { return members_; }
+  int Offset() const { return offset_; }
+  bool HasTag() { return hasTag_; }
   void MergeAnony(Object* anony);
-
-  StructType* Copy(void) const {
-    auto ret = StructType::New(false, false, nullptr);
-    *ret = *this;
-    return ret;
-  }
 
 protected:
   // default is incomplete
@@ -599,9 +360,9 @@ protected:
   StructType(const StructType& other);
 
 private:
-  void CalcWidth(void);
+  void CalcWidth();
 
-  //static std::string AnonymousBitField(void) {
+  //static std::string AnonymousBitField() {
   //    static int id = 0;
   //    return std::to_string(id++) + "<anonymous>";
   //}

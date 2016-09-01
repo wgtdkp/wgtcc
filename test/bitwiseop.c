@@ -1,7 +1,7 @@
 #include "test.h"
 
 
-void test1(void)
+void test1()
 {
     int a, b;
     b = 3;
@@ -11,7 +11,7 @@ void test1(void)
     expect(1, b);
 }
 
-void test2(void)
+void test2()
 {
     float a, b;
     int c, d;
@@ -23,7 +23,7 @@ void test2(void)
     expect(d, 1);
 }
 
-void test3(void)
+void test3()
 {
     int a, b;
     b = 0;
@@ -31,7 +31,7 @@ void test3(void)
     expect(a, -1);
 }
 
-void test4(void)
+void test4()
 {
     unsigned a, b;
     b = 0;
@@ -39,7 +39,7 @@ void test4(void)
     expect(a, -1);
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

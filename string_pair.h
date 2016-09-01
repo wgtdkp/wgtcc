@@ -8,7 +8,7 @@
 class StrPair
 {
 public:
-  StrPair(void): begin_(nullptr), end_(nullptr), _needFree(false) {}
+  StrPair(): begin_(nullptr), end_(nullptr), _needFree(false) {}
 
   StrPair(char* begin, char* end, bool needFree=false)
       : begin_(begin), end_(end), _needFree(needFree) {}
@@ -16,7 +16,7 @@ public:
   StrPair(char* begin, size_t len, bool needFree=false)
       : begin_(begin), end_(begin + len), _needFee(needFree) {}
 
-  ~StrPair(void) {
+  ~StrPair() {
     if (_needFree)
       delete[] begin_;
   }
@@ -57,12 +57,12 @@ public:
     return p == end_;
   }
 
-  size_t Len(void) {
+  size_t Len() {
     return end_ - begin_;
   }
 
   // Always deep copy
-  operator std::string(void) {
+  operator std::string() {
     return std::string(begin_, end_);
   }
 
@@ -75,13 +75,13 @@ public:
 struct StrPair
 {
 public:
-  StrPair(void): begin_(nullptr), end_(nullptr) {}
+  StrPair(): begin_(nullptr), end_(nullptr) {}
 
   StrPair(char* begin, char* end): begin_(begin), end_(end) {}
 
   StrPair(char* begin, size_t len): begin_(begin), end_(begin + len) {}
 
-  ~StrPair(void) {}
+  ~StrPair() {}
 
   StrPair(const StrPair& other) {
     *this = other;
@@ -106,12 +106,12 @@ public:
     return p == end_;
   }
 
-  size_t Len(void) {
+  size_t Len() {
     return end_ - begin_;
   }
 
   // Always deep copy
-  operator std::string(void) const {
+  operator std::string() const {
     return std::string(begin_, end_);
   }
 

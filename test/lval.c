@@ -1,14 +1,14 @@
 #include <stdio.h>
 
 
-static void test1(void)
+static void test1()
 {
     int a;
     //a++ = 3;
     //int* c = &(a = 3);
 }
 
-static void test2(void)
+static void test2()
 {
     char a; 
     int* b;
@@ -16,7 +16,7 @@ static void test2(void)
 
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

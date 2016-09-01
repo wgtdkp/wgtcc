@@ -1,3 +1,3 @@
-static void test1(void) {
+static void test1() {
   (int){3};
 }

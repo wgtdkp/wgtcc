@@ -2,7 +2,7 @@
 #include <complex.h>
 
 
-void test_promotion(void)
+void test_promotion()
 {
     //int d = ADD3(1, 2, 3);
     char a = 'a';
@@ -13,7 +13,7 @@ void test_promotion(void)
     printf("sizeof(a + b): %d\n", sizeof(a + b));
 }
 
-void test_width(void)
+void test_width()
 {
     printf("sizeof(short): %d\n", sizeof(short));
     printf("sizeof(int): %d\n", sizeof(int));
@@ -26,7 +26,7 @@ void test_width(void)
     printf("sizeof(long double complex): %d\n", sizeof(long double complex));
 }
 
-void test_struct(void)
+void test_struct()
 {
     typedef struct list_node list_node_t;
     int ival;
@@ -165,7 +165,7 @@ typedef struct Node {
     };
 } Node;
 
-void test_ld(void)
+void test_ld()
 {
     printf("sizeof(foo0_t): %u\n", sizeof(foo0_t));
     printf("sizeof(foo1_t): %u\n", sizeof(foo1_t));
@@ -175,7 +175,7 @@ void test_ld(void)
     printf("sizeof(long double): %u\n", sizeof(long double));
 }
 
-int main(void)
+int main()
 {
     int;
     char;

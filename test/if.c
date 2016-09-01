@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 
-int main(void)
+int main()
 {
     float a = 5;
     if (a < 4)

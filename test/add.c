@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     unsigned a, b;
     a = 2;
@@ -9,7 +9,7 @@ void test1(void)
     printf("%d\n", a);
 }
 
-int main(void)
+int main()
 {
     test1();
     return 0;

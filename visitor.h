@@ -26,7 +26,7 @@ class TranslationUnit;
 class Visitor
 {
 public:
-  virtual ~Visitor(void) {}
+  virtual ~Visitor() {}
   virtual void VisitBinaryOp(BinaryOp* binary) = 0;
   virtual void VisitUnaryOp(UnaryOp* unary) = 0;
   virtual void VisitConditionalOp(ConditionalOp* cond) = 0;

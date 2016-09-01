@@ -8,7 +8,7 @@ void test(int a1, float f1, float f2, float f3,
 
 }
 
-int main(void)
+int main()
 {
     test(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
     return 0;
@@ -23,7 +23,7 @@ int test(int a)
         return 10;
 }
 
-int main(void)
+int main()
 {
     float d = 5.3;
     //printf("hello world\n");

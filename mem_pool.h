@@ -8,19 +8,19 @@
 class MemPool
 {
 public:
-  MemPool(void): allocated_(0) {}
+  MemPool(): allocated_(0) {}
   
-  virtual ~MemPool(void) {}
+  virtual ~MemPool() {}
   
   MemPool(const MemPool& other) = delete;
   
   MemPool& operator=(const MemPool& other) = delete;
 
-  virtual void* Alloc(void) = 0;
+  virtual void* Alloc() = 0;
   
   virtual void Free(void* addr) = 0;
   
-  virtual void Clear(void) = 0;
+  virtual void Clear() = 0;
 
 protected:
   size_t allocated_;
@@ -31,19 +31,19 @@ template <class T>
 class MemPoolImp: public MemPool
 {
 public:
-  MemPoolImp(void) : root_(nullptr) {}
+  MemPoolImp() : root_(nullptr) {}
   
-  virtual ~MemPoolImp(void) {}
+  virtual ~MemPoolImp() {}
 
   MemPoolImp(const MemPool& other) = delete;
   
   MemPoolImp& operator=(MemPool& other) = delete;
 
-  virtual void* Alloc(void);
+  virtual void* Alloc();
   
   virtual void Free(void* addr);
   
-  virtual void Clear(void);
+  virtual void Clear();
 
 private:
   enum {
@@ -56,7 +56,7 @@ private:
   };
   
   struct Block {
-    Block(void) {
+    Block() {
       for (size_t i = 0; i < COUNT - 1; i++)
         chunks_[i]._next = &chunks_[i+1];
       chunks_[COUNT-1]._next = nullptr;
@@ -70,7 +70,7 @@ private:
 
 
 template <class T>
-void* MemPoolImp<T>::Alloc(void)
+void* MemPoolImp<T>::Alloc()
 {
   if (nullptr == root_) { //空间不够，需要分配空间
     auto block = new Block();
@@ -105,7 +105,7 @@ void MemPoolImp<T>::Free(void* addr)
 
 
 template <class T>
-void MemPoolImp<T>::Clear(void)
+void MemPoolImp<T>::Clear()
 {
   for (auto block: blocks_)
     delete block;

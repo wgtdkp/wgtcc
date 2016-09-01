@@ -1,4 +1,4 @@
-void test(void)
+void test()
 {
     unsigned a, b;
     a = a >> b;

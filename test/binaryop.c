@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     double a, b;
     a = 3.5;
@@ -8,7 +8,7 @@ void test1(void)
     expect(15.75, a * b);
 }
 
-void test2(void)
+void test2()
 {
     char a, b;
     a = -200;
@@ -16,7 +16,7 @@ void test2(void)
     printf("%d\n", (unsigned)a * b);
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

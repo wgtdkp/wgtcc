@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     int a, b;
     a = 3;
@@ -10,7 +10,7 @@ void test1(void)
     expect(0, !a || !b);
 }
 
-void test2(void)
+void test2()
 {
     char a, b;
     a = 3;
@@ -20,7 +20,7 @@ void test2(void)
     expect(0, !a || !b); 
 }
 
-void test3(void)
+void test3()
 {
     float a, b;
     a = 3;
@@ -30,7 +30,7 @@ void test3(void)
     expect(0, !a || !b);
 }
 
-void test3(void)
+void test3()
 {
     double a, b;
     a = 3;
@@ -40,7 +40,7 @@ void test3(void)
     expect(0, !a || !b);
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

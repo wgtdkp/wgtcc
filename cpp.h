@@ -35,31 +35,31 @@ public:
       : funcLike_(true), variadic_(variadic), preDef_(preDef),
         params_(params), repSeq_(repSeq) {}
   
-  ~Macro(void) {}
+  ~Macro() {}
 
   /*
-  std::string Name(void) {
+  std::string Name() {
     return tok_->Str();
   }
   */
 
-  bool FuncLike(void) {
+  bool FuncLike() {
     return funcLike_;
   }
 
-  bool ObjLike(void) {
+  bool ObjLike() {
     return !FuncLike();
   }
 
-  bool Variadic(void) {
+  bool Variadic() {
     return variadic_;
   }
 
-  bool PreDef(void) {
+  bool PreDef() {
     return preDef_;
   }
 
-  ParamList& Params(void) {
+  ParamList& Params() {
     return params_;
   }
 
@@ -89,7 +89,7 @@ public:
   Preprocessor(const std::string* fileName)
     : curLine_(1), lineLine_(0), curCond_(true) {}
 
-  ~Preprocessor(void) {}
+  ~Preprocessor() {}
   void Finalize(TokenSequence os);
   void Process(TokenSequence& os);
   void Expand(TokenSequence& os, TokenSequence& is, bool inCond=false);
@@ -162,7 +162,7 @@ public:
   //    return hs_.find(name) != hs_.end();
   //}
 
-  bool NeedExpand(void) const {
+  bool NeedExpand() const {
     if (ppCondStack_.empty())
       return true;
     auto top = ppCondStack_.top();
@@ -170,7 +170,7 @@ public:
   }
 
 private:
-  void Init(void);
+  void Init();
 
   //HideSet hs_;
   PPCondStack ppCondStack_;

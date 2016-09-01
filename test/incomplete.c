@@ -1,5 +1,5 @@
 
-int main(void)
+int main()
 {
     static int a;
     static int* p = &a;

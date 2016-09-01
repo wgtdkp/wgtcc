@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     int a, b;
     a = -1;
@@ -8,14 +8,14 @@ void test1(void)
     //printf("%d\n", (a == -1));
 }
 
-void test2(void)
+void test2()
 {
     int a = 4, b = 5;
     expect(1, a < b);
     expect(1, b > a);
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

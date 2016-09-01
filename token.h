@@ -29,7 +29,7 @@ struct SourceLocation {
   unsigned line_;
   unsigned column_;
 
-  const char* Begin(void) const {
+  const char* Begin() const {
     return lineBegin_ + column_ - 1; 
   }
 };
@@ -226,7 +226,7 @@ public:
     return *this;
   }
 
-  virtual ~Token(void) {}
+  virtual ~Token() {}
   
   //Token::NOTOK represents not a kw.
   static int KeyWordTag(const std::string& key) {
@@ -238,15 +238,15 @@ public:
     return kwIter->second;
   }
 
-  //int Tag(void) const {
+  //int Tag() const {
   //	return tag_;
   //}
 
-  //size_t Size(void) const {
+  //size_t Size() const {
   //	return end_ - begin_;
   //}
   
-  //std::string Str(void) const {
+  //std::string Str() const {
   //	return std::string(begin_, end_);
   //}
 
@@ -256,35 +256,35 @@ public:
     return CONST <= tag && tag <= STATIC_ASSERT;
   }
 
-  bool IsKeyWord(void) const {
+  bool IsKeyWord() const {
     return IsKeyWord(tag_);
   }
 
-  bool IsPunctuator(void) const {
+  bool IsPunctuator() const {
     return 0 <= tag_ && tag_ <= ELLIPSIS;
   }
 
-  bool IsLiteral(void) const {
+  bool IsLiteral() const {
     return tag_ == LITERAL;
   }
 
-  bool IsConstant(void) const {
+  bool IsConstant() const {
     return CONSTANT <= tag_ && tag_ <= F_CONSTANT;
   }
 
-  bool IsIdentifier(void) const {
+  bool IsIdentifier() const {
     return IDENTIFIER == tag_;
   }
 
-  bool IsEOF(void) const {
+  bool IsEOF() const {
     return tag_ == Token::END;
   }
 
-  bool IsTypeSpecQual(void) const { 
+  bool IsTypeSpecQual() const { 
     return CONST <= tag_ && tag_ <= ENUM;
   }
   
-  bool IsDecl(void) const {
+  bool IsDecl() const {
     return CONST <= tag_ && tag_ <= REGISTER;
   }
 
@@ -329,7 +329,7 @@ public:
 struct TokenSequence
 {
 public:
-  TokenSequence(void): tokList_(new TokenList()),
+  TokenSequence(): tokList_(new TokenList()),
       begin_(tokList_->begin()), end_(tokList_->end()) {}
 
   explicit TokenSequence(const Token&& tok) {
@@ -344,7 +344,7 @@ public:
       TokenList::iterator begin, TokenList::iterator end)
       : tokList_(tokList), begin_(begin), end_(end) {}
   
-  ~TokenSequence(void) {}
+  ~TokenSequence() {}
 
   TokenSequence(const TokenSequence& other) {
     *this = other;
@@ -372,14 +372,14 @@ public:
     return Peek()->tag_ == tag;
   }
 
-  Token* Next(void) {
+  Token* Next() {
     auto ret = Peek();
     if (!ret->IsEOF())
       ++begin_;
     return ret;
   }
 
-  void PutBack(void) {
+  void PutBack() {
     assert(begin_ != tokList_->begin());
     //if (begin_ == tokList_->begin()) {
     //  PrintTokList(*tokList_);
@@ -387,9 +387,9 @@ public:
     --begin_;
   }
 
-  Token* Peek(void);
+  Token* Peek();
 
-  Token* Peek2(void) {
+  Token* Peek2() {
     if (Empty())
       return Peek(); // Return the Token::END
     Next();
@@ -398,12 +398,12 @@ public:
     return ret;
   }
 
-  Token* Back(void) {
+  Token* Back() {
     auto back = end_;
     return &(*--back);
   }
 
-  TokenList::iterator Mark(void) {
+  TokenList::iterator Mark() {
     return begin_;
   }
 
@@ -411,7 +411,7 @@ public:
     begin_ = mark;
   }
 
-  bool Empty(void);
+  bool Empty();
 
   void InsertBack(const TokenSequence& ts) {
     //assert(tokList_ == seq.tokList_);
@@ -437,8 +437,8 @@ public:
     begin_ = tokList_->insert(begin_, *tok);
   }
 
-  bool IsBeginOfLine(void) const;
-  TokenSequence GetLine(void);
+  bool IsBeginOfLine() const;
+  TokenSequence GetLine();
 
 
   void SetParser(Parser* parser) {

@@ -1,7 +1,7 @@
 #include "test.h"
 
 
-void test(void)
+void test()
 {
     typedef enum {
         AA,
@@ -17,7 +17,7 @@ void test(void)
     
 }
 
-int main(void)
+int main()
 {
     test();
     return 0;

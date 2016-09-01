@@ -1,10 +1,10 @@
 
-void test1(void)
+void test1()
 {
     extern int c;
 }
 
-void test2(void)
+void test2()
 {
     extern double c;
 }

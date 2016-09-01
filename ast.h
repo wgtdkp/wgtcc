@@ -54,12 +54,12 @@ class TranslationUnit;
 class ASTNode
 {
 public:
-  virtual ~ASTNode(void) {}
+  virtual ~ASTNode() {}
   
   virtual void Accept(Visitor* v) = 0;
 
 protected:
-  ASTNode(void) {}
+  ASTNode() {}
 
   MemPool* pool_ {nullptr};
 };
@@ -72,10 +72,10 @@ typedef ASTNode ExtDecl;
 class Stmt : public ASTNode
 {
 public:
-  virtual ~Stmt(void) {}
+  virtual ~Stmt() {}
 
 protected:
-   Stmt(void) {}
+   Stmt() {}
 };
 
 
@@ -101,19 +101,19 @@ class Declaration: public Stmt
 public:
   static Declaration* New(Object* obj);
 
-  virtual ~Declaration(void) {}
+  virtual ~Declaration() {}
 
   virtual void Accept(Visitor* v);
 
-  InitList& Inits(void) {
+  InitList& Inits() {
     return inits_;
   }
 
-  //StaticInitList StaticInits(void) {
+  //StaticInitList StaticInits() {
   //    return _staticInits;
   //}
 
-  Object* Obj(void) {
+  Object* Obj() {
     return obj_;
   }
 
@@ -134,14 +134,14 @@ class EmptyStmt : public Stmt
   friend class Generator;
 
 public:
-  static EmptyStmt* New(void);
+  static EmptyStmt* New();
 
-  virtual ~EmptyStmt(void) {}
+  virtual ~EmptyStmt() {}
   
   virtual void Accept(Visitor* v);
 
 protected:
-  EmptyStmt(void) {}
+  EmptyStmt() {}
 };
 
 
@@ -152,21 +152,21 @@ class LabelStmt : public Stmt
   friend class AddrEvaluator;
   friend class Generator;
 public:
-  static LabelStmt* New(void);
+  static LabelStmt* New();
 
-  ~LabelStmt(void) {}
+  ~LabelStmt() {}
   
   virtual void Accept(Visitor* v);
   
-  std::string Label(void) const {
+  std::string Label() const {
     return ".L" + std::to_string(tag_);
   }
 
 protected:
-  LabelStmt(void): tag_(GenTag()) {}
+  LabelStmt(): tag_(GenTag()) {}
 
 private:
-  static int GenTag(void) {
+  static int GenTag() {
     static int tag = 0;
     return ++tag;
   }
@@ -183,7 +183,7 @@ class IfStmt : public Stmt
 public:
   static IfStmt* New(Expr* cond, Stmt* then, Stmt* els=nullptr);
 
-  virtual ~IfStmt(void) {}
+  virtual ~IfStmt() {}
   
   virtual void Accept(Visitor* v);
 
@@ -207,7 +207,7 @@ class JumpStmt : public Stmt
 public:
   static JumpStmt* New(LabelStmt* label);
 
-  virtual ~JumpStmt(void) {}
+  virtual ~JumpStmt() {}
   
   virtual void Accept(Visitor* v);
   
@@ -232,7 +232,7 @@ class ReturnStmt: public Stmt
 public:
   static ReturnStmt* New(Expr* expr);
 
-  virtual ~ReturnStmt(void) {}
+  virtual ~ReturnStmt() {}
   
   virtual void Accept(Visitor* v);
 
@@ -255,15 +255,15 @@ class CompoundStmt : public Stmt
 public:
   static CompoundStmt* New(StmtList& stmts, ::Scope* scope=nullptr);
 
-  virtual ~CompoundStmt(void) {}
+  virtual ~CompoundStmt() {}
   
   virtual void Accept(Visitor* v);
 
-  StmtList& Stmts(void) {
+  StmtList& Stmts() {
     return stmts_;
   }
 
-  ::Scope* Scope(void) {
+  ::Scope* Scope() {
     return scope_;
   }
 
@@ -298,17 +298,17 @@ class Expr : public Stmt
   friend class LValGenerator;
 
 public:
-  virtual ~Expr(void) {}
+  virtual ~Expr() {}
   
-  ::Type* Type(void) {
+  ::Type* Type() {
     return type_;
   }
 
-  virtual bool IsLVal(void) = 0;
+  virtual bool IsLVal() = 0;
 
-  virtual void TypeChecking(void) = 0;
+  virtual void TypeChecking() = 0;
 
-  const Token* Tok(void) const {
+  const Token* Tok() const {
     return tok_;
   }
 
@@ -352,12 +352,12 @@ public:
 
   static BinaryOp* New(const Token* tok, int op, Expr* lhs, Expr* rhs);
 
-  virtual ~BinaryOp(void) {}
+  virtual ~BinaryOp() {}
   
   virtual void Accept(Visitor* v);
   
   //like member ref operator is a lvalue
-  virtual bool IsLVal(void) {
+  virtual bool IsLVal() {
     switch (op_) {
     case '.':
     case ']': return !Type()->ToArrayType();
@@ -365,20 +365,20 @@ public:
     }
   }
 
-  ArithmType* Promote(void);
+  ArithmType* Promote();
 
-  virtual void TypeChecking(void);
-  void SubScriptingOpTypeChecking(void);
-  void MemberRefOpTypeChecking(void);
-  void MultiOpTypeChecking(void);
-  void AdditiveOpTypeChecking(void);
-  void ShiftOpTypeChecking(void);
-  void RelationalOpTypeChecking(void);
-  void EqualityOpTypeChecking(void);
-  void BitwiseOpTypeChecking(void);
-  void LogicalOpTypeChecking(void);
-  void AssignOpTypeChecking(void);
-  void CommaOpTypeChecking(void);
+  virtual void TypeChecking();
+  void SubScriptingOpTypeChecking();
+  void MemberRefOpTypeChecking();
+  void MultiOpTypeChecking();
+  void AdditiveOpTypeChecking();
+  void ShiftOpTypeChecking();
+  void RelationalOpTypeChecking();
+  void EqualityOpTypeChecking();
+  void BitwiseOpTypeChecking();
+  void LogicalOpTypeChecking();
+  void AssignOpTypeChecking();
+  void CommaOpTypeChecking();
   
 protected:
   BinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs)
@@ -418,21 +418,21 @@ class UnaryOp : public Expr
 public:
   static UnaryOp* New(int op, Expr* operand, ::Type* type=nullptr);
 
-  virtual ~UnaryOp(void) {}
+  virtual ~UnaryOp() {}
   
   virtual void Accept(Visitor* v);
 
   //TODO: like '*p' is lvalue, but '~i' is not lvalue
-  virtual bool IsLVal(void);
+  virtual bool IsLVal();
 
-  ArithmType* Promote(void);
+  ArithmType* Promote();
 
-  void TypeChecking(void);
-  void IncDecOpTypeChecking(void);
-  void AddrOpTypeChecking(void);
-  void DerefOpTypeChecking(void);
-  void UnaryArithmOpTypeChecking(void);
-  void CastOpTypeChecking(void);
+  void TypeChecking();
+  void IncDecOpTypeChecking();
+  void AddrOpTypeChecking();
+  void DerefOpTypeChecking();
+  void UnaryArithmOpTypeChecking();
+  void CastOpTypeChecking();
 
 protected:
   UnaryOp(int op, Expr* operand, ::Type* type = nullptr)
@@ -459,17 +459,17 @@ public:
   static ConditionalOp* New(const Token* tok,
       Expr* cond, Expr* exprTrue, Expr* exprFalse);
   
-  virtual ~ConditionalOp(void) {}
+  virtual ~ConditionalOp() {}
   
   virtual void Accept(Visitor* v);
 
-  virtual bool IsLVal(void) {
+  virtual bool IsLVal() {
     return false;
   }
 
-  ArithmType* Promote(void);
+  ArithmType* Promote();
   
-  virtual void TypeChecking(void);
+  virtual void TypeChecking();
 
 protected:
   ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
@@ -496,32 +496,32 @@ public:
 public:
   static FuncCall* New(Expr* designator, const ArgList& args);
 
-  ~FuncCall(void) {}
+  ~FuncCall() {}
   
   virtual void Accept(Visitor* v);
 
   //a function call is ofcourse not lvalue
-  virtual bool IsLVal(void) {
+  virtual bool IsLVal() {
     return false;
   }
 
-  ArgList* Args(void) {
+  ArgList* Args() {
     return &args_;
   }
 
-  Expr* Designator(void) {
+  Expr* Designator() {
     return designator_;
   }
 
-  const std::string& Name(void) const {
+  const std::string& Name() const {
     return tok_->str_;
   }
 
-  ::FuncType* FuncType(void) {
+  ::FuncType* FuncType() {
     return designator_->Type()->ToFuncType();
   }
 
-  virtual void TypeChecking(void);
+  virtual void TypeChecking();
 
 protected:
   FuncCall(Expr* designator, const ArgList& args)
@@ -544,31 +544,31 @@ public:
   static Constant* New(const Token* tok, int tag, double val);
   static Constant* New(const Token* tok, int tag, const std::string* val);
 
-  ~Constant(void) {}
+  ~Constant() {}
   
   virtual void Accept(Visitor* v);
 
-  virtual bool IsLVal(void) {
+  virtual bool IsLVal() {
     return false;
   }
 
-  virtual void TypeChecking(void) {}
+  virtual void TypeChecking() {}
 
-  long IVal(void) const {
+  long IVal() const {
     return ival_;
   }
 
-  double FVal(void) const {
+  double FVal() const {
     return fval_;
   }
 
-  const std::string* SVal(void) const {
+  const std::string* SVal() const {
     return sval_;
   }
 
-  std::string SValRepr(void) const;
+  std::string SValRepr() const;
 
-  std::string Label(void) const {
+  std::string Label() const {
     return std::string(".LC") + std::to_string(id_);
   }
 
@@ -601,21 +601,21 @@ class TempVar : public Expr
 public:
   static TempVar* New(::Type* type);
 
-  virtual ~TempVar(void) {}
+  virtual ~TempVar() {}
   
   virtual void Accept(Visitor* v);
   
-  virtual bool IsLVal(void) {
+  virtual bool IsLVal() {
     return true;
   }
 
-  virtual void TypeChecking(void) {}
+  virtual void TypeChecking() {}
 
 protected:
   TempVar(::Type* type): Expr(nullptr, type), tag_(GenTag()) {}
   
 private:
-  static int GenTag(void) {
+  static int GenTag() {
     static int tag = 0;
     return ++tag;
   }
@@ -641,19 +641,19 @@ class Identifier: public Expr
 public:
   static Identifier* New(const Token* tok, ::Type* type, Linkage linkage);
 
-  virtual ~Identifier(void) {}
+  virtual ~Identifier() {}
 
   virtual void Accept(Visitor* v);
 
-  virtual bool IsLVal(void) {
+  virtual bool IsLVal() {
     return false;
   }
 
-  virtual Object* ToObject(void) {
+  virtual Object* ToObject() {
     return nullptr;
   }
 
-  virtual Enumerator* ToEnumerator(void) {
+  virtual Enumerator* ToEnumerator() {
     return nullptr;
   }
 
@@ -661,7 +661,7 @@ public:
    * An identifer can be:
    *     object, sturct/union/enum tag, typedef name, function, label.
    */
-   Identifier* ToTypeName(void) {
+   Identifier* ToTypeName() {
     // A typename has no linkage
     // And a function has external or internal linkage
     if (ToObject() || ToEnumerator() || _linkage != L_NONE)
@@ -670,17 +670,17 @@ public:
   }
 
 
-  virtual const std::string& Name(void) const {
+  virtual const std::string& Name() const {
     return tok_->str_;
   }
 
   /*
-  ::Scope* Scope(void) {
+  ::Scope* Scope() {
     return scope_;
   }
   */
 
-  enum Linkage Linkage(void) const {
+  enum Linkage Linkage() const {
     return _linkage;
   }
 
@@ -695,7 +695,7 @@ public:
   }
   */
 
-  virtual void TypeChecking(void) {}
+  virtual void TypeChecking() {}
 
 protected:
   Identifier(const Token* tok, ::Type* type, enum Linkage linkage)
@@ -719,15 +719,15 @@ class Enumerator: public Identifier
 public:
   static Enumerator* New(const Token* tok, int val);
 
-  virtual ~Enumerator(void) {}
+  virtual ~Enumerator() {}
 
   virtual void Accept(Visitor* v);
 
-  virtual Enumerator* ToEnumerator(void) {
+  virtual Enumerator* ToEnumerator() {
     return this;
   }
 
-  int Val(void) const {
+  int Val() const {
     return _cons->IVal();
   }
 
@@ -752,24 +752,24 @@ public:
       int storage=0, enum Linkage linkage=L_NONE,
       unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
 
-  ~Object(void) {}
+  ~Object() {}
 
   virtual void Accept(Visitor* v);
   
-  virtual Object* ToObject(void) {
+  virtual Object* ToObject() {
     return this;
   }
 
-  virtual bool IsLVal(void) {
+  virtual bool IsLVal() {
     // TODO(wgtdkp): not all object is lval?
     return true;
   }
 
-  bool IsStatic(void) const {
+  bool IsStatic() const {
     return (Storage() & S_STATIC) || (Linkage() != L_NONE);
   }
 
-  int Storage(void) const {
+  int Storage() const {
     return storage_;
   }
 
@@ -777,7 +777,7 @@ public:
     storage_ = storage;
   }
 
-  int Offset(void) const {
+  int Offset() const {
     return offset_;
   }
 
@@ -785,7 +785,7 @@ public:
     offset_ = offset;
   }
 
-  Declaration* Decl(void) {
+  Declaration* Decl() {
     return decl_;
   }
 
@@ -793,15 +793,15 @@ public:
     decl_ = decl;
   }
 
-  unsigned char BitFieldBegin(void) const {
+  unsigned char BitFieldBegin() const {
     return bitFieldBegin_;
   }
 
-  unsigned char BitFieldEnd(void) const {
+  unsigned char BitFieldEnd() const {
     return bitFieldBegin_ + bitFieldWidth_;
   }
 
-  unsigned char BitFieldWidth(void) const {
+  unsigned char BitFieldWidth() const {
     return bitFieldWidth_;
   }
 
@@ -815,11 +815,11 @@ public:
   }
 
 
-  bool HasInit(void) const {
+  bool HasInit() const {
     return decl_ && decl_->Inits().size();
   }
 
-  bool Anonymous(void) const {
+  bool Anonymous() const {
     return anonymous_;
   }
 
@@ -827,7 +827,7 @@ public:
     anonymous_ = anonymous;
   }
 
-  virtual const std::string& Name(void) const {
+  virtual const std::string& Name() const {
     /*
     if (Anonymous()) {
       static auto anonyName = "anonymous<"
@@ -890,17 +890,17 @@ public:
 public:
   static FuncDef* New(Identifier* ident, LabelStmt* retLabel);
 
-  virtual ~FuncDef(void) {}
+  virtual ~FuncDef() {}
   
-  virtual FuncType* Type(void) {
+  virtual FuncType* Type() {
     return ident_->Type()->ToFuncType();
   }
 
-  ParamList& Params(void) {
+  ParamList& Params() {
     return params_;
   }
 
-  CompoundStmt* Body(void) {
+  CompoundStmt* Body() {
     return body_;
   }
 
@@ -908,11 +908,11 @@ public:
     body_ = body;
   }
 
-  std::string Name(void) const {
+  std::string Name() const {
     return ident_->Name();
   }
 
-  enum Linkage Linkage(void) {
+  enum Linkage Linkage() {
     return ident_->Linkage();
   }
   
@@ -937,11 +937,11 @@ class TranslationUnit : public ASTNode
   friend class Generator;
 
 public:
-  static TranslationUnit* New(void) {
+  static TranslationUnit* New() {
     return new TranslationUnit();
   }
 
-  virtual ~TranslationUnit(void) {}
+  virtual ~TranslationUnit() {}
 
   virtual void Accept(Visitor* v);
   
@@ -949,12 +949,12 @@ public:
     extDecls_.push_back(extDecl);
   }
 
-  std::list<ExtDecl*>& ExtDecls(void) {
+  std::list<ExtDecl*>& ExtDecls() {
     return extDecls_;
   }
 
 private:
-  TranslationUnit(void) {}
+  TranslationUnit() {}
 
   std::list<ExtDecl*> extDecls_;
 };

@@ -37,7 +37,7 @@ struct ROData
   //ROData& operator=(const ROData& other) = delete;
 
 
-  ~ROData(void) {}
+  ~ROData() {}
 
   std::string sval_;
   long ival_;
@@ -46,7 +46,7 @@ struct ROData
   std::string label_;
 
 private:
-  static long GenTag(void) {
+  static long GenTag() {
     static long tag = 0;
     return tag++;
   }
@@ -61,7 +61,7 @@ struct ObjectAddr
   ObjectAddr(const std::string& label, const std::string& base, int offset)
       : label_(label), _base(base), offset_(offset) {}
 
-  std::string Repr(void) const;
+  std::string Repr() const;
   
   std::string label_;
   std::string _base;
@@ -86,7 +86,7 @@ class Generator: public Visitor
 {
   friend class Evaluator<Addr>;
 public:
-  Generator(void) {}
+  Generator() {}
 
   virtual void Visit(ASTNode* node) {
     node->Accept(this);
@@ -129,7 +129,7 @@ public:
     outFile_ = outFile;
   }
 
-  void Gen(void);
+  void Gen();
   
 protected:
   // Binary
@@ -158,7 +158,7 @@ protected:
 
   void GenStaticDecl(Declaration* decl);
   
-  void GenSaveArea(void);
+  void GenSaveArea();
   
   void AllocObjects(Scope* scope,
       const FuncDef::ParamList& params=FuncDef::ParamList());
@@ -210,7 +210,7 @@ protected:
 class LValGenerator: public Generator
 {
 public:
-  LValGenerator(void) {}
+  LValGenerator() {}
   
   //Expression
   virtual void VisitBinaryOp(BinaryOp* binaryOp);

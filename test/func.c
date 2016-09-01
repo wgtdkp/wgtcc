@@ -1,18 +1,18 @@
 #include <stdio.h>
 
-typedef void(*func_t)(void);
+typedef void(*func_t)();
 
-static void func(void)
+static void func()
 {
     printf("func\n");
 }
 
-static void func1(void)
+static void func1()
 {
     printf("func1\n");
 }
 
-static void test1(void)
+static void test1()
 {
     func_t f = func;
     func_t* pf = &f;
@@ -24,7 +24,7 @@ static void test_param(int arr[])
 
 }
 
-int main(void)
+int main()
 {
     func_t f = func;
     f();

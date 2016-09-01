@@ -1215,7 +1215,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
 }
 
 
-void Generator::GenSaveArea(void)
+void Generator::GenSaveArea()
 {
   static const int begin = -176;
   int offset = begin;
@@ -1268,7 +1268,7 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit)
 }
 
 
-void Generator::Gen(void)
+void Generator::Gen()
 {
   Emit(".file \"%s\"", inFileName.c_str());
 
@@ -1388,7 +1388,7 @@ void LValGenerator::VisitTempVar(TempVar* tempVar)
 }
 
 
-std::string ObjectAddr::Repr(void) const
+std::string ObjectAddr::Repr() const
 {
   auto ret = _base.size() ? "(%" + _base + ")": "";
   if (label_.size() == 0) {

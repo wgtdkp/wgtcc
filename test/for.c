@@ -12,7 +12,7 @@
 #define expect(a, b)
 #endif
 
-void test_decl(void)
+void test_decl()
 {
     int sum = 0;
     for (int i = 0; i < 7; i++) {
@@ -35,7 +35,7 @@ void test_decl(void)
 
 
 
-int main(void)
+int main()
 {
     test_decl();
     return 0;

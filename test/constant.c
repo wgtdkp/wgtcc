@@ -1,12 +1,12 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     int c = '\77';
     printf("%x\n", c);
 }
 
-int main(void)
+int main()
 {
     test1();
     return 0;

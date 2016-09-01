@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 
-void test(void)
+void test()
 {
     typedef struct {
         int;
@@ -14,7 +14,7 @@ void test(void)
 }
 
 
-int main(void)
+int main()
 {
     test();
     return 0;

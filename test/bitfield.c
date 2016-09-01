@@ -1,7 +1,7 @@
 #include "test.h"
 
 
-void test1(void)
+void test1()
 {
     typedef struct {
         unsigned char a: 1;
@@ -12,7 +12,7 @@ void test1(void)
     printf("%d\n", sizeof(foo_t));
 }
 
-void test2(void)
+void test2()
 {
     typedef struct {
         unsigned char a: 1;
@@ -24,7 +24,7 @@ void test2(void)
     printf("%d\n", sizeof(foo_t));
 }
 
-void test3(void)
+void test3()
 {
     typedef struct {
         unsigned short a: 8;
@@ -34,7 +34,7 @@ void test3(void)
     printf("%d\n", sizeof(foo_t));
 }
 
-void test4(void)
+void test4()
 {
     typedef struct {
         unsigned short a: 8;
@@ -43,7 +43,7 @@ void test4(void)
     printf("%d\n", sizeof(foo_t));
 }
 
-void test5(void)
+void test5()
 {
     typedef union {
         struct {
@@ -62,7 +62,7 @@ void test5(void)
     //printf("%lx\n", foo.c);    
 }
 
-void test6(void)
+void test6()
 {
     typedef struct {
         unsigned short a: 8;
@@ -71,7 +71,7 @@ void test6(void)
     printf("%d\n", sizeof(foo_t));
 }
 
-void test7(void)
+void test7()
 {
     typedef struct {
         unsigned int a: 8;
@@ -86,7 +86,7 @@ void test7(void)
     printf("%x\n", *((int*)&foo));
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

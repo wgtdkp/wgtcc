@@ -3,7 +3,7 @@
 #include <wchar.h>
 
 
-int main(void)
+int main()
 {
     char arr[] = "ab" "cd";
     //char arr2[] = "ab" u8"cd";

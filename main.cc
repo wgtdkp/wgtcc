@@ -19,7 +19,7 @@ std::string inFileName;
 std::string outFileName;
 
 
-void Usage(void)
+void Usage()
 {
   printf("Usage: wgtcc [options] file...\n"
        "Options: \n"

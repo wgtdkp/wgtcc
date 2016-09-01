@@ -123,7 +123,7 @@ Expr* Expr::MayCast(Expr* expr)
 Expr* Expr::MayCast(Expr* expr, ::Type* desType)
 {
   expr = MayCast(expr);
-  if (*desType != *expr->Type())
+  if (!desType->Compatible(*expr->Type()))
     expr = UnaryOp::New(Token::CAST, expr, desType);
   return expr;
 }
@@ -172,7 +172,7 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
 }
 
 
-ArithmType* BinaryOp::Promote(void)
+ArithmType* BinaryOp::Promote()
 {
   // Both lhs and rhs are ensured to be have arithmetic type
   auto lhsType = lhs_->Type()->ToArithmType();
@@ -194,7 +194,7 @@ ArithmType* BinaryOp::Promote(void)
  * Type checking
  */
 
-void BinaryOp::TypeChecking(void)
+void BinaryOp::TypeChecking()
 {
   switch (op_) {
   case '.':
@@ -245,42 +245,42 @@ void BinaryOp::TypeChecking(void)
   }
 }
 
-void BinaryOp::CommaOpTypeChecking(void)
+void BinaryOp::CommaOpTypeChecking()
 {
   type_ = rhs_->Type();
 }
 
-void BinaryOp::SubScriptingOpTypeChecking(void)
+void BinaryOp::SubScriptingOpTypeChecking()
 {
   auto lhsType = lhs_->Type()->ToPointerType();
   if (nullptr == lhsType) {
-    Error(tok_, "an pointer expected");
+    Error(this, "an pointer expected");
   }
   if (!rhs_->Type()->IsInteger()) {
-    Error(tok_, "the operand of [] should be intger");
+    Error(this, "the operand of [] should be intger");
   }
 
   // The type of [] operator is the derived type
   type_ = lhsType->Derived();    
 }
 
-void BinaryOp::MemberRefOpTypeChecking(void)
+void BinaryOp::MemberRefOpTypeChecking()
 {
   type_ = rhs_->Type();
 }
 
-void BinaryOp::MultiOpTypeChecking(void)
+void BinaryOp::MultiOpTypeChecking()
 {
   auto lhsType = lhs_->Type()->ToArithmType();
   auto rhsType = rhs_->Type()->ToArithmType();
   if (lhsType == nullptr || rhsType == nullptr) {
-    Error(tok_, "operands should have arithmetic type");
+    Error(this, "operands should have arithmetic type");
   }
 
   if ('%' == op_ && 
       !(lhs_->Type()->IsInteger()
       && rhs_->Type()->IsInteger())) {
-    Error(tok_, "operands of '%%' should be integers");
+    Error(this, "operands of '%%' should be integers");
   }
 
   //TODO: type promotion
@@ -294,25 +294,25 @@ void BinaryOp::MultiOpTypeChecking(void)
  *     1. lhs of MINUS operator, and rhs must be integer or pointer;
  *     2. lhs/rhs of ADD operator, and the other operand must be integer;
  */
-void BinaryOp::AdditiveOpTypeChecking(void)
+void BinaryOp::AdditiveOpTypeChecking()
 {
   auto lhsType = lhs_->Type()->ToPointerType();
   auto rhsType = rhs_->Type()->ToPointerType();
   if (lhsType) {
     if (op_ == Token::MINUS) {
-      if ((rhsType && *lhsType != *rhsType)
+      if ((rhsType && !lhsType->Compatible(*rhsType))
           || !rhs_->Type()->IsInteger()) {
-        Error(tok_, "invalid operands to binary -");
+        Error(this, "invalid operands to binary -");
       }
       type_ = ArithmType::New(T_LONG); // ptrdiff_t
     } else if (!rhs_->Type()->IsInteger()) {
-      Error(tok_, "invalid operands to binary -");
+      Error(this, "invalid operands to binary -");
     } else {
       type_ = lhs_->Type();
     }
   } else if (rhsType) {
     if (op_ != Token::ADD || !lhs_->Type()->IsInteger()) {
-      Error(tok_, "invalid operands to binary '%s'",
+      Error(this, "invalid operands to binary '%s'",
           tok_->str_.c_str());
     }
     type_ = rhs_->Type();
@@ -321,7 +321,7 @@ void BinaryOp::AdditiveOpTypeChecking(void)
     auto lhsType = lhs_->Type()->ToArithmType();
     auto rhsType = rhs_->Type()->ToArithmType();
     if (lhsType == nullptr || rhsType == nullptr) {
-      Error(tok_, "invalid operands to binary %s",
+      Error(this, "invalid operands to binary %s",
           tok_->str_.c_str());
     }
 
@@ -329,10 +329,10 @@ void BinaryOp::AdditiveOpTypeChecking(void)
   }
 }
 
-void BinaryOp::ShiftOpTypeChecking(void)
+void BinaryOp::ShiftOpTypeChecking()
 {
   if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger()) {
-    Error(tok_, "expect integers for shift operator '%s'",
+    Error(this, "expect integers for shift operator '%s'",
         tok_->str_);
   }
 
@@ -340,30 +340,33 @@ void BinaryOp::ShiftOpTypeChecking(void)
   type_ = lhs_->Type();
 }
 
-void BinaryOp::RelationalOpTypeChecking(void)
+void BinaryOp::RelationalOpTypeChecking()
 {
-  if (!lhs_->Type()->IsReal() || !rhs_->Type()->IsReal()) {
-    Error(tok_, "expect integer/float"
-        " for relational operator '%s'", tok_->str_);
+  if (lhs_->Type()->ToPointerType() || rhs_->Type()->ToPointerType()) {
+    if (!lhs_->Type()->Compatible(*rhs_->Type()))
+      Error(this, "incompatible pointers of operands");
+  } else if (!lhs_->Type()->IsInteger() || !lhs_->Type()->IsFloat()
+      || !rhs_->Type()->IsInteger() || !rhs_->Type()->IsFloat()) {
+    Error(this, "expect real type of operands");
   }
 
   Promote();
   type_ = ArithmType::New(T_INT);    
 }
 
-void BinaryOp::EqualityOpTypeChecking(void)
+void BinaryOp::EqualityOpTypeChecking()
 {
   auto lhsType = lhs_->Type()->ToPointerType();
   auto rhsType = rhs_->Type()->ToPointerType();
   if (lhsType || rhsType) {
     if (!lhsType->Compatible(*rhsType)) {
-      Error(tok_, "incompatible pointers of operands");
+      Error(this, "incompatible pointers of operands");
     }
   } else {
     auto lhsType = lhs_->Type()->ToArithmType();
     auto rhsType = rhs_->Type()->ToArithmType();
     if (lhsType == nullptr || rhsType == nullptr) {
-      Error(tok_, "invalid operands to binary %s",
+      Error(this, "invalid operands to binary %s",
           tok_->str_);
     }
 
@@ -373,26 +376,26 @@ void BinaryOp::EqualityOpTypeChecking(void)
   type_ = ArithmType::New(T_INT);    
 }
 
-void BinaryOp::BitwiseOpTypeChecking(void)
+void BinaryOp::BitwiseOpTypeChecking()
 {
   if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger()) {
-    Error(tok_, "operands of '&' should be integer");
+    Error(this, "operands of '&' should be integer");
   }
   
   type_ = Promote();
 }
 
-void BinaryOp::LogicalOpTypeChecking(void)
+void BinaryOp::LogicalOpTypeChecking()
 {
   if (!lhs_->Type()->IsScalar() || !rhs_->Type()->IsScalar()) {
-    Error(tok_, "the operand should be arithmetic type or pointer");
+    Error(this, "the operand should be arithmetic type or pointer");
   }
   
   Promote();
   type_ = ArithmType::New(T_INT);
 }
 
-void BinaryOp::AssignOpTypeChecking(void)
+void BinaryOp::AssignOpTypeChecking()
 {
   if (!lhs_->IsLVal()) {
     Error(lhs_->Tok(), "lvalue expression expected");
@@ -420,7 +423,7 @@ UnaryOp* UnaryOp::New(int op, Expr* operand, ::Type* type)
   return ret;
 }
 
-bool UnaryOp::IsLVal(void) {
+bool UnaryOp::IsLVal() {
   // only deref('*') could be lvalue;
   // so it's only deref will override this func
   switch (op_) {
@@ -431,7 +434,7 @@ bool UnaryOp::IsLVal(void) {
 }
 
 
-ArithmType* UnaryOp::Promote(void)
+ArithmType* UnaryOp::Promote()
 {
   //
   auto arithmType = operand_->Type()->ToArithmType(); 
@@ -443,7 +446,7 @@ ArithmType* UnaryOp::Promote(void)
 }
 
 
-void UnaryOp::TypeChecking(void)
+void UnaryOp::TypeChecking()
 {
   switch (op_) {
   case Token::POSTFIX_INC:
@@ -472,60 +475,58 @@ void UnaryOp::TypeChecking(void)
   }
 }
 
-void UnaryOp::IncDecOpTypeChecking(void)
+void UnaryOp::IncDecOpTypeChecking()
 {
   if (!operand_->IsLVal()) {
-    Error(tok_, "lvalue expression expected");
+    Error(this, "lvalue expression expected");
   }/* else if (operand_->Type()->IsConst()) {
-    Error(tok_, "can't modifiy 'const' qualified expression");
+    Error(this, "can't modifiy 'const' qualified expression");
   }*/
 
   type_ = operand_->Type();
 }
 
-void UnaryOp::AddrOpTypeChecking(void)
+void UnaryOp::AddrOpTypeChecking()
 {
   FuncType* funcType = operand_->Type()->ToFuncType();
   if (funcType == nullptr && !operand_->IsLVal()) {
-    Error(tok_, "expression must be an lvalue or function designator");
+    Error(this, "expression must be an lvalue or function designator");
   }
   
   type_ = PointerType::New(operand_->Type());
 }
 
-void UnaryOp::DerefOpTypeChecking(void)
+void UnaryOp::DerefOpTypeChecking()
 {
   auto pointerType = operand_->Type()->ToPointerType();
   if (pointerType == nullptr) {
-    Error(tok_, "pointer expected for deref operator '*'");
+    Error(this, "pointer expected for deref operator '*'");
   }
 
   type_ = pointerType->Derived();    
 }
 
-void UnaryOp::UnaryArithmOpTypeChecking(void)
+void UnaryOp::UnaryArithmOpTypeChecking()
 {
   if (Token::PLUS == op_ || Token::MINUS == op_) {
-    if (!operand_->Type()->IsArithm()) {
-      Error(tok_, "Arithmetic type expected");
-    }
+    if (!operand_->Type()->ToArithmType())
+      Error(this, "Arithmetic type expected");
     Promote();
     type_ = operand_->Type();
   } else if ('~' == op_) {
-    if (!operand_->Type()->IsInteger()) {
-      Error(tok_, "integer expected for operator '~'");
-    }
+    if (!operand_->Type()->IsInteger())
+      Error(this, "integer expected for operator '~'");
     Promote();
     type_ = operand_->Type();
   } else if (!operand_->Type()->IsScalar()) {
-    Error(tok_, "arithmetic type or pointer expected for operator '!'");
+    Error(this, "arithmetic type or pointer expected for operator '!'");
   } else {
     type_ = ArithmType::New(T_INT);
   }
 }
 
 
-void UnaryOp::CastOpTypeChecking(void)
+void UnaryOp::CastOpTypeChecking()
 {
   // The type_ has been initiated to dest type
   if (type_->ToVoidType()) {
@@ -533,11 +534,11 @@ void UnaryOp::CastOpTypeChecking(void)
   } else if (type_->ToPointerType() && operand_->Type()->ToArrayType()) {
   } else if (type_->ToPointerType() && operand_->Type()->ToFuncType()) {
   } else if (!type_->IsScalar() || !operand_->Type()->IsScalar()) {
-    Error(tok_, "the cast type should be arithemetic type or pointer");
+    Error(this, "the cast type should be arithemetic type or pointer");
   } else if (type_->IsFloat() && operand_->Type()->ToPointerType()) {
-    Error(tok_, "can't cast a pointer to floating");
+    Error(this, "can't cast a pointer to floating");
   } else if (type_->ToPointerType() && operand_->Type()->IsFloat()) {
-    Error(tok_, "can't cast a floating to pointer");
+    Error(this, "can't cast a floating to pointer");
   }
 }
 
@@ -558,7 +559,7 @@ ConditionalOp* ConditionalOp::New(const Token* tok,
 }
 
 
-ArithmType* ConditionalOp::Promote(void)
+ArithmType* ConditionalOp::Promote()
 {
   auto lhsType = exprTrue_->Type()->ToArithmType();
   auto rhsType = exprFalse_->Type()->ToArithmType();
@@ -574,7 +575,7 @@ ArithmType* ConditionalOp::Promote(void)
   return type;
 }
 
-void ConditionalOp::TypeChecking(void)
+void ConditionalOp::TypeChecking()
 {
   if (!cond_->Type()->IsScalar()) {
     Error(cond_->Tok(), "scalar is required");
@@ -610,7 +611,7 @@ FuncCall* FuncCall::New(Expr* designator, const ArgList& args)
 }
 
 
-void FuncCall::TypeChecking(void)
+void FuncCall::TypeChecking()
 {
   auto pointerType = designator_->Type()->ToPointerType();
   if (pointerType) {
@@ -629,18 +630,18 @@ void FuncCall::TypeChecking(void)
   auto arg = args_.begin();
   for (auto paramType: funcType->ParamTypes()) {
     if (arg == args_.end()) {
-      Error(tok_, "too few arguments for function '%s'", funcName.c_str());
+      Error(this, "too few arguments for function '%s'", funcName.c_str());
     }
     if (!paramType->Compatible(*(*arg)->Type())) {
       // TODO(wgtdkp): function name
-      Error(tok_, "incompatible type for argument 1 of '%s'", funcName.c_str());
+      Error(this, "incompatible type for argument 1 of '%s'", funcName.c_str());
     }
     *arg = Expr::MayCast(*arg, paramType);
     ++arg;
   }
   
   if (arg != args_.end() && !funcType->Variadic()) {
-    Error(tok_, "too many arguments for function '%s'", funcName.c_str());
+    Error(this, "too many arguments for function '%s'", funcName.c_str());
   }
 
   // c11 6.5.2.2 [6]: promote float to double if it has no prototype
@@ -746,7 +747,7 @@ Constant* Constant::New(const Token* tok, int tag, const std::string* val)
 }
 
 
-std::string Constant::SValRepr(void) const
+std::string Constant::SValRepr() const
 {
   std::vector<char> buf(4 * sval_->size() + 1);
   for (size_t i = 0; i < sval_->size(); ++i) {
@@ -773,7 +774,7 @@ TempVar* TempVar::New(::Type* type)
  * Statement
  */
 
-EmptyStmt* EmptyStmt::New(void)
+EmptyStmt* EmptyStmt::New()
 {
   auto ret = new (emptyStmtPool.Alloc()) EmptyStmt();
   ret->pool_ = &emptyStmtPool;
@@ -809,7 +810,7 @@ ReturnStmt* ReturnStmt::New(Expr* expr)
   return ret;
 }
 
-LabelStmt* LabelStmt::New(void)
+LabelStmt* LabelStmt::New()
 {
   auto ret = new (labelStmtPool.Alloc()) LabelStmt();
   ret->pool_ = &labelStmtPool;

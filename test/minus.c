@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     double a, b;
     a = 5.0;
@@ -8,7 +8,7 @@ void test1(void)
     printf("%f\n", b);
 }
 
-void test2(void)
+void test2()
 {
     char a, b;
     a = -1;
@@ -17,7 +17,7 @@ void test2(void)
 }
 
 
-int main(void)
+int main()
 {
     test1();
     test2();

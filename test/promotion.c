@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int main(void)
+int main()
 {
     long i = 5;
     float j = 3;

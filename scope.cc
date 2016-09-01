@@ -86,7 +86,7 @@ Identifier* Scope::FindTagInCurScope(const std::string& name) {
 }
 
 
-void Scope::Print(void)
+void Scope::Print()
 {
   std::cout << "scope: " << this << std::endl;
 

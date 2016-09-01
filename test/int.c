@@ -1,9 +1,9 @@
-void test1(void)
+void test1()
 {
     char c = 0xff;
 }
 
-int main(void)
+int main()
 {
     test1();
     return 0;

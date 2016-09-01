@@ -3,6 +3,6 @@
 #define add(a, b) ((a) + (b))
 #define abc() 
 
-int main(void) {
+int main() {
   error("hello %s", "world");
 }

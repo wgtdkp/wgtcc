@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     int i = 4;
     if (i == 0) {
@@ -19,7 +19,7 @@ void test1(void)
 
 }
 
-void test2(void) {
+void test2() {
     int i = 7;
     switch (i) {
     case 1: expect(0, 1); break;
@@ -33,14 +33,14 @@ void test2(void) {
     }
 }
 
-void test3(void)
+void test3()
 {
     int i = 3;
     int j = i == 0 ? -1: (i == 1 ? -2: (i == 2 ? -3: (i == 3 ? -4: -5)));
     expect(j, -4);
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

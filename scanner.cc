@@ -135,7 +135,7 @@ Token Scanner::Scan(bool ws) {
 }
 
 
-void Scanner::SkipWhiteSpace(void) {
+void Scanner::SkipWhiteSpace() {
   while (isspace(Peek()) && Peek() != '\n') {
     tok_.ws_ = true;
     Next();
@@ -143,7 +143,7 @@ void Scanner::SkipWhiteSpace(void) {
 }
 
 
-void Scanner::SkipComment(void) {
+void Scanner::SkipComment() {
   if (Try('/')) {
     // Line comment terminated an newline or eof
     while (!Empty()) {
@@ -375,7 +375,7 @@ std::string* ReadFile(const std::string& fileName) {
 }
 
 /*
-int Scanner::Next(void) {
+int Scanner::Next() {
   int c = *p_++;
   if (c == '\\' && *p_ == '\n') {
     ++loc_.line_;
@@ -393,7 +393,7 @@ int Scanner::Next(void) {
 }
 */
 
-int Scanner::Next(void) {
+int Scanner::Next() {
   int c = Peek();
   ++p_;
   if (c == '\n') {

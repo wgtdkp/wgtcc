@@ -1,7 +1,7 @@
 #include "test.h"
 
 
-static void test_character_constant(void)
+static void test_character_constant()
 {
     expect(4, sizeof('a'));
     expect(2, sizeof(u'a'));
@@ -9,7 +9,7 @@ static void test_character_constant(void)
     expect(4, sizeof(L'a'));
 }
 
-static void test_string_literal(void)
+static void test_string_literal()
 {
     expect(12, sizeof("hello world"));
     expect(12, sizeof(u8"hello world"));
@@ -20,7 +20,7 @@ static void test_string_literal(void)
 }
 
 
-int main(void)
+int main()
 {
     test_character_constant();
     test_string_literal();

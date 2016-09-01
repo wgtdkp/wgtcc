@@ -1,7 +1,7 @@
 #include "test.h"
 #include <stddef.h>
 
-void test1(void)
+void test1()
 {
     typedef struct {
         int a;

@@ -20,16 +20,6 @@ static MemPoolImp<StructType>  structUnionTypePool;
 static MemPoolImp<ArithmType>       arithmTypePool;
 
 
-bool Type::IsFloat(void) const {
-  auto arithmType = ToArithmType();
-  return arithmType && arithmType->IsFloat();
-}
-
-bool Type::IsInteger(void) const {
-  auto arithmType = ToArithmType();
-  return arithmType && arithmType->IsInteger();
-}
-
 Type* Type::MayCast(Type* type)
 {
   auto funcType = type->ToFuncType();
@@ -44,28 +34,29 @@ Type* Type::MayCast(Type* type)
   return type;
 }
 
-VoidType* VoidType::New(void)
+VoidType* VoidType::New()
 {
-  return new (voidTypePool.Alloc()) VoidType(&voidTypePool);
+  static auto voidType = new (voidTypePool.Alloc()) VoidType(&voidTypePool);
+  return voidType;
 }
 
 ArithmType* ArithmType::New(int typeSpec) {
 #define NEW_TYPE(tag) \
   new (arithmTypePool.Alloc()) ArithmType(&arithmTypePool, tag);
-  static ArithmType* boolType   = NEW_TYPE(T_BOOL);
-  static ArithmType* charType   = NEW_TYPE(T_CHAR);
-  static ArithmType* ucharType  = NEW_TYPE(T_UNSIGNED | T_CHAR);
-  static ArithmType* shortType  = NEW_TYPE(T_SHORT);
-  static ArithmType* ushortType = NEW_TYPE(T_UNSIGNED | T_SHORT);
-  static ArithmType* intType    = NEW_TYPE(T_INT);
-  static ArithmType* uintType   = NEW_TYPE(T_UNSIGNED | T_INT);
-  static ArithmType* longType   = NEW_TYPE(T_LONG);
-  static ArithmType* ulongType  = NEW_TYPE(T_UNSIGNED | T_LONG);
-  static ArithmType* llongType  = NEW_TYPE(T_LLONG)
-  static ArithmType* ullongType = NEW_TYPE(T_UNSIGNED | T_LLONG);
-  static ArithmType* floatType  = NEW_TYPE(T_FLOAT);
-  static ArithmType* doubleType = NEW_TYPE(T_DOUBLE);
-  static ArithmType* ldoubleType = NEW_TYPE(T_LONG | T_DOUBLE);
+  static auto boolType    = NEW_TYPE(T_BOOL);
+  static auto charType    = NEW_TYPE(T_CHAR);
+  static auto ucharType   = NEW_TYPE(T_UNSIGNED | T_CHAR);
+  static auto shortType   = NEW_TYPE(T_SHORT);
+  static auto ushortType  = NEW_TYPE(T_UNSIGNED | T_SHORT);
+  static auto intType     = NEW_TYPE(T_INT);
+  static auto uintType    = NEW_TYPE(T_UNSIGNED | T_INT);
+  static auto longType    = NEW_TYPE(T_LONG);
+  static auto ulongType   = NEW_TYPE(T_UNSIGNED | T_LONG);
+  static auto llongType   = NEW_TYPE(T_LLONG)
+  static auto ullongType  = NEW_TYPE(T_UNSIGNED | T_LLONG);
+  static auto floatType   = NEW_TYPE(T_FLOAT);
+  static auto doubleType  = NEW_TYPE(T_DOUBLE);
+  static auto ldoubleType = NEW_TYPE(T_LONG | T_DOUBLE);
   
   auto tag = ArithmType::Spec2Tag(typeSpec);
   switch (tag) {
@@ -87,6 +78,7 @@ ArithmType* ArithmType::New(int typeSpec) {
   default: Error("complex not supported yet");
   }
   return nullptr; // Make compiler happy
+
 #undef NEW_TYPE
 }
 
@@ -123,7 +115,7 @@ static EnumType* Type::NewEnumType() {
 */
 
 /*************** ArithmType *********************/
-int ArithmType::Width(void) const {
+int ArithmType::Width() const {
   switch (tag_) {
   case T_BOOL: case T_CHAR: case T_UNSIGNED | T_CHAR:
     return 1;
@@ -164,7 +156,7 @@ int ArithmType::Spec2Tag(int spec) {
 }
 
 
-std::string ArithmType::Str(void) const
+std::string ArithmType::Str() const
 {
   std::string width = std::string(":") + std::to_string(Width());
 
@@ -227,62 +219,32 @@ std::string ArithmType::Str(void) const
   return "error"; // Make compiler happy
 }
 
-/*************** PointerType *****************/
-
-bool PointerType::operator==(const Type& other) const {
-  auto otherType = other.ToPointerType();
-  if (nullptr == otherType)
-    return false;
-
-  return *derived_ == *otherType->derived_;
-}
-
-bool PointerType::Compatible(const Type& other) const {
-  //TODO: compatibility ???
-  //if (other.IsInteger())
-  //    return true;
-  auto otherType = other.ToPointerType();
-  if (otherType == nullptr)
-    return false;
-  if ((otherType->derived_->ToVoidType() && !derived_->ToFuncType())
-      || (derived_->ToVoidType() && !otherType->derived_->ToFuncType()))
-    return true;
-  return derived_->Compatible(*otherType->derived_);
-}
-
-
-/************* FuncType ***************/
-
-bool FuncType::operator==(const Type& other) const
+bool PointerType::Compatible(const Type& other) const
 {
-  auto otherFunc = other.ToFuncType();
-  if (nullptr == otherFunc) return false;
-  // TODO: do we need to check the type of return value when deciding 
-  // equality of two function types ??
-  if (*derived_ != *otherFunc->derived_)
-    return false;
-  if (paramTypes_.size() != otherFunc->paramTypes_.size())
-    return false;
+  // C11 6.7.6.1 [2]: pointer compatibility
+  auto otherPointer = other.ToPointerType();
+  return otherPointer && derived_->Compatible(*otherPointer->derived_);
+}
 
-  auto thisIter = paramTypes_.begin();
-  auto otherIter = otherFunc->paramTypes_.begin();
-  while (thisIter != paramTypes_.end()) {
-    if (*(*thisIter) != *(*otherIter))
-      return false;
-
-    thisIter++;
-    otherIter++;
-  }
-
-  return true;
+bool ArrayType::Compatible(const Type& other) const
+{
+  // C11 6.7.6.2 [6]: For two array type to be compatible,
+  // the element types must be compatible, and have same length
+  // if both specified.
+  auto otherArray = other.ToArrayType();
+  if (!otherArray) return false;
+  if (!derived_->Compatible(*otherArray->derived_)) return false;
+  // The lengths are both not specified
+  if (!complete_ && !otherArray->complete_) return true;
+  if (complete_ != otherArray->complete_) return false;
+  return len_ == otherArray->len_;
 }
 
 bool FuncType::Compatible(const Type& other) const
 {
   auto otherFunc = other.ToFuncType();
   //the other type is not an function type
-  if (nullptr == otherFunc)
-    return false;
+  if (!otherFunc) return false;
   //TODO: do we need to check the type of return value when deciding 
   //compatibility of two function types ??
   if (!derived_->Compatible(*otherFunc->derived_))
@@ -295,16 +257,15 @@ bool FuncType::Compatible(const Type& other) const
   while (thisIter != paramTypes_.end()) {
     if (!(*thisIter)->Compatible(*(*otherIter)))
       return false;
-
-    thisIter++;
-    otherIter++;
+    ++thisIter;
+    ++otherIter;
   }
 
   return true;
 }
 
 
-std::string FuncType::Str(void) const
+std::string FuncType::Str() const
 {
   auto str = derived_->Str() + "(";
   auto iter = paramTypes_.begin();
@@ -319,25 +280,21 @@ std::string FuncType::Str(void) const
   return str + ")";
 }
 
-/*
- * StructType
- */
-
-StructType::StructType(MemPool* pool,
-    bool isStruct, bool hasTag, Scope* parent)
+StructType::StructType(MemPool* pool, bool isStruct,
+                       bool hasTag, Scope* parent)
     : Type(pool, false), isStruct_(isStruct), hasTag_(hasTag),
       memberMap_(new Scope(parent, S_BLOCK)),
       offset_(0), width_(0), align_(0) {}
 
-
-Object* StructType::GetMember(const std::string& member) {
+Object* StructType::GetMember(const std::string& member)
+{
   auto ident = memberMap_->FindInCurScope(member);
   if (ident == nullptr)
     return nullptr;
   return ident->ToObject();
 }
 
-void StructType::CalcWidth(void)
+void StructType::CalcWidth()
 {
   width_ = 0;
   auto iter = memberMap_->identMap_.begin();
@@ -346,33 +303,14 @@ void StructType::CalcWidth(void)
   }
 }
 
-bool StructType::operator==(const Type& other) const
-{
-  auto structUnionType = other.ToStructType();
-  if (nullptr == structUnionType)
-    return false;
-
-  // Yes, i am doing pointer comparison
-  // Two struct type are equal only if they have
-  //     identical definition(at the same place).
-  // As we do a copy of StructType when setting it's
-  //     qualification, we can't compare two struct type
-  //     as: this == &other;
-  // But, even we do a copy, the two types with different
-  //     qualification share the same memberMap_, thus, 
-  //     memberMap_ could be the proof of equality.
-  return memberMap_ == structUnionType->memberMap_;
-}
-
-
 bool StructType::Compatible(const Type& other) const {
-  // TODO: 
-  return *this == other;
+  // TODO:
+  return this == &other; // Pointer comparison
 }
 
 
 // TODO(wgtdkp): more detailed representation
-std::string StructType::Str(void) const
+std::string StructType::Str() const
 {
   std::string str = isStruct_ ? "struct": "union";
   return str + ":" + std::to_string(width_);

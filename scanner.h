@@ -70,7 +70,7 @@ private:
   int Peek();
 
   bool Test(int c) { return Peek() == c; };
-  int Next(void);
+  int Next();
   
   void PutBack();
 

@@ -1,6 +1,6 @@
 #include "test.h"
 
-static void test1(void)
+static void test1()
 {
     int arr[3][4];
     expect(48, sizeof(arr));
@@ -15,7 +15,7 @@ static void test1(void)
 
 
 
-int main(void)
+int main()
 {
     test1();
     return 0;

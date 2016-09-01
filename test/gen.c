@@ -20,7 +20,7 @@ void test(int a, int b, int c)
 
 }
 
-int world(void)
+int world()
 {
     //foo0_t foo;
     //test_foo0(foo);

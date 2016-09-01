@@ -27,9 +27,9 @@ public:
   explicit Scope(Scope* parent, enum ScopeType type)
       : parent_(parent), type_(type) {}
   
-  ~Scope(void) {}
+  ~Scope() {}
 
-  Scope* Parent(void) {
+  Scope* Parent() {
     return parent_;
   }
 
@@ -37,7 +37,7 @@ public:
     parent_ = parent;
   }
 
-  enum ScopeType Type(void) const {
+  enum ScopeType Type() const {
     return type_;
   }
   
@@ -54,21 +54,21 @@ public:
 
   void InsertTag(Identifier* ident);
 
-  void Print(void);
+  void Print();
 
   bool operator==(const Scope& other) const {
     return type_ == other.type_;
   }
 
-  IdentMap::iterator begin(void) {
+  IdentMap::iterator begin() {
     return identMap_.begin();
   }
 
-  IdentMap::iterator end(void) {
+  IdentMap::iterator end() {
     return identMap_.end();
   }
 
-  size_t size(void) const {
+  size_t size() const {
     return identMap_.size();
   }
 

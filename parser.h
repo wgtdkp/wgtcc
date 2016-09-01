@@ -36,7 +36,7 @@ public:
         ts_.SetParser(this);
       }
 
-  ~Parser(void) {}
+  ~Parser() {}
 
   Constant* ParseConstant(const Token* tok);
   Constant* ParseFloat(const Token* tok);
@@ -45,61 +45,61 @@ public:
   Encoding ParseLiteral(std::string& str, const Token* tok);
   Constant* ConcatLiterals(const Token* tok);
 
-  Expr* ParseGeneric(void);
+  Expr* ParseGeneric();
 
-  void Parse(void);
-  void ParseTranslationUnit(void);
+  void Parse();
+  void ParseTranslationUnit();
   FuncDef* ParseFuncDef(Identifier* ident);
   /************ Expressions ************/
   
-  Expr* ParseExpr(void);
+  Expr* ParseExpr();
 
-  Expr* ParsePrimaryExpr(void);
+  Expr* ParsePrimaryExpr();
   Object* ParseCompoundLiteral(Type* type);
-  Expr* ParsePostfixExpr(void);
+  Expr* ParsePostfixExpr();
   Expr* ParsePostfixExprTail(Expr* primExpr);
   Expr* ParseSubScripting(Expr* pointer);
   BinaryOp* ParseMemberRef(const Token* tok, int op, Expr* lhs);
   UnaryOp* ParsePostfixIncDec(const Token* tok, Expr* operand);
   FuncCall* ParseFuncCall(Expr* caller);
 
-  Expr* ParseUnaryExpr(void);
-  Constant* ParseSizeof(void);
-  Constant* ParseAlignof(void);
+  Expr* ParseUnaryExpr();
+  Constant* ParseSizeof();
+  Constant* ParseAlignof();
   UnaryOp* ParsePrefixIncDec(const Token* tok);
   UnaryOp* ParseUnaryOp(const Token* tok, int op);
-  //UnaryOp* ParseDerefOperand(void);
+  //UnaryOp* ParseDerefOperand();
 
-  Type* ParseTypeName(void);
-  Expr* ParseCastExpr(void);
-  Expr* ParseMultiplicativeExpr(void);
-  Expr* ParseAdditiveExpr(void);
-  Expr* ParseShiftExpr(void);
-  Expr* ParseRelationalExpr(void);
-  Expr* ParseEqualityExpr(void);
-  Expr* ParseBitiwiseAndExpr(void);
-  Expr* ParseBitwiseXorExpr(void);
-  Expr* ParseBitwiseOrExpr(void);
-  Expr* ParseLogicalAndExpr(void);
-  Expr* ParseLogicalOrExpr(void);
-  Expr* ParseConditionalExpr(void);
+  Type* ParseTypeName();
+  Expr* ParseCastExpr();
+  Expr* ParseMultiplicativeExpr();
+  Expr* ParseAdditiveExpr();
+  Expr* ParseShiftExpr();
+  Expr* ParseRelationalExpr();
+  Expr* ParseEqualityExpr();
+  Expr* ParseBitiwiseAndExpr();
+  Expr* ParseBitwiseXorExpr();
+  Expr* ParseBitwiseOrExpr();
+  Expr* ParseLogicalAndExpr();
+  Expr* ParseLogicalOrExpr();
+  Expr* ParseConditionalExpr();
 
-  Expr* ParseCommaExpr(void);
+  Expr* ParseCommaExpr();
 
-  Expr* ParseAssignExpr(void);
+  Expr* ParseAssignExpr();
 
   /************* Declarations **************/
-  CompoundStmt* ParseDecl(void);
+  CompoundStmt* ParseDecl();
   
   Type* ParseDeclSpec(int* storage, int* func);
   
-  Type* ParseSpecQual(void);
+  Type* ParseSpecQual();
   
-  int ParseAlignas(void);
+  int ParseAlignas();
   
   Type* ParseStructUnionSpec(bool isStruct);
   
-  Type* ParseEnumSpec(void);
+  Type* ParseEnumSpec();
   
   StructType* ParseStructUnionDecl(StructType* type);
   
@@ -109,7 +109,7 @@ public:
   Type* ParseEnumerator(ArithmType* type);
   
   //declarator
-  int ParseQual(void);
+  int ParseQual();
   
   Type* ParsePointer(Type* typePointedTo);
   
@@ -117,11 +117,11 @@ public:
   
   Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
   
-  int ParseArrayLength(void);
+  int ParseArrayLength();
   
   bool ParseParamList(FuncType::TypeList& paramTypes);
   
-  Type* ParseParamDecl(void);
+  Type* ParseParamDecl();
 
   //typename
   Type* ParseAbstractDeclarator(Type* type);
@@ -148,33 +148,33 @@ public:
   Declaration* ParseInitDeclarator(Identifier* ident);
   Declaration* ParseInitDeclaratorSub(Object* obj);
   /************* Statements ***************/
-  Stmt* ParseStmt(void);
+  Stmt* ParseStmt();
   
   CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
   
-  IfStmt* ParseIfStmt(void);
+  IfStmt* ParseIfStmt();
   
-  CompoundStmt* ParseSwitchStmt(void);
+  CompoundStmt* ParseSwitchStmt();
   
-  CompoundStmt* ParseWhileStmt(void);
+  CompoundStmt* ParseWhileStmt();
   
-  CompoundStmt* ParseDoStmt(void);
+  CompoundStmt* ParseDoStmt();
   
-  CompoundStmt* ParseForStmt(void);
+  CompoundStmt* ParseForStmt();
   
-  JumpStmt* ParseGotoStmt(void);
+  JumpStmt* ParseGotoStmt();
   
-  JumpStmt* ParseContinueStmt(void);
+  JumpStmt* ParseContinueStmt();
   
-  JumpStmt* ParseBreakStmt(void);
+  JumpStmt* ParseBreakStmt();
   
-  ReturnStmt* ParseReturnStmt(void);
+  ReturnStmt* ParseReturnStmt();
   
   CompoundStmt* ParseLabelStmt(const Token* label);
   
-  CompoundStmt* ParseCaseStmt(void);
+  CompoundStmt* ParseCaseStmt();
   
-  CompoundStmt* ParseDefaultStmt(void);
+  CompoundStmt* ParseDefaultStmt();
 
   Identifier* ProcessDeclarator(Token* tok, Type* type,
       int storageSpec, int funcSpec);
@@ -211,25 +211,25 @@ public:
 
   void EnterBlock(FuncType* funcType=nullptr);
   
-  Scope* ExitBlock(void) {
+  Scope* ExitBlock() {
     auto scope = curScope_;
     curScope_ = curScope_->Parent();
     return scope;
   }
 
-  void EnterProto(void) {
+  void EnterProto() {
     curScope_ = new Scope(curScope_, S_PROTO);
     if (curParamScope_ == nullptr)
       curParamScope_ = curScope_;
   }
 
-  void ExitProto(void) {
+  void ExitProto() {
     curScope_ = curScope_->Parent();
   }
 
   FuncDef* EnterFunc(Identifier* ident);
 
-  void ExitFunc(void);
+  void ExitFunc();
 
   LabelStmt* FindLabel(const std::string& label) {
     auto ret = curLabels_.find(label);
@@ -243,15 +243,15 @@ public:
     curLabels_[label] = labelStmt;
   }
 
-  TranslationUnit* Unit(void) {
+  TranslationUnit* Unit() {
     return unit_;
   }
 
-  //StaticObjectList& StaticObjects(void) {
+  //StaticObjectList& StaticObjects() {
   //    return _staticObjects;
   //}
   
-  FuncDef* CurFunc(void) {
+  FuncDef* CurFunc() {
     return curFunc_;
   }
 

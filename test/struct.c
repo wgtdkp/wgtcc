@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test1(void)
+void test1()
 {
     typedef struct {
         int a;
@@ -17,7 +17,7 @@ void test1(void)
     expect(foo.d, 0);
 }
 
-void test2(void)
+void test2()
 {
     typedef struct {
         char a;
@@ -33,7 +33,7 @@ void test2(void)
     expect(foo.d, 1);
 }
 
-void test3(void)
+void test3()
 {
     typedef struct {
         char a;
@@ -49,7 +49,7 @@ void test3(void)
     expect(foo.d, 4);
 }
 
-void test4(void)
+void test4()
 {
     typedef struct {
         union {
@@ -67,7 +67,7 @@ void test4(void)
     expect(foo.d, 3);
 }
 
-void test5(void)
+void test5()
 {
     typedef struct {
         union {
@@ -89,7 +89,7 @@ void test5(void)
     expect(foo.e, 3);
 }
 
-void test6(void)
+void test6()
 {
     typedef union {
         char a;
@@ -105,7 +105,7 @@ void test6(void)
     expect(foo.d, 1);
 }
 
-void test7(void)
+void test7()
 {
     typedef struct tree tree_t;
     struct tree {
@@ -123,7 +123,7 @@ void test7(void)
     expect((void*)20, root->right);
 }
 
-void test8(void)
+void test8()
 {
     typedef struct {
         struct {
@@ -135,7 +135,7 @@ void test8(void)
     printf("%d\n", sizeof(foo_t));
 }
 
-void test9(void)
+void test9()
 {
     typedef struct {
         union {
@@ -162,7 +162,7 @@ void test9(void)
     printf("%d\n", foo.e);
 }
 
-int main(void)
+int main()
 {
     test1();
     test2();

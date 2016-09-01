@@ -89,12 +89,12 @@ void tree_print(tree_t* root)
     tree_print(root->right);
 }
 
-tree_t* test1(void)
+tree_t* test1()
 {
     return (tree_t*)1293440;
 }
 
-int main(void)
+int main()
 {
     char inst[100];
     int val;

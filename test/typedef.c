@@ -2,12 +2,12 @@
 
 typedef int A[];
 
-void test1(void)
+void test1()
 {
     A a = {1};
 }
 
-int main(void)
+int main()
 {
 
     return 0;

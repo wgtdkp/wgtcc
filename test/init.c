@@ -1,6 +1,6 @@
 #include "test.h"
 
-static void test1(void)
+static void test1()
 {  
     typedef struct {
         union {
@@ -23,7 +23,7 @@ static void test1(void)
     expect(3, foo.h);
 }
 
-static void test2(void)
+static void test2()
 {
     typedef struct {
         char a;
@@ -51,7 +51,7 @@ static void test2(void)
     expect(2, b2.b);
 }
 
-static void test_array(void)
+static void test_array()
 {
     int arr[3] = {1, 2, 3};
     int arr1[] = {[0] = 1, 2, [0] = 2};
@@ -78,20 +78,20 @@ static void test_array(void)
 }
 
 
-static void test_literal(void)
+static void test_literal()
 {
     char arr[] = "123456789";
     expect(10, sizeof(arr));
 }
 
-static void test_dup(void)
+static void test_dup()
 {
     int arr[] = {[0] = 1, 2, 3, 4, 5, [0] = 5};
     expect(5, arr[0]);
 }
 
 
-int main(void)
+int main()
 {
     test1();
     test2();

@@ -151,13 +151,13 @@ const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
 };
 
 
-bool TokenSequence::Empty(void)
+bool TokenSequence::Empty()
 {
   return Peek()->tag_ == Token::END;
 }
 
 
-TokenSequence TokenSequence::GetLine(void)
+TokenSequence TokenSequence::GetLine()
 {
   auto begin = begin_;
   while (begin_ != end_ && begin_->tag_ != Token::NEW_LINE)
@@ -170,7 +170,7 @@ TokenSequence TokenSequence::GetLine(void)
  * If this seq starts from the begin of a line.
  * Called only after we have saw '#' in the token sequence.
  */ 
-bool TokenSequence::IsBeginOfLine(void) const
+bool TokenSequence::IsBeginOfLine() const
 {
   if (begin_ == tokList_->begin())
     return true;
@@ -185,7 +185,7 @@ bool TokenSequence::IsBeginOfLine(void) const
        || pre->loc_.fileName_ != begin_->loc_.fileName_);
 }
 
-Token* TokenSequence::Peek(void)
+Token* TokenSequence::Peek()
 {
   static Token eof;
   if (begin_ != end_ && begin_->tag_ == Token::NEW_LINE) {

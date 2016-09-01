@@ -14,9 +14,9 @@ template<typename T>
 class Evaluator: public Visitor
 {
 public:
-  Evaluator(void) {}
+  Evaluator() {}
 
-  virtual ~Evaluator(void) {}
+  virtual ~Evaluator() {}
 
   virtual void VisitBinaryOp(BinaryOp* binary);
   virtual void VisitUnaryOp(UnaryOp* unary);
@@ -84,9 +84,9 @@ class Evaluator<Addr>: public Visitor
 {
   
 public:
-  Evaluator<Addr>(void) {}
+  Evaluator<Addr>() {}
   
-  virtual ~Evaluator<Addr>(void) {}
+  virtual ~Evaluator<Addr>() {}
 
   virtual void VisitBinaryOp(BinaryOp* binary);
   virtual void VisitUnaryOp(UnaryOp* unary);

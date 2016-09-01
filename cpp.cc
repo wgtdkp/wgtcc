@@ -921,7 +921,7 @@ void Preprocessor::AddMacro(const std::string& name,
 }
 
 
-static std::string* Date(void)
+static std::string* Date()
 {
   time_t t = time(NULL);
   struct tm* tm = localtime(&t);
@@ -933,7 +933,7 @@ static std::string* Date(void)
 }
 
 
-void Preprocessor::Init(void)
+void Preprocessor::Init()
 {
   // Preinclude search paths
   AddSearchPath("/usr/local/wgtcc/include/");

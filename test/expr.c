@@ -1,4 +1,4 @@
-int main(void)
+int main()
 {
     int a, b;
     //a = b / 0;

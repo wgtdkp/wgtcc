@@ -23,7 +23,7 @@ int sum(int n)
     return sum;
 }
 
-int main(void)
+int main()
 {
     double j = 5;
     //int d = j < 128;
