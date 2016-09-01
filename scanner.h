@@ -35,7 +35,7 @@ public:
   // The param 'ws' tells if there is leading white space
   // before this token, it is only SkipComment() that will 
   // set this param.
-  Token Scan(bool ws=false);
+  Token* Scan(bool ws=false);
   void Tokenize(TokenSequence& ts);
   static std::string ScanHeadName(const Token* lhs, const Token* rhs);
   Encoding ScanCharacter(int& val);
@@ -44,12 +44,12 @@ public:
 
 private:
 
-  Token SkipIdentifier();
-  Token SkipNumber();
-  Token SkipLiteral();
-  Token SkipCharacter();
-  Token MakeToken(int tag);
-  Token MakeNewLine();
+  Token* SkipIdentifier();
+  Token* SkipNumber();
+  Token* SkipLiteral();
+  Token* SkipCharacter();
+  Token* MakeToken(int tag);
+  Token* MakeNewLine();
   Encoding ScanEncoding(int c);
   int ScanEscaped();
   int ScanHexEscaped();

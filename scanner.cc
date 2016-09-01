@@ -6,18 +6,18 @@
 
 void Scanner::Tokenize(TokenSequence& ts) {
   while (true) {
-    const auto& tok = Scan();
-    if (tok.tag_ == Token::END) {
+    auto tok = Scan();
+    if (tok->tag_ == Token::END) {
       if (ts.Back()->tag_ != Token::NEW_LINE) {
-        auto t = tok;
-        t.tag_ = Token::NEW_LINE;
-        t.str_ = "\n";
-        ts.InsertBack(&t);
+        auto t = Token::New(*tok);
+        t->tag_ = Token::NEW_LINE;
+        t->str_ = "\n";
+        ts.InsertBack(t);
       } else {
         break;
       }
     } else {
-      ts.InsertBack(&tok);
+      ts.InsertBack(tok);
     }
   }
 }
@@ -36,7 +36,7 @@ std::string Scanner::ScanHeadName(const Token* lhs, const Token* rhs) {
 }
 
 
-Token Scanner::Scan(bool ws) {
+Token* Scanner::Scan(bool ws) {
   tok_.ws_ = ws;
   SkipWhiteSpace();
 
@@ -181,7 +181,7 @@ std::string Scanner::ScanIdentifier() {
 }
 
 
-Token Scanner::SkipIdentifier() {
+Token* Scanner::SkipIdentifier() {
   PutBack();
   auto c = Next();
   while (isalnum(c)
@@ -198,7 +198,7 @@ Token Scanner::SkipIdentifier() {
 }
 
 // Scan PP-Number 
-Token Scanner::SkipNumber() {
+Token* Scanner::SkipNumber() {
   PutBack();
   int tag = Token::I_CONSTANT;	
   auto c = Next();
@@ -236,7 +236,7 @@ Encoding Scanner::ScanLiteral(std::string& val) {
 }
 
 
-Token Scanner::SkipLiteral() {
+Token* Scanner::SkipLiteral() {
   auto c = Next();
   while (c != '\"' && c != '\n' && c != '\0') {
     if (c == '\\') Next();
@@ -265,7 +265,7 @@ Encoding Scanner::ScanCharacter(int& val) {
 }
 
 
-Token Scanner::SkipCharacter() {
+Token* Scanner::SkipCharacter() {
   auto c = Next();
   while (c != '\'' && c != '\n' && c != '\0') {
     if (c == '\\') Next();
@@ -436,7 +436,7 @@ void Scanner::PutBack() {
 }
 
 
-Token Scanner::MakeToken(int tag) {
+Token* Scanner::MakeToken(int tag) {
   tok_.tag_ = tag;
   auto& str = tok_.str_;
   str.resize(0);
@@ -447,14 +447,14 @@ Token Scanner::MakeToken(int tag) {
     else
       str.push_back(p[0]);
   }
-  return tok_;
+  return Token::New(tok_);
 }
 
 
 // New line is special
 // It is generated before reading the character '\n'
-Token Scanner::MakeNewLine() {
+Token* Scanner::MakeNewLine() {
   tok_.tag_ = '\n';
   tok_.str_ = std::string(p_, p_ + 1);
-  return tok_;
+  return Token::New(tok_);
 }

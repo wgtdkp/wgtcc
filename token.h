@@ -15,12 +15,13 @@
 
 class Generator;
 class Parser;
+class Scanner;
 class Token;
 class TokenSequence;
 
 
 typedef std::set<std::string> HideSet;
-typedef std::list<Token> TokenList;
+typedef std::list<Token*> TokenList;
 
 
 struct SourceLocation {
@@ -37,8 +38,7 @@ struct SourceLocation {
 
 struct Token
 {
-  friend class Parser;
-  
+  friend class Scanner;
 public:
   enum {
     /* punctuators */
@@ -194,17 +194,13 @@ public:
     NOTOK = -1,
   };
 
-  explicit Token(int tag=Token::END): tag_(tag) {}
-  Token(int tag,
+  static Token* New();
+  static Token* New(const Token& other);
+  static Token* New(int tag,
         const SourceLocation& loc,
         const std::string& str,
-        bool ws=false)
-      : tag_(tag), ws_(ws), loc_(loc), str_(str) {}
-  //Token(int tag, const char* fileName, int line,
-  //        int column, char* lineBegin, StrPair& str)
-  //        : tag_(tag), fileName_(fileName), line_(line),
-  //          column_(column), lineBegin_(lineBegin), str_(str) {}
-  
+        bool ws=false);
+
   Token(const Token& other) {
     *this = other;
   }
@@ -237,18 +233,6 @@ public:
     
     return kwIter->second;
   }
-
-  //int Tag() const {
-  //	return tag_;
-  //}
-
-  //size_t Size() const {
-  //	return end_ - begin_;
-  //}
-  
-  //std::string Str() const {
-  //	return std::string(begin_, end_);
-  //}
 
   static bool IsKeyWord(const std::string& name);
 
@@ -320,6 +304,14 @@ public:
   
   HideSet* hs_ { nullptr };
 
+private:
+  explicit Token(int tag=Token::END): tag_(tag) {}
+  Token(int tag,
+        const SourceLocation& loc,
+        const std::string& str,
+        bool ws=false)
+      : tag_(tag), ws_(ws), loc_(loc), str_(str) {}
+
   static const std::unordered_map<std::string, int> kwTypeMap_;
   static const std::unordered_map<int, const char*> TagLexemeMap_;
   //static const char* _tokenTable[TOKEN_NUM - OFFSET - 1];
@@ -332,9 +324,9 @@ public:
   TokenSequence(): tokList_(new TokenList()),
       begin_(tokList_->begin()), end_(tokList_->end()) {}
 
-  explicit TokenSequence(const Token&& tok) {
+  explicit TokenSequence(Token* tok) {
     TokenSequence();
-    InsertBack(&tok);
+    InsertBack(tok);
   }
 
   explicit TokenSequence(TokenList* tokList): tokList_(tokList),
@@ -406,7 +398,7 @@ public:
 
   Token* Back() {
     auto back = end_;
-    return &(*--back);
+    return *--back;
   }
 
   TokenList::iterator Mark() {
@@ -419,7 +411,7 @@ public:
 
   bool Empty();
 
-  void InsertBack(const TokenSequence& ts) {
+  void InsertBack(TokenSequence& ts) {
     //assert(tokList_ == seq.tokList_);
     auto pos = tokList_->insert(end_, ts.begin_, ts.end_);
     if (begin_ == end_) {
@@ -427,20 +419,20 @@ public:
     }
   }
 
-  void InsertBack(const Token* tok) {
-    auto pos = tokList_->insert(end_, *tok);
+  void InsertBack(Token* tok) {
+    auto pos = tokList_->insert(end_, tok);
     if (begin_ == end_) {
       begin_ = pos;
     }
   }
 
-  void InsertFront(const TokenSequence& ts) {
+  void InsertFront(TokenSequence& ts) {
     begin_ = tokList_->insert(begin_, ts.begin_, ts.end_);
   }
 
-  void InsertFront(const Token* tok) {
+  void InsertFront(Token* tok) {
     //assert(tokList_ == seq.tokList_);
-    begin_ = tokList_->insert(begin_, *tok);
+    begin_ = tokList_->insert(begin_, tok);
   }
 
   bool IsBeginOfLine() const;
@@ -453,12 +445,11 @@ public:
 
   void Print() const;
 
+private:
   TokenList* tokList_;
   TokenList::iterator begin_;
   TokenList::iterator end_;
   
-private:
-
   Parser* parser_ {nullptr};
 };
 

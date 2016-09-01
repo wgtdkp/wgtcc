@@ -1,6 +1,10 @@
 #include "token.h"
 
+#include "mem_pool.h"
 #include "parser.h"
+
+
+static MemPoolImp<Token> TokenPool;
 
 
 const std::unordered_map<std::string, int> Token::kwTypeMap_ {
@@ -151,6 +155,20 @@ const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
 };
 
 
+Token* Token::New() {
+  return new (TokenPool.Alloc()) Token();
+}
+
+Token* Token::New(const Token& other) {
+  return New(other.tag_, other.loc_, other.str_, other.ws_);
+}
+
+Token* Token::New(int tag, const SourceLocation& loc,
+                  const std::string& str, bool ws) {
+  return new (TokenPool.Alloc()) Token(tag, loc, str, ws);
+}
+
+
 bool TokenSequence::Empty()
 {
   return Peek()->tag_ == Token::END;
@@ -160,7 +178,7 @@ bool TokenSequence::Empty()
 TokenSequence TokenSequence::GetLine()
 {
   auto begin = begin_;
-  while (begin_ != end_ && begin_->tag_ != Token::NEW_LINE)
+  while (begin_ != end_ && (*begin_)->tag_ != Token::NEW_LINE)
     ++begin_;
   auto end = begin_;
   return {tokList_, begin, end};
@@ -181,29 +199,29 @@ bool TokenSequence::IsBeginOfLine() const
   // We do not insert a newline at the end of a source file.
   // Thus if two token have different filename, the second is 
   // the begin of a line.
-  return (pre->tag_ == Token::NEW_LINE
-       || pre->loc_.fileName_ != begin_->loc_.fileName_);
+  return ((*pre)->tag_ == Token::NEW_LINE
+       || (*pre)->loc_.fileName_ != (*begin_)->loc_.fileName_);
 }
 
 Token* TokenSequence::Peek()
 {
-  static Token eof;
-  if (begin_ != end_ && begin_->tag_ == Token::NEW_LINE) {
+  static auto eof = Token::New();
+  if (begin_ != end_ && (*begin_)->tag_ == Token::NEW_LINE) {
     ++begin_;
     return Peek();
   } else if (begin_ == end_) {
     if (end_ != tokList_->begin())
-      eof = *Back();
-    eof.tag_ = Token::END;
+      *eof = *Back();
+    eof->tag_ = Token::END;
     //eof.begin_ = back->end_;
     //eof.end_ = eof.begin_ + 1;
-    return &eof;
-  } else if (parser_ && begin_->tag_ == Token::IDENTIFIER
-      && begin_->str_ == "__func__") {
-    begin_->tag_ = Token::LITERAL;
+    return eof;
+  } else if (parser_ && (*begin_)->tag_ == Token::IDENTIFIER
+      && (*begin_)->str_ == "__func__") {
+    (*begin_)->tag_ = Token::LITERAL;
 
     //auto curFunc = parser_->CurFunc();
-    begin_->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
+    (*begin_)->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
     //std::string* name;
     //if(curFunc)
     //    name = new std::string("\"" + curFunc->Name() + "\"");
@@ -212,7 +230,7 @@ Token* TokenSequence::Peek()
     //begin_->begin_ = const_cast<char*>(name->c_str());
     //begin_->end_ = begin_->begin_ + name->size();
   }
-  return &(*begin_);
+  return *begin_;
 }
 
 Token* TokenSequence::Expect(int expect)

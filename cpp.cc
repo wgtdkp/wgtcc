@@ -201,7 +201,7 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
 void Preprocessor::Glue(TokenSequence& os, Token* tok)
 {
   TokenList tokList;
-  tokList.push_back(*tok);
+  tokList.push_back(tok);
   TokenSequence is(&tokList);
 
   Glue(os, is);
@@ -365,9 +365,10 @@ Token* Preprocessor::ParseActualParam(TokenSequence& is,
   }
 
   //TokenSequence ts(is);
-  TokenSequence ap(is);
+  //TokenSequence ap(is);
   auto fp = macro->Params().begin();
-  ap.begin_ = is.begin_;
+  //ap.begin_ = is.begin_;
+  TokenSequence ap;
 
   int cnt = 1;
   while (cnt > 0) {
@@ -421,7 +422,25 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
   }                                                     \
 };
 
-  for (auto iter = is.begin_; iter != is.end_; iter++) {
+  TokenSequence os;
+  while (!is.Empty()) {
+    auto tok = is.Next();
+    if (tok->tag_ == Token::IDENTIFIER && tok->str_ == "defined") {
+      auto hasPar = false;
+      if (is.Try('(')) hasPar = true;
+      tok = is.Expect(Token::IDENTIFIER);
+      if (hasPar) is.Expect(')');
+      tok->tag_ = Token::I_CONSTANT;
+      tok->str_ = FindMacro(tok->str_) ? "1": "0";
+      os.InsertBack(tok);
+    } else {
+      os.InsertBack(tok);
+    } 
+  }
+
+  is = os;
+  /*
+  for (auto iter = is.begin_; iter != is.end_; ++iter) {
     if (iter->tag_== Token::IDENTIFIER && iter->str_ == "defined") {
       ERASE(iter);
       bool hasPar = false;
@@ -447,16 +466,18 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
       iter->str_ = FindMacro(name) ? "1": "0";
     }
   }
+  */
 #undef ERASE
 }
 
 
-void Preprocessor::ReplaceIdent(TokenSequence& is)
+void Preprocessor::ReplaceIdent(TokenSequence is)
 {
-  for (auto iter = is.begin_; iter != is.end_; iter++) {
-    if (iter->tag_ == Token::IDENTIFIER) {
-      iter->tag_ = Token::I_CONSTANT;
-      iter->str_ = "0";
+  while (!is.Empty()) {
+    auto tok = is.Next();
+    if (tok->tag_ == Token::IDENTIFIER) {
+      tok->tag_ = Token::I_CONSTANT;
+      tok->str_ = "0";
     }
   }
 }

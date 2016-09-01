@@ -101,7 +101,7 @@ public:
   Token* ParseActualParam(TokenSequence& is, Macro* macro, ParamMap& paramMap);
   int GetDirective(TokenSequence& is);
   void ReplaceDefOp(TokenSequence& is);
-  void ReplaceIdent(TokenSequence& is);
+  void ReplaceIdent(TokenSequence is);
   void ParseDirective(TokenSequence& os, TokenSequence& is, int directive);
   void ParseIf(TokenSequence ls);
   void ParseIfdef(TokenSequence ls);
