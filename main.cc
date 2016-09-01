@@ -32,6 +32,9 @@ void Usage()
 
 int main(int argc, char* argv[])
 {
+  bool printPreProcessed = false;
+  bool printAssembly = false;
+
   if (argc < 2) {
     Usage();
   }
@@ -40,7 +43,6 @@ int main(int argc, char* argv[])
   for (auto i = 1; i < argc; i++) {
     if (argv[i][0] != '-') {
       inFileName = std::string(argv[i]);
-      break;
       continue;
     }
 
@@ -53,11 +55,18 @@ int main(int argc, char* argv[])
       assert(0);
       //ParseDef(cpp, &argv[i][2]);
       break;
+
+    case 'P':
+      switch (argv[i][2]) {
+      case 'P': printPreProcessed = true; break;
+      case 'A': printAssembly = true; break;
+      default:
+        Error("unrecognized command line option '%s'", argv[i]);
+      }
+      break;
     case '-': // --
       switch (argv[i][2]) {
-      case 'h':
-        Usage();
-        break;
+      case 'h': Usage(); break;
       default:
         Error("unrecognized command line option '%s'", argv[i]);
       }
@@ -79,7 +88,7 @@ int main(int argc, char* argv[])
   Preprocessor cpp(&inFileName);
   
   outFileName = inFileName;
-  std::string dir = ".";  
+  std::string dir = "./";  
   auto pos = inFileName.rfind('/');
   if (pos != std::string::npos) {
     dir = inFileName.substr(0, pos + 1);
@@ -91,6 +100,11 @@ int main(int argc, char* argv[])
 
   TokenSequence ts;
   cpp.Process(ts);
+
+  if (printPreProcessed) {
+    std::cout << std::endl << "###### Preprocessed ######" << std::endl;
+    ts.Print();
+  }
 
   // Parsing
   Parser parser(ts);
@@ -109,8 +123,11 @@ int main(int argc, char* argv[])
 
   fclose(outFile);
 
-  auto str = ReadFile(outFileName);
-  std::cout << *str << std::endl;
+  if (printAssembly) {
+    auto str = ReadFile(outFileName);
+    std::cout << *str << std::endl;
+  }
+  
   std::string sys = "gcc -std=c11 -Wall " + outFileName;
   system(sys.c_str());
 

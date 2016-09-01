@@ -102,24 +102,25 @@ public:
   bool Complete() const { return complete_; }
   void SetComplete(bool complete) { complete_ = complete; }
 
+  bool IsReal() const { return IsInteger() || IsFloat(); };  
   virtual bool IsScalar() const { return false; }
   virtual bool IsFloat() const { return false; }
   virtual bool IsInteger() const { return false; }
 
-  virtual VoidType* ToVoidType() { return nullptr; }
-  virtual const VoidType* ToVoidType() const { return nullptr; }
-  virtual ArithmType* ToArithmType() { return nullptr; }  
-  virtual const ArithmType* ToArithmType() const { return nullptr; }  
-  virtual ArrayType* ToArrayType() { return nullptr; }
-  virtual const ArrayType* ToArrayType() const { return nullptr; }
-  virtual FuncType* ToFuncType() { return nullptr; }
-  virtual const FuncType* ToFuncType() const { return nullptr; }
-  virtual PointerType* ToPointerType() { return nullptr; }
-  virtual const PointerType* ToPointerType() const { return nullptr; }
-  virtual DerivedType* ToDerivedType() { return nullptr; }
-  virtual const DerivedType* ToDerivedType() const { return nullptr; }
-  virtual StructType* ToStructType() { return nullptr; }
-  virtual const StructType* ToStructType() const { return nullptr; }
+  virtual VoidType* ToVoid() { return nullptr; }
+  virtual const VoidType* ToVoid() const { return nullptr; }
+  virtual ArithmType* ToArithm() { return nullptr; }  
+  virtual const ArithmType* ToArithm() const { return nullptr; }  
+  virtual ArrayType* ToArray() { return nullptr; }
+  virtual const ArrayType* ToArray() const { return nullptr; }
+  virtual FuncType* ToFunc() { return nullptr; }
+  virtual const FuncType* ToFunc() const { return nullptr; }
+  virtual PointerType* ToPointer() { return nullptr; }
+  virtual const PointerType* ToPointer() const { return nullptr; }
+  virtual DerivedType* ToDerived() { return nullptr; }
+  virtual const DerivedType* ToDerived() const { return nullptr; }
+  virtual StructType* ToStruct() { return nullptr; }
+  virtual const StructType* ToStruct() const { return nullptr; }
 
 protected:
   Type(MemPool* pool, bool complete)
@@ -144,10 +145,10 @@ public:
 
   virtual ~VoidType() {}
 
-  virtual VoidType* ToVoidType() { return this; }
-  virtual const VoidType* ToVoidType() const { return this; }
+  virtual VoidType* ToVoid() { return this; }
+  virtual const VoidType* ToVoid() const { return this; }
   virtual bool Compatible(const Type& other) const {
-    return other.ToVoidType();
+    return other.ToVoid();
   }
 
   virtual int Width() const {
@@ -170,8 +171,8 @@ public:
   static ArithmType* New(int typeSpec);
 
   virtual ~ArithmType() {}
-  virtual ArithmType* ToArithmType() { return this; }
-  virtual const ArithmType* ToArithmType() const { return this; }
+  virtual ArithmType* ToArithm() { return this; }
+  virtual const ArithmType* ToArithm() const { return this; }
   virtual bool Compatible(const Type& other) const {
     // C11 6.2.7 [1]: Two types have compatible type if their types are the same
     return this == &other;
@@ -211,11 +212,11 @@ public:
     derived_ = derived;
   }
   
-  virtual DerivedType* ToDerivedType() {
+  virtual DerivedType* ToDerived() {
     return this;
   }
   
-  virtual const DerivedType* ToDerivedType() const {
+  virtual const DerivedType* ToDerived() const {
     return this;
   }
 
@@ -235,8 +236,8 @@ public:
   static PointerType* New(Type* derived);
 
   ~PointerType() {}
-  virtual PointerType* ToPointerType() { return this; }
-  virtual const PointerType* ToPointerType() const { return this; }
+  virtual PointerType* ToPointer() { return this; }
+  virtual const PointerType* ToPointer() const { return this; }
   virtual bool Compatible(const Type& other) const;
   virtual int Width() const { return 8; }
   virtual bool IsScalar() const { return true; }
@@ -257,8 +258,8 @@ public:
   static ArrayType* New(int len, Type* eleType);
   virtual ~ArrayType() { /*delete derived_;*/ }
 
-  virtual ArrayType* ToArrayType() { return this; }
-  virtual const ArrayType* ToArrayType() const { return this; }
+  virtual ArrayType* ToArray() { return this; }
+  virtual const ArrayType* ToArray() const { return this; }
   virtual bool Compatible(const Type& other) const;
   virtual int Width() const { return derived_->Width() * len_; }
   virtual int Align() const { return derived_->Align(); }
@@ -294,8 +295,8 @@ public:
 
   ~FuncType() {}
   
-  virtual FuncType* ToFuncType() { return this; }
-  virtual const FuncType* ToFuncType() const { return this; }
+  virtual FuncType* ToFunc() { return this; }
+  virtual const FuncType* ToFunc() const { return this; }
   virtual bool Compatible(const Type& other) const;
   virtual int Width() const { return 1; }
   virtual std::string Str() const;
@@ -332,8 +333,8 @@ public:
   static StructType* New(bool isStruct, bool hasTag, Scope* parent);
   
   ~StructType() {/*TODO: delete _env ?*/ }
-  virtual StructType* ToStructType() { return this; }
-  virtual const StructType* ToStructType() const { return this; }
+  virtual StructType* ToStruct() { return this; }
+  virtual const StructType* ToStruct() const { return this; }
   virtual bool Compatible(const Type& other) const;
   virtual int Width() const { return width_; }
   virtual int Align() const { return align_; }

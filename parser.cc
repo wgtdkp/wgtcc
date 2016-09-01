@@ -93,7 +93,7 @@ void Parser::ParseTranslationUnit()
     auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec);
     type = ident->Type();
 
-    if (tok && type->ToFuncType() && ts_.Try('{')) { // Function definition
+    if (tok && type->ToFunc() && ts_.Try('{')) { // Function definition
       unit_->Add(ParseFuncDef(ident));
     } else { // Declaration
       auto decl = ParseInitDeclarator(ident);
@@ -120,7 +120,7 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
     Error(ident, "redefinition of '%s'", ident->Name().c_str());
   }
 
-  auto funcType = ident->Type()->ToFuncType();
+  auto funcType = ident->Type()->ToFunc();
   FuncType::TypeList& paramTypes = funcType->ParamTypes();
   if (curScope_->size() != paramTypes.size()) {
     Error(ident, "parameter name omitted");
@@ -457,7 +457,7 @@ BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs)
   auto memberName = ts_.Peek()->str_;
   ts_.Expect(Token::IDENTIFIER);
 
-  auto structUnionType = lhs->Type()->ToStructType();
+  auto structUnionType = lhs->Type()->ToStruct();
   if (structUnionType == nullptr) {
     Error(tok, "an struct/union expected");
   }
@@ -540,7 +540,7 @@ Constant* Parser::ParseSizeof()
     type = unaryExpr->Type();
   }
 
-  if (type->ToFuncType() || type->ToVoidType()) {
+  if (type->ToFunc() || type->ToVoid()) {
   } else if (!type->Complete()) {
     Error(tok, "sizeof(incomplete type)");
   }
@@ -1180,7 +1180,7 @@ Type* Parser::ParseEnumSpec()
         goto enum_decl;
 
       if (!tagIdent->Type()->Complete()) {
-        return ParseEnumerator(tagIdent->Type()->ToArithmType());
+        return ParseEnumerator(tagIdent->Type()->ToArithm());
       } else {
         Error(tok, "redefinition of enumeration tag '%s'",
             tagName.c_str());
@@ -1279,7 +1279,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
       if (!tagIdent->Type()->Complete()) {
         //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
         return ParseStructUnionDecl(
-            tagIdent->Type()->ToStructType());
+            tagIdent->Type()->ToStruct());
       } else {
         //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
         Error(tok, "redefinition of struct tag '%s'",
@@ -1356,7 +1356,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
       }
 
       if (tok == nullptr) {
-        auto suType = memberType->ToStructType();
+        auto suType = memberType->ToStruct();
         if (suType && !suType->HasTag()) {
           // FIXME: setting 'tok' to nullptr is not good
           auto anony = Object::New(ts_.Peek(), suType);
@@ -1377,7 +1377,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
         Error(tok, "field '%s' has incomplete type", name.c_str());
       }
 
-      if (memberType->ToFuncType()) {
+      if (memberType->ToFunc()) {
         Error(tok, "field '%s' declared as a function", name.c_str());
       }
 
@@ -1502,7 +1502,7 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
   if (type == base)
     return newBase;
   
-  auto ty = type->ToDerivedType();
+  auto ty = type->ToDerived();
   ty->SetDerived(ModifyBase(ty->Derived(), base, newBase));
   
   return ty;
@@ -1571,12 +1571,12 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
     return ident;
   }
 
-  if (type->ToVoidType()) {
+  if (type->ToVoid()) {
     Error(tok, "variable or field '%s' declared void",
         name.c_str());
   }
 
-  if (type->ToFuncType() && curScope_->Type() != S_FILE
+  if (type->ToFunc() && curScope_->Type() != S_FILE
       && (storageSpec & S_STATIC)) {
     Error(tok, "invalid storage class for function '%s'",
         name.c_str());
@@ -1592,7 +1592,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
       linkage = L_INTERNAL;
   } else if (!(storageSpec & S_EXTERN)) {
     linkage = L_NONE; // Default linkage for block scope identifiers
-    if (type->ToFuncType())
+    if (type->ToFunc())
       linkage = L_EXTERNAL;
   } else {
     linkage = L_EXTERNAL;
@@ -1654,7 +1654,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
 
   Identifier* ret;
   // TODO(wgtdkp): Treat function as object ?
-  if (type->ToFuncType()) {
+  if (type->ToFunc()) {
     ret = Identifier::New(tok, type, linkage);
   } else {
     ret = Object::New(tok, type, storageSpec, linkage);
@@ -1674,7 +1674,7 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
 {
   if (ts_.Try('[')) {
 
-    if (nullptr != base->ToFuncType()) {
+    if (nullptr != base->ToFunc()) {
       Error(ts_.Peek(), "the element of array can't be a function");
     }
 
@@ -1690,10 +1690,10 @@ Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
     }
     return ArrayType::New(len, base);
   } else if (ts_.Try('(')) {	//function declaration
-    if (base->ToFuncType()) {
+    if (base->ToFunc()) {
       Error(ts_.Peek(),
           "the return value of function can't be function");
-    } else if (nullptr != base->ToArrayType()) {
+    } else if (nullptr != base->ToArray()) {
       Error(ts_.Peek(),
           "the return value of function can't be array");
     }
@@ -1759,7 +1759,7 @@ bool Parser::ParseParamList(FuncType::TypeList& paramTypes)
     return false;
   
   auto paramType = ParseParamDecl();
-  if (paramType->ToVoidType())
+  if (paramType->ToVoid())
     return false;
     
   paramTypes.push_back(paramType);
@@ -1771,7 +1771,7 @@ bool Parser::ParseParamList(FuncType::TypeList& paramTypes)
 
     auto tok = ts_.Peek();
     paramType = ParseParamDecl();
-    if (paramType->ToVoidType()) {
+    if (paramType->ToVoid()) {
       Error(tok, "'void' must be the only parameter");
     }
 
@@ -1816,7 +1816,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
   return type;
   /*
   auto pointerType = ParsePointer(type);
-  if (nullptr != pointerType->ToPointerType() && !ts_.Try('('))
+  if (nullptr != pointerType->ToPointer() && !ts_.Try('('))
     return pointerType;
   
   auto ret = ParseAbstractDeclarator(pointerType);
@@ -1878,7 +1878,7 @@ Declaration* Parser::ParseInitDeclaratorSub(Object* obj)
     Error(obj, "'%s' has both 'extern' and initializer", name.c_str());
   }
 
-  if (!obj->Type()->Complete() && !obj->Type()->ToArrayType()) {
+  if (!obj->Type()->Complete() && !obj->Type()->ToArray()) {
     Error(obj, "variable '%s' has initializer but incomplete type",
         name.c_str());
   }
@@ -1919,8 +1919,8 @@ void Parser::ParseInitializer(Declaration* decl, Type* type,
   }
 
   Expr* expr;
-  auto arrType = type->ToArrayType();
-  auto structType = type->ToStructType();
+  auto arrType = type->ToArray();
+  auto structType = type->ToStruct();
   if (arrType) {
     if (forceBrace && !ts_.Test('{') && !ts_.Test(Token::LITERAL)) {
       ts_.Expect('{');
@@ -1976,7 +1976,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
   }
 
   if (!type->Complete()) {
-    type->SetLen(literal->Type()->ToArrayType()->Len());
+    type->SetLen(literal->Type()->ToArray()->Len());
     type->SetComplete(true);
   }
   
@@ -2100,7 +2100,7 @@ StructType::Iterator Parser::ParseStructDesignator(StructType* type,
   auto iter = type->Members().begin();
   for (; iter != type->Members().end(); ++iter) {
     if ((*iter)->Anonymous()) {
-      auto anonyType = (*iter)->Type()->ToStructType();
+      auto anonyType = (*iter)->Type()->ToStruct();
       assert(anonyType);
       if (anonyType->GetMember(name)) {
         return iter; //ParseStructDesignator(anonyType);
@@ -2579,7 +2579,7 @@ ReturnStmt* Parser::ParseReturnStmt()
     expr = ParseExpr();
     ts_.Expect(';');
     
-    auto retType = curFunc_->Type()->ToFuncType()->Derived();
+    auto retType = curFunc_->Type()->ToFunc()->Derived();
     expr = Expr::MayCast(expr, retType);
   }
 

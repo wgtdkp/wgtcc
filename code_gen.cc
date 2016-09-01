@@ -36,13 +36,13 @@ static std::vector<const char*> xregs {
 
 static ParamClass Classify(Type* paramType, int offset=0)
 {
-  if (paramType->IsInteger() || paramType->ToPointerType()
-      || paramType->ToArrayType()) {
+  if (paramType->IsInteger() || paramType->ToPointer()
+      || paramType->ToArray()) {
     return ParamClass::INTEGER;
   }
   
-  if (paramType->ToArithmType()) {
-    auto type = paramType->ToArithmType();
+  if (paramType->ToArithm()) {
+    auto type = paramType->ToArithm();
     if (type->Tag() == T_FLOAT || type->Tag() == T_DOUBLE)
       return ParamClass::SSE;
     if (type->Tag() == (T_LONG | T_DOUBLE)) {
@@ -62,7 +62,7 @@ static ParamClass Classify(Type* paramType, int offset=0)
   // TODO(wgtdkp): Support agrregate type 
   assert(false);
   /*
-  auto type = paramType->ToStructType();
+  auto type = paramType->ToStruct();
   assert(type);
 
   if (type->Width() > 4 * 8)
@@ -304,7 +304,7 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     return GenMemberRefOp(binary);
   if (op == ',')
     return GenCommaOp(binary);
-  if (binary->Type()->ToPointerType())
+  if (binary->Type()->ToPointer())
     return GenPointerArithm(binary);
 
   // Careful: for compare operator, the type of the expression
@@ -313,8 +313,8 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   auto type = binary->lhs_->Type();
   auto width = type->Width();
   auto flt = type->IsFloat();
-  auto sign = type->ToPointerType() 
-           || !(type->ToArithmType()->Tag() & T_UNSIGNED);
+  auto sign = type->ToPointer() 
+           || !(type->ToArithm()->Tag() & T_UNSIGNED);
 
   Visit(binary->lhs_);
   Spill(flt);
@@ -440,7 +440,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
   // As the lhs will always be struct/union 
   auto addr = LValGenerator().GenExpr(ref->lhs_);
   const auto& name = ref->rhs_->Tok()->str_;
-  auto structType = ref->lhs_->Type()->ToStructType();
+  auto structType = ref->lhs_->Type()->ToStruct();
   auto member = structType->GetMember(name);
 
   addr.offset_ += member->Offset();
@@ -460,7 +460,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
 
 void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
 {
-  auto type = bitField->Type()->ToArithmType();
+  auto type = bitField->Type()->ToArithm();
   assert(type && type->IsInteger());
 
   EmitLoad(addr, type);
@@ -499,7 +499,7 @@ void Generator::GenAssignOp(BinaryOp* assign)
 
 void Generator::EmitStoreBitField(const ObjectAddr& addr, Type* type)
 {
-  auto arithmType = type->ToArithmType();
+  auto arithmType = type->ToArithm();
   assert(arithmType && arithmType->IsInteger());
 
   // The value to be stored is in %rax now
@@ -573,7 +573,7 @@ void Generator::GenPointerArithm(BinaryOp* binary)
   Spill(false);
   Visit(binary->rhs_);
   
-  auto type = binary->lhs_->Type()->ToPointerType()->Derived();
+  auto type = binary->lhs_->Type()->ToPointer()->Derived();
   if (type->Width() > 1)
     Emit("imulq $%d, #rax", type->Width());
   Restore(false);
@@ -618,14 +618,14 @@ void Generator::GenCastOp(UnaryOp* cast)
   } else if (desType->IsFloat()) {
     const char* inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
     Emit("%s #rax, #xmm8", inst);
-  } else if (srcType->ToPointerType()
-      || srcType->ToFuncType()
-      || srcType->ToArrayType()) {
+  } else if (srcType->ToPointer()
+      || srcType->ToFunc()
+      || srcType->ToArray()) {
     // Do nothing
   } else {
-    assert(srcType->ToArithmType());
+    assert(srcType->ToArithm());
     int width = srcType->Width();
-    auto sign = !(srcType->ToArithmType()->Tag() & T_UNSIGNED);
+    auto sign = !(srcType->ToArithm()->Tag() & T_UNSIGNED);
     const char* inst;
     switch (width) {
     case 1:
@@ -719,7 +719,7 @@ void Generator::GenPrefixIncDec(Expr* operand, const std::string& inst)
   EmitLoad(addr, operand->Type());
 
   Constant* cons;
-  auto pointerType = operand->Type()->ToPointerType();
+  auto pointerType = operand->Type()->ToPointer();
    if (pointerType) {
     long width = pointerType->Derived()->Width();
     cons = Constant::New(operand->Tok(), T_LONG, width);
@@ -752,7 +752,7 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
   Save(flt);
 
   Constant* cons;
-  auto pointerType = operand->Type()->ToPointerType();
+  auto pointerType = operand->Type()->ToPointer();
    if (pointerType) {
     long width = pointerType->Derived()->Width();
     cons = Constant::New(operand->Tok(), T_LONG, width);
@@ -851,7 +851,7 @@ void Generator::VisitDeclaration(Declaration* decl)
       if (init.type_->IsScalar()) {
         VisitExpr(init.expr_);
         EmitStore(addr.Repr(), init.type_);
-      } else if (init.type_->ToStructType()) {
+      } else if (init.type_->ToStruct()) {
         VisitExpr(init.expr_);
         CopyStruct(addr, init.type_->Width());
       } else {
@@ -869,7 +869,7 @@ void Generator::VisitDeclaration(Declaration* decl)
 
 /*
 // literal initializer
-        GenLiteralInit(addr.Repr(), init.type_->ToArrayType(), init.expr_);
+        GenLiteralInit(addr.Repr(), init.type_->ToArray(), init.expr_);
 
 void Generator::GenLiteralInit(const std::string& addr, ArrayType* type, Expr* expr)
 {
@@ -993,7 +993,7 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
   auto expr = returnStmt->expr_;
   if (expr) {
     Visit(expr);
-    if (expr->Type()->ToStructType()) {
+    if (expr->Type()->ToStruct()) {
       // %rax now has the address of the struct/union
       
       ObjectAddr addr = {"", "rbp", retAddrOffset_};
@@ -1062,7 +1062,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   auto base = offset_;
   // Alloc memory for return value if it is struct/union
   auto funcType = funcCall->FuncType();
-  auto retType = funcCall->Type()->ToStructType();
+  auto retType = funcCall->Type()->ToStruct();
   if (retType) {
     auto offset = offset_;
     offset -= funcCall->Type()->Width();
@@ -1171,7 +1171,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
   offset_ = 0;
 
   // Arrange space to store params passed by registers
-  auto retType = funcDef->Type()->Derived()->ToStructType();
+  auto retType = funcDef->Type()->Derived()->ToStruct();
   auto locations = GetParamLocation(funcDef->Type()->ParamTypes(), retType);
 
   if (funcDef->Type()->Variadic()) {
@@ -1337,7 +1337,7 @@ void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 
   addr_ = LValGenerator().GenExpr(binary->lhs_);
   const auto& name = binary->rhs_->Tok()->str_;
-  auto structType = binary->lhs_->Type()->ToStructType();
+  auto structType = binary->lhs_->Type()->ToStruct();
   auto member = structType->GetMember(name);
 
   addr_.offset_ += member->Offset();
@@ -1416,7 +1416,7 @@ StaticInitializer Generator::GetStaticInit(const Initializer& init)
     auto val = Evaluator<double>().Eval(init.expr_);
     auto lval = *reinterpret_cast<long*>(&val);
     return {init.offset_, width, lval, ""};
-  } else if (init.type_->ToPointerType()) {
+  } else if (init.type_->ToPointer()) {
     auto addr = Evaluator<Addr>().Eval(init.expr_);
     return {init.offset_, width, addr.offset_, addr.label_};
   } else {

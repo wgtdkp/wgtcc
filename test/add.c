@@ -1,16 +1,94 @@
 #include "test.h"
 
-void test1()
-{
-    unsigned a, b;
-    a = 2;
-    b = 3;
-    a = -b;
-    printf("%d\n", a);
+static void test_char() {
+  char c1, c2;
+  c1 = 1;
+  c2 = 2;
+  expect(3, c1 + c2);
+  expect(1, c2 - c1);
+  expect(-1, c1 - c2);
 }
 
-int main()
-{
-    test1();
-    return 0;
+static void test_uchar() {
+  unsigned char c1, c2;
+  c1 = 1;
+  c2 = 2;
+  expect(3, c1 + c2);
+  expect(1, c2 - c1);
+  // unsigned char is promoted to int
+  expect(-1, c1 - c2);
+}
+
+static void test_short() {
+  short s1, s2;
+  s1 = 1;
+  s2 = 2;
+
+  expect(3, s1 + s2);
+  expect(1, s2 - s1);
+  expect(-1, s1 - s2);
+}
+
+static void test_ushort() {
+  unsigned short s1, s2;
+  s1 = 1;
+  s2 = 2;
+
+  expect(3, s1 + s2);
+  expect(1, s2 - s1);
+  expect(-1, s1 - s2);
+}
+
+static void test_int() {
+  int s1, s2;
+  s1 = 1;
+  s2 = 2;
+
+  expect(3, s1 + s2);
+  expect(1, s2 - s1);
+  expect(-1, s1 - s2);
+}
+
+static void test_uint() {
+  unsigned int s1, s2;
+  s1 = 1;
+  s2 = 2;
+
+  expect(3, s1 + s2);
+  expect(1, s2 - s1);
+  expect(UINT_MAX, s1 - s2);
+}
+
+static void test_long() {
+  long s1, s2;
+  s1 = 1;
+  s2 = 2;
+
+  expect(3, s1 + s2);
+  expect(1, s2 - s1);
+  expect(-1, s1 - s2);
+}
+
+static void test_ulong() {
+  unsigned long s1, s2;
+  s1 = 1;
+  s2 = 2;
+
+  expect(3, s1 + s2);
+  expect(1, s2 - s1);
+  expect(ULONG_MAX, s1 - s2);
+}
+
+
+
+int main() {
+  test_char();
+  test_uchar();
+  test_short();
+  test_ushort();
+  test_int();
+  test_uint();
+  test_long();
+  test_ulong();
+  return 0;
 }

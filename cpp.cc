@@ -126,7 +126,7 @@ static bool FindActualParam(TokenSequence& ap, ParamMap& params, const std::stri
   if (res == params.end()) {
     return false;
   }
-  ap = res->second;
+  ap.Copy(res->second);
   return true;
 }
 
@@ -343,9 +343,7 @@ void Preprocessor::Process(TokenSequence& os)
   // TODO(wgtdkp): finalize
   
   Finalize(os);
-  
-  std::cout << std::endl << "###### Preprocessed ######" << std::endl;
-  os.Print();
+
 
   //str.resize(0);
   //Stringize(str, os);

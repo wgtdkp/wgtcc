@@ -22,8 +22,8 @@ static MemPoolImp<ArithmType>       arithmTypePool;
 
 Type* Type::MayCast(Type* type)
 {
-  auto funcType = type->ToFuncType();
-  auto arrayType = type->ToArrayType();
+  auto funcType = type->ToFunc();
+  auto arrayType = type->ToArray();
   if (funcType) {
     return PointerType::New(funcType);
   } else if (arrayType) {
@@ -222,10 +222,10 @@ std::string ArithmType::Str() const
 bool PointerType::Compatible(const Type& other) const
 {
   // C11 6.7.6.1 [2]: pointer compatibility
-  auto otherPointer = other.ToPointerType();
+  auto otherPointer = other.ToPointer();
   if (!otherPointer) return false;
-  if (derived_->ToVoidType()) return true; 
-  if (otherPointer->derived_->ToVoidType()) return true;
+  if (derived_->ToVoid()) return true; 
+  if (otherPointer->derived_->ToVoid()) return true;
   return derived_->Compatible(*otherPointer->derived_);
 }
 
@@ -234,7 +234,7 @@ bool ArrayType::Compatible(const Type& other) const
   // C11 6.7.6.2 [6]: For two array type to be compatible,
   // the element types must be compatible, and have same length
   // if both specified.
-  auto otherArray = other.ToArrayType();
+  auto otherArray = other.ToArray();
   if (!otherArray) return false;
   if (!derived_->Compatible(*otherArray->derived_)) return false;
   // The lengths are both not specified
@@ -245,7 +245,7 @@ bool ArrayType::Compatible(const Type& other) const
 
 bool FuncType::Compatible(const Type& other) const
 {
-  auto otherFunc = other.ToFuncType();
+  auto otherFunc = other.ToFunc();
   //the other type is not an function type
   if (!otherFunc) return false;
   //TODO: do we need to check the type of return value when deciding 
@@ -359,7 +359,7 @@ void StructType::AddBitField(Object* bitField, int offset)
 // Move members of Anonymous struct/union to external struct/union
 void StructType::MergeAnony(Object* anony)
 {   
-  auto anonyType = anony->Type()->ToStructType();
+  auto anonyType = anony->Type()->ToStruct();
   auto offset = MakeAlign(offset_, anonyType->Align());
 
   // Members in map are never anonymous

@@ -13,7 +13,7 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary)
 #define LL  Evaluator<long>().Eval(binary->lhs_)
 #define LR  Evaluator<long>().Eval(binary->rhs_)
 
-  if (binary->Type()->ToPointerType()) {
+  if (binary->Type()->ToPointer()) {
     auto val = Evaluator<Addr>().Eval(binary);
     if (val.label_.size()) {
       Error(binary, "expect constant integer expression");
@@ -102,7 +102,7 @@ void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp)
   } else if (condType->IsFloat()) {
     auto val = Evaluator<double>().Eval(condOp->cond_);
     cond  = val != 0.0;
-  } else if (condType->ToPointerType()) {
+  } else if (condType->ToPointer()) {
     auto val = Evaluator<Addr>().Eval(condOp->cond_);
     cond = val.label_.size() || val.offset_;
   }
@@ -123,7 +123,7 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
   auto l = Evaluator<Addr>().Eval(binary->lhs_);
   
   int width;
-  auto pointerType = binary->lhs_->Type()->ToPointerType();
+  auto pointerType = binary->lhs_->Type()->ToPointer();
   if (pointerType) {
     width = pointerType->Derived()->Width();
   }
@@ -139,7 +139,7 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
     break;
   case '.': {
     addr_.label_ = l.label_;
-    auto type = binary->lhs_->Type()->ToStructType();
+    auto type = binary->lhs_->Type()->ToStruct();
     auto offset = type->GetMember(R.label_)->Offset();
     addr_.offset_ = l.offset_ + offset;
     break;
@@ -175,7 +175,7 @@ void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp)
   } else if (condType->IsFloat()) {
     auto val = Evaluator<double>().Eval(condOp->cond_);
     cond  = val != 0.0;
-  } else if (condType->ToPointerType()) {
+  } else if (condType->ToPointer()) {
     auto val = Evaluator<Addr>().Eval(condOp->cond_);
     cond = val.label_.size() || val.offset_;
   }
@@ -192,7 +192,7 @@ void Evaluator<Addr>::VisitConstant(Constant* cons)
 {
   if (cons->Type()->IsInteger()) {
     addr_.offset_ = cons->IVal();
-  } else if (cons->Type()->ToArrayType()) {
+  } else if (cons->Type()->ToArray()) {
     Generator().ConsLabel(cons); // Add the literal to rodatas_.
     addr_.label_ = Generator::rodatas_.back().label_;
     addr_.offset_ = 0;

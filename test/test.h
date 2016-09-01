@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
-
+#include <limits.h>
 
 
 #define expect(a, b)                                                \

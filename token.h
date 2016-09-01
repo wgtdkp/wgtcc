@@ -358,6 +358,12 @@ public:
     return *this;
   }
 
+  void Copy(const TokenSequence& other) {
+    tokList_ = new TokenList(other.begin_, other.end_);
+    begin_ = tokList_->begin();
+    end_ = tokList_->end();
+  }
+
   Token* Expect(int expect);
 
   bool Try(int tag) {

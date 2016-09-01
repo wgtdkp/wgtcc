@@ -137,18 +137,10 @@ BinaryOp* BinaryOp::New(const Token* tok, Expr* lhs, Expr* rhs)
 BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
 {
   switch (op) {
-  case ',':
-  case '.':
-  case '=': 
-  case '*':
-  case '/':
-  case '%':
-  case '+':
-  case '-':
-  case '&':
-  case '^':
-  case '|':
-  case '<':
+  case ',': case '.': case '=': 
+  case '*': case '/': case '%':
+  case '+': case '-': case '&':
+  case '^': case '|': case '<':
   case '>':
   case Token::LEFT:
   case Token::RIGHT:
@@ -159,7 +151,6 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
   case Token::LOGICAL_AND:
   case Token::LOGICAL_OR:
     break;
-
   default:
     assert(0);
   }
@@ -175,8 +166,8 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
 ArithmType* BinaryOp::Promote()
 {
   // Both lhs and rhs are ensured to be have arithmetic type
-  auto lhsType = lhs_->Type()->ToArithmType();
-  auto rhsType = rhs_->Type()->ToArithmType();
+  auto lhsType = lhs_->Type()->ToArithm();
+  auto rhsType = rhs_->Type()->ToArithm();
   
   auto type = MaxType(lhsType, rhsType);
   if (lhsType != type) {// Pointer comparation is enough!
@@ -252,7 +243,7 @@ void BinaryOp::CommaOpTypeChecking()
 
 void BinaryOp::SubScriptingOpTypeChecking()
 {
-  auto lhsType = lhs_->Type()->ToPointerType();
+  auto lhsType = lhs_->Type()->ToPointer();
   if (nullptr == lhsType) {
     Error(this, "an pointer expected");
   }
@@ -271,19 +262,12 @@ void BinaryOp::MemberRefOpTypeChecking()
 
 void BinaryOp::MultiOpTypeChecking()
 {
-  auto lhsType = lhs_->Type()->ToArithmType();
-  auto rhsType = rhs_->Type()->ToArithmType();
-  if (lhsType == nullptr || rhsType == nullptr) {
+  if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
     Error(this, "operands should have arithmetic type");
-  }
-
-  if ('%' == op_ && 
-      !(lhs_->Type()->IsInteger()
-      && rhs_->Type()->IsInteger())) {
+  if ('%' == op_ &&
+      !(lhs_->Type()->IsInteger() && rhs_->Type()->IsInteger())) {
     Error(this, "operands of '%%' should be integers");
   }
-
-  //TODO: type promotion
   type_ = Promote();
 }
 
@@ -296,12 +280,12 @@ void BinaryOp::MultiOpTypeChecking()
  */
 void BinaryOp::AdditiveOpTypeChecking()
 {
-  auto lhsType = lhs_->Type()->ToPointerType();
-  auto rhsType = rhs_->Type()->ToPointerType();
+  auto lhsType = lhs_->Type()->ToPointer();
+  auto rhsType = rhs_->Type()->ToPointer();
   if (lhsType) {
     if (op_ == Token::MINUS) {
-      if ((rhsType && !lhsType->Compatible(*rhsType))
-          || !rhs_->Type()->IsInteger()) {
+      if ((rhsType && !lhsType->Compatible(*rhsType)) ||
+          !rhs_->Type()->IsInteger()) {
         Error(this, "invalid operands to binary -");
       }
       type_ = ArithmType::New(T_LONG); // ptrdiff_t
@@ -311,65 +295,45 @@ void BinaryOp::AdditiveOpTypeChecking()
       type_ = lhs_->Type();
     }
   } else if (rhsType) {
-    if (op_ != Token::ADD || !lhs_->Type()->IsInteger()) {
-      Error(this, "invalid operands to binary '%s'",
-          tok_->str_.c_str());
-    }
+    if (op_ != Token::ADD || !lhs_->Type()->IsInteger())
+      Error(this, "invalid operands to binary '%s'", tok_->str_.c_str());
     type_ = rhs_->Type();
     std::swap(lhs_, rhs_); // To simplify code gen
   } else {
-    auto lhsType = lhs_->Type()->ToArithmType();
-    auto rhsType = rhs_->Type()->ToArithmType();
-    if (lhsType == nullptr || rhsType == nullptr) {
-      Error(this, "invalid operands to binary %s",
-          tok_->str_.c_str());
-    }
-
+    if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
+      Error(this, "invalid operands to binary %s", tok_->str_.c_str());
     type_ = Promote();
   }
 }
 
 void BinaryOp::ShiftOpTypeChecking()
 {
-  if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger()) {
-    Error(this, "expect integers for shift operator '%s'",
-        tok_->str_);
-  }
-
+  if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger())
+    Error(this, "expect integers for shift operator '%s'", tok_->str_.c_str());
   Promote();
   type_ = lhs_->Type();
 }
 
 void BinaryOp::RelationalOpTypeChecking()
 {
-  if (lhs_->Type()->ToPointerType() || rhs_->Type()->ToPointerType()) {
+  if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
     if (!lhs_->Type()->Compatible(*rhs_->Type()))
       Error(this, "incompatible pointers of operands");
-  } else if (!(lhs_->Type()->IsInteger() || lhs_->Type()->IsFloat())
-          || !(rhs_->Type()->IsInteger() || rhs_->Type()->IsFloat())) {
+  } else if (!lhs_->Type()->IsReal() || !rhs_->Type()->IsReal()) {
     Error(this, "expect real type of operands");
   }
-
   Promote();
   type_ = ArithmType::New(T_INT);    
 }
 
 void BinaryOp::EqualityOpTypeChecking()
 {
-  auto lhsType = lhs_->Type()->ToPointerType();
-  auto rhsType = rhs_->Type()->ToPointerType();
-  if (lhsType || rhsType) {
-    if (!lhsType->Compatible(*rhsType)) {
+  if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
+    if (!lhs_->Type()->Compatible(*rhs_->Type()))
       Error(this, "incompatible pointers of operands");
-    }
   } else {
-    auto lhsType = lhs_->Type()->ToArithmType();
-    auto rhsType = rhs_->Type()->ToArithmType();
-    if (lhsType == nullptr || rhsType == nullptr) {
-      Error(this, "invalid operands to binary %s",
-          tok_->str_);
-    }
-
+    if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
+      Error(this, "invalid operands to binary %s", tok_->str_.c_str());
     Promote();
   }
 
@@ -378,19 +342,15 @@ void BinaryOp::EqualityOpTypeChecking()
 
 void BinaryOp::BitwiseOpTypeChecking()
 {
-  if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger()) {
+  if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger())
     Error(this, "operands of '&' should be integer");
-  }
-  
   type_ = Promote();
 }
 
 void BinaryOp::LogicalOpTypeChecking()
 {
-  if (!lhs_->Type()->IsScalar() || !rhs_->Type()->IsScalar()) {
+  if (!lhs_->Type()->IsScalar() || !rhs_->Type()->IsScalar())
     Error(this, "the operand should be arithmetic type or pointer");
-  }
-  
   Promote();
   type_ = ArithmType::New(T_INT);
 }
@@ -401,8 +361,10 @@ void BinaryOp::AssignOpTypeChecking()
     Error(lhs_->Tok(), "lvalue expression expected");
   }/* else if (lhs_->Type()->IsConst()) {
     Error(lhs_->Tok(), "can't modifiy 'const' qualified expression");
-  } */else if (!lhs_->Type()->Compatible(*rhs_->Type())) {
-    Error(lhs_->Tok(), "uncompatible types");
+  } */
+  if (lhs_->Type()->ToArithm() && rhs_->Type()->ToArithm()) {
+  } else if (!lhs_->Type()->Compatible(*rhs_->Type())) {
+    Error(lhs_, "incompatible types");
   }
   // The other constraints are lefted to cast operator
   rhs_ = Expr::MayCast(rhs_, lhs_->Type());
@@ -427,7 +389,7 @@ bool UnaryOp::IsLVal() {
   // only deref('*') could be lvalue;
   // so it's only deref will override this func
   switch (op_) {
-  case Token::DEREF: return !Type()->ToArrayType();
+  case Token::DEREF: return !Type()->ToArray();
   //case Token::CAST: return operand_->IsLVal();
   default: return false;
   }
@@ -437,7 +399,7 @@ bool UnaryOp::IsLVal() {
 ArithmType* UnaryOp::Promote()
 {
   //
-  auto arithmType = operand_->Type()->ToArithmType(); 
+  auto arithmType = operand_->Type()->ToArithm(); 
   auto type = MaxType(arithmType, arithmType);
   if (type != arithmType) {
     operand_ = UnaryOp::New(Token::CAST, operand_, type);
@@ -482,34 +444,31 @@ void UnaryOp::IncDecOpTypeChecking()
   }/* else if (operand_->Type()->IsConst()) {
     Error(this, "can't modifiy 'const' qualified expression");
   }*/
-
+  if (!operand_->Type()->IsReal())
+    Error(this, "expect operand of real type");
   type_ = operand_->Type();
 }
 
 void UnaryOp::AddrOpTypeChecking()
 {
-  FuncType* funcType = operand_->Type()->ToFuncType();
-  if (funcType == nullptr && !operand_->IsLVal()) {
+  FuncType* funcType = operand_->Type()->ToFunc();
+  if (funcType == nullptr && !operand_->IsLVal())
     Error(this, "expression must be an lvalue or function designator");
-  }
-  
   type_ = PointerType::New(operand_->Type());
 }
 
 void UnaryOp::DerefOpTypeChecking()
 {
-  auto pointerType = operand_->Type()->ToPointerType();
-  if (pointerType == nullptr) {
+  auto pointerType = operand_->Type()->ToPointer();
+  if (!pointerType)
     Error(this, "pointer expected for deref operator '*'");
-  }
-
   type_ = pointerType->Derived();    
 }
 
 void UnaryOp::UnaryArithmOpTypeChecking()
 {
   if (Token::PLUS == op_ || Token::MINUS == op_) {
-    if (!operand_->Type()->ToArithmType())
+    if (!operand_->Type()->ToArithm())
       Error(this, "Arithmetic type expected");
     Promote();
     type_ = operand_->Type();
@@ -529,15 +488,15 @@ void UnaryOp::UnaryArithmOpTypeChecking()
 void UnaryOp::CastOpTypeChecking()
 {
   // The type_ has been initiated to dest type
-  if (type_->ToVoidType()) {
+  if (type_->ToVoid()) {
     // The expression becomes a void expression
-  } else if (type_->ToPointerType() && operand_->Type()->ToArrayType()) {
-  } else if (type_->ToPointerType() && operand_->Type()->ToFuncType()) {
+  } else if (type_->ToPointer() && operand_->Type()->ToArray()) {
+  } else if (type_->ToPointer() && operand_->Type()->ToFunc()) {
   } else if (!type_->IsScalar() || !operand_->Type()->IsScalar()) {
     Error(this, "the cast type should be arithemetic type or pointer");
-  } else if (type_->IsFloat() && operand_->Type()->ToPointerType()) {
+  } else if (type_->IsFloat() && operand_->Type()->ToPointer()) {
     Error(this, "can't cast a pointer to floating");
-  } else if (type_->ToPointerType() && operand_->Type()->IsFloat()) {
+  } else if (type_->ToPointer() && operand_->Type()->IsFloat()) {
     Error(this, "can't cast a floating to pointer");
   }
 }
@@ -561,8 +520,8 @@ ConditionalOp* ConditionalOp::New(const Token* tok,
 
 ArithmType* ConditionalOp::Promote()
 {
-  auto lhsType = exprTrue_->Type()->ToArithmType();
-  auto rhsType = exprFalse_->Type()->ToArithmType();
+  auto lhsType = exprTrue_->Type()->ToArithm();
+  auto rhsType = exprFalse_->Type()->ToArithm();
   
   auto type = MaxType(lhsType, rhsType);
   if (lhsType != type) {// Pointer comparation is enough!
@@ -583,10 +542,10 @@ void ConditionalOp::TypeChecking()
 
   auto lhsType = exprTrue_->Type();
   auto rhsType = exprFalse_->Type();
-  if (lhsType->ToArithmType() && rhsType->ToArithmType()) {
+  if (lhsType->ToArithm() && rhsType->ToArithm()) {
     type_ = Promote();
-  }/* else if (lhsType->ToVoidType() && rhsType->ToVoidType()) {
-  } else if (lhsType->ToPointerType() && rhs->ToPointerType()) {
+  }/* else if (lhsType->ToVoid() && rhsType->ToVoid()) {
+  } else if (lhsType->ToPointer() && rhs->ToPointer()) {
     if (!lhsType->Compatible(*rhsType))
       Error(this, "incompatible pointers of operands");
   }*/else if (!lhsType->Compatible(*rhsType)) {
@@ -613,14 +572,14 @@ FuncCall* FuncCall::New(Expr* designator, const ArgList& args)
 
 void FuncCall::TypeChecking()
 {
-  auto pointerType = designator_->Type()->ToPointerType();
+  auto pointerType = designator_->Type()->ToPointer();
   if (pointerType) {
-    if (!pointerType->Derived()->ToFuncType())
+    if (!pointerType->Derived()->ToFunc())
       Error(designator_, "called object is not a function or function pointer");
     // Convert function pointer to function type
     designator_ = UnaryOp::New(Token::DEREF, designator_);
   }
-  auto funcType = designator_->Type()->ToFuncType();
+  auto funcType = designator_->Type()->ToFunc();
   if (!funcType) {
     Error(designator_, "called object is not a function or function pointer");
   }

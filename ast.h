@@ -360,7 +360,7 @@ public:
   virtual bool IsLVal() {
     switch (op_) {
     case '.':
-    case ']': return !Type()->ToArrayType();
+    case ']': return !Type()->ToArray();
     default: return false;
     }
   }
@@ -518,7 +518,7 @@ public:
   }
 
   ::FuncType* FuncType() {
-    return designator_->Type()->ToFuncType();
+    return designator_->Type()->ToFunc();
   }
 
   virtual void TypeChecking();
@@ -893,7 +893,7 @@ public:
   virtual ~FuncDef() {}
   
   virtual FuncType* Type() {
-    return ident_->Type()->ToFuncType();
+    return ident_->Type()->ToFunc();
   }
 
   ParamList& Params() {
