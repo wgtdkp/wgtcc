@@ -1,3 +1,5 @@
+// @wgtdkp: passed
+
 #include "test.h"
 
 static void test_int() {
@@ -11,6 +13,9 @@ static void test_int() {
 	expect(2, s2 / -2);
 	expect(1, s1 / -2);
 	expect(0, s1 / s2);
+	expect(-3, s1 % s2);
+	expect(0, s2 % s2);
+	expect(1, 1 % s2);
 }
 
 static void test_uint() {
@@ -23,6 +28,9 @@ static void test_uint() {
 	expect(2U, s2 / 2U);
 	expect(1U, s1 / 2U);
 	expect(0U, s1 / s2);
+	expect(3U, s1 % s2);
+	expect(0, s2 % s2);
+	expect(1U, 1U % s2);
 }
 
 static void test_long() {
@@ -35,6 +43,9 @@ static void test_long() {
 	expect(2L, s2 / -2L);
 	expect(1L, s1 / -2L);
 	expect(0L, s1 / s2);
+	expect(-3L, s1 % s2);
+	expect(0L, s2 % s2);
+	expect(1L, 1L % s2);
 }
 
 
@@ -48,6 +59,9 @@ static void test_ulong() {
 	expect(2UL, s2 / 2UL);
 	expect(1UL, s1 / 2UL);
 	expect(0UL, s1 / s2);
+	expect(3UL, s1 % s2);
+	expect(0UL, s2 % s2);
+	expect(1UL, 1UL % s2);
 }
 
 

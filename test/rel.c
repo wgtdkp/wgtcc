@@ -1,23 +1,21 @@
+// @wgtdkp: passed
+
 #include "test.h"
 
-void test1()
-{
-    int a, b;
-    a = -1;
-    a == -1;
-    //printf("%d\n", (a == -1));
+static void test1() {
+	int a = 3, b = 4;
+	expect(1, a < b);
+	expect(1, a <= b);
+	expect(0, a > b);
+	expect(0, a >= b);
+	expect(1, a <= 3);
+	expect(1, a == 3);
+	expect (1, a >= 3);
+	expect(1, (a >= 3) >= 1);
+	expect(1, a != b);
 }
 
-void test2()
-{
-    int a = 4, b = 5;
-    expect(1, a < b);
-    expect(1, b > a);
-}
-
-int main()
-{
-    test1();
-    test2();
-    return 0;
+int main() {
+	test1();
+	return 0;
 }

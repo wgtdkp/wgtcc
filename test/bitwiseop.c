@@ -1,49 +1,52 @@
+// @wgtdkp: passed
+
 #include "test.h"
 
 
-void test1()
-{
-    int a, b;
-    b = 3;
-    a = !b;
-    b = !a;
-    expect(0, a);
-    expect(1, b);
+static void test_shift() {
+	int a = 3, b = 4;
+	expect(48, 3 << 4);
+	expect(0, 3 >> 4);
+	expect(3, a << 0);
+	expect(4, b >> 0);
 }
 
-void test2()
-{
-    float a, b;
-    int c, d;
-    a = 3;
-    b = 0;
-    c = !a;
-    d = !b;
-    expect(c, 0);
-    expect(d, 1);
+static void test_or() {
+	int a = 3, b = 4;
+	expect(7, a | b);
+	expect(11, a | (b << 1));
+	expect(3, a | a);
+	expect(4, b | b);
 }
 
-void test3()
-{
-    int a, b;
-    b = 0;
-    a = ~b;
-    expect(a, -1);
+static void test_xor() {
+	int a = 3, b = 4;
+	expect(0, a ^ a);
+	expect(7, a ^ b);
+	expect(3, a ^ 0);
+	expect(-3, (a ^ -1) + 1);
 }
 
-void test4()
-{
-    unsigned a, b;
-    b = 0;
-    a = ~b;
-    expect(a, -1);
+static void test_and() {
+	int a = 3, b = 4;
+	expect(0, a & b);
+	expect(3, a & a);
+	expect(0, a & 0);
+	expect(4, b & 7);
+}
+
+static void test_not() {
+	int a = 3, b = 4;
+	expect(-3, (unsigned)~a + 1);
+	expect(-1, ~0);
 }
 
 int main()
 {
-    test1();
-    test2();
-    test3();
-    test4();
-    return 0;
+	test_shift();
+	test_or();
+	test_xor();
+	test_and();
+	test_not();
+	return 0;
 }
