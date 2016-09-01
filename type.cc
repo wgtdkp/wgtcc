@@ -223,7 +223,10 @@ bool PointerType::Compatible(const Type& other) const
 {
   // C11 6.7.6.1 [2]: pointer compatibility
   auto otherPointer = other.ToPointerType();
-  return otherPointer && derived_->Compatible(*otherPointer->derived_);
+  if (!otherPointer) return false;
+  if (derived_->ToVoidType()) return true; 
+  if (otherPointer->derived_->ToVoidType()) return true;
+  return derived_->Compatible(*otherPointer->derived_);
 }
 
 bool ArrayType::Compatible(const Type& other) const

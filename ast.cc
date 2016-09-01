@@ -345,8 +345,8 @@ void BinaryOp::RelationalOpTypeChecking()
   if (lhs_->Type()->ToPointerType() || rhs_->Type()->ToPointerType()) {
     if (!lhs_->Type()->Compatible(*rhs_->Type()))
       Error(this, "incompatible pointers of operands");
-  } else if (!lhs_->Type()->IsInteger() || !lhs_->Type()->IsFloat()
-      || !rhs_->Type()->IsInteger() || !rhs_->Type()->IsFloat()) {
+  } else if (!(lhs_->Type()->IsInteger() || lhs_->Type()->IsFloat())
+          || !(rhs_->Type()->IsInteger() || rhs_->Type()->IsFloat())) {
     Error(this, "expect real type of operands");
   }
 
@@ -583,16 +583,16 @@ void ConditionalOp::TypeChecking()
 
   auto lhsType = exprTrue_->Type();
   auto rhsType = exprFalse_->Type();
-  if (!lhsType->Compatible(*rhsType)) {
-    Error(exprTrue_->Tok(), "incompatible types of true/false expression");
+  if (lhsType->ToArithmType() && rhsType->ToArithmType()) {
+    type_ = Promote();
+  }/* else if (lhsType->ToVoidType() && rhsType->ToVoidType()) {
+  } else if (lhsType->ToPointerType() && rhs->ToPointerType()) {
+    if (!lhsType->Compatible(*rhsType))
+      Error(this, "incompatible pointers of operands");
+  }*/else if (!lhsType->Compatible(*rhsType)) {
+    Error(exprTrue_->Tok(), "incompatible type of operands");
   } else {
     type_ = lhsType;
-  }
-
-  lhsType = lhsType->ToArithmType();
-  rhsType = rhsType->ToArithmType();
-  if (lhsType && rhsType) {
-    type_ = Promote();
   }
 }
 
@@ -615,9 +615,8 @@ void FuncCall::TypeChecking()
 {
   auto pointerType = designator_->Type()->ToPointerType();
   if (pointerType) {
-    if (!pointerType->Derived()->ToFuncType()) {
+    if (!pointerType->Derived()->ToFuncType())
       Error(designator_, "called object is not a function or function pointer");
-    }
     // Convert function pointer to function type
     designator_ = UnaryOp::New(Token::DEREF, designator_);
   }
@@ -626,25 +625,19 @@ void FuncCall::TypeChecking()
     Error(designator_, "called object is not a function or function pointer");
   }
 
-  const auto& funcName = designator_->Tok()->str_;
+  auto i = 1;
   auto arg = args_.begin();
   for (auto paramType: funcType->ParamTypes()) {
-    if (arg == args_.end()) {
-      Error(this, "too few arguments for function '%s'", funcName.c_str());
-    }
-    if (!paramType->Compatible(*(*arg)->Type())) {
-      // TODO(wgtdkp): function name
-      Error(this, "incompatible type for argument 1 of '%s'", funcName.c_str());
-    }
+    if (arg == args_.end())
+      Error(this, "too few arguments for function call");
     *arg = Expr::MayCast(*arg, paramType);
     ++arg;
+    ++i;
   }
-  
-  if (arg != args_.end() && !funcType->Variadic()) {
-    Error(this, "too many arguments for function '%s'", funcName.c_str());
-  }
+  if (arg != args_.end() && !funcType->Variadic())
+    Error(this, "too many arguments for function call");
 
-  // c11 6.5.2.2 [6]: promote float to double if it has no prototype
+  // C11 6.5.2.2 [6]: promote float to double if it has no prototype
   while (arg != args_.end()) {
     if ((*arg)->Type()->IsFloat() && (*arg)->Type()->Width() == 4) {
       auto type = ArithmType::New(T_DOUBLE);

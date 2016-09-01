@@ -147,10 +147,7 @@ public:
   virtual VoidType* ToVoidType() { return this; }
   virtual const VoidType* ToVoidType() const { return this; }
   virtual bool Compatible(const Type& other) const {
-    // The void Type is compatible to all types,
-    // so that a pointer to void type (void*) is
-    // always compatible to all pointer types.
-    return true;
+    return other.ToVoidType();
   }
 
   virtual int Width() const {
