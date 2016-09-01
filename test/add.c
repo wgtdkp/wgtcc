@@ -1,3 +1,5 @@
+// @wgtdkp: passed
+
 #include "test.h"
 
 static void test_char() {
@@ -79,7 +81,25 @@ static void test_ulong() {
   expect(ULONG_MAX, s1 - s2);
 }
 
+static void test_float() {
+  float s1, s2;
+  s1 = 1.0f;
+  s2 = 2.0f;
 
+  expect(3.0f, s1 + s2);
+  expect(1.0f, s2 - s1);
+  expect(-1.0f, s1 - s2);  
+}
+
+static void test_double() {
+  float s1, s2;
+  s1 = 1.0;
+  s2 = 2.0;
+
+  expect(3.0, s1 + s2);
+  expect(1.0, s2 - s1);
+  expect(-1.0, s1 - s2);  
+}
 
 int main() {
   test_char();
@@ -90,5 +110,7 @@ int main() {
   test_uint();
   test_long();
   test_ulong();
+  test_float();
+  test_double();
   return 0;
 }

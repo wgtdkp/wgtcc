@@ -14,4 +14,12 @@
                 __FILE__, __func__, __LINE__, (int)(a), (int)(b));  \
     };
 
+
+#define expect_float(a, b)                                          \
+    if ((a) != (b)) {                                               \
+        printf("error:%s:%s:%d: failed, %f != %f\n",                \
+                __FILE__, __func__, __LINE__, (a), (b));            \
+    };
+
+
 #endif
