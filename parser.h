@@ -55,7 +55,7 @@ public:
   Expr* ParseExpr(void);
 
   Expr* ParsePrimaryExpr(void);
-
+  Object* ParseCompoundLiteral(Type* type);
   Expr* ParsePostfixExpr(void);
   Expr* ParsePostfixExprTail(Expr* primExpr);
   Expr* ParseSubScripting(Expr* pointer);
@@ -146,7 +146,7 @@ public:
       ArrayType* type, int offset);
 
   Declaration* ParseInitDeclarator(Identifier* ident);
-
+  Declaration* ParseInitDeclaratorSub(Object* obj);
   /************* Statements ***************/
   Stmt* ParseStmt(void);
   

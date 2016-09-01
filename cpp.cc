@@ -990,6 +990,21 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
   return repSeq_;
 }
 
+/*
+TokenSequence Macro::RepSeq(const SourceLocation& loc)
+{
+  auto ts = repSeq_;
+  if (ts.Empty())
+    return ts;
+  auto beginLoc = ts.Peek()->loc_;
+  while (!ts.Empty()) {
+    auto tok = ts.Next();
+    tok->loc_.fileName_ = loc.fileName_;
+    tok->loc_.line_ = loc.line_;
+
+  }
+}
+*/
 
 void Preprocessor::AddSearchPath(const std::string& path)
 {

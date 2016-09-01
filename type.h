@@ -61,7 +61,7 @@ enum {
   Q_VOLATILE = 0x800000,
   Q_ATOMIC = 0x1000000,
 
-  T_LONG_LONG = 0x2000000,
+  T_LLONG = 0x2000000,
 
   /*****function specifier*****/
   F_INLINE = 0x4000000,

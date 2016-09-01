@@ -72,6 +72,8 @@ public:
     return identMap_.size();
   }
 
+  void Insert(const std::string& name, Identifier* ident);
+
 private:
   Identifier* Find(const std::string& name);
 
@@ -81,7 +83,7 @@ private:
 
   Identifier* FindTagInCurScope(const std::string& name);
 
-  void Insert(const std::string& name, Identifier* ident);
+  //void Insert(const std::string& name, Identifier* ident);
 
   const Scope& operator=(const Scope& other);
   Scope(const Scope& scope);

@@ -50,9 +50,43 @@ VoidType* VoidType::New(void)
 }
 
 ArithmType* ArithmType::New(int typeSpec) {
+#define NEW_TYPE(tag) \
+  new (arithmTypePool.Alloc()) ArithmType(&arithmTypePool, tag);
+  static ArithmType* boolType   = NEW_TYPE(T_BOOL);
+  static ArithmType* charType   = NEW_TYPE(T_CHAR);
+  static ArithmType* ucharType  = NEW_TYPE(T_UNSIGNED | T_CHAR);
+  static ArithmType* shortType  = NEW_TYPE(T_SHORT);
+  static ArithmType* ushortType = NEW_TYPE(T_UNSIGNED | T_SHORT);
+  static ArithmType* intType    = NEW_TYPE(T_INT);
+  static ArithmType* uintType   = NEW_TYPE(T_UNSIGNED | T_INT);
+  static ArithmType* longType   = NEW_TYPE(T_LONG);
+  static ArithmType* ulongType  = NEW_TYPE(T_UNSIGNED | T_LONG);
+  static ArithmType* llongType  = NEW_TYPE(T_LLONG)
+  static ArithmType* ullongType = NEW_TYPE(T_UNSIGNED | T_LLONG);
+  static ArithmType* floatType  = NEW_TYPE(T_FLOAT);
+  static ArithmType* doubleType = NEW_TYPE(T_DOUBLE);
+  static ArithmType* ldoubleType = NEW_TYPE(T_LONG | T_DOUBLE);
+  
   auto tag = ArithmType::Spec2Tag(typeSpec);
-  return new (arithmTypePool.Alloc())
-      ArithmType(&arithmTypePool, tag);
+  switch (tag) {
+  case T_BOOL: return boolType;
+  case T_CHAR: return charType;
+  case T_UNSIGNED | T_CHAR: return ucharType;
+  case T_SHORT: return shortType;
+  case T_UNSIGNED | T_SHORT: return ushortType;
+  case T_INT: return intType;
+  case T_UNSIGNED: case T_UNSIGNED | T_INT: return uintType;
+  case T_LONG: return longType;
+  case T_UNSIGNED | T_LONG: return ulongType;
+  case T_LLONG: return llongType;
+  case T_UNSIGNED | T_LLONG: return ullongType;
+  case T_FLOAT: return floatType;
+  case T_DOUBLE: return doubleType;
+  case T_LONG | T_DOUBLE: return ldoubleType;
+  default: Error("complex not supported yet");
+  }
+  return nullptr; // Make compiler happy
+#undef NEW_TYPE
 }
 
 ArrayType* ArrayType::New(int len, Type* eleType)
@@ -90,46 +124,28 @@ static EnumType* Type::NewEnumType() {
 /*************** ArithmType *********************/
 int ArithmType::Width(void) const {
   switch (tag_) {
-  case T_BOOL:
-  case T_CHAR:
-  case T_UNSIGNED | T_CHAR:
+  case T_BOOL: case T_CHAR: case T_UNSIGNED | T_CHAR:
     return 1;
-
-  case T_SHORT:
-  case T_UNSIGNED | T_SHORT:
+  case T_SHORT: case T_UNSIGNED | T_SHORT:
     return _intWidth >> 1;
-
-  case T_INT:
-  case T_UNSIGNED:
-  case T_UNSIGNED | T_INT:
+  case T_INT: case T_UNSIGNED: case T_UNSIGNED | T_INT:
     return _intWidth;
-
-  case T_LONG:
-  case T_UNSIGNED | T_LONG:
+  case T_LONG: case T_UNSIGNED | T_LONG:
     return _intWidth << 1;
-
-  case T_LONG_LONG:
-  case T_UNSIGNED | T_LONG_LONG:
+  case T_LLONG: case T_UNSIGNED | T_LLONG:
     return _intWidth << 1;
-
   case T_FLOAT:
     return _intWidth;
-
   case T_DOUBLE:
     return _intWidth << 1;
-
   case T_LONG | T_DOUBLE:
     return _intWidth << 2;
-
   case T_FLOAT | T_COMPLEX:
     return _intWidth << 1;
-
   case T_DOUBLE | T_COMPLEX:
     return _intWidth << 2;
-
   case T_LONG | T_DOUBLE | T_COMPLEX:
     return _intWidth << 3;
-
   default:
     assert(false);
   }
@@ -140,7 +156,7 @@ int ArithmType::Width(void) const {
 int ArithmType::Spec2Tag(int spec) {
   spec &= ~T_SIGNED;
   if ((spec & T_SHORT) || (spec & T_LONG)
-      || (spec & T_LONG_LONG)) {
+      || (spec & T_LLONG)) {
     spec &= ~T_INT;
   }
   return spec;
@@ -179,10 +195,10 @@ std::string ArithmType::Str(void) const
   case T_UNSIGNED | T_LONG:
     return "unsigned long" + width;
 
-  case T_LONG_LONG:
+  case T_LLONG:
     return "long long" + width;
 
-  case T_UNSIGNED | T_LONG_LONG:
+  case T_UNSIGNED | T_LLONG:
     return "unsigned long long" + width;
 
   case T_FLOAT:

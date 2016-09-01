@@ -670,7 +670,7 @@ public:
   }
 
 
-  const std::string& Name(void) const {
+  virtual const std::string& Name(void) const {
     return tok_->str_;
   }
 
@@ -819,8 +819,24 @@ public:
     return decl_ && decl_->Inits().size();
   }
 
-  bool IsAnonymous(void) const {
-    return !tok_;
+  bool Anonymous(void) const {
+    return anonymous_;
+  }
+
+  void SetAnonymous(bool anonymous) {
+    anonymous_ = anonymous;
+  }
+
+  virtual const std::string& Name(void) const {
+    /*
+    if (Anonymous()) {
+      static auto anonyName = "anonymous<"
+          + std::to_string(reinterpret_cast<unsigned long long>(this))
+          + ">";
+      return anonyName;
+    }
+    */
+    return Identifier::Name();
   }
 
   /*
@@ -835,11 +851,12 @@ public:
   */
 protected:
   Object(const Token* tok, ::Type* type,
-      int storage=0, enum Linkage linkage=L_NONE,
-      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
+         int storage=0, enum Linkage linkage=L_NONE,
+         unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
       : Identifier(tok, type, linkage),
         storage_(storage), offset_(0), decl_(nullptr),
-        bitFieldBegin_(bitFieldBegin), bitFieldWidth_(bitFieldWidth) {}
+        bitFieldBegin_(bitFieldBegin), bitFieldWidth_(bitFieldWidth),
+        anonymous_(false) {}
 
 private:
   int storage_;
@@ -853,6 +870,7 @@ private:
   // 0 means it's not a bitfield
   unsigned char bitFieldWidth_;
 
+  bool anonymous_;
   //static size_t _labelId {0};
 };
 

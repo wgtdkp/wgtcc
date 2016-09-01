@@ -128,14 +128,16 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
 
   for (auto paramType: paramTypes) {
     auto iter = curScope_->begin();
-    for (; iter != curScope_->end(); iter++) {
+    for (; iter != curScope_->end(); ++iter) {
       if (iter->second->Type() == paramType) {
         funcDef->Params().push_back(iter->second->ToObject());
         break;
       }
     }
   }
-  assert(funcDef->Params().size() == paramTypes.size());
+  if (funcDef->Params().size() != paramTypes.size()) {
+    assert(funcDef->Params().size() == paramTypes.size());
+  }
 
   funcType->SetComplete(true);
   funcDef->SetBody(ParseCompoundStmt(funcType));
@@ -388,16 +390,33 @@ Expr* Parser::ParsePostfixExpr(void)
   }
 
   if ('(' == tok->tag_ && IsTypeName(ts_.Peek())) {
-    // TODO(wgtdkp):
-    //compound literals
-    Error(tok, "compound literals not supported yet");
-    //return ParseCompLiteral();
+    auto type = ParseTypeName();
+    ts_.Expect(')');
+    return ParseCompoundLiteral(type);
   }
 
   ts_.PutBack();
   auto primExpr = ParsePrimaryExpr();
   
   return ParsePostfixExprTail(primExpr);
+}
+
+
+static std::string AnonymousName(Object* anony) {
+  return "anonymous<"
+       + std::to_string(reinterpret_cast<unsigned long long>(anony))
+       + ">";
+}
+
+
+Object* Parser::ParseCompoundLiteral(Type* type)
+{
+  auto linkage = curScope_->Type() == S_FILE ? L_INTERNAL: L_NONE;
+  auto anony = Object::New(ts_.Peek(), type, 0, linkage);
+  anony->SetAnonymous(true);
+  curScope_->Insert(AnonymousName(anony), anony);
+  ParseInitDeclaratorSub(anony);
+  return anony;
 }
 
 
@@ -408,28 +427,14 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
     auto tok = ts_.Next();
     
     switch (tok->tag_) {
-    case '[':
-      lhs = ParseSubScripting(lhs);
-      break;
-
-    case '(':
-      lhs = ParseFuncCall(lhs);
-      break;
-    
-    case Token::PTR:
-      lhs = UnaryOp::New(Token::DEREF, lhs);    
-    case '.':
-      lhs = ParseMemberRef(tok, '.', lhs);
-      break;
-
+    case '[': lhs = ParseSubScripting(lhs); break;
+    case '(': lhs = ParseFuncCall(lhs); break;
+    case Token::PTR: lhs = UnaryOp::New(Token::DEREF, lhs);
+    // Fall through    
+    case '.': lhs = ParseMemberRef(tok, '.', lhs); break;
     case Token::INC:
-    case Token::DEC:
-      lhs = ParsePostfixIncDec(tok, lhs);
-      break;
-
-    default:
-      ts_.PutBack();
-      return lhs;
+    case Token::DEC: lhs = ParsePostfixIncDec(tok, lhs); break;
+    default: ts_.PutBack(); return lhs;
     }
   }
 }
@@ -588,11 +593,13 @@ Expr* Parser::ParseCastExpr(void)
 {
   auto tok = ts_.Next();
   if (tok->tag_ == '(' && IsTypeName(ts_.Peek())) {
-    auto desType = ParseTypeName();
+    auto type = ParseTypeName();
     ts_.Expect(')');
+    if (ts_.Test('{')) {
+      return ParseCompoundLiteral(type);
+    }
     auto operand = ParseCastExpr();
-    
-    return UnaryOp::New(Token::CAST, operand, desType);
+    return UnaryOp::New(Token::CAST, operand, type);
   }
   
   ts_.PutBack();
@@ -878,11 +885,11 @@ CompoundStmt* Parser::ParseDecl(void)
 //for state machine
 enum {
   //compatibility for these key words
-  COMP_SIGNED = T_SHORT | T_INT | T_LONG | T_LONG_LONG,
-  COMP_UNSIGNED = T_SHORT | T_INT | T_LONG | T_LONG_LONG,
+  COMP_SIGNED = T_SHORT | T_INT | T_LONG | T_LLONG,
+  COMP_UNSIGNED = T_SHORT | T_INT | T_LONG | T_LLONG,
   COMP_CHAR = T_SIGNED | T_UNSIGNED,
   COMP_SHORT = T_SIGNED | T_UNSIGNED | T_INT,
-  COMP_INT = T_SIGNED | T_UNSIGNED | T_LONG | T_SHORT | T_LONG_LONG,
+  COMP_INT = T_SIGNED | T_UNSIGNED | T_LONG | T_SHORT | T_LLONG,
   COMP_LONG = T_SIGNED | T_UNSIGNED | T_LONG | T_INT,
   COMP_DOUBLE = T_LONG | T_COMPLEX,
   COMP_COMPLEX = T_FLOAT | T_DOUBLE | T_LONG,
@@ -895,7 +902,7 @@ static inline void TypeLL(int& typeSpec)
 {
   if (typeSpec & T_LONG) {
     typeSpec &= ~T_LONG;
-    typeSpec |= T_LONG_LONG;
+    typeSpec |= T_LLONG;
   } else {
     typeSpec |= T_LONG;
   }
@@ -1360,7 +1367,8 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
         auto suType = memberType->ToStructType();
         if (suType && !suType->HasTag()) {
           // FIXME: setting 'tok' to nullptr is not good
-          auto anony = Object::New(nullptr, suType);
+          auto anony = Object::New(ts_.Peek(), suType);
+          anony->SetAnonymous(true);
           type->MergeAnony(anony);
           continue;
         } else {
@@ -1620,6 +1628,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
       }
     }
     // The same declaration, simply return the prio declaration
+    // TODO(wgtdkp): function type params
     if (!ident->Type()->Complete())
       ident->Type()->SetComplete(type->Complete());
     return ident;
@@ -1848,42 +1857,9 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
     return nullptr;
   }
 
-  auto name = obj->Name();
+  const auto& name = obj->Name();
   if (ts_.Try('=')) {
-    if ((curScope_->Type() != S_FILE) && obj->Linkage() != L_NONE) {
-      Error(obj, "'%s' has both 'extern' and initializer", name.c_str());
-    }
-
-    if (!obj->Type()->Complete() && !obj->Type()->ToArrayType()) {
-      Error(obj, "variable '%s' has initializer but incomplete type",
-        obj->Name().c_str());
-    }
-
-    if (obj->HasInit()) {
-      Error(obj, "redefinition of variable '%s'", name.c_str());
-    }
-
-    // There could be more than one declaration for 
-    //     an object in the same scope.
-    // But it must has external or internal linkage.
-    // So, for external/internal objects,
-    //     the initialization will always go to
-    //     the first declaration. As the initialization 
-    //     is evaluated at compile time, 
-    //     the order doesn't matter.
-    // For objects with no linkage, there is
-    //     always only one declaration.
-    // Once again, we need not to worry about 
-    //     the order of the initialization.
-    if (obj->Decl()) {
-      ParseInitializer(obj->Decl(), obj->Type(), 0, false);
-      return nullptr;
-    } else {
-      auto decl = Declaration::New(obj);
-      ParseInitializer(decl, obj->Type(), 0, false);
-      obj->SetDecl(decl);
-      return decl;
-    }
+    return ParseInitDeclaratorSub(obj);
   }
   
   if (!obj->Type()->Complete()) {
@@ -1900,6 +1876,46 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
   }
 
   return nullptr;
+}
+
+
+Declaration* Parser::ParseInitDeclaratorSub(Object* obj)
+{
+  const auto& name = obj->Name();
+  if ((curScope_->Type() != S_FILE) && obj->Linkage() != L_NONE) {
+    Error(obj, "'%s' has both 'extern' and initializer", name.c_str());
+  }
+
+  if (!obj->Type()->Complete() && !obj->Type()->ToArrayType()) {
+    Error(obj, "variable '%s' has initializer but incomplete type",
+        name.c_str());
+  }
+
+  if (obj->HasInit()) {
+    Error(obj, "redefinition of variable '%s'", name.c_str());
+  }
+
+  // There could be more than one declaration for 
+  // an object in the same scope.
+  // But it must has external or internal linkage.
+  // So, for external/internal objects,
+  // the initialization will always go to
+  // the first declaration. As the initialization 
+  // is evaluated at compile time, 
+  // the order doesn't matter.
+  // For objects with no linkage, there is
+  // always only one declaration.
+  // Once again, we need not to worry about 
+  // the order of the initialization.
+  if (obj->Decl()) {
+    ParseInitializer(obj->Decl(), obj->Type(), 0, false);
+    return nullptr;
+  } else {
+    auto decl = Declaration::New(obj);
+    ParseInitializer(decl, obj->Type(), 0, false);
+    obj->SetDecl(decl);
+    return decl;
+  }
 }
 
 
@@ -2091,7 +2107,7 @@ StructType::Iterator Parser::ParseStructDesignator(StructType* type,
 {
   auto iter = type->Members().begin();
   for (; iter != type->Members().end(); ++iter) {
-    if ((*iter)->IsAnonymous()) {
+    if ((*iter)->Anonymous()) {
       auto anonyType = (*iter)->Type()->ToStructType();
       assert(anonyType);
       if (anonyType->GetMember(name)) {
@@ -2140,7 +2156,7 @@ void Parser::ParseStructInitializer(Declaration* decl,
       member = ParseStructDesignator(type, name);
     }
 
-    if ((*member)->IsAnonymous()) {
+    if ((*member)->Anonymous()) {
       ts_.PutBack(); ts_.PutBack();
       ParseInitializer(decl, (*member)->Type(), offset, designated);
     } else {

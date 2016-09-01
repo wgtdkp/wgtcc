@@ -587,8 +587,12 @@ void Generator::GenPointerArithm(BinaryOp* binary)
 void Generator::VisitObject(Object* obj)
 {
   auto addr = LValGenerator().GenExpr(obj).Repr();
+  if (obj->Anonymous()) {
+    assert(obj->Decl());
+    VisitStmt(obj->Decl());
+    obj->SetDecl(nullptr);
+  }
 
-  // TODO(wgtdkp): handle static object
   if (!obj->Type()->IsScalar()) {
     // Return the address of the object in rax
     Emit("leaq %s, #rax", addr.c_str());
@@ -1354,6 +1358,12 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 
 void LValGenerator::VisitObject(Object* obj)
 {
+  if (obj->Anonymous()) {
+    assert(obj->Decl());
+    Generator().Visit(obj->Decl());
+    obj->SetDecl(nullptr);
+  }
+
   if (obj->IsStatic()) {
     addr_ = {ObjectLabel(obj), "rip", 0};
   } else {
