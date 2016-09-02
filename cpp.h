@@ -96,7 +96,8 @@ public:
   void Finalize(TokenSequence os);
   void Process(TokenSequence& os);
   void Expand(TokenSequence& os, TokenSequence is, bool inCond=false);
-  void Subst(TokenSequence& os, TokenSequence is, HideSet* hs, ParamMap& params);
+  void Subst(TokenSequence& os, TokenSequence is,
+             bool leadingWS, HideSet* hs, ParamMap& params);
   void Glue(TokenSequence& os, TokenSequence is);
   void Glue(TokenSequence& os, const Token* tok);
   std::string Stringize(TokenSequence is);

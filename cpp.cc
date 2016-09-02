@@ -81,8 +81,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
         
         // TODO(wgtdkp):
         //auto firstTok = Token::New(*repSeq.Next());
-        
-        const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
+        //const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
  
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
@@ -92,7 +91,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
         // HS U {name}
         auto hs = tok->hs_ ? new HideSet(*tok->hs_): new HideSet();
         hs->insert(name);
-        Subst(repSeqSubsted, repSeq, hs, paramMap);
+        Subst(repSeqSubsted, repSeq, tok->ws_, hs, paramMap);
 
         is.InsertFront(repSeqSubsted);
       } else if (is.Test('(')) {
@@ -102,7 +101,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
         auto rpar = ParseActualParam(is, macro, paramMap);
 
         auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
-        const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
+        //const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
 
@@ -110,7 +109,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
         // Use HS' U {name} directly                
         auto hs = rpar->hs_ ? new HideSet(*rpar->hs_): new HideSet();
         hs->insert(name);
-        Subst(repSeqSubsted, repSeq, hs, paramMap);
+        Subst(repSeqSubsted, repSeq, tok->ws_, hs, paramMap);
 
         is.InsertFront(repSeqSubsted);
       } else {
@@ -136,7 +135,7 @@ static bool FindActualParam(TokenSequence& ap, ParamMap& params, const std::stri
 
 
 void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
-                         HideSet* hs, ParamMap& params)
+                         bool leadingWS, HideSet* hs, ParamMap& params)
 {
   TokenSequence ap;
 
@@ -170,7 +169,8 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
         os.InsertBack(ap);
       }
     } else if (FindActualParam(ap, params, is.Peek()->str_)) {
-      is.Next();
+      auto tok = is.Next();
+      const_cast<Token*>(ap.Peek())->ws_ = tok->ws_;
       Expand(os, ap);
     } else {
       os.InsertBack(is.Peek());
@@ -178,7 +178,7 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
     }
   }
 
-  os.UpdateHideSet(hs);
+  os.FinalizeSubst(leadingWS, hs);
 }
 
 
@@ -196,7 +196,6 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
   auto rhs = is.Peek();
 
   auto str = new std::string(lhs->str_ + rhs->str_);
-
   TokenSequence ts;
   Scanner scanner(str, lhs->loc_);
   scanner.Tokenize(ts);
@@ -209,9 +208,13 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
     // No new Token generated
     // How to handle it???
   } else {
+    // ERROR: the ws_ and hs_ property is not inherited
     os.PopBack();
-    os.InsertBack(ts.Next());
-    //Token* newTok = ts.Next();
+    //os.InsertBack(ts.Next());
+    auto newTok = const_cast<Token*>(ts.Next());
+    newTok->ws_ = lhs->ws_;
+    newTok->hs_ = lhs->hs_;
+    os.InsertBack(newTok);
     //lhs->tag_ = newTok->tag_;
     //lhs->str_ = newTok->str_;
   }
@@ -235,7 +238,7 @@ std::string Preprocessor::Stringize(TokenSequence is)
     // Have preceding white space
     // and is not the first token of the sequence
     str.append(tok->ws_ && str.size() > 1, ' ');
-    if (tok->tag_ == Token::LITERAL || tok->tag_) {
+    if (tok->tag_ == Token::LITERAL || tok->tag_ == Token::C_CONSTANT) {
       for (auto c: tok->str_) {
         if (c == '"' || c == '\\')
           str.push_back('\\');
@@ -317,9 +320,6 @@ void Preprocessor::Process(TokenSequence& os)
   auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false);
   IncludeFile(is, wgtccHeaderFile);
 
-  //std::string str;
-  //Stringize(str, is);
-  //std::cout << str << std::endl;
   //is.Print();
   Expand(os, is);
 
@@ -327,13 +327,6 @@ void Preprocessor::Process(TokenSequence& os)
   // TODO(wgtdkp): finalize
   
   Finalize(os);
-
-
-  //str.resize(0);
-  //Stringize(str, os);
-  //std::cout << std::endl << "###### Preprocessed ######" << std::endl;
-  //std::cout << str << std::endl << std::endl;
-  //std::cout << std::endl << "###### End ######" << std::endl;
 }
 
 

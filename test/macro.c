@@ -293,6 +293,7 @@ static void funclike() {
     expect(25, plus(m6(2, 18, 5)));
 
 #define plus(x, y) x * y + plus(x, y)
+    printf("plus: %d\n", plus(2, 3));
     expect(11, plus(2, 3));
 #undef plus
 
@@ -328,6 +329,7 @@ static void funclike() {
 #define mkstr(a) # a
 #define in_between(a) mkstr(a)
 #define join(c, d) in_between(c hash_hash d)
+    
     expect_string("x ## y", join(x, y));
 
     int m14 = 67;
@@ -341,18 +343,21 @@ static void funclike() {
     expect(69, a);
 
 #define identity(x) stringify(x)
+    
     expect_string("aa A B aa C", identity(m10(a) A B m10(a) C));
 
 #define identity2(x) stringify(z ## x)
     expect_string("zA m10(a) A B m10(a) C", identity2(A m10(a) A B m10(a) C));
 
 #define m15(x) x x
+    printf("%s\n", identity(m15(a)));
     expect_string("a a", identity(m15(a)));
 
 #define m16(x) (x,x)
     expect_string("(a,a)", identity(m16(a)));
 
 #define m17(x) stringify(.x . x)
+printf("%s\n", m17(3));
     expect_string(".3 . 3", m17(3));
 }
 

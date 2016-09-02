@@ -1,17 +1,11 @@
-#include "test.h"
-
-static int add(int, int);
-
-static int add(int a, int b) {
-    return a + b;
-}
+#define stringify(x) #x
+#define identity(x) stringify(x)
+#define m15(x) x x
 
 int main() {
-    expect(3, add(1, 2));
-    //int c = add(1, 2);
-    return 0;
+  printf("%s\n", identity(m15(a)));
+  return 0;
 }
-
 
 /*
 typedef struct {

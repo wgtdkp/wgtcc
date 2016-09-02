@@ -356,6 +356,8 @@ public:
     tokList_ = new TokenList(other.begin_, other.end_);
     begin_ = tokList_->begin();
     end_ = tokList_->end();
+    for (auto iter = begin_; iter != end_; ++iter)
+      *iter = Token::New(**iter);
   }
 
   // Reset token sequence to the full token list
@@ -372,12 +374,14 @@ public:
     //tok->loc_.line_ = curLine + tok->loc_.line_ - lineLine - 1;
   }
 
-  void UpdateHideSet(const HideSet* hs) {
+  void FinalizeSubst(bool leadingWS, const HideSet* hs) {
     auto ts = *this;
     while (!ts.Empty()) {
       auto tok = const_cast<Token*>(ts.Next());
       tok->hs_ = hs;
     }
+    // Even the token sequence is empty
+    const_cast<Token*>(Peek())->ws_ = leadingWS;
   }
 
   const Token* Expect(int expect);
