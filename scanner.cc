@@ -13,10 +13,11 @@ void Scanner::Tokenize(TokenSequence& ts) {
         t->tag_ = Token::NEW_LINE;
         t->str_ = "\n";
         ts.InsertBack(t);
-      } else {
-        break;
       }
+      break;
     } else {
+      if (!ts.Empty() && ts.Back()->tag_ == Token::NEW_LINE)
+        tok->ws_ = true;
       ts.InsertBack(tok);
     }
   }

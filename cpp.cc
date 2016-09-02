@@ -232,9 +232,9 @@ std::string Preprocessor::Stringize(TokenSequence is)
   std::string str = "\"";
   while (!is.Empty()) {
     auto tok = is.Next();
-    // Have preceding white space 
+    // Have preceding white space
     // and is not the first token of the sequence
-    str.append(tok->ws_ && str.size(), ' ');
+    str.append(tok->ws_ && str.size() > 1, ' ');
     if (tok->tag_ == Token::LITERAL || tok->tag_) {
       for (auto c: tok->str_) {
         if (c == '"' || c == '\\')
@@ -371,6 +371,8 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
           Error(is.Peek(), "too many arguments");
         if (cnt == 0)
           paramMap.insert(std::make_pair("__VA_ARGS__", ap));
+        else
+          ap.InsertBack(is.Peek());
       } else {
         paramMap.insert(std::make_pair(*fp, ap));
         //ap.begin_ = ++ap.end_;
@@ -493,16 +495,16 @@ int Preprocessor::GetDirective(TokenSequence& is)
     auto str = is.Peek()->str_;
     auto res = directiveMap.find(str);
     if (res == directiveMap.end()) {
-      Error(is.Peek(), "'%s': unrecognized directive", str.c_str());
+      return Token::PP_NONE;
+      //Error(is.Peek(), "'%s': unrecognized directive", str.c_str());
     }
-    // Don't move on!!!!
-    //is.Next();
     return res->second;
-  } else {
-    Error(is.Peek(), "'%s': unexpected directive",
-        is.Peek()->str_.c_str());
-  }
-  return Token::INVALID;
+  }// else {
+  //  Error(is.Peek(), "'%s': unexpected directive",
+  //      is.Peek()->str_.c_str());
+  //}
+  //return Token::INVALID;
+  return Token::PP_NONE;
 }
 
 
@@ -552,7 +554,8 @@ void Preprocessor::ParseDirective(TokenSequence& os, TokenSequence& is, int dire
       if (NeedExpand())
         ParsePragma(ls);
       break;
-
+    case Token::PP_NONE:
+      break;
     default:
       assert(false);
     }
@@ -754,6 +757,12 @@ void Preprocessor::ParseEndif(TokenSequence ls)
 void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
 {
   bool next = ls.Next()->str_ == "include_next"; // Skip 'include'
+  if (!ls.Test(Token::LITERAL) && !ls.Test('<')) {
+    TokenSequence ts;
+    Expand(ts, ls, true);
+    ls = ts;
+  }
+  
   auto tok = ls.Next();
   if (tok->tag_ == Token::LITERAL) {
     if (!ls.Empty()) {

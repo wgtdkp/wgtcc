@@ -18,10 +18,8 @@ using namespace std;
 
 
 FuncDef* Parser::EnterFunc(Identifier* ident) {
-  //TODO(wgtdkp): Add __func__ macro
-
-  curParamScope_->SetParent(curScope_);
-  curScope_ = curParamScope_;
+  //curParamScope_->SetParent(curScope_);
+  //curScope_ = curParamScope_;
 
   curFunc_ = FuncDef::New(ident, LabelStmt::New());
   return curFunc_;
@@ -46,24 +44,17 @@ void Parser::ExitFunc() {
   unresolvedJumps_.clear();	//清空未定的 jump 动作
   curLabels_.clear();	//清空 label map
 
-  curScope_ = curScope_->Parent();
   curFunc_ = nullptr;
 }
 
 
 void Parser::EnterBlock(FuncType* funcType)
 {
+  curScope_ = new Scope(curScope_, S_BLOCK);      
   if (funcType) {
-    auto paramScope = curScope_;
-    curScope_ = new Scope(curScope_->Parent(), S_BLOCK);
-    
     // Merge elements in param scope into current block scope
-    auto iter = paramScope->begin();
-    for (; iter != paramScope->end(); iter++) {
-      curScope_->Insert(iter->second);
-    }
-  } else {
-    curScope_ = new Scope(curScope_, S_BLOCK);
+    for (auto param: funcType->Params())
+      curScope_->Insert(param);
   }
 }
 
@@ -77,7 +68,7 @@ void Parser::Parse()
 void Parser::ParseTranslationUnit()
 {
   while (!ts_.Peek()->IsEOF()) {            
-    curParamScope_ = nullptr;
+    //curParamScope_ = nullptr;
 
     int storageSpec, funcSpec;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec);
@@ -116,30 +107,17 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
 {
   auto funcDef = EnterFunc(ident);
 
-  if (ident->Type()->Complete()) {
-    Error(ident, "redefinition of '%s'", ident->Name().c_str());
+  if (funcDef->Type()->Complete()) {
+    Error(ident, "redefinition of '%s'", funcDef->Name().c_str());
   }
 
+  // TODO(wgtdkp): param checking
   auto funcType = ident->Type()->ToFunc();
-  FuncType::TypeList& paramTypes = funcType->ParamTypes();
-  if (curScope_->size() != paramTypes.size()) {
-    Error(ident, "parameter name omitted");
-  }
-
-  for (auto paramType: paramTypes) {
-    auto iter = curScope_->begin();
-    for (; iter != curScope_->end(); ++iter) {
-      if (iter->second->Type() == paramType) {
-        funcDef->Params().push_back(iter->second->ToObject());
-        break;
-      }
-    }
-  }
-  if (funcDef->Params().size() != paramTypes.size()) {
-    assert(funcDef->Params().size() == paramTypes.size());
-  }
-
   funcType->SetComplete(true);
+  for (auto param: funcType->Params()) {
+    if (param->Anonymous())
+      Error(param, "param name omitted");
+  }
   funcDef->SetBody(ParseCompoundStmt(funcType));
   ExitFunc();
   
@@ -1620,9 +1598,12 @@ Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
       }
     }
     // The same declaration, simply return the prio declaration
-    // TODO(wgtdkp): function type params
     if (!ident->Type()->Complete())
       ident->Type()->SetComplete(type->Complete());
+    // Prev declaration of a function may omit the param name
+    if (type->ToFunc()) {
+      ident->Type()->ToFunc()->SetParams(type->ToFunc()->Params());
+    }
     return ident;
   } else if (linkage == L_EXTERNAL) {
     ident = curScope_->Find(tok);
@@ -1698,15 +1679,15 @@ Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base)
           "the return value of function can't be array");
     }
 
-    FuncType::TypeList paramTypes;
+    FuncType::ParamList params;
     EnterProto();
-    bool hasEllipsis = ParseParamList(paramTypes);
+    auto variadic = ParseParamList(params);
     ExitProto();
     
     ts_.Expect(')');
     base = ParseArrayFuncDeclarator(ident, base);
     
-    return FuncType::New(base, 0, hasEllipsis, paramTypes);
+    return FuncType::New(base, 0, variadic, params);
   }
 
   return base;
@@ -1751,57 +1732,58 @@ int Parser::ParseArrayLength()
 
 
 /*
- * Return: true, has ellipsis;
+ * Return: true, variadic;
  */
-bool Parser::ParseParamList(FuncType::TypeList& paramTypes)
+bool Parser::ParseParamList(FuncType::ParamList& params)
 {
   if (ts_.Test(')'))
     return false;
-  
-  auto paramType = ParseParamDecl();
-  if (paramType->ToVoid())
+  auto param = ParseParamDecl();
+  if (param->Type()->ToVoid())
     return false;
-    
-  paramTypes.push_back(paramType);
+  params.push_back(param);
 
   while (ts_.Try(',')) {
     if (ts_.Try(Token::ELLIPSIS)) {
       return true;
     }
-
-    auto tok = ts_.Peek();
-    paramType = ParseParamDecl();
-    if (paramType->ToVoid()) {
-      Error(tok, "'void' must be the only parameter");
+    param = ParseParamDecl();
+    if (param->Type()->ToVoid()) {
+      Error(param, "'void' must be the only parameter");
     }
-
-    paramTypes.push_back(paramType);
+    params.push_back(param);
   }
-
   return false;
 }
 
 
-Type* Parser::ParseParamDecl()
+Object* Parser::ParseParamDecl()
 {
   int storageSpec, funcSpec;
   auto type = ParseDeclSpec(&storageSpec, &funcSpec);
   
   // No declarator
-  if (ts_.Test(',') || ts_.Test(')'))
-    return type;
+  if (ts_.Test(',') || ts_.Test(')')) {
+    auto ret = Object::New(ts_.Peek(), type, 0, Linkage::L_NONE);
+    ret->SetAnonymous(true);
+    return ret;
+  }
   
   auto tokTypePair = ParseDeclarator(type);
   auto tok = tokTypePair.first;
   type = Type::MayCast(tokTypePair.second);
   if (tok == nullptr) { // Abstract declarator
-    return type;
+    auto ret = Object::New(ts_.Peek(), type, 0, Linkage::L_NONE);
+    ret->SetAnonymous(true);
+    return ret;
+    //return type;
   }
 
-  auto obj = ProcessDeclarator(tok, type, storageSpec, funcSpec);
-  assert(obj->ToObject());
+  auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec);
+  if (!ident->ToObject())
+    Error(ident, "expect object in param list");
 
-  return type;
+  return ident->ToObject();
 }
 
 
@@ -2235,8 +2217,7 @@ Stmt* Parser::ParseStmt()
 
 CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
 {
-  if (!funcType)
-    EnterBlock();
+  EnterBlock(funcType);
 
   std::list<Stmt*> stmts;
 
@@ -2252,7 +2233,8 @@ CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
     }
   }
 
-  auto scope = funcType ? curScope_: ExitBlock();
+  auto scope = curScope_;
+  ExitBlock();
 
   return CompoundStmt::New(stmts, scope);
 }

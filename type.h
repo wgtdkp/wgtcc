@@ -284,14 +284,12 @@ protected:
 
 class FuncType : public DerivedType
 {
-  friend class Type;
-
 public:
-  typedef std::vector<Type*> TypeList;
+  typedef std::vector<Object*> ParamList;
 
 public:
   static FuncType* New(Type* derived, int funcSpec,
-      bool hasEllipsis, const FuncType::TypeList& params);
+      bool variadic, const ParamList& params);
 
   ~FuncType() {}
   
@@ -302,22 +300,22 @@ public:
   virtual std::string Str() const;
   //bool IsInline() const { inlineNoReturn_ & F_INLINE; }
   //bool IsNoReturn() const { return inlineNoReturn_ & F_NORETURN; }
-  TypeList& ParamTypes() { return paramTypes_; }
+  const ParamList& Params() const { return params_; }
+  void SetParams(const ParamList& params) { params_ = params; }
   bool Variadic() const { return variadic_; }
 
 protected:
-  //a function does not has the width property
-  FuncType(MemPool* pool, Type* derived, int inlineReturn, bool variadic,
-           const TypeList& paramTypes)
+  FuncType(MemPool* pool, Type* derived, int inlineReturn,
+           bool variadic, const ParamList& params)
       : DerivedType(pool, derived), inlineNoReturn_(inlineReturn),
-        variadic_(variadic), paramTypes_(paramTypes) {
+        variadic_(variadic), params_(params) {
     SetComplete(false);
   }
 
 private:
   int inlineNoReturn_;
   bool variadic_;
-  TypeList paramTypes_;
+  ParamList params_;
 };
 
 

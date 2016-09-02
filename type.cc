@@ -90,9 +90,9 @@ ArrayType* ArrayType::New(int len, Type* eleType)
 
 //static IntType* NewIntType();
 FuncType* FuncType::New(Type* derived, int funcSpec,
-    bool hasEllipsis, const FuncType::TypeList& params) {
+    bool variadic, const ParamList& params) {
   return new (funcTypePool.Alloc())
-      FuncType(&funcTypePool, derived, funcSpec, hasEllipsis, params);
+      FuncType(&funcTypePool, derived, funcSpec, variadic, params);
 }
 
 PointerType* PointerType::New(Type* derived) {
@@ -223,10 +223,7 @@ bool PointerType::Compatible(const Type& other) const
 {
   // C11 6.7.6.1 [2]: pointer compatibility
   auto otherPointer = other.ToPointer();
-  if (!otherPointer) return false;
-  if (derived_->ToVoid()) return true; 
-  if (otherPointer->derived_->ToVoid()) return true;
-  return derived_->Compatible(*otherPointer->derived_);
+  return otherPointer && derived_->Compatible(*otherPointer->derived_);
 }
 
 bool ArrayType::Compatible(const Type& other) const
@@ -252,13 +249,13 @@ bool FuncType::Compatible(const Type& other) const
   //compatibility of two function types ??
   if (!derived_->Compatible(*otherFunc->derived_))
     return false;
-  if (paramTypes_.size() != otherFunc->paramTypes_.size())
+  if (params_.size() != otherFunc->params_.size())
     return false;
 
-  auto thisIter = paramTypes_.begin();
-  auto otherIter = otherFunc->paramTypes_.begin();
-  while (thisIter != paramTypes_.end()) {
-    if (!(*thisIter)->Compatible(*(*otherIter)))
+  auto thisIter = params_.begin();
+  auto otherIter = otherFunc->params_.begin();
+  while (thisIter != params_.end()) {
+    if (!(*thisIter)->Type()->Compatible(*(*otherIter)->Type()))
       return false;
     ++thisIter;
     ++otherIter;
@@ -271,13 +268,13 @@ bool FuncType::Compatible(const Type& other) const
 std::string FuncType::Str() const
 {
   auto str = derived_->Str() + "(";
-  auto iter = paramTypes_.begin();
-  for (; iter != paramTypes_.end(); iter++) {
-    str += (*iter)->Str() + ", ";
+  auto iter = params_.begin();
+  for (; iter != params_.end(); iter++) {
+    str += (*iter)->Type()->Str() + ", ";
   }
   if (variadic_)
     str += "...";
-  else if (paramTypes_.size())
+  else if (params_.size())
     str.resize(str.size() - 2);
 
   return str + ")";

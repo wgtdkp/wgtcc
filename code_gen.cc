@@ -490,10 +490,10 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
 void Generator::GenAssignOp(BinaryOp* assign)
 {
   // The base register of addr is %r10
-  VisitExpr(assign->rhs_);
-  Spill(assign->Type()->IsFloat());
   auto addr = LValGenerator().GenExpr(assign->lhs_);
-  Restore(assign->Type()->IsFloat());
+  VisitExpr(assign->rhs_);
+  //Spill(assign->Type()->IsFloat());
+  //Restore(assign->Type()->IsFloat());
 
   if (assign->Type()->IsScalar()) {
     if (addr.bitFieldWidth_ != 0) {
@@ -660,13 +660,13 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
 {
   switch  (unary->op_) {
   case Token::PREFIX_INC:
-    return GenPrefixIncDec(unary->operand_, "add");
+    return GenIncDec(unary->operand_, false, "add");
   case Token::PREFIX_DEC:
-    return GenPrefixIncDec(unary->operand_, "sub");
+    return GenIncDec(unary->operand_, false, "sub");
   case Token::POSTFIX_INC:
-    return GenPostfixIncDec(unary->operand_, "add");
+    return GenIncDec(unary->operand_, true, "add");
   case Token::POSTFIX_DEC:
-    return GenPostfixIncDec(unary->operand_, "sub");
+    return GenIncDec(unary->operand_, true, "sub");
   case Token::ADDR: {
     auto addr = LValGenerator().GenExpr(unary->operand_).Repr();
     Emit("leaq %s, #rax", addr.c_str());
@@ -724,44 +724,14 @@ void Generator::GenMinusOp(UnaryOp* minus)
 }
 
 
-void Generator::GenPrefixIncDec(Expr* operand, const std::string& inst)
+void Generator::GenIncDec(Expr* operand, bool postfix, const std::string& inst)
 {
-  // Need a special base register to reduce register conflict
-  auto addr = LValGenerator().GenExpr(operand).Repr();
-  EmitLoad(addr, operand->Type());
-
-  Constant* cons;
-  auto pointerType = operand->Type()->ToPointer();
-   if (pointerType) {
-    long width = pointerType->Derived()->Width();
-    cons = Constant::New(operand->Tok(), T_LONG, width);
-  } else if (operand->Type()->IsInteger()) {
-    cons = Constant::New(operand->Tok(), T_LONG, 1L);
-  } else {
-    if (operand->Type()->Width() == 4)
-      cons = Constant::New(operand->Tok(), T_FLOAT, 1.0);
-    else
-      cons = Constant::New(operand->Tok(), T_DOUBLE, 1.0);
-  }
-  auto consLabel = ConsLabel(cons);
-
-  auto addSub = GetInst(inst, operand->Type());  
-  auto des = GetDes(operand->Type()->Width(), operand->Type()->IsFloat());  
-  Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), des);
-  
-  EmitStore(addr, operand->Type());
-}
-
-
-void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
-{
-  // Need a special base register to reduce register conflict
   auto width = operand->Type()->Width();
   auto flt = operand->Type()->IsFloat();
   
   auto addr = LValGenerator().GenExpr(operand).Repr();
   EmitLoad(addr, operand->Type());
-  Save(flt);
+  if (postfix) Save(flt);
 
   Constant* cons;
   auto pointerType = operand->Type()->ToPointer();
@@ -771,7 +741,7 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
   } else if (operand->Type()->IsInteger()) {
     cons = Constant::New(operand->Tok(), T_LONG, 1L);
   } else {
-    if (operand->Type()->Width() == 4)
+    if (width == 4)
       cons = Constant::New(operand->Tok(), T_FLOAT, 1.0f);
     else
       cons = Constant::New(operand->Tok(), T_DOUBLE, 1.0);
@@ -780,21 +750,8 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
 
   auto addSub = GetInst(inst, operand->Type());    
   Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), GetDes(width, flt));
-
   EmitStore(addr, operand->Type());
-  Exchange(flt);
-}
-
-
-void Generator::Exchange(bool flt)
-{
-  if (flt) {
-    Emit("movsd #xmm8, #xmm10");
-    Emit("movsd #xmm9, #xmm8");
-    Emit("movsd #xmm10, #xmm9");
-  } else {
-    Emit("xchgq #rax, #r11");
-  }
+  if (postfix) Emit(flt ? "movsd #xmm9, #xmm8": "movq #r11, #rax");
 }
 
 
@@ -1085,11 +1042,11 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     offset_ = offset;
   }
 
-  std::vector<Type*> types;
+  TypeList types;
   for (auto arg: funcCall->args_)
     types.push_back(arg->Type());
   
-  auto locations = GetParamLocation(types, retType);
+  const auto& locations = GetParamLocation(types, retType);
   //auto beforePass = offset_;
   for (int i = locations.size() - 1; i >=0; i--) {
     if (locations[i][0] == 'm') {
@@ -1137,10 +1094,9 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 }
 
 
-std::vector<const char*> Generator::GetParamLocation(
-    FuncType::TypeList& types, bool retStruct)
+LocationList Generator::GetParamLocation(const TypeList& types, bool retStruct)
 {
-  std::vector<const char*> locations;
+  LocationList locations;
 
   size_t regCnt = retStruct, xregCnt = 0;
   for (auto type: types) {
@@ -1177,14 +1133,16 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
   Emit("pushq #rbp");
   Emit("movq #rsp, #rbp");
 
-
-  FuncDef::ParamList& params = funcDef->Params();
-
   offset_ = 0;
 
+  auto& params = funcDef->Type()->Params();
   // Arrange space to store params passed by registers
   auto retType = funcDef->Type()->Derived()->ToStruct();
-  auto locations = GetParamLocation(funcDef->Type()->ParamTypes(), retType);
+  TypeList types;
+  for (auto param: params)
+    types.push_back(param->Type());
+
+  auto locations = GetParamLocation(types, retType);
 
   if (funcDef->Type()->Variadic()) {
     GenSaveArea(); // 'offset' is now the begin of save area

@@ -307,6 +307,7 @@ public:
   virtual bool IsLVal() = 0;
 
   virtual void TypeChecking() = 0;
+  void EnsureCompatible(::Type* lhs, ::Type* rhs) const;
 
   const Token* Tok() const {
     return tok_;
@@ -896,10 +897,6 @@ public:
     return ident_->Type()->ToFunc();
   }
 
-  ParamList& Params() {
-    return params_;
-  }
-
   CompoundStmt* Body() {
     return body_;
   }
@@ -925,7 +922,6 @@ protected:
 private:
   Identifier* ident_;
   LabelStmt* retLabel_;
-  ParamList params_;
   CompoundStmt* body_;
 };
 

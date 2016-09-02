@@ -53,6 +53,9 @@ private:
 };
 
 
+
+typedef std::vector<Type*> TypeList;
+typedef std::vector<const char*> LocationList;
 typedef std::vector<ROData> RODataList;
 
 
@@ -151,8 +154,7 @@ protected:
   void GenCompZero(Type* type);
 
   // Unary
-  void GenPrefixIncDec(Expr* operand, const std::string& inst);
-  void GenPostfixIncDec(Expr* operand, const std::string& inst);
+  void GenIncDec(Expr* operand, bool postfix, const std::string& inst);
 
   StaticInitializer GetStaticInit(const Initializer& init);
 
@@ -167,8 +169,7 @@ protected:
   
   std::string ConsLabel(Constant* cons);
 
-  std::vector<const char*> GetParamLocation(
-      FuncType::TypeList& types, bool retStruct);
+  LocationList GetParamLocation(const TypeList& types, bool retStruct);
 
   void Emit(const char* format, ...);
   void EmitLabel(const std::string& label);

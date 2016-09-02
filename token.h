@@ -186,7 +186,9 @@ public:
     PP_LINE,
     PP_ERROR,
     PP_PRAGMA,
+    PP_NONE,
     PP_EMPTY,
+    
 
     IGNORE,
     INVALID,

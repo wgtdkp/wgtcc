@@ -30,7 +30,7 @@ public:
       ts_(ts),
       externalSymbols_(new Scope(nullptr, S_BLOCK)),
       errTok_(nullptr), curScope_(new Scope(nullptr, S_FILE)),
-      curParamScope_(nullptr), curFunc_(nullptr),
+      /*curParamScope_(nullptr),*/ curFunc_(nullptr),
       breakDest_(nullptr), continueDest_(nullptr),
       caseLabels_(nullptr), defaultLabel_(nullptr) {
         ts_.SetParser(this);
@@ -119,9 +119,9 @@ public:
   
   int ParseArrayLength();
   
-  bool ParseParamList(FuncType::TypeList& paramTypes);
+  bool ParseParamList(FuncType::ParamList& params);
   
-  Type* ParseParamDecl();
+  Object* ParseParamDecl();
 
   //typename
   Type* ParseAbstractDeclarator(Type* type);
@@ -211,16 +211,14 @@ public:
 
   void EnterBlock(FuncType* funcType=nullptr);
   
-  Scope* ExitBlock() {
-    auto scope = curScope_;
+  void ExitBlock() {
     curScope_ = curScope_->Parent();
-    return scope;
   }
 
   void EnterProto() {
     curScope_ = new Scope(curScope_, S_PROTO);
-    if (curParamScope_ == nullptr)
-      curParamScope_ = curScope_;
+    //if (curParamScope_ == nullptr)
+    //  curParamScope_ = curScope_;
   }
 
   void ExitProto() {
@@ -274,7 +272,7 @@ private:
   //std::stack<Token*> _buf;
 
   Scope* curScope_;
-  Scope* curParamScope_;
+  //Scope* curParamScope_;
   //Identifier* curFunc_;
   FuncDef* curFunc_;
   LabelMap curLabels_;

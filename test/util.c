@@ -1,9 +1,16 @@
-static void test() {
-    float a = 3.0f;
-    float b;
-    b = a++;
+#include "test.h"
+
+static int add(int, int);
+
+static int add(int a, int b) {
+    return a + b;
 }
 
+int main() {
+    expect(3, add(1, 2));
+    //int c = add(1, 2);
+    return 0;
+}
 
 
 /*

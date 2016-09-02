@@ -185,6 +185,12 @@ ArithmType* BinaryOp::Promote()
  * Type checking
  */
 
+void Expr::EnsureCompatible(::Type* lhs, ::Type* rhs) const
+{
+  if (!lhs->Compatible(*rhs))
+    Error(this, "incompatible types");
+}
+
 void BinaryOp::TypeChecking()
 {
   switch (op_) {
@@ -317,27 +323,25 @@ void BinaryOp::ShiftOpTypeChecking()
 void BinaryOp::RelationalOpTypeChecking()
 {
   if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
-    if (!lhs_->Type()->Compatible(*rhs_->Type()))
-      Error(this, "incompatible pointers of operands");
+    EnsureCompatible(lhs_->Type(), rhs_->Type());
   } else if (!lhs_->Type()->IsReal() || !rhs_->Type()->IsReal()) {
     Error(this, "expect real type of operands");
   }
   Promote();
-  type_ = ArithmType::New(T_INT);    
+  type_ = ArithmType::New(T_INT);
 }
 
 void BinaryOp::EqualityOpTypeChecking()
 {
   if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
-    if (!lhs_->Type()->Compatible(*rhs_->Type()))
-      Error(this, "incompatible pointers of operands");
+    EnsureCompatible(lhs_->Type(), rhs_->Type());
   } else {
     if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
       Error(this, "invalid operands to binary %s", tok_->str_.c_str());
     Promote();
   }
 
-  type_ = ArithmType::New(T_INT);    
+  type_ = ArithmType::New(T_INT);
 }
 
 void BinaryOp::BitwiseOpTypeChecking()
@@ -362,10 +366,18 @@ void BinaryOp::AssignOpTypeChecking()
   }/* else if (lhs_->Type()->IsConst()) {
     Error(lhs_->Tok(), "can't modifiy 'const' qualified expression");
   } */
-  if (lhs_->Type()->ToArithm() && rhs_->Type()->ToArithm()) {
-  } else if (!lhs_->Type()->Compatible(*rhs_->Type())) {
-    Error(lhs_, "incompatible types");
+  
+  if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm()) {
+    auto lhsPointer = lhs_->Type()->ToPointer();
+    auto rhsPointer = rhs_->Type()->ToPointer();
+    if (lhsPointer && rhsPointer) {
+      if (!lhsPointer->Derived()->ToVoid() && !rhsPointer->Derived()->ToVoid())
+        EnsureCompatible(lhsPointer, rhsPointer);
+    } else {
+      EnsureCompatible(lhs_->Type(), rhs_->Type());
+    }
   }
+  
   // The other constraints are lefted to cast operator
   rhs_ = Expr::MayCast(rhs_, lhs_->Type());
   type_ = lhs_->Type();
@@ -544,13 +556,9 @@ void ConditionalOp::TypeChecking()
   auto rhsType = exprFalse_->Type();
   if (lhsType->ToArithm() && rhsType->ToArithm()) {
     type_ = Promote();
-  }/* else if (lhsType->ToVoid() && rhsType->ToVoid()) {
-  } else if (lhsType->ToPointer() && rhs->ToPointer()) {
-    if (!lhsType->Compatible(*rhsType))
-      Error(this, "incompatible pointers of operands");
-  }*/else if (!lhsType->Compatible(*rhsType)) {
-    Error(exprTrue_->Tok(), "incompatible type of operands");
   } else {
+    // TODO(wgtdkp): void*
+    EnsureCompatible(lhsType, rhsType);
     type_ = lhsType;
   }
 }
@@ -586,10 +594,10 @@ void FuncCall::TypeChecking()
 
   auto i = 1;
   auto arg = args_.begin();
-  for (auto paramType: funcType->ParamTypes()) {
+  for (auto param: funcType->Params()) {
     if (arg == args_.end())
       Error(this, "too few arguments for function call");
-    *arg = Expr::MayCast(*arg, paramType);
+    *arg = Expr::MayCast(*arg, param->Type());
     ++arg;
     ++i;
   }
