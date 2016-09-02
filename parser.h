@@ -14,14 +14,14 @@
 
 class Preprocessor;
 
-typedef std::pair<Token*, Type*> TokenTypePair;
+typedef std::pair<const Token*, Type*> TokenTypePair;
 
 class Parser
 {
   typedef std::vector<Constant*> LiteralList;
   typedef std::vector<Object*> StaticObjectList;
   typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
-  typedef std::list<std::pair<Token*, JumpStmt*>> LabelJumpList;
+  typedef std::list<std::pair<const Token*, JumpStmt*>> LabelJumpList;
   typedef std::map<std::string, LabelStmt*> LabelMap;
   
 public:
@@ -104,7 +104,7 @@ public:
   StructType* ParseStructUnionDecl(StructType* type);
   
   bool ParseBitField(StructType* structType,
-      Token* tok, Type* type, bool packed);
+      const Token* tok, Type* type, bool packed);
 
   Type* ParseEnumerator(ArithmType* type);
   
@@ -115,7 +115,7 @@ public:
   
   TokenTypePair ParseDeclarator(Type* type);
   
-  Type* ParseArrayFuncDeclarator(Token* ident, Type* base);
+  Type* ParseArrayFuncDeclarator(const Token* ident, Type* base);
   
   int ParseArrayLength();
   
@@ -176,10 +176,10 @@ public:
   
   CompoundStmt* ParseDefaultStmt();
 
-  Identifier* ProcessDeclarator(Token* tok, Type* type,
+  Identifier* ProcessDeclarator(const Token* tok, Type* type,
       int storageSpec, int funcSpec);
 
-  bool IsTypeName(Token* tok) const{
+  bool IsTypeName(const Token* tok) const{
     if (tok->IsTypeSpecQual())
       return true;
 
@@ -191,7 +191,7 @@ public:
     return false;
   }
 
-  bool IsType(Token* tok) const{
+  bool IsType(const Token* tok) const{
     if (tok->IsDecl())
       return true;
 
@@ -270,7 +270,7 @@ private:
   //StaticObjectList _staticObjects;
 
 
-  Token* errTok_;
+  const Token* errTok_;
   //std::stack<Token*> _buf;
 
   Scope* curScope_;

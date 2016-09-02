@@ -203,8 +203,9 @@ bool TokenSequence::IsBeginOfLine() const
        || (*pre)->loc_.fileName_ != (*begin_)->loc_.fileName_);
 }
 
-Token* TokenSequence::Peek()
+const Token* TokenSequence::Peek()
 {
+  
   static auto eof = Token::New(Token::END);
   if (begin_ != end_ && (*begin_)->tag_ == Token::NEW_LINE) {
     ++begin_;
@@ -218,10 +219,14 @@ Token* TokenSequence::Peek()
     return eof;
   } else if (parser_ && (*begin_)->tag_ == Token::IDENTIFIER
       && (*begin_)->str_ == "__func__") {
-    (*begin_)->tag_ = Token::LITERAL;
-
-    //auto curFunc = parser_->CurFunc();
-    (*begin_)->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
+    auto fileName = Token::New(*(*begin_));
+    fileName->tag_ = Token::LITERAL;
+    fileName->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
+    *begin_ = fileName;
+    // A token may be referenced at several place, can't directly modify a token
+    // in a token sequence.    
+    //(*begin_)->tag_ = Token::LITERAL;
+    //(*begin_)->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
     //std::string* name;
     //if(curFunc)
     //    name = new std::string("\"" + curFunc->Name() + "\"");
@@ -233,7 +238,7 @@ Token* TokenSequence::Peek()
   return *begin_;
 }
 
-Token* TokenSequence::Expect(int expect)
+const Token* TokenSequence::Expect(int expect)
 {
   auto tok = Peek();
   if (!Try(expect)) {

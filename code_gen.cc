@@ -24,6 +24,18 @@ int Generator::retAddrOffset_ = 0;
 FuncDef* Generator::curFunc_ = nullptr;
 
 
+/*
+ * Register usage:
+ *  xmm8: accumulator of floating datas;
+ *  xmm9: source operand register;
+ *  xmm10: tmp register for floating data swap;
+ *  rax: accumulator;
+ *  r11: source operand register;
+ *  r10: register stores intermediate data when LValGenerator
+ *       eval the address.
+ *  rcx: tempvar register, like the tempvar of 'switch'
+ */
+
 static std::vector<const char*> regs {
   "rdi", "rsi", "rdx",
   "rcx", "r8", "r9"
@@ -259,7 +271,7 @@ void Generator::Restore(bool flt)
 void Generator::Save(bool flt)
 {
   if (flt) {        
-    Emit("movsd #xmm8, xmm9");
+    Emit("movsd #xmm8, #xmm9");
   } else {
     Emit("movq #rax, #r11");
   }
@@ -760,7 +772,7 @@ void Generator::GenPostfixIncDec(Expr* operand, const std::string& inst)
     cons = Constant::New(operand->Tok(), T_LONG, 1L);
   } else {
     if (operand->Type()->Width() == 4)
-      cons = Constant::New(operand->Tok(), T_FLOAT, 1.0);
+      cons = Constant::New(operand->Tok(), T_FLOAT, 1.0f);
     else
       cons = Constant::New(operand->Tok(), T_DOUBLE, 1.0);
   }
@@ -779,7 +791,7 @@ void Generator::Exchange(bool flt)
   if (flt) {
     Emit("movsd #xmm8, #xmm10");
     Emit("movsd #xmm9, #xmm8");
-    Emit("movsd #xmm10, #xmm8");
+    Emit("movsd #xmm10, #xmm9");
   } else {
     Emit("xchgq #rax, #r11");
   }

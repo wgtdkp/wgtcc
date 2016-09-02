@@ -927,7 +927,7 @@ Type* Parser::ParseDeclSpec(int* storage, int* func)
   int qualSpec = 0;
   int typeSpec = 0;
   
-  Token* tok;
+  const Token* tok;
   for (; ;) {
     tok = ts_.Next();
     switch (tok->tag_) {
@@ -1399,7 +1399,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
 
 
 bool Parser::ParseBitField(StructType* structType,
-    Token* tok, Type* type, bool packed)
+    const Token* tok, Type* type, bool packed)
 {
   if (!type->IsInteger()) {
     Error(tok ? tok: ts_.Peek(), "expect integer type for bitfield");
@@ -1544,7 +1544,7 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
 }
 
 
-Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
+Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
     int storageSpec, int funcSpec)
 {
   assert(tok);
@@ -1670,7 +1670,7 @@ Identifier* Parser::ProcessDeclarator(Token* tok, Type* type,
 }
 
 
-Type* Parser::ParseArrayFuncDeclarator(Token* ident, Type* base)
+Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base)
 {
   if (ts_.Try('[')) {
 

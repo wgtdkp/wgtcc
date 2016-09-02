@@ -1,10 +1,10 @@
-#define UINT_MAX 4294967295U
+static void test() {
+    float a = 3.0f;
+    float b;
+    b = a++;
+}
 
-#define MAX(a, b) a + a
 
-int a = MAX(UINT_MAX, UINT_MAX);
-
-int b = UINT_MAX;
 
 /*
 typedef struct {

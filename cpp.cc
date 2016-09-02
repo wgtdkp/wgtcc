@@ -37,13 +37,13 @@ static const DirectiveMap directiveMap = {
  *     is: input token sequence
  *     os: output token sequence
  */
-void Preprocessor::Expand(TokenSequence& os, TokenSequence& is, bool inCond)
+void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
 {
   Macro* macro = nullptr;
   int direcitve;
   while (!is.Empty()) {
+    UpdateFirstTokenLine(is);
     auto tok = is.Peek();
-    UpdateTokenLocation(tok);
     const auto& name = tok->str_;
 
     if ((direcitve = GetDirective(is)) != Token::INVALID) {
@@ -78,7 +78,11 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence& is, bool inCond)
         // But, as ws_ is just for '#' opreator, and the replacement 
         // sequence of a macro is only used to replace the macro, 
         // it should be safe here we change the ws_ property.
-        repSeq.Peek()->ws_ = tok->ws_;
+        
+        // TODO(wgtdkp):
+        //auto firstTok = Token::New(*repSeq.Next());
+        
+        const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
  
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
@@ -98,7 +102,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence& is, bool inCond)
         auto rpar = ParseActualParam(is, macro, paramMap);
 
         auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
-        repSeq.Peek()->ws_ = tok->ws_;
+        const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
 
@@ -131,8 +135,8 @@ static bool FindActualParam(TokenSequence& ap, ParamMap& params, const std::stri
 }
 
 
-void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
-    HideSet* hs, ParamMap& params)
+void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
+                         HideSet* hs, ParamMap& params)
 {
   TokenSequence ap;
 
@@ -143,24 +147,15 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
       tok->tag_ = Token::LITERAL;
       tok->str_ = Stringize(ap);
       os.InsertBack(tok);
-      //Subst(os, is, hs, params);
     } else if (is.Test(Token::DSHARP)
         && FindActualParam(ap, params, is.Peek2()->str_)) {
-      is.Next();
-      is.Next();
-      
-      if (ap.Empty()) {
-        //Subst(os, is, hs, params);
-      } else {
+      is.Next(); is.Next();
+      if (!ap.Empty())
         Glue(os, ap);
-        //Subst(os, is, hs, params);
-      }
     } else if (is.Test(Token::DSHARP)) {
       is.Next();
       auto tok = is.Next();
-
       Glue(os, tok);
-      //Subst(os, is, hs, params);
     } else if (is.Peek2()->tag_ == Token::DSHARP 
         && FindActualParam(ap, params, is.Peek()->str_)) {
       is.Next();
@@ -170,43 +165,32 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence& is,
         if (FindActualParam(ap, params, is.Peek()->str_)) {
           is.Next();
           os.InsertBack(ap);
-          //Subst(os, is, hs, params);
-        } else {
-          //Subst(os, is, hs, params);
         }
       } else {
         os.InsertBack(ap);
-        //Subst(os, is, hs, params);
       }
     } else if (FindActualParam(ap, params, is.Peek()->str_)) {
       is.Next();
       Expand(os, ap);
-      //Subst(os, is, hs, params);
     } else {
       os.InsertBack(is.Peek());
       is.Next();
-      //Subst(os, is, hs, params);
     }
   }
 
-  TokenSequence ts = os;
-  while (!ts.Empty()) {
-    ts.Next()->hs_ = hs;
-  }
+  os.UpdateHideSet(hs);
 }
 
 
-void Preprocessor::Glue(TokenSequence& os, Token* tok)
+void Preprocessor::Glue(TokenSequence& os, const Token* tok)
 {
-  TokenList tokList;
-  tokList.push_back(tok);
+  TokenList tokList {tok};
   TokenSequence is(&tokList);
-
   Glue(os, is);
 }
 
 
-void Preprocessor::Glue(TokenSequence& os, TokenSequence& is)
+void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
 {
   auto lhs = os.Back();
   auto rhs = is.Peek();
@@ -225,9 +209,11 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence& is)
     // No new Token generated
     // How to handle it???
   } else {
-    Token* newTok = ts.Next();
-    lhs->tag_ = newTok->tag_;
-    lhs->str_ = newTok->str_;
+    os.PopBack();
+    os.InsertBack(ts.Next());
+    //Token* newTok = ts.Next();
+    //lhs->tag_ = newTok->tag_;
+    //lhs->str_ = newTok->str_;
   }
 
   if (!ts.Empty()) {
@@ -306,9 +292,9 @@ void Preprocessor::Finalize(TokenSequence os)
     } else if (tok->tag_ == Token::IDENTIFIER) {
       auto tag = Token::KeyWordTag(tok->str_);
       if (Token::IsKeyWord(tag)) {
-        tok->tag_ = tag;
+        const_cast<Token*>(tok)->tag_ = tag;
       } else {
-        tok->str_ = Scanner(tok).ScanIdentifier();
+        const_cast<Token*>(tok)->str_ = Scanner(tok).ScanIdentifier();
       }
     }
     if (!tok->loc_.fileName_) {
@@ -351,10 +337,10 @@ void Preprocessor::Process(TokenSequence& os)
 }
 
 
-Token* Preprocessor::ParseActualParam(TokenSequence& is,
+const Token* Preprocessor::ParseActualParam(TokenSequence& is,
     Macro* macro, ParamMap& paramMap)
 {
-  Token* ret;
+  const Token* ret;
   if (macro->Params().size() == 0 && !macro->Variadic()) {
     ret = is.Next();
     if (ret->tag_ != ')')
@@ -431,10 +417,11 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
       auto hasPar = false;
       if (is.Try('(')) hasPar = true;
       tok = is.Expect(Token::IDENTIFIER);
+      auto cons = Token::New(*tok);
       if (hasPar) is.Expect(')');
-      tok->tag_ = Token::I_CONSTANT;
-      tok->str_ = FindMacro(tok->str_) ? "1": "0";
-      os.InsertBack(tok);
+      cons->tag_ = Token::I_CONSTANT;
+      cons->str_ = FindMacro(tok->str_) ? "1": "0";
+      os.InsertBack(cons);
     } else {
       os.InsertBack(tok);
     } 
@@ -473,15 +460,21 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
 }
 
 
-void Preprocessor::ReplaceIdent(TokenSequence is)
+void Preprocessor::ReplaceIdent(TokenSequence& is)
 {
+  TokenSequence os;
   while (!is.Empty()) {
     auto tok = is.Next();
     if (tok->tag_ == Token::IDENTIFIER) {
-      tok->tag_ = Token::I_CONSTANT;
-      tok->str_ = "0";
+      auto cons = Token::New(*tok);
+      cons->tag_ = Token::I_CONSTANT;
+      cons->str_ = "0";
+      os.InsertBack(cons);
+    } else {
+      os.InsertBack(tok);
     }
   }
+  is = os;
 }
 
 
@@ -636,13 +629,9 @@ void Preprocessor::ParseIf(TokenSequence ls)
   Expand(ts, ls, true);
   ReplaceIdent(ts);
 
-  //assert(!ts.Empty());
-  //auto begin = ts.Peek();
   Parser parser(ts);
   auto expr = parser.ParseExpr();
   int cond = Evaluator<long>().Eval(expr);
-  // TODO(wgtdkp): delete expr
-
   ppCondStack_.push({Token::PP_IF, NeedExpand(), cond});
 }
 
@@ -844,7 +833,7 @@ void Preprocessor::ParseDef(TokenSequence ls)
 
 bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
 {
-  Token* tok;
+  const Token* tok;
   while (!is.Empty()) {
     tok = is.Next();
     if (tok->tag_ == ')') {
@@ -975,7 +964,7 @@ void Preprocessor::Init()
 }
 
 
-void Preprocessor::HandleTheFileMacro(TokenSequence& os, Token* macro)
+void Preprocessor::HandleTheFileMacro(TokenSequence& os, const Token* macro)
 {
   auto file = Token::New(*macro);
   file->tag_ = Token::LITERAL;
@@ -984,7 +973,7 @@ void Preprocessor::HandleTheFileMacro(TokenSequence& os, Token* macro)
 }
 
 
-void Preprocessor::HandleTheLineMacro(TokenSequence& os, Token* macro)
+void Preprocessor::HandleTheLineMacro(TokenSequence& os, const Token* macro)
 {
   auto line = Token::New(*macro);
   line->tag_ = Token::I_CONSTANT;
@@ -993,22 +982,30 @@ void Preprocessor::HandleTheLineMacro(TokenSequence& os, Token* macro)
 }
 
 
-void Preprocessor::UpdateTokenLocation(Token* tok)
+void Preprocessor::UpdateFirstTokenLine(TokenSequence ts)
 {
-  tok->loc_.line_ = curLine_  + tok->loc_.line_ - lineLine_ - 1;
+  //UpdateFirstTokenLine
+  auto loc = ts.Peek()->loc_;
+  loc.line_ = curLine_  + loc.line_ - lineLine_ - 1;
+  ts.UpdateHeadLocation(loc);
 }
 
 
 TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
 {
-  // Update line of replce token sequence
-  TokenSequence ts = repSeq_;
+  // Update line
+  TokenList tl;
+  TokenSequence ret(&tl);
+  ret.Copy(repSeq_);
+  auto ts = ret;
   while (!ts.Empty()) {
-    auto tok = ts.Next();
-    tok->loc_.fileName_ = fileName;
-    tok->loc_.line_ = line;
+    auto loc = ts.Peek()->loc_;
+    loc.fileName_ = fileName;
+    loc.line_ = line;
+    ts.UpdateHeadLocation(loc);
+    ts.Next();
   }
-  return repSeq_;
+  return ret;
 }
 
 /*

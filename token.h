@@ -21,7 +21,7 @@ class TokenSequence;
 
 
 typedef std::set<std::string> HideSet;
-typedef std::list<Token*> TokenList;
+typedef std::list<const Token*> TokenList;
 
 
 struct SourceLocation {
@@ -297,8 +297,7 @@ public:
   //char* end_ { nullptr };
   std::string str_;
 
-  
-  HideSet* hs_ { nullptr };
+  const HideSet* hs_ { nullptr };
 
 private:
   explicit Token(int tag): tag_(tag) {}
@@ -364,7 +363,22 @@ public:
   //  return {lhs.tokList_, lhs.begin_, rhs.end_};
   //}
 
-  Token* Expect(int expect);
+  void UpdateHeadLocation(const SourceLocation& loc) {
+    assert(!Empty());
+    auto tok = const_cast<Token*>(Peek());
+    tok->loc_ = loc;
+    //tok->loc_.line_ = curLine + tok->loc_.line_ - lineLine - 1;
+  }
+
+  void UpdateHideSet(const HideSet* hs) {
+    auto ts = *this;
+    while (!ts.Empty()) {
+      auto tok = const_cast<Token*>(ts.Next());
+      tok->hs_ = hs;
+    }
+  }
+
+  const Token* Expect(int expect);
 
   bool Try(int tag) {
     if (Peek()->tag_ == tag) {
@@ -378,7 +392,7 @@ public:
     return Peek()->tag_ == tag;
   }
 
-  Token* Next() {
+  const Token* Next() {
     auto ret = Peek();
     if (!ret->IsEOF())
       ++begin_;
@@ -393,9 +407,9 @@ public:
     --begin_;
   }
 
-  Token* Peek();
+  const Token* Peek();
 
-  Token* Peek2() {
+  const Token* Peek2() {
     if (Empty())
       return Peek(); // Return the Token::END
     Next();
@@ -404,9 +418,16 @@ public:
     return ret;
   }
 
-  Token* Back() {
+  const Token* Back() {
     auto back = end_;
     return *--back;
+  }
+
+  void PopBack() {
+    assert(!Empty());
+    assert(end_ == tokList_->end());
+    tokList_->pop_back();
+    end_ = tokList_->end();
   }
 
   TokenList::iterator Mark() {
@@ -427,7 +448,7 @@ public:
     }
   }
 
-  void InsertBack(Token* tok) {
+  void InsertBack(const Token* tok) {
     auto pos = tokList_->insert(end_, tok);
     if (begin_ == end_) {
       begin_ = pos;
@@ -438,7 +459,7 @@ public:
     begin_ = tokList_->insert(begin_, ts.begin_, ts.end_);
   }
 
-  void InsertFront(Token* tok) {
+  void InsertFront(const Token* tok) {
     //assert(tokList_ == seq.tokList_);
     begin_ = tokList_->insert(begin_, tok);
   }

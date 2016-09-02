@@ -95,16 +95,16 @@ public:
   ~Preprocessor() {}
   void Finalize(TokenSequence os);
   void Process(TokenSequence& os);
-  void Expand(TokenSequence& os, TokenSequence& is, bool inCond=false);
-  void Subst(TokenSequence& os, TokenSequence& is, HideSet* hs, ParamMap& params);
-  void Glue(TokenSequence& os, TokenSequence& is);
-  void Glue(TokenSequence& os, Token* tok);
+  void Expand(TokenSequence& os, TokenSequence is, bool inCond=false);
+  void Subst(TokenSequence& os, TokenSequence is, HideSet* hs, ParamMap& params);
+  void Glue(TokenSequence& os, TokenSequence is);
+  void Glue(TokenSequence& os, const Token* tok);
   std::string Stringize(TokenSequence is);
   void Stringize(std::string& str, TokenSequence is);
-  Token* ParseActualParam(TokenSequence& is, Macro* macro, ParamMap& paramMap);
+  const Token* ParseActualParam(TokenSequence& is, Macro* macro, ParamMap& paramMap);
   int GetDirective(TokenSequence& is);
   void ReplaceDefOp(TokenSequence& is);
-  void ReplaceIdent(TokenSequence is);
+  void ReplaceIdent(TokenSequence& is);
   void ParseDirective(TokenSequence& os, TokenSequence& is, int directive);
   void ParseIf(TokenSequence ls);
   void ParseIfdef(TokenSequence ls);
@@ -157,10 +157,9 @@ public:
       const std::string* curPath=nullptr);
 
   void AddSearchPath(const std::string& path);
-  void HandleTheFileMacro(TokenSequence& os, Token* macro);
-  void HandleTheLineMacro(TokenSequence& os, Token* macro);
-  void UpdateTokenLocation(Token* tok);
-
+  void HandleTheFileMacro(TokenSequence& os, const Token* macro);
+  void HandleTheLineMacro(TokenSequence& os, const Token* macro);
+  void UpdateFirstTokenLine(TokenSequence ts);
   //bool Hidden(const std::string& name) {
   //    return hs_.find(name) != hs_.end();
   //}
