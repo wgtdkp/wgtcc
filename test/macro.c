@@ -1,3 +1,5 @@
+// @wgtdkp: passed
+
 #define TEST_HEADER "test.h"
 #include TEST_HEADER
 
@@ -293,11 +295,6 @@ static void funclike() {
     expect(25, plus(m6(2, 18, 5)));
 
 #define plus(x, y) x * y + plus(x, y)
-#define FUCK \
-    printf("plus: %d\n", plus(2, 3));
-    printf("plus: %d\n", plus(2, 3));
-    printf("plus: %d\n", plus(2, 3));
-    FUCK;
     expect(11, plus(2, 3));
 #undef plus
 
@@ -362,6 +359,47 @@ static void funclike() {
     expect_string(".3 . 3", m17(3));
 }
 
+static void empty() {
+#define EMPTY
+    expect(1, 1 EMPTY);
+#define EMPTY2(x)
+    expect(2, 2 EMPTY2(foo));
+    expect(2, 2 EMPTY2(foo bar));
+    expect(2, 2 EMPTY2(((()))));
+}
+
+
+static void noarg() {
+#define NOARG() 55
+    expect(55, NOARG());
+}
+
+
+static void null() {
+    #
+}
+
+
+// Not supported
+/*
+static void gnuext() {
+//#define m11(x, y, ...) stringify(x + y)
+//    expect_string("2 + 18", m11(2, 18));
+//    expect_string("2 +", m11(2));
+
+//#define m12(x, y...) stringify((x, ## y))
+//    expect_string("(1)", m12(1));
+//   expect_string("(1, 2)", m12(1, 2));
+
+#define m13(x, y) stringify([x y])
+#define m14 1
+    expect_string("[2 2]", m13(m14,
+#undef m14
+#define m14 2
+                               m14));
+}
+*/
+
 int main() {
   simple();
   loop();
@@ -371,5 +409,10 @@ int main() {
   defined();
   ifdef();
   funclike();
+  empty();
+  noarg();
+  null();
+  counter();
+  //gnuext();
   return 0;
 }

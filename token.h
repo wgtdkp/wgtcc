@@ -403,8 +403,10 @@ public:
 
   const Token* Next() {
     auto ret = Peek();
-    if (!ret->IsEOF())
+    if (!ret->IsEOF()) {
       ++begin_;
+      Peek(); // May skip newline token
+    }
     return ret;
   }
 

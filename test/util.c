@@ -1,4 +1,3 @@
-#define expect(a) a
+#define add(a, b) (a) + (b)
 
-#define plus  1 + plus
-expect(plus);
+int c = add(3, 4);
