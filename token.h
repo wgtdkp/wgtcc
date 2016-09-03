@@ -412,10 +412,9 @@ public:
 
   void PutBack() {
     assert(begin_ != tokList_->begin());
-    //if (begin_ == tokList_->begin()) {
-    //  PrintTokList(*tokList_);
-    //}
     --begin_;
+    if ((*begin_)->tag_ == Token::NEW_LINE)
+      PutBack();
   }
 
   const Token* Peek();
