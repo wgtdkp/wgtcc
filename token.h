@@ -299,7 +299,7 @@ public:
   //char* end_ { nullptr };
   std::string str_;
 
-  const HideSet* hs_ { nullptr };
+  HideSet* hs_ { nullptr };
 
 private:
   explicit Token(int tag): tag_(tag) {}
@@ -374,11 +374,14 @@ public:
     //tok->loc_.line_ = curLine + tok->loc_.line_ - lineLine - 1;
   }
 
-  void FinalizeSubst(bool leadingWS, const HideSet* hs) {
+  void FinalizeSubst(bool leadingWS, const HideSet& hs) {
     auto ts = *this;
     while (!ts.Empty()) {
       auto tok = const_cast<Token*>(ts.Next());
-      tok->hs_ = hs;
+      if (!tok->hs_)
+        tok->hs_ = new HideSet(hs);
+      else
+        tok->hs_->insert(hs.begin(), hs.end());
     }
     // Even the token sequence is empty
     const_cast<Token*>(Peek())->ws_ = leadingWS;

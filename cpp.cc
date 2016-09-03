@@ -58,48 +58,25 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
       
       if (name == "__FILE__") {
         HandleTheFileMacro(os, tok);
-        continue;
       } else if (name == "__LINE__") {
         HandleTheLineMacro(os, tok);
-        continue;
-      }
-      // FIXME(wgtdkp): dead loop when expand below macro
-      // #define stderr stderr
-      if (macro->ObjLike()) {
-
+      } else if (macro->ObjLike()) {
         // Make a copy, as subst will change repSeq
         auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
-        
-        // The first token of the replcement sequence should 
-        // derived the ws_ property of the macro to be replaced.
-        // And the subsequent tokens' ws_ property should keep.
-        // It could be dangerous to modify any property of 
-        // the token after being generated.
-        // But, as ws_ is just for '#' opreator, and the replacement 
-        // sequence of a macro is only used to replace the macro, 
-        // it should be safe here we change the ws_ property.
-        
-        // TODO(wgtdkp):
-        //auto firstTok = Token::New(*repSeq.Next());
-        //const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
- 
+
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
         ParamMap paramMap;
         // TODO(wgtdkp): hideset is not right
         // Make a copy of hideset
         // HS U {name}
-        auto hs = tok->hs_ ? new HideSet(*tok->hs_): new HideSet();
-        hs->insert(name);
+        auto hs = tok->hs_ ? *tok->hs_: HideSet();
+        hs.insert(name);
         Subst(repSeqSubsted, repSeq, tok->ws_, hs, paramMap);
-
         is.InsertFront(repSeqSubsted);
-      } else if (is.Test('(')) {
-        is.Next();
-
+      } else if (is.Try('(')) {
         ParamMap paramMap;
         auto rpar = ParseActualParam(is, macro, paramMap);
-
         auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
         //const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
         TokenList tokList;
@@ -107,10 +84,9 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
 
         // (HS ^ HS') U {name}
         // Use HS' U {name} directly                
-        auto hs = rpar->hs_ ? new HideSet(*rpar->hs_): new HideSet();
-        hs->insert(name);
+        auto hs = rpar->hs_ ? *rpar->hs_: HideSet();
+        hs.insert(name);
         Subst(repSeqSubsted, repSeq, tok->ws_, hs, paramMap);
-
         is.InsertFront(repSeqSubsted);
       } else {
         os.InsertBack(tok);
@@ -123,7 +99,8 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
 }
 
 
-static bool FindActualParam(TokenSequence& ap, ParamMap& params, const std::string& fp)
+static bool FindActualParam(TokenSequence& ap,
+                            ParamMap& params, const std::string& fp)
 {
   auto res = params.find(fp);
   if (res == params.end()) {
@@ -135,7 +112,7 @@ static bool FindActualParam(TokenSequence& ap, ParamMap& params, const std::stri
 
 
 void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
-                         bool leadingWS, HideSet* hs, ParamMap& params)
+                         bool leadingWS, const HideSet& hs, ParamMap& params)
 {
   TokenSequence ap;
 
