@@ -197,7 +197,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
   }
 
   if (!ts.Empty()) {
-    Error(lhs, "macro expansion failed: can't concatenate");
+    Error(lhs, "macro expansion failed: cannot concatenate");
   }
 
   os.InsertBack(is);

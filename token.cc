@@ -223,7 +223,7 @@ const Token* TokenSequence::Peek()
     fileName->tag_ = Token::LITERAL;
     fileName->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
     *begin_ = fileName;
-    // A token may be referenced at several place, can't directly modify a token
+    // A token may be referenced at several place, cannot directly modify a token
     // in a token sequence.    
     //(*begin_)->tag_ = Token::LITERAL;
     //(*begin_)->str_ = "\"" + parser_->CurFunc()->Name() + "\"";

@@ -98,11 +98,11 @@ Token* Scanner::Scan(bool ws) {
     return MakeToken(c);
   case '*': return MakeToken(Try('=') ? Token::MUL_ASSIGN: c);
   case '/':
-    if (Peek() == '/' || Peek() == '*') {
+    if (Test('/') || Test('*')) {
       SkipComment();
       return Scan(true);
     }
-    return MakeToken(c);
+    return MakeToken(Try('=') ? Token::DIV_ASSIGN: c);
   case '^': return MakeToken(Try('=') ? Token::XOR_ASSIGN: c);
   case '.':
     if (isdigit(Peek())) return SkipNumber();

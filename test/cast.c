@@ -1,16 +1,31 @@
+// Copyright 2012 Rui Ueyama. Released under the MIT license.
 
-typedef void(func_t)();
+#include "test.h"
 
-void func()
-{
+static void test_signedcast() {
+    unsigned char c = -1;
+    int i = (signed char) c;
 
+    expect(i, -1);
 }
 
-int arr[10] = {0};
-static int c = sizeof(arr[4]);
+static void test_unsignedcast() {
+    signed char c = -1;
+    int i = (unsigned char) c;
 
-int main()
-{
-    *(&arr) = arr + 4;
+    expect(1, i > 0);
+}
+
+int main() {
+    expectf(1, (int)1);
+    expectf(1.0, (float)1);
+    expectd(2.0, (double)2);
+
+    int a[3];
+    *(int *)(a + 2) = 5;
+    expect(5, a[2]);
+
+    test_signedcast();
+    test_unsignedcast();
     return 0;
 }

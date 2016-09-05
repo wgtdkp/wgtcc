@@ -91,7 +91,7 @@ public:
   /************* Declarations **************/
   CompoundStmt* ParseDecl();
   
-  Type* ParseDeclSpec(int* storage, int* func);
+  Type* ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec);
   
   Type* ParseSpecQual();
   
@@ -127,7 +127,7 @@ public:
   Type* ParseAbstractDeclarator(Type* type);
   
   Identifier* ParseDirectDeclarator(Type* type,
-      int storageSpec, int funcSpec);
+      int storageSpec, int funcSpec, int align);
 
   //initializer
   void ParseInitializer(Declaration* decl, Type* type,
@@ -177,7 +177,7 @@ public:
   CompoundStmt* ParseDefaultStmt();
 
   Identifier* ProcessDeclarator(const Token* tok, Type* type,
-      int storageSpec, int funcSpec);
+      int storageSpec, int funcSpec, int align);
 
   bool IsTypeName(const Token* tok) const{
     if (tok->IsTypeSpecQual())

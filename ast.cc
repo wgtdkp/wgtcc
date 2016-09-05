@@ -364,7 +364,7 @@ void BinaryOp::AssignOpTypeChecking()
   if (!lhs_->IsLVal()) {
     Error(lhs_->Tok(), "lvalue expression expected");
   }/* else if (lhs_->Type()->IsConst()) {
-    Error(lhs_->Tok(), "can't modifiy 'const' qualified expression");
+    Error(lhs_->Tok(), "cannot modifiy 'const' qualified expression");
   } */
   
   if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm()) {
@@ -454,7 +454,7 @@ void UnaryOp::IncDecOpTypeChecking()
   if (!operand_->IsLVal()) {
     Error(this, "lvalue expression expected");
   }/* else if (operand_->Type()->IsConst()) {
-    Error(this, "can't modifiy 'const' qualified expression");
+    Error(this, "cannot modifiy 'const' qualified expression");
   }*/
   if (!operand_->Type()->IsReal())
     Error(this, "expect operand of real type");
@@ -507,9 +507,9 @@ void UnaryOp::CastOpTypeChecking()
   } else if (!type_->IsScalar() || !operand_->Type()->IsScalar()) {
     Error(this, "the cast type should be arithemetic type or pointer");
   } else if (type_->IsFloat() && operand_->Type()->ToPointer()) {
-    Error(this, "can't cast a pointer to floating");
+    Error(this, "cannot cast a pointer to floating");
   } else if (type_->ToPointer() && operand_->Type()->IsFloat()) {
-    Error(this, "can't cast a floating to pointer");
+    Error(this, "cannot cast a floating to pointer");
   }
 }
 

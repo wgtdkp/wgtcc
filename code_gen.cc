@@ -625,8 +625,17 @@ void Generator::GenCastOp(UnaryOp* cast)
     const char* inst = srcType->Width() == 4 ? "cvtss2sd": "cvtsd2ss";
     Emit("%s #xmm8, #xmm8", inst);
   } else if (srcType->IsFloat()) {
-    const char* inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
-    Emit("%s #xmm8, #rax", inst);
+    // Handle bool
+    if (desType->IsBool()) {
+      Emit("pxor #xmm9, #xmm9");
+      GenCompOp(srcType->Width(), true, "setne");
+      //auto inst = srcType->Width() == 4 ? "ucomsiss": "ucomsisd";
+	    //Emit("%s	#xmm9, #xmm8", inst);
+	    //Emit("setp	#al");
+    } else {
+      const char* inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
+      Emit("%s #xmm8, #rax", inst);
+    }
   } else if (desType->IsFloat()) {
     const char* inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
     Emit("%s #rax, #xmm8", inst);
@@ -642,15 +651,22 @@ void Generator::GenCastOp(UnaryOp* cast)
     switch (width) {
     case 1:
       inst = sign ? "movsbq": "movzbq";
-      return Emit("%s #%s, #rax", inst, GetReg(width));
+      Emit("%s #%s, #rax", inst, GetReg(width));
+      break;
     case 2:
       inst = sign ? "movswq": "movzwq";
-      return Emit("%s #%s, #rax", inst, GetReg(width));
+      Emit("%s #%s, #rax", inst, GetReg(width));
+      break;
     case 4: inst = "movl"; 
       if (desType->Width() == 8)
         Emit("cltq");
-      return;
-    case 8: return;
+      break;
+    case 8: break;
+    }
+    // Handle bool
+    if (desType->IsBool()) {
+      Emit("testq #rax, #rax");
+      Emit("setne #al");
     }
   }
 }
@@ -856,7 +872,7 @@ void Generator::GenStaticDecl(Declaration* decl)
 
   auto label = ObjectLabel(obj);
   auto width = obj->Type()->Width();
-  auto align = obj->Type()->Align();
+  auto align = obj->Align();
 
   // Omit the external without initilizer
   if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
@@ -980,7 +996,7 @@ class Comp
 {
 public:
   bool operator()(Object* lhs, Object* rhs) {
-    return lhs->Type()->Align() < rhs->Type()->Align();
+    return lhs->Align() < rhs->Align();
   }
 };
 
@@ -1005,7 +1021,7 @@ void Generator::AllocObjects(Scope* scope, const FuncDef::ParamList& params)
     heap.pop();
 
     offset -= obj->Type()->Width();
-    offset = Type::MakeAlign(offset, obj->Type()->Align());
+    offset = Type::MakeAlign(offset, obj->Align());
     obj->SetOffset(offset);
   }
 
@@ -1034,8 +1050,8 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   auto retType = funcCall->Type()->ToStruct();
   if (retType) {
     auto offset = offset_;
-    offset -= funcCall->Type()->Width();
-    offset = Type::MakeAlign(offset, funcCall->Type()->Align());
+    offset -= retType->Width();
+    offset = Type::MakeAlign(offset, retType->Align());
     Emit("leaq %d(#rbp), #rdi", offset);
     
     //Emit("subq $%d, #rsp", offset_ - offset);

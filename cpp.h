@@ -146,7 +146,7 @@ public:
     auto res = macroMap_.find(name);
     if (res == macroMap_.end())
       return;
-    if(res->second.PreDef()) // can't undef predefined macro
+    if(res->second.PreDef()) // cannot undef predefined macro
       return;
     macroMap_.erase(res);
   }

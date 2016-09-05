@@ -132,13 +132,13 @@ int ArithmType::Width() const {
   case T_DOUBLE:
     return _intWidth << 1;
   case T_LONG | T_DOUBLE:
-    return _intWidth << 2;
+    return _intWidth << 1;
   case T_FLOAT | T_COMPLEX:
     return _intWidth << 1;
   case T_DOUBLE | T_COMPLEX:
     return _intWidth << 2;
   case T_LONG | T_DOUBLE | T_COMPLEX:
-    return _intWidth << 3;
+    return _intWidth << 2;
   default:
     assert(false);
   }
@@ -283,8 +283,9 @@ std::string FuncType::Str() const
 StructType::StructType(MemPool* pool, bool isStruct,
                        bool hasTag, Scope* parent)
     : Type(pool, false), isStruct_(isStruct), hasTag_(hasTag),
-      memberMap_(new Scope(parent, S_BLOCK)),
-      offset_(0), width_(0), align_(0) {}
+      memberMap_(new Scope(parent, S_BLOCK)), offset_(0), width_(0),
+      // If a struct type has no member, it gets alignment of 1
+      align_(1) {}
 
 Object* StructType::GetMember(const std::string& member)
 {
@@ -319,13 +320,13 @@ std::string StructType::Str() const
 
 void StructType::AddMember(Object* member)
 {
-  auto offset = MakeAlign(offset_, member->Type()->Align());
+  auto offset = MakeAlign(offset_, member->Align());
   member->SetOffset(offset);
   
   members_.push_back(member);
   memberMap_->Insert(member->Name(), member);
 
-  align_ = std::max(align_, member->Type()->Align());
+  align_ = std::max(align_, member->Align());
 
   if (isStruct_) {
     offset_ = offset + member->Type()->Width();
@@ -346,7 +347,7 @@ void StructType::AddBitField(Object* bitField, int offset)
     memberMap_->Insert(bitField->Name(), bitField);
 
   auto bytes = MakeAlign(bitField->BitFieldEnd(), 8) / 8;
-  align_ = std::max(align_, bitField->Type()->Align());
+  align_ = std::max(align_, bitField->Align());
   // Does not aligned 
   offset_ = offset + bytes;
   width_ = MakeAlign(offset_, align_);
@@ -357,7 +358,7 @@ void StructType::AddBitField(Object* bitField, int offset)
 void StructType::MergeAnony(Object* anony)
 {   
   auto anonyType = anony->Type()->ToStruct();
-  auto offset = MakeAlign(offset_, anonyType->Align());
+  auto offset = MakeAlign(offset_, anony->Align());
 
   // Members in map are never anonymous
   for (auto& kv: *anonyType->memberMap_) {
@@ -377,7 +378,7 @@ void StructType::MergeAnony(Object* anony)
   anony->SetOffset(offset);
   members_.push_back(anony);
 
-  align_ = std::max(align_, anonyType->Align());
+  align_ = std::max(align_, anony->Align());
   if (isStruct_) {
     offset_ = offset + anonyType->Width();
     width_ = MakeAlign(offset_, align_);

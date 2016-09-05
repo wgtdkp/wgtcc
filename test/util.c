@@ -1,3 +1,13 @@
-#define add(a, b) (a) + (b)
+#include <stdbool.h>
+#include "test.h"
 
-int c = add(3, 4);
+int main() {
+  bool b;
+  float f = 0.5;
+  f = -f;
+  b = f;
+  int c;
+  b = c;
+  printf("%d\n", b);
+  return 0;
+}

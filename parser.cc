@@ -70,8 +70,8 @@ void Parser::ParseTranslationUnit()
   while (!ts_.Peek()->IsEOF()) {            
     //curParamScope_ = nullptr;
 
-    int storageSpec, funcSpec;
-    auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+    int storageSpec, funcSpec, align;
+    auto type = ParseDeclSpec(&storageSpec, &funcSpec, &align);
     auto tokTypePair = ParseDeclarator(type);
     auto tok = tokTypePair.first;
     type = tokTypePair.second;
@@ -81,7 +81,7 @@ void Parser::ParseTranslationUnit()
       continue;
     }
 
-    auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec);
+    auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec, align);
     type = ident->Type();
 
     if (tok && type->ToFunc() && ts_.Try('{')) { // Function definition
@@ -91,7 +91,7 @@ void Parser::ParseTranslationUnit()
       if (decl) unit_->Add(decl);
 
       while (ts_.Try(',')) {
-        auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
+        auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec, align);
         decl = ParseInitDeclarator(ident);
         if (decl) unit_->Add(decl);
       }
@@ -207,7 +207,7 @@ Constant* Parser::ConcatLiterals(const Token* tok)
       enc = nextEnc;
     }
     if (nextEnc != Encoding::NONE && nextEnc != enc)
-      Error(nextTok, "can't concat lietrals with different encodings");
+      Error(nextTok, "cannot concat lietrals with different encodings");
     *val += nextVal;
   }
 
@@ -363,7 +363,6 @@ Expr* Parser::ParsePostfixExpr()
 {
   auto tok = ts_.Next();
   if (tok->IsEOF()) {
-    //return nullptr;
     Error(tok, "premature end of input");
   }
 
@@ -505,37 +504,35 @@ Expr* Parser::ParseUnaryExpr()
 
 Constant* Parser::ParseSizeof()
 {
-  Type* type;
+  Type* type;  
   auto tok = ts_.Next();
-  Expr* unaryExpr = nullptr;
-
   if (tok->tag_ == '(' && IsTypeName(ts_.Peek())) {
     type = ParseTypeName();
     ts_.Expect(')');
   } else {
     ts_.PutBack();
-    unaryExpr = ParseUnaryExpr();
-    type = unaryExpr->Type();
+    auto expr = ParseUnaryExpr();
+    type = expr->Type();
   }
 
   if (type->ToFunc() || type->ToVoid()) {
   } else if (!type->Complete()) {
     Error(tok, "sizeof(incomplete type)");
   }
-
-  return Constant::New(tok, T_UNSIGNED | T_LONG, (long)type->Width());
+  long val = type->Width();
+  return Constant::New(tok, T_UNSIGNED | T_LONG, val);
 }
-
 
 Constant* Parser::ParseAlignof()
 {
-  auto tok = ts_.Expect('(');
+  ts_.Expect('(');
+  auto tok = ts_.Peek();
   auto type = ParseTypeName();
   ts_.Expect(')');
 
-  return Constant::New(tok, T_UNSIGNED | T_LONG, (long)type->Align());
+  long val = type->Align();
+  return Constant::New(tok, T_UNSIGNED| T_LONG, val);
 }
-
 
 UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
 {
@@ -560,7 +557,7 @@ UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
 Type* Parser::ParseTypeName()
 {
   auto type = ParseSpecQual();
-  if (ts_.Test('*') || ts_.Test('(')) //abstract-declarator FIRST set
+  if (ts_.Test('*') || ts_.Test('(') || ts_.Test('[')) //abstract-declarator FIRST set
     return ParseAbstractDeclarator(type);
   
   return type;
@@ -746,7 +743,9 @@ Expr* Parser::ParseConditionalExpr()
   auto cond = ParseLogicalOrExpr();
   auto tok = ts_.Peek();
   if (ts_.Try('?')) {
-    auto exprTrue = ParseExpr();
+    // Non-standard GNU extension
+    // a ?: b equals a ? a: c
+    auto exprTrue = ts_.Test(':') ? cond: ParseExpr();
     ts_.Expect(':');
     auto exprFalse = ParseConditionalExpr();
 
@@ -829,31 +828,30 @@ Expr* Parser::ParseAssignExpr()
 }
 
 
-/**************** Declarations ********************/
-
 // Return: list of declarations
 CompoundStmt* Parser::ParseDecl()
 {
   StmtList stmts;
 
   if (ts_.Try(Token::STATIC_ASSERT)) {
-    //TODO: static_assert();
+    // TODO(wgtdkp): static_assert();
     assert(false);
   } else {
-    int storageSpec, funcSpec;
-    auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+    int storageSpec, funcSpec, align;
+    auto type = ParseDeclSpec(&storageSpec, &funcSpec, &align);
     
-    //init-declarator 的 FIRST 集合：'*', identifier, '('
-    if (ts_.Test('*') || ts_.Test(Token::IDENTIFIER) || ts_.Test('(')) {
+    // init-declarator 的 FIRST 集合：'*', identifier, '('
+    //if (ts_.Test('*') || ts_.Test(Token::IDENTIFIER) || ts_.Test('(')) {
+    if (!ts_.Try(';')) {
       do {
-        auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec);
+        auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec, align);
         auto init = ParseInitDeclarator(ident);
-        if (init) {
-          stmts.push_back(init);
-        }
+        if (init) stmts.push_back(init);
       } while (ts_.Try(','));
-    }            
-    ts_.Expect(';');
+      ts_.Expect(';');
+    }
+    //}            
+    //ts_.Expect(';');
   }
 
   return CompoundStmt::New(stmts);
@@ -889,189 +887,183 @@ static inline void TypeLL(int& typeSpec)
 
 Type* Parser::ParseSpecQual()
 {
-  return ParseDeclSpec(nullptr, nullptr);
+  return ParseDeclSpec(nullptr, nullptr, nullptr);
 }
 
+
+static void EnsureAndSetStorageSpec(const Token* tok, int* storage, int spec)
+{
+  if (!storage)
+    Error(tok, "unexpected storage specifier");
+  if (*storage != 0)
+    Error(tok, "duplicated storage specifier");
+  *storage |= spec;
+}
 
 /*
 param: storage: null, only type specifier and qualifier accepted;
 */
-Type* Parser::ParseDeclSpec(int* storage, int* func)
+Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
 {
   Type* type = nullptr;
-  int align = -1;
-  int storageSpec = 0;
-  int funcSpec = 0;
   int qualSpec = 0;
-  int typeSpec = 0;
-  
+  int typeSpec = 0;    
+
+  if (storageSpec) *storageSpec = 0;
+  if (funcSpec) *funcSpec = 0;
+  if (alignSpec) *alignSpec = 0;
+
   const Token* tok;
   for (; ;) {
     tok = ts_.Next();
     switch (tok->tag_) {
     //function specifier
     case Token::INLINE:
-      funcSpec |= F_INLINE;
+      if (!funcSpec)
+        Error(tok, "unexpected function specifier");
+      *funcSpec |= F_INLINE;
       break;
 
     case Token::NORETURN:
-      funcSpec |= F_NORETURN;
+      if (!funcSpec)
+        Error(tok, "unexpected function specifier");
+      *funcSpec |= F_NORETURN;
       break;
 
     //alignment specifier
-    case Token::ALIGNAS:
-      align = ParseAlignas();
+    case Token::ALIGNAS: {
+      if (!alignSpec)
+        Error(tok, "unexpected alignment specifier");
+      auto align = ParseAlignas();
+      if (align)
+        *alignSpec = align;
       break;
-
+    }
     //storage specifier
     //TODO: typedef needs more constraints
     case Token::TYPEDEF:
-      if (storageSpec != 0)
-        goto error;
-      storageSpec |= S_TYPEDEF;
+      EnsureAndSetStorageSpec(tok, storageSpec, S_TYPEDEF);
       break;
 
     case Token::EXTERN:
-      if (storageSpec & ~S_THREAD)
-        goto error;
-      storageSpec |= S_EXTERN;
+      EnsureAndSetStorageSpec(tok, storageSpec, S_EXTERN);
       break;
 
     case Token::STATIC:
-      if (storageSpec & ~S_THREAD)
-        goto error;
-      storageSpec |= S_STATIC;
+      if (!storageSpec)
+        Error(tok, "unexpected storage specifier");
+      if (*storageSpec & ~S_THREAD)
+        Error(tok, "duplicated storage specifier");
+      *storageSpec |= S_STATIC;
       break;
 
     case Token::THREAD:
-      if (storageSpec & ~COMP_THREAD)
-        goto error;
-      storageSpec |= S_THREAD;
+      if (!storageSpec)
+        Error(tok, "unexpected storage specifier");
+      if (*storageSpec & ~COMP_THREAD)
+        Error(tok, "duplicated storage specifier");
+      *storageSpec |= S_THREAD;
       break;
 
     case Token::AUTO:
-      if (storageSpec != 0)
-        goto error;
-      storageSpec |= S_AUTO;
+      EnsureAndSetStorageSpec(tok, storageSpec, S_AUTO);
       break;
 
     case Token::REGISTER:
-      if (storageSpec != 0)
-        goto error; 
-      storageSpec |= S_REGISTER;
+      EnsureAndSetStorageSpec(tok, storageSpec, S_REGISTER);
       break;
     
     //type qualifier
-    case Token::CONST:
-      qualSpec |= Q_CONST;
-      break;
-
-    case Token::RESTRICT:
-      qualSpec |= Q_RESTRICT;
-      break;
-
-    case Token::VOLATILE:
-      qualSpec |= Q_VOLATILE;
-      break;
-    /*
-    atomic_qual:
-      qualSpec |= Q_ATOMIC;
-      break;
-    */
+    case Token::CONST: qualSpec |= Q_CONST; break;
+    case Token::RESTRICT: qualSpec |= Q_RESTRICT; break;
+    case Token::VOLATILE: qualSpec |= Q_VOLATILE; break;
 
     //type specifier
     case Token::SIGNED:
       if (typeSpec & ~COMP_SIGNED)
-        goto error; 
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_SIGNED;
       break;
 
     case Token::UNSIGNED:
       if (typeSpec & ~COMP_UNSIGNED)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_UNSIGNED;
       break;
 
     case Token::VOID:
-      if (0 != typeSpec)
-        goto error;
+      if (typeSpec & ~0)
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_VOID;
       break;
 
     case Token::CHAR:
       if (typeSpec & ~COMP_CHAR)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_CHAR;
       break;
 
     case Token::SHORT:
       if (typeSpec & ~COMP_SHORT)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_SHORT;
       break;
 
     case Token::INT:
       if (typeSpec & ~COMP_INT)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_INT;
       break;
 
     case Token::LONG:
       if (typeSpec & ~COMP_LONG)
-        goto error; 
+        Error(tok, "two or more data types in declaration specifiers");
       TypeLL(typeSpec); 
       break;
       
     case Token::FLOAT:
       if (typeSpec & ~T_COMPLEX)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_FLOAT;
       break;
 
     case Token::DOUBLE:
       if (typeSpec & ~COMP_DOUBLE)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_DOUBLE;
       break;
 
     case Token::BOOL:
       if (typeSpec != 0)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_BOOL;
       break;
 
     case Token::COMPLEX:
       if (typeSpec & ~COMP_COMPLEX)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       typeSpec |= T_COMPLEX;
       break;
 
     case Token::STRUCT: 
     case Token::UNION:
-      if (typeSpec)
-        goto error; 
+      if (typeSpec & ~0)
+        Error(tok, "two or more data types in declaration specifiers");
       type = ParseStructUnionSpec(Token::STRUCT == tok->tag_); 
       typeSpec |= T_STRUCT_UNION;
       break;
 
     case Token::ENUM:
       if (typeSpec != 0)
-        goto error;
+        Error(tok, "two or more data types in declaration specifiers");
       type = ParseEnumSpec();
       typeSpec |= T_ENUM;
       break;
 
-    case Token::ATOMIC:\
-      assert(false);
-      /*
-      if (ts_.Peek()->tag_ != '(')
-        goto atomic_qual;
-      if (typeSpec != 0)
-        goto error;
-      type = ParseAtomicSpec();
-      typeSpec |= T_ATOMIC;
+    case Token::ATOMIC:
+      Error(tok, "atomic not supported");
       break;
-      */
+
     default:
       if (typeSpec == 0 && IsTypeName(tok)) {
         auto ident = curScope_->Find(tok);
@@ -1097,7 +1089,6 @@ end_of_loop:
     type = VoidType::New();
     break;
 
-  case T_ATOMIC:
   case T_STRUCT_UNION:
   case T_ENUM:
   case T_TYPEDEF_NAME:
@@ -1108,21 +1099,8 @@ end_of_loop:
     break;
   }
 
-  if ((storage == nullptr || func == nullptr)) {
-    if (funcSpec && storageSpec && align != -1) {
-      Error(tok, "type specifier/qualifier only");
-    }
-  } else {
-    *storage = storageSpec;
-    *func = funcSpec;
-  }
-
   type->SetQual(qualSpec);
   return type;
-
-error:
-  Error(tok, "type speficier/qualifier/storage error");
-  return nullptr;	// Make compiler happy
 }
 
 
@@ -1130,6 +1108,7 @@ int Parser::ParseAlignas()
 {
   int align;
   ts_.Expect('(');
+  auto tok = ts_.Peek();
   if (IsTypeName(ts_.Peek())) {
     auto type = ParseTypeName();
     ts_.Expect(')');
@@ -1138,9 +1117,9 @@ int Parser::ParseAlignas()
     auto expr = ParseExpr();
     align = Evaluator<long>().Eval(expr);
     ts_.Expect(')');
-    delete expr;
   }
-
+  if (align < 0 || ((align - 1) & align))
+    Error(tok, "requested alignment is not a positive power of 2");
   return align;
 }
 
@@ -1256,8 +1235,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
        */
       if (!tagIdent->Type()->Complete()) {
         //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
-        return ParseStructUnionDecl(
-            tagIdent->Type()->ToStruct());
+        return ParseStructUnionDecl(tagIdent->Type()->ToStruct());
       } else {
         //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
         Error(tok, "redefinition of struct tag '%s'",
@@ -1319,18 +1297,17 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
     }
     
     // 解析type specifier/qualifier, 不接受storage等
-
-    auto memberType = ParseSpecQual();
+    int align;
+    auto memberType = ParseDeclSpec(nullptr, nullptr, &align);
     do {
       auto tokTypePair = ParseDeclarator(memberType);
       auto tok = tokTypePair.first;
       memberType = tokTypePair.second;
-      std::string name;
-
+      
       if (ts_.Try(':')) {
         packed = ParseBitField(type, tok, memberType, packed);
         // TODO(wgtdkp): continue; ?
-        goto end_decl;
+        continue;
       }
 
       if (tok == nullptr) {
@@ -1346,32 +1323,26 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
         }
       }
 
-      name = tok->str_;                
+      const auto& name = tok->str_;                
       if (type->GetMember(name)) {
         Error(tok, "duplicate member '%s'", name.c_str());
-      }
-
-      if (!memberType->Complete()) {
+      } else if (!memberType->Complete()) {
         Error(tok, "field '%s' has incomplete type", name.c_str());
-      }
-
-      if (memberType->ToFunc()) {
+      } else if (memberType->ToFunc()) {
         Error(tok, "field '%s' declared as a function", name.c_str());
       }
 
-      type->AddMember(Object::New(tok, memberType));
-
-    end_decl:;
-
+      auto member = Object::New(tok, memberType);
+      if (align > 0)
+        member->SetAlign(align);
+      type->AddMember(member);
     } while (ts_.Try(','));
     ts_.Expect(';');
   }
   
   //struct/union定义结束，设置其为完整类型
   type->SetComplete(true);
-  
   curScope_ = scopeBackup;
-
   return type;
 }
 
@@ -1396,8 +1367,9 @@ bool Parser::ParseBitField(StructType* structType,
   }
 
   auto offset = structType->Offset() - type->Width();
+  // C11 6.7.5 [2]: alignment attribute shall not be specified in declaration of a bit field
+  // so here is ok to use type->Align() 
   offset = Type::MakeAlign(std::max(offset, 0), type->Align());
-
 
   int bitFieldOffset;
   unsigned char begin;
@@ -1514,16 +1486,16 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
     auto tok = ts_.Next();
     auto retType = ParseArrayFuncDeclarator(tok, pointerType);
     return TokenTypePair(tok, retType);
+  } else {
+    errTok_ = ts_.Peek();
+    auto retType = ParseArrayFuncDeclarator(nullptr, pointerType);
+    return TokenTypePair(nullptr, retType);
   }
-
-  errTok_ = ts_.Peek();
-
-  return TokenTypePair(nullptr, pointerType);
 }
 
 
 Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
-    int storageSpec, int funcSpec)
+    int storageSpec, int funcSpec, int align)
 {
   assert(tok);
   /*
@@ -1536,6 +1508,10 @@ Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
   Identifier* ident;
 
   if (storageSpec & S_TYPEDEF) {
+    // C11 6.7.5 [2]: alignment specifier
+    if (align > 0)
+      Error(tok, "alignment specified for typedef");
+
     ident = curScope_->FindInCurScope(tok);
     if (ident) { // There is prio declaration in the same scope
       // The same declaration, simply return the prio declaration
@@ -1636,9 +1612,15 @@ Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
   Identifier* ret;
   // TODO(wgtdkp): Treat function as object ?
   if (type->ToFunc()) {
+    // C11 6.7.5 [2]: alignment specifier
+    if (align > 0)
+      Error(tok, "alignment specified for function");
     ret = Identifier::New(tok, type, linkage);
   } else {
-    ret = Object::New(tok, type, storageSpec, linkage);
+    auto obj = Object::New(tok, type, storageSpec, linkage);
+    if (align > 0)
+      obj->SetAlign(align);
+    ret = obj;
   }
 
   curScope_->Insert(ret);
@@ -1656,16 +1638,17 @@ Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base)
   if (ts_.Try('[')) {
 
     if (nullptr != base->ToFunc()) {
-      Error(ts_.Peek(), "the element of array can't be a function");
+      Error(ts_.Peek(), "the element of array cannot be a function");
     }
 
     auto len = ParseArrayLength();
     //if (0 == len) {
-    //    Error(ts_.Peek(), "can't declare an array of length 0");
+    //    Error(ts_.Peek(), "cannot declare an array of length 0");
     //}
     ts_.Expect(']');
     base = ParseArrayFuncDeclarator(ident, base);
     if (!base->Complete()) {
+      // FIXME(wgtdkp): ident could be nullptr
       Error(ident, "'%s' has incomplete element type",
           ident->str_.c_str());
     }
@@ -1673,10 +1656,10 @@ Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base)
   } else if (ts_.Try('(')) {	//function declaration
     if (base->ToFunc()) {
       Error(ts_.Peek(),
-          "the return value of function can't be function");
+          "the return value of function cannot be function");
     } else if (nullptr != base->ToArray()) {
       Error(ts_.Peek(),
-          "the return value of function can't be array");
+          "the return value of function cannot be array");
     }
 
     FuncType::ParamList params;
@@ -1760,7 +1743,8 @@ bool Parser::ParseParamList(FuncType::ParamList& params)
 Object* Parser::ParseParamDecl()
 {
   int storageSpec, funcSpec;
-  auto type = ParseDeclSpec(&storageSpec, &funcSpec);
+  // C11 6.7.5 [2]: alignment specifier cannot specified in params
+  auto type = ParseDeclSpec(&storageSpec, &funcSpec, nullptr);
   
   // No declarator
   if (ts_.Test(',') || ts_.Test(')')) {
@@ -1779,7 +1763,8 @@ Object* Parser::ParseParamDecl()
     //return type;
   }
 
-  auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec);
+  // align set to 0 stands for not specified
+  auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec, -1);
   if (!ident->ToObject())
     Error(ident, "expect object in param list");
 
@@ -1811,7 +1796,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
 
 
 Identifier* Parser::ParseDirectDeclarator(Type* type,
-    int storageSpec, int funcSpec)
+    int storageSpec, int funcSpec, int align)
 {
   auto tokenTypePair = ParseDeclarator(type);
   auto tok = tokenTypePair.first;
@@ -1820,7 +1805,7 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
     Error(errTok_, "expect identifier or '('");
   }
 
-  return ProcessDeclarator(tok, type, storageSpec, funcSpec);
+  return ProcessDeclarator(tok, type, storageSpec, funcSpec, align);
 }
 
 
@@ -2314,7 +2299,7 @@ CompoundStmt* Parser::ParseForStmt()
   auto stepLabel = LabelStmt::New();
   auto endLabel = LabelStmt::New();
   stmts.push_back(condLabel);
-  if (nullptr != condExpr) {
+  if (condExpr) {
     auto gotoEndStmt = JumpStmt::New(endLabel);
     auto ifStmt = IfStmt::New(condExpr, EmptyStmt::New(), gotoEndStmt);
     stmts.push_back(ifStmt);
@@ -2322,14 +2307,17 @@ CompoundStmt* Parser::ParseForStmt()
 
   //我们需要给break和continue语句提供相应的标号，不然不知往哪里跳
   Stmt* bodyStmt;
-  ENTER_LOOP_BODY(endLabel, condLabel);
+  ENTER_LOOP_BODY(endLabel, stepLabel);
   bodyStmt = ParseStmt();
   //因为for的嵌套结构，在这里需要回复break和continue的目标标号
   EXIT_LOOP_BODY()
   
   stmts.push_back(bodyStmt);
   stmts.push_back(stepLabel);
-  stmts.push_back(stepExpr);
+  if (stepExpr)
+    stmts.push_back(stepExpr);
+  else
+    stmts.push_back(EmptyStmt::New());
   stmts.push_back(JumpStmt::New(condLabel));
   stmts.push_back(endLabel);
 
@@ -2479,8 +2467,8 @@ CompoundStmt* Parser::ParseSwitchStmt()
     auto ifStmt = IfStmt::New(cond, then, nullptr);
     stmts.push_back(ifStmt);
   }
-  
-  stmts.push_back(JumpStmt::New(defaultLabel_));
+  if (defaultLabel_)
+    stmts.push_back(JumpStmt::New(defaultLabel_));
   EXIT_SWITCH_BODY();
 
   stmts.push_back(endLabel);
@@ -2491,14 +2479,24 @@ CompoundStmt* Parser::ParseSwitchStmt()
 
 CompoundStmt* Parser::ParseCaseStmt()
 {
-  auto expr = ParseExpr();
+  auto tok = ts_.Peek();
+
+  // case ranges: Non-standard GNU extension
+  long begin, end;
+  begin = Evaluator<long>().Eval(ParseAssignExpr());
+  if (ts_.Try(Token::ELLIPSIS))
+    end = Evaluator<long>().Eval(ParseAssignExpr());
+  else
+    end = begin;
   ts_.Expect(':');
   
-  auto val = Evaluator<long>().Eval(expr);
-  auto cons = Constant::New(expr->Tok(), T_INT, val);
-
   auto labelStmt = LabelStmt::New();
-  caseLabels_->push_back(std::make_pair(cons, labelStmt));
+  for (auto val = begin; val <= end; ++val) {
+    if (val > INT_MAX)
+      Error(tok, "case range exceed range of int");
+    auto cons = Constant::New(tok, T_INT, val);
+    caseLabels_->push_back(std::make_pair(cons, labelStmt));
+  }
   
   std::list<Stmt*> stmts;
   stmts.push_back(labelStmt);
@@ -2512,7 +2510,7 @@ CompoundStmt* Parser::ParseDefaultStmt()
 {
   auto tok = ts_.Peek();
   ts_.Expect(':');
-  if (defaultLabel_ != nullptr) { // There is a 'default' stmt
+  if (defaultLabel_) { // There is a 'default' stmt
     Error(tok, "multiple default labels in one switch");
   }
   auto labelStmt = LabelStmt::New();
@@ -2580,7 +2578,7 @@ JumpStmt* Parser::ParseGotoStmt()
     return JumpStmt::New(labelStmt);
   }
   
-  auto unresolvedJump = JumpStmt::New(nullptr);;
+  auto unresolvedJump = JumpStmt::New(nullptr);
   unresolvedJumps_.push_back(std::make_pair(label, unresolvedJump));
   
   return unresolvedJump;

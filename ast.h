@@ -778,6 +778,17 @@ public:
     storage_ = storage;
   }
 
+  int Align() const {
+    return align_;
+  }
+
+  void SetAlign(int align) {
+    assert(align > 0);
+    if (align < align_)
+      Error(this, "alignment specifier cannot reduce alignment");
+    align_ = align;
+  }
+
   int Offset() const {
     return offset_;
   }
@@ -855,15 +866,14 @@ protected:
          int storage=0, enum Linkage linkage=L_NONE,
          unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
       : Identifier(tok, type, linkage),
-        storage_(storage), offset_(0), decl_(nullptr),
+        storage_(storage), offset_(0), align_(type->Align()), decl_(nullptr),
         bitFieldBegin_(bitFieldBegin), bitFieldWidth_(bitFieldWidth),
         anonymous_(false) {}
 
 private:
   int storage_;
-  
-  // For code gen
   int offset_;
+  int align_;
 
   Declaration* decl_;
 

@@ -50,7 +50,7 @@ enum {
   T_DOUBLE = 0x4000,
   T_BOOL = 0x8000,
   T_COMPLEX = 0x10000,
-  T_ATOMIC = 0x20000,
+  //T_ATOMIC = 0x20000,
   T_STRUCT_UNION = 0x40000,
   T_ENUM = 0x80000,
   T_TYPEDEF_NAME = 0x100000,
@@ -66,6 +66,23 @@ enum {
   /*****function specifier*****/
   F_INLINE = 0x4000000,
   F_NORETURN = 0x8000000,
+};
+
+
+class QualType {
+public:
+  //QualType(Type* ptr): val_(ptr) {}
+  //QualType(Type* ptr, int quals): 
+
+  void AddConst(void) {
+  
+  }
+
+private:
+  struct {
+    uint64_t qual_: 3;
+    uint64_t ptr_: sizeof(uint64_t) * 8 - 3;
+  } val_;
 };
 
 
@@ -106,7 +123,8 @@ public:
   virtual bool IsScalar() const { return false; }
   virtual bool IsFloat() const { return false; }
   virtual bool IsInteger() const { return false; }
-
+  virtual bool IsBool() const { return false; }
+   
   virtual VoidType* ToVoid() { return nullptr; }
   virtual const VoidType* ToVoid() const { return nullptr; }
   virtual ArithmType* ToArithm() { return nullptr; }  
@@ -185,6 +203,7 @@ public:
   virtual bool IsFloat() const {
     return (tag_ & T_FLOAT) || (tag_ & T_DOUBLE);
   }
+  virtual bool IsBool() const { return tag_ & T_BOOL; }
 
   bool IsComplex() const { return tag_ & T_COMPLEX; }
   int Tag() const { return tag_; }
