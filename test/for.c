@@ -2,15 +2,6 @@
 
 #include <stdio.h>
 
-#if 1
-#define expect(a, b)                                        \
-    if ((a) != (b)) {                                       \
-        printf("error:%s:%s:%d: failed, %d != %d\n",        \
-                __FILE__, __func__, __LINE__, (a), (b));    \
-    };
-#else
-#define expect(a, b)
-#endif
 
 void test_decl()
 {
