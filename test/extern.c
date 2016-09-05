@@ -1,10 +1,27 @@
+// @wtdkp: passed
 
-void test1()
-{
-    extern int c;
+#include "test.h"
+
+int a = 3;
+void test() {
+  extern int a;
+  expect(a, 3);
+  {
+    int a = 4;
+    expect(a, 4);
+  }
+  {
+    extern int a;
+    expect(a, 3);
+    a = 5;
+    {
+      extern int a;
+      expect(a, 5);
+    }
+  }
 }
 
-void test2()
-{
-    extern double c;
+int main() {
+  test();
+  return 0;
 }
