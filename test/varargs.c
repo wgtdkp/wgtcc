@@ -59,12 +59,12 @@ static double funcf(double f1, double f2, double f3, double f4, double f5, doubl
 }
 
 static void test() {
-  funcf(1, 2, 3, 4, 5, 6, 7, 8);
+  //funcf(1, 2, 3, 4, 5, 6, 7, 8);
   //expect(28, sumi(8, 0, 1, 2, 3, 4, 5, 6, 7));
   //expect(210, sumi(21, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20));
   //expect(2, maxi(2, 1, 2));
   //expect(44, maxi(9, -4, 6, 8, 3, 9, 11, 32, 44, 29));
-  //expectf(9.0f, maxf(3, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f));
+  expectf(9.0f, maxf(3, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f));
   //expectf(45.0f, sumf(9, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f));
 }
 

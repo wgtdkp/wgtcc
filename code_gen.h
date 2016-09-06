@@ -29,6 +29,11 @@ enum class ParamClass
   MEMORY
 };
 
+struct ParamLocations {
+  LocationList locs_;
+  size_t regCnt_;
+  size_t xregCnt_;
+};
 
 struct ROData
 {
@@ -169,7 +174,7 @@ protected:
   
   std::string ConsLabel(Constant* cons);
 
-  LocationList GetParamLocation(const TypeList& types, bool retStruct);
+  ParamLocations GetParamLocations(const TypeList& types, bool retStruct);
   void GetParamRegOffsets(int& gpOffset, int& fpOffset,
       int& overflow, FuncType* funcType);
 

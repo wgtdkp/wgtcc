@@ -1041,11 +1041,11 @@ void Generator::GetParamRegOffsets(int& gpOffset, int& fpOffset,
   TypeList types;
   for (auto param: funcType->Params())
     types.push_back(param->Type());
-  auto locations = GetParamLocation(types, funcType->Derived());
+  auto locations = GetParamLocations(types, funcType->Derived());
   gpOffset = 0;
   fpOffset = 48;
   overflow = 16;
-  for (const auto& loc: locations) {
+  for (const auto& loc: locations.locs_) {
     if (loc[0] == 'x')
       fpOffset += 16;
     else if (loc[0] == 'm')
@@ -1171,11 +1171,14 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   for (auto arg: funcCall->args_)
     types.push_back(arg->Type());
   
-  const auto& locations = GetParamLocation(types, retType);
+  const auto& locations = GetParamLocations(types, retType);
   // align stack frame by 16 bytes
-  offset_ = Type::MakeAlign(offset_, 16);  
-  for (int i = locations.size() - 1; i >=0; i--) {
-    if (locations[i][0] == 'm') {
+  const auto& locs = locations.locs_;
+  auto byMemCnt = locs.size() - locations.regCnt_ - locations.xregCnt_;
+
+  offset_ = Type::MakeAlign(offset_ - byMemCnt * 8, 16) + byMemCnt * 8;  
+  for (int i = locs.size() - 1; i >=0; i--) {
+    if (locs[i][0] == 'm') {
       Visit(funcCall->args_[i]);
       if (types[i]->IsFloat())
         Push("xmm0");
@@ -1184,33 +1187,31 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     }
   }
 
-  int fltCnt = 0;
-  for (int i = locations.size() - 1; i >= 0; i--) {
-    if (locations[i][0] == 'm')
+  for (int i = locs.size() - 1; i >= 0; i--) {
+    if (locs[i][0] == 'm')
       continue;
     Visit(funcCall->args_[i]);
     
-    if (locations[i][0] == 'x') {
-      ++fltCnt;
-      if (locations[i][3] == '0')
+    if (locs[i][0] == 'x') {
+      if (locs[i][3] == '0')
         Emit("movsd #xmm0, #xmm8");
       else {
         auto inst = GetInst("mov", types[i]);
-        Emit("%s #xmm0, #%s", inst.c_str(), locations[i]);
+        Emit("%s #xmm0, #%s", inst.c_str(), locs[i]);
       }
     } else {
-        Emit("movq #rax, #%s", locations[i]);
+        Emit("movq #rax, #%s", locs[i]);
     }
   }
 
   // If variadic, set %al to floating param number
   if (funcType->Variadic()) {
-    Emit("movq $%d, %rax", fltCnt);
+    Emit("movq $%d, %rax", locations.xregCnt_);
   }
 
   Emit("leaq %d(#rbp), #rsp", offset_);
   auto addr = LValGenerator().GenExpr(funcCall->Designator());
-  if (fltCnt > 0)
+  if (locations.xregCnt_ > 0)
     Emit("movsd #xmm8, #xmm0");
   if (addr._base.size() == 0 && addr.offset_ == 0) {
     Emit("call %s", addr.label_.c_str());
@@ -1224,23 +1225,24 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 }
 
 
-LocationList Generator::GetParamLocation(const TypeList& types, bool retStruct)
+ParamLocations Generator::GetParamLocations(const TypeList& types, bool retStruct)
 {
-  LocationList locations;
+  ParamLocations locations;
 
-  size_t regCnt = retStruct, xregCnt = 0;
+  locations.regCnt_ = retStruct;
+  locations.xregCnt_ = 0;
   for (auto type: types) {
     auto cls = Classify(type);
 
     const char* reg = nullptr;
     if (cls == ParamClass::INTEGER) {
-      if (regCnt < regs.size())
-        reg = regs[regCnt++];
+      if (locations.regCnt_ < regs.size())
+        reg = regs[locations.regCnt_++];
     } else if (cls == ParamClass::SSE) {
-      if (xregCnt < xregs.size())
-        reg = xregs[xregCnt++];
+      if (locations.xregCnt_ < xregs.size())
+        reg = xregs[locations.xregCnt_++];
     }
-    locations.push_back(reg ? reg: "mem");
+    locations.locs_.push_back(reg ? reg: "mem");
   }
   return locations;
 }
@@ -1272,18 +1274,19 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
   for (auto param: params)
     types.push_back(param->Type());
 
-  auto locations = GetParamLocation(types, retType);
+  auto locations = GetParamLocations(types, retType);
+  const auto& locs = locations.locs_;
 
   if (funcDef->Type()->Variadic()) {
     GenSaveArea(); // 'offset' is now the begin of save area
     int regOffset = retType ? offset_ + 8: offset_;
     int xregOffset = offset_ + 48;
     int byMemOffset = 16;
-    for (size_t i = 0; i < locations.size(); i++) {
-      if (locations[i][0] == 'm') {
+    for (size_t i = 0; i < locs.size(); i++) {
+      if (locs[i][0] == 'm') {
         params[i]->SetOffset(byMemOffset);
         byMemOffset += 8;
-      } else if (locations[i][0] == 'x') {
+      } else if (locs[i][0] == 'x') {
         params[i]->SetOffset(xregOffset);
         xregOffset += 16;
       } else {
@@ -1293,13 +1296,13 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     }
   } else {
     int byMemOffset = 16;
-    for (size_t i = 0; i < locations.size(); i++) {
-      if (locations[i][0] == 'm') {
+    for (size_t i = 0; i < locs.size(); i++) {
+      if (locs[i][0] == 'm') {
         params[i]->SetOffset(byMemOffset);
         byMemOffset += 8;
         continue;
       }
-      params[i]->SetOffset(Push(locations[i]));
+      params[i]->SetOffset(Push(locs[i]));
     }
   }
 
