@@ -1533,8 +1533,7 @@ Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
 
   if (type->ToFunc() && curScope_->Type() != S_FILE
       && (storageSpec & S_STATIC)) {
-    Error(tok, "invalid storage class for function '%s'",
-        name.c_str());
+    Error(tok, "invalid storage class for function '%s'", name.c_str());
   }
 
   Linkage linkage;

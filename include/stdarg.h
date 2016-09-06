@@ -10,7 +10,7 @@ typedef struct {
 
 
 #define va_start(ap, last) __builtin_va_start(&ap[0], &last)
-#define va_arg(ap, type) __builtin_va_arg(&ap[0], (type*)0)
+#define va_arg(ap, type) *(type*)__builtin_va_arg(&ap[0], (type*)0)
 #define va_end(ap) 1
 #define va_copy(des, src) ((des)[0] == (src)[0])
 

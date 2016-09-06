@@ -26,7 +26,8 @@ FuncDef* Generator::curFunc_ = nullptr;
 
 /*
  * Register usage:
- *  xmm8: accumulator of floating datas;
+ *  xmm0: accumulator of floating datas;
+ *  xmm8: temp register for param passing
  *  xmm9: source operand register;
  *  xmm10: tmp register for floating data swap;
  *  rax: accumulator;
@@ -175,7 +176,7 @@ static const char* GetReg(int width)
 static const char* GetDes(int width, bool flt)
 {
   if (flt) {
-    return "xmm8";
+    return "xmm0";
   }
   return GetReg(width);
 }
@@ -215,7 +216,7 @@ static inline void GetOperands(const char*& src,
 {
   assert(width == 4 || width == 8);
   src = flt ? "xmm9": (width == 8 ? "r11": "r11d");
-  des = flt ? "xmm8": (width == 8 ? "rax": "eax");
+  des = flt ? "xmm0": (width == 8 ? "rax": "eax");
 }
 */
 
@@ -241,7 +242,7 @@ int Generator::Pop(const char* reg)
 
 void Generator::Spill(bool flt)
 {
-  Push(flt ? "xmm8": "rax");
+  Push(flt ? "xmm0": "rax");
 }
 
 
@@ -258,7 +259,7 @@ void Generator::Restore(bool flt)
 void Generator::Save(bool flt)
 {
   if (flt) {        
-    Emit("movsd #xmm8, #xmm9");
+    Emit("movsd #xmm0, #xmm9");
   } else {
     Emit("movq #rax, #r11");
   }
@@ -346,9 +347,11 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   case Token::LEFT: inst = "sal";
   case Token::RIGHT: inst = sign ? "sar": "shr";
     inst = op == Token::LEFT ? "sal": (sign ? "sar": "shr");
+    Emit("xchgq #r11, #rcx"); // Save %rcx
     Emit("movq #r11, #rcx");
     Emit("%s #cl, #%s", GetInst(inst, width, flt).c_str(),
         GetDes(width, flt));
+    Emit("xchgq #r11, #rcx"); // Restore %rcx
     return;
   }
   Emit("%s #%s, #%s", GetInst(inst, width, flt).c_str(),
@@ -368,7 +371,7 @@ void Generator::GenMulOp(int width, bool flt, bool sign)
   auto inst = flt ? "mul": (sign ? "imul": "mul");
   
   if (flt) {
-    Emit("%s #xmm9, #xmm8", GetInst(inst, width, flt).c_str());
+    Emit("%s #xmm9, #xmm0", GetInst(inst, width, flt).c_str());
   } else {
     Emit("%s #%s", GetInst(inst, width, flt).c_str(), GetSrc(width, flt));
   }
@@ -385,7 +388,7 @@ void Generator::GenCompZero(Type* type)
   } else {
     Emit("pxor #xmm9, #xmm9");
     auto cmp = width == 8 ? "ucomisd": "ucomiss";
-    Emit("%s #xmm9, #xmm8", cmp);
+    Emit("%s #xmm9, #xmm0", cmp);
   }
 }
 
@@ -550,9 +553,11 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
 {
   if (flt) {
     auto inst = width == 4 ? "divss": "divsd";
-    Emit("%s #xmm9, #xmm8", inst);
+    Emit("%s #xmm9, #xmm0", inst);
     return;
-  } else if (!sign) {
+  }
+  Emit("xchgq #rdx, #r11"); // Save %rdx
+  if (!sign) {
     Emit("xor #rdx, #rdx");
     Emit("%s #%s", GetInst("div", width, flt).c_str(), GetSrc(width, flt));
   } else {
@@ -561,6 +566,7 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
   }
   if (op == '%')
     Emit("mov #rdx, #rax");
+  Emit("xchgq #rdx, #r11"); // Restore %rdx
 }
 
  
@@ -610,22 +616,22 @@ void Generator::GenCastOp(UnaryOp* cast)
     if (srcType->Width() == desType->Width())
       return;
     const char* inst = srcType->Width() == 4 ? "cvtss2sd": "cvtsd2ss";
-    Emit("%s #xmm8, #xmm8", inst);
+    Emit("%s #xmm0, #xmm0", inst);
   } else if (srcType->IsFloat()) {
     // Handle bool
     if (desType->IsBool()) {
       Emit("pxor #xmm9, #xmm9");
       GenCompOp(srcType->Width(), true, "setne");
       //auto inst = srcType->Width() == 4 ? "ucomsiss": "ucomsisd";
-	    //Emit("%s	#xmm9, #xmm8", inst);
+	    //Emit("%s	#xmm9, #xmm0", inst);
 	    //Emit("setp	#al");
     } else {
       const char* inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
-      Emit("%s #xmm8, #rax", inst);
+      Emit("%s #xmm0, #rax", inst);
     }
   } else if (desType->IsFloat()) {
     const char* inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
-    Emit("%s #rax, #xmm8", inst);
+    Emit("%s #rax, #xmm0", inst);
   } else if (srcType->ToPointer()
       || srcType->ToFunc()
       || srcType->ToArray()) {
@@ -719,8 +725,8 @@ void Generator::GenMinusOp(UnaryOp* minus)
 
   if (flt) {
     Emit("pxor #xmm9, #xmm9");
-    Emit("%s #xmm8, #xmm9", GetInst("sub", width, flt).c_str());
-    Emit("%s #xmm9, #xmm8", GetInst("mov", width, flt).c_str());
+    Emit("%s #xmm0, #xmm9", GetInst("sub", width, flt).c_str());
+    Emit("%s #xmm9, #xmm0", GetInst("mov", width, flt).c_str());
   } else {
     Emit("%s #%s", GetInst("neg", width, flt).c_str(), GetDes(width, flt));
   }
@@ -754,7 +760,7 @@ void Generator::GenIncDec(Expr* operand, bool postfix, const std::string& inst)
   auto addSub = GetInst(inst, operand->Type());    
   Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), GetDes(width, flt));
   EmitStore(addr, operand->Type());
-  if (postfix) Emit(flt ? "movsd #xmm9, #xmm8": "movq #r11, #rax");
+  if (postfix) Emit(flt ? "movsd #xmm9, #xmm0": "movq #r11, #rax");
 }
 
 
@@ -1060,78 +1066,82 @@ void Generator::GenBuiltin(FuncCall* funcCall)
   } va_list_imp;
 
   auto ap = UnaryOp::New(Token::DEREF, funcCall->args_[0]);
-  const auto& apAddr = LValGenerator().GenExpr(ap);
+  auto addr = LValGenerator().GenExpr(ap);
   auto type = funcCall->FuncType();
+  
+  auto offset = offsetof(va_list_imp, reg_save_area);
+  addr.offset_ += offset;
+  const auto& saveAreaAddr = addr.Repr();
+  addr.offset_ -= offset;
+
+  offset = offsetof(va_list_imp, overflow_arg_area);
+  addr.offset_ += offset;
+  const auto& overflowAddr = addr.Repr();
+  addr.offset_ -= offset;
+
+  offset = offsetof(va_list_imp, gp_offset);
+  addr.offset_ += offset;
+  const auto& gpOffsetAddr = addr.Repr();
+  addr.offset_ -= offset;
+
+  offset = offsetof(va_list_imp, fp_offset);
+  addr.offset_ += offset;
+  const auto& fpOffsetAddr = addr.Repr();
+  addr.offset_ -= offset;
+
   if (type == Parser::vaStartType_) {
-    auto addr = apAddr;
-
-    auto offset = offsetof(va_list_imp, reg_save_area);
-    addr.offset_ += offset;
     Emit("leaq -176(#rbp), #rax");
-    EmitStore(addr.Repr(), 8, false);
-    addr.offset_ -= offset;
+    Emit("movq #rax, %s", saveAreaAddr.c_str());
     
-    int gpOffset, fpOffset, overflowArea;
-    GetParamRegOffsets(gpOffset, fpOffset, overflowArea, curFunc_->Type());
-
-    offset = offsetof(va_list_imp, overflow_arg_area);
-    addr.offset_ += offset;
-    Emit("leaq %d(#rbp), #rax", overflowArea);
-    EmitStore(addr.Repr(), 8, false);
-    addr.offset_ -= offset;
-
-    offset = offsetof(va_list_imp, gp_offset);
-    addr.offset_ += offset;
-    Emit("movq $%d, #rax", gpOffset);
-    EmitStore(addr.Repr(), 4, false);
-    addr.offset_ -= offset;
-
-    offset = offsetof(va_list_imp, fp_offset);
-    addr.offset_ += offset;
-    Emit("movq $%d, #rax", fpOffset);
-    EmitStore(addr.Repr(), 4, false);
-    addr.offset_ -= offset;
+    int gpOffset, fpOffset, overflowOffset;
+    GetParamRegOffsets(gpOffset, fpOffset, overflowOffset, curFunc_->Type());
+    Emit("leaq %d(#rbp), #rax", overflowOffset);
+    Emit("movq #rax, %s", overflowAddr.c_str());
+    Emit("movl $%d, #eax", gpOffset);
+    Emit("movl #eax, %s", gpOffsetAddr.c_str());
+    Emit("movl $%d, #eax", fpOffset);
+    Emit("movl #eax, %s", fpOffsetAddr.c_str());
   } else if (type == Parser::vaArgType_) {
+    static int cnt[2] = {0, 0};
+    auto overflowLabel = ".L_va_arg_overflow" + std::to_string(++cnt[0]);
+    auto endLabel = ".L_va_arg_end" + std::to_string(++cnt[1]);
+
     auto argType = funcCall->args_[1]->Type()->ToPointer()->Derived();
     auto cls = Classify(argType);
-    auto saveAreaAddr = apAddr;
-    saveAreaAddr.offset_ += offsetof(va_list_imp, reg_save_area);
-    const char* operandAddr;
     if (cls == ParamClass::INTEGER) {
-      auto gpAddr = apAddr;
-      gpAddr.offset_ += offsetof(va_list_imp, gp_offset);
-      operandAddr = gpAddr.Repr().c_str();
-      EmitLoad(saveAreaAddr.Repr(), 8, false);
+      Emit("movq %s, #rax", saveAreaAddr.c_str());
       Emit("movq #rax, #r11");
-      Emit("movl %s, #eax", operandAddr);
+      Emit("movl %s, #eax", gpOffsetAddr.c_str());
       Emit("cltq");
+      Emit("cmpq $48, #rax");
+      Emit("jae %s", overflowLabel.c_str());
       Emit("addq #rax, #r11");
-      Emit("addl $8, #eax");
-      Emit("movl #eax, %s", operandAddr);
+      Emit("addq $8, #rax");
+      Emit("movl #eax, %s", gpOffsetAddr.c_str());
       Emit("movq #r11, #rax");
+      Emit("jmp %s", endLabel.c_str());
     } else if (cls == ParamClass::SSE) {
-      auto fpAddr = apAddr;
-      fpAddr.offset_ += offsetof(va_list_imp, fp_offset);
-      operandAddr = fpAddr.Repr().c_str();
-      EmitLoad(saveAreaAddr.Repr(), 8, false);
+      Emit("movq %s, #rax", saveAreaAddr.c_str());
       Emit("movq #rax, #r11");
-      Emit("movl %s, #eax", operandAddr);
+      Emit("movl %s, #eax", fpOffsetAddr.c_str());
       Emit("cltq");
+      Emit("cmpq $176, #rax");
+      Emit("jae %s", overflowLabel.c_str());
       Emit("addq #rax, #r11");
-      Emit("addl $8, #eax");
-      Emit("movl #eax, %s", operandAddr);
+      Emit("addq $16, #rax");
+      Emit("movl #eax, %s", fpOffsetAddr.c_str());
       Emit("movq #r11, #rax");
+      Emit("jmp %s", endLabel.c_str());
     } else if (cls == ParamClass::MEMORY) {
-      auto overflowAddr = apAddr;
-      overflowAddr.offset_ += offsetof(va_list_imp, overflow_arg_area);
-      operandAddr = overflowAddr.Repr().c_str();
-      Emit("movq %s, #rax", operandAddr);
-      //Emit("movq #rax, #r11");
-      //Emit("addq %d, #r11", Type::MakeAlign(argType->Width(), 8));
-      //Emit("movq #r11, %s", operandAddr);
     } else {
       Error("internal error");
     }
+    EmitLabel(overflowLabel);
+    Emit("movq %s, #rax", overflowAddr.c_str());
+    Emit("movq #rax, #r11");
+    Emit("addq $%d, #r11", Type::MakeAlign(argType->Width(), 8));
+    Emit("movq #r11, %s", overflowAddr.c_str());
+    EmitLabel(endLabel);
   } else {
     assert(false);
   }
@@ -1168,7 +1178,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     if (locations[i][0] == 'm') {
       Visit(funcCall->args_[i]);
       if (types[i]->IsFloat())
-        Push("xmm8");
+        Push("xmm0");
       else
         Push("rax");
     }
@@ -1182,10 +1192,14 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     
     if (locations[i][0] == 'x') {
       ++fltCnt;
-      auto inst = GetInst("mov", types[i]);
-      Emit("%s #xmm8, #%s", inst.c_str(), locations[i]);
+      if (locations[i][3] == '0')
+        Emit("movsd #xmm0, #xmm8");
+      else {
+        auto inst = GetInst("mov", types[i]);
+        Emit("%s #xmm0, #%s", inst.c_str(), locations[i]);
+      }
     } else {
-      Emit("movq #rax, #%s", locations[i]);
+        Emit("movq #rax, #%s", locations[i]);
     }
   }
 
@@ -1196,6 +1210,8 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 
   Emit("leaq %d(#rbp), #rsp", offset_);
   auto addr = LValGenerator().GenExpr(funcCall->Designator());
+  if (fltCnt > 0)
+    Emit("movsd #xmm8, #xmm0");
   if (addr._base.size() == 0 && addr.offset_ == 0) {
     Emit("call %s", addr.label_.c_str());
   } else {
@@ -1261,7 +1277,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
   if (funcDef->Type()->Variadic()) {
     GenSaveArea(); // 'offset' is now the begin of save area
     int regOffset = retType ? offset_ + 8: offset_;
-    int xregOffset = offset_ + 8 * 8;
+    int xregOffset = offset_ + 48;
     int byMemOffset = 16;
     for (size_t i = 0; i < locations.size(); i++) {
       if (locations[i][0] == 'm') {
