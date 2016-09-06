@@ -7,7 +7,14 @@
 
 class Parser;
 class Addr;
+class ROData;
 class Evaluator<Addr>;
+struct StaticInitializer;
+
+typedef std::vector<Type*> TypeList;
+typedef std::vector<const char*> LocationList;
+typedef std::vector<ROData> RODataList;
+typedef std::vector<StaticInitializer> StaticInitList;
 
 
 enum class ParamClass
@@ -53,12 +60,6 @@ private:
 };
 
 
-
-typedef std::vector<Type*> TypeList;
-typedef std::vector<const char*> LocationList;
-typedef std::vector<ROData> RODataList;
-
-
 struct ObjectAddr
 {
   ObjectAddr(const std::string& label, const std::string& base, int offset)
@@ -81,8 +82,6 @@ struct StaticInitializer
   long val_;
   std::string label_;        
 };
-
-typedef std::vector<StaticInitializer> StaticInitList;
 
 
 class Generator: public Visitor
@@ -161,7 +160,8 @@ protected:
   void GenStaticDecl(Declaration* decl);
   
   void GenSaveArea();
-  
+  void GenBuiltin(FuncCall* funcCall);
+
   void AllocObjects(Scope* scope,
       const FuncDef::ParamList& params=FuncDef::ParamList());
 
@@ -170,6 +170,8 @@ protected:
   std::string ConsLabel(Constant* cons);
 
   LocationList GetParamLocation(const TypeList& types, bool retStruct);
+  void GetParamRegOffsets(int& gpOffset, int& fpOffset,
+      int& overflow, FuncType* funcType);
 
   void Emit(const char* format, ...);
   void EmitLabel(const std::string& label);

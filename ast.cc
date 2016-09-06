@@ -123,6 +123,10 @@ Expr* Expr::MayCast(Expr* expr)
 Expr* Expr::MayCast(Expr* expr, ::Type* desType)
 {
   expr = MayCast(expr);
+  auto srcType = expr->Type();
+  if (desType->ToPointer() && srcType->ToPointer())
+    if (desType->IsVoidPointer() || srcType->IsVoidPointer())
+      return expr;
   if (!desType->Compatible(*expr->Type()))
     expr = UnaryOp::New(Token::CAST, expr, desType);
   return expr;
@@ -250,12 +254,10 @@ void BinaryOp::CommaOpTypeChecking()
 void BinaryOp::SubScriptingOpTypeChecking()
 {
   auto lhsType = lhs_->Type()->ToPointer();
-  if (nullptr == lhsType) {
+  if (!lhsType)
     Error(this, "an pointer expected");
-  }
-  if (!rhs_->Type()->IsInteger()) {
+  if (!rhs_->Type()->IsInteger())
     Error(this, "the operand of [] should be intger");
-  }
 
   // The type of [] operator is the derived type
   type_ = lhsType->Derived();    
@@ -334,7 +336,8 @@ void BinaryOp::RelationalOpTypeChecking()
 void BinaryOp::EqualityOpTypeChecking()
 {
   if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
-    EnsureCompatible(lhs_->Type(), rhs_->Type());
+    if (!lhs_->Type()->IsVoidPointer() && !rhs_->Type()->IsVoidPointer())
+      EnsureCompatible(lhs_->Type(), rhs_->Type());
   } else {
     if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
       Error(this, "invalid operands to binary %s", tok_->str_.c_str());
@@ -368,11 +371,9 @@ void BinaryOp::AssignOpTypeChecking()
   } */
   
   if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm()) {
-    auto lhsPointer = lhs_->Type()->ToPointer();
-    auto rhsPointer = rhs_->Type()->ToPointer();
-    if (lhsPointer && rhsPointer) {
-      if (!lhsPointer->Derived()->ToVoid() && !rhsPointer->Derived()->ToVoid())
-        EnsureCompatible(lhsPointer, rhsPointer);
+    if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
+      if (!lhs_->Type()->IsVoidPointer() && !rhs_->Type()->IsVoidPointer())
+        EnsureCompatible(lhs_->Type(), rhs_->Type());
     } else {
       EnsureCompatible(lhs_->Type(), rhs_->Type());
     }
@@ -668,6 +669,11 @@ Object* Object::New(const Token* tok, ::Type* type,
   auto ret = new (objectPool.Alloc())
       Object(tok, type, storage, linkage, bitFieldBegin, bitFieldWidth);
   ret->pool_ = &objectPool;
+
+  static long id = 0;
+  if (ret->IsStatic())
+    ret->id_ = ++id;
+
   return ret;
 }
 
@@ -701,7 +707,7 @@ Constant* Constant::New(const Token* tok, int tag, const std::string* val)
   ret->pool_ = &constantPool;
 
   static long id = 0;
-  ret->id_ = id++;
+  ret->id_ = ++id;
 
   return ret;
 }

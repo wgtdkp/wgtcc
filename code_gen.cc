@@ -68,7 +68,6 @@ static ParamClass Classify(Type* paramType, int offset=0)
     // It is complex
     if ((type->Tag() & T_LONG) && (type->Tag() & T_DOUBLE))
       return ParamClass::COMPLEX_X87;
-    
   }
 
   // TODO(wgtdkp): Support agrregate type 
@@ -104,18 +103,6 @@ static ParamClass Classify(Type* paramType, int offset=0)
   */
   return ParamClass::NO_CLASS; // Make compiler happy
 }
-
-
-std::string ObjectLabel(Object* obj)
-{
-  static int tag = 0;
-  assert(obj->IsStatic());
-  if (obj->Linkage() == L_NONE) {
-    return obj->Name() + "." + std::to_string(tag++);
-  }
-  return obj->Name();
-}
-
 
 std::string Generator::ConsLabel(Constant* cons)
 {
@@ -870,7 +857,7 @@ void Generator::GenStaticDecl(Declaration* decl)
   auto obj = decl->obj_;
   assert(obj->IsStatic());
 
-  auto label = ObjectLabel(obj);
+  const auto& label = obj->Label();
   auto width = obj->Type()->Width();
   auto align = obj->Align();
 
@@ -1042,11 +1029,123 @@ void Generator::VisitCompoundStmt(CompoundStmt* compStmt)
 }
 
 
+void Generator::GetParamRegOffsets(int& gpOffset, int& fpOffset,
+    int& overflow, FuncType* funcType)
+{
+  TypeList types;
+  for (auto param: funcType->Params())
+    types.push_back(param->Type());
+  auto locations = GetParamLocation(types, funcType->Derived());
+  gpOffset = 0;
+  fpOffset = 48;
+  overflow = 16;
+  for (const auto& loc: locations) {
+    if (loc[0] == 'x')
+      fpOffset += 16;
+    else if (loc[0] == 'm')
+      overflow += 8;
+    else
+      gpOffset += 8;
+  }
+}
+
+
+void Generator::GenBuiltin(FuncCall* funcCall)
+{
+  typedef struct {
+    unsigned int gp_offset;
+    unsigned int fp_offset;
+    void *overflow_arg_area;
+    void *reg_save_area;
+  } va_list_imp;
+
+  auto ap = UnaryOp::New(Token::DEREF, funcCall->args_[0]);
+  const auto& apAddr = LValGenerator().GenExpr(ap);
+  auto type = funcCall->FuncType();
+  if (type == Parser::vaStartType_) {
+    auto addr = apAddr;
+
+    auto offset = offsetof(va_list_imp, reg_save_area);
+    addr.offset_ += offset;
+    Emit("leaq -176(#rbp), #rax");
+    EmitStore(addr.Repr(), 8, false);
+    addr.offset_ -= offset;
+    
+    int gpOffset, fpOffset, overflowArea;
+    GetParamRegOffsets(gpOffset, fpOffset, overflowArea, curFunc_->Type());
+
+    offset = offsetof(va_list_imp, overflow_arg_area);
+    addr.offset_ += offset;
+    Emit("leaq %d(#rbp), #rax", overflowArea);
+    EmitStore(addr.Repr(), 8, false);
+    addr.offset_ -= offset;
+
+    offset = offsetof(va_list_imp, gp_offset);
+    addr.offset_ += offset;
+    Emit("movq $%d, #rax", gpOffset);
+    EmitStore(addr.Repr(), 4, false);
+    addr.offset_ -= offset;
+
+    offset = offsetof(va_list_imp, fp_offset);
+    addr.offset_ += offset;
+    Emit("movq $%d, #rax", fpOffset);
+    EmitStore(addr.Repr(), 4, false);
+    addr.offset_ -= offset;
+  } else if (type == Parser::vaArgType_) {
+    auto argType = funcCall->args_[1]->Type()->ToPointer()->Derived();
+    auto cls = Classify(argType);
+    auto saveAreaAddr = apAddr;
+    saveAreaAddr.offset_ += offsetof(va_list_imp, reg_save_area);
+    const char* operandAddr;
+    if (cls == ParamClass::INTEGER) {
+      auto gpAddr = apAddr;
+      gpAddr.offset_ += offsetof(va_list_imp, gp_offset);
+      operandAddr = gpAddr.Repr().c_str();
+      EmitLoad(saveAreaAddr.Repr(), 8, false);
+      Emit("movq #rax, #r11");
+      Emit("movl %s, #eax", operandAddr);
+      Emit("cltq");
+      Emit("addq #rax, #r11");
+      Emit("addl $8, #eax");
+      Emit("movl #eax, %s", operandAddr);
+      Emit("movq #r11, #rax");
+    } else if (cls == ParamClass::SSE) {
+      auto fpAddr = apAddr;
+      fpAddr.offset_ += offsetof(va_list_imp, fp_offset);
+      operandAddr = fpAddr.Repr().c_str();
+      EmitLoad(saveAreaAddr.Repr(), 8, false);
+      Emit("movq #rax, #r11");
+      Emit("movl %s, #eax", operandAddr);
+      Emit("cltq");
+      Emit("addq #rax, #r11");
+      Emit("addl $8, #eax");
+      Emit("movl #eax, %s", operandAddr);
+      Emit("movq #r11, #rax");
+    } else if (cls == ParamClass::MEMORY) {
+      auto overflowAddr = apAddr;
+      overflowAddr.offset_ += offsetof(va_list_imp, overflow_arg_area);
+      operandAddr = overflowAddr.Repr().c_str();
+      Emit("movq %s, #rax", operandAddr);
+      //Emit("movq #rax, #r11");
+      //Emit("addq %d, #r11", Type::MakeAlign(argType->Width(), 8));
+      //Emit("movq #r11, %s", operandAddr);
+    } else {
+      Error("internal error");
+    }
+  } else {
+    assert(false);
+  }
+}
+
+
 void Generator::VisitFuncCall(FuncCall* funcCall)
 {
+  auto funcType = funcCall->FuncType();
+  if (Parser::IsBuiltin(funcType))
+    return GenBuiltin(funcCall);
+
   auto base = offset_;
   // Alloc memory for return value if it is struct/union
-  auto funcType = funcCall->FuncType();
   auto retType = funcCall->Type()->ToStruct();
   if (retType) {
     auto offset = offset_;
@@ -1063,7 +1162,8 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     types.push_back(arg->Type());
   
   const auto& locations = GetParamLocation(types, retType);
-  //auto beforePass = offset_;
+  // align stack frame by 16 bytes
+  offset_ = Type::MakeAlign(offset_, 16);  
   for (int i = locations.size() - 1; i >=0; i--) {
     if (locations[i][0] == 'm') {
       Visit(funcCall->args_[i]);
@@ -1094,9 +1194,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     Emit("movq $%d, %rax", fltCnt);
   }
 
-  offset_ = Type::MakeAlign(offset_, 16);
   Emit("leaq %d(#rbp), #rsp", offset_);
-
   auto addr = LValGenerator().GenExpr(funcCall->Designator());
   if (addr._base.size() == 0 && addr.offset_ == 0) {
     Emit("call %s", addr.label_.c_str());
@@ -1337,7 +1435,6 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
   assert(unary->op_ == Token::DEREF);
   Generator().VisitExpr(unary->operand_);
   Emit("movq #rax, #r10");
-
   addr_ = {"", "r10", 0};
 }
 
@@ -1351,7 +1448,7 @@ void LValGenerator::VisitObject(Object* obj)
   }
 
   if (obj->IsStatic()) {
-    addr_ = {ObjectLabel(obj), "rip", 0};
+    addr_ = {obj->Label(), "rip", 0};
   } else {
     addr_ = {"", "rbp", obj->Offset()};
   }

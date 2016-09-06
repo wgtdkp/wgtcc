@@ -8,8 +8,6 @@
 
 class Expr;
 
-extern std::string ObjectLabel(Object* obj);
-
 template<typename T>
 class Evaluator: public Visitor
 {
@@ -109,7 +107,7 @@ public:
     if (!obj->IsStatic()) {
       Error(obj, "expect static object");
     }
-    addr_.label_ = ObjectLabel(obj);
+    addr_.label_ = obj->Label();
     addr_.offset_ = 0;
   }
 

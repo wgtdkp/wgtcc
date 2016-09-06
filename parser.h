@@ -24,6 +24,7 @@ class Parser
   typedef std::list<std::pair<const Token*, JumpStmt*>> LabelJumpList;
   typedef std::map<std::string, LabelStmt*> LabelMap;
   
+  friend class Generator;
 public:
   explicit Parser(const TokenSequence& ts) 
     : unit_(TranslationUnit::New()),
@@ -254,7 +255,14 @@ public:
   }
 
 private:
-  
+  static bool IsBuiltin(const FuncType* type);
+  static bool IsBuiltin(const std::string& name);
+  static Identifier* GetBuiltin(const Token* tok);
+  static void DefineBuiltins();
+
+  static FuncType* vaStartType_;
+  static FuncType* vaArgType_;
+
   // The root of the AST
   TranslationUnit* unit_;
   

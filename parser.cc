@@ -16,6 +16,8 @@
 
 using namespace std;
 
+FuncType* Parser::vaStartType_ {nullptr};
+FuncType* Parser::vaArgType_ {nullptr};
 
 FuncDef* Parser::EnterFunc(Identifier* ident) {
   //curParamScope_->SetParent(curScope_);
@@ -61,6 +63,7 @@ void Parser::EnterBlock(FuncType* funcType)
 
 void Parser::Parse()
 {
+  DefineBuiltins();
   ParseTranslationUnit();
 }
 
@@ -162,11 +165,9 @@ Expr* Parser::ParsePrimaryExpr()
 
   if (tok->IsIdentifier()) {
     auto ident = curScope_->Find(tok);
-    /* if (ident == nullptr || ident->ToObject() == nullptr) { */
-    if (ident == nullptr) {
-      Error(tok, "undefined symbol '%s'", tok->str_.c_str());
-    }
-    return ident;
+    if (ident) return ident;
+    if (IsBuiltin(tok->str_)) return GetBuiltin(tok);
+    Error(tok, "undefined symbol '%s'", tok->str_.c_str());
   } else if (tok->IsConstant()) {
     return ParseConstant(tok);
   } else if (tok->IsLiteral()) {
@@ -2600,4 +2601,50 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
   stmts.push_back(stmt);
 
   return CompoundStmt::New(stmts);
+}
+
+
+bool Parser::IsBuiltin(const std::string& name)
+{
+  return name == "__builtin_va_arg"
+      || name == "__builtin_va_start";
+}
+
+
+bool Parser::IsBuiltin(const FuncType* type)
+{
+  assert(vaStartType_ && vaArgType_);
+  return type == vaStartType_ || type == vaArgType_;
+}
+
+// Builtin functions will be inlined
+void Parser::DefineBuiltins()
+{
+  auto voidPtr = PointerType::New(VoidType::New());
+  auto param = Object::New(nullptr, voidPtr);
+  FuncType::ParamList pl;
+  pl.push_back(param);
+  pl.push_back(param);
+  vaStartType_ = FuncType::New(VoidType::New(), F_INLINE, false, pl);
+  vaArgType_ = FuncType::New(voidPtr, F_INLINE, false, pl);
+}
+
+
+Identifier* Parser::GetBuiltin(const Token* tok)
+{
+  assert(vaStartType_ && vaArgType_);
+  static Identifier* vaStart = nullptr;
+  static Identifier* vaArg = nullptr;
+  const auto& name = tok->str_;
+  if (name == "__builtin_va_start") {
+    if (!vaStart)
+      vaStart = Identifier::New(tok, vaStartType_, Linkage::L_EXTERNAL);
+    return vaStart;
+  } else if (name == "__builtin_va_arg") {
+    if (!vaArg)
+      vaArg = Identifier::New(tok, vaArgType_, Linkage::L_EXTERNAL);
+    return vaArg;
+  }
+  assert(false);
+  return nullptr;
 }

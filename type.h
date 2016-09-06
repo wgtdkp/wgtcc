@@ -124,6 +124,7 @@ public:
   virtual bool IsFloat() const { return false; }
   virtual bool IsInteger() const { return false; }
   virtual bool IsBool() const { return false; }
+  virtual bool IsVoidPointer() const { return false; }
    
   virtual VoidType* ToVoid() { return nullptr; }
   virtual const VoidType* ToVoid() const { return nullptr; }
@@ -204,7 +205,6 @@ public:
     return (tag_ & T_FLOAT) || (tag_ & T_DOUBLE);
   }
   virtual bool IsBool() const { return tag_ & T_BOOL; }
-
   bool IsComplex() const { return tag_ & T_COMPLEX; }
   int Tag() const { return tag_; }
 
@@ -260,6 +260,7 @@ public:
   virtual bool Compatible(const Type& other) const;
   virtual int Width() const { return 8; }
   virtual bool IsScalar() const { return true; }
+  virtual bool IsVoidPointer() const { return derived_->ToVoid(); }
   virtual std::string Str() const {
     return derived_->Str() + "*:" + std::to_string(Width());
   }

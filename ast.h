@@ -665,7 +665,7 @@ public:
    Identifier* ToTypeName() {
     // A typename has no linkage
     // And a function has external or internal linkage
-    if (ToObject() || ToEnumerator() || _linkage != L_NONE)
+    if (ToObject() || ToEnumerator() || linkage_ != L_NONE)
       return nullptr;
     return this;
   }
@@ -682,11 +682,11 @@ public:
   */
 
   enum Linkage Linkage() const {
-    return _linkage;
+    return linkage_;
   }
 
   void SetLinkage(enum Linkage linkage) {
-    _linkage = linkage;
+    linkage_ = linkage;
   }
 
   /*
@@ -700,14 +700,14 @@ public:
 
 protected:
   Identifier(const Token* tok, ::Type* type, enum Linkage linkage)
-      : Expr(tok, type), _linkage(linkage) {}
+      : Expr(tok, type), linkage_(linkage) {}
   
   /*
   // An identifier has property scope
   ::Scope* scope_;
   */
   // An identifier has property linkage
-  enum Linkage _linkage;
+  enum Linkage linkage_;
 };
 
 
@@ -840,27 +840,16 @@ public:
   }
 
   virtual const std::string& Name() const {
-    /*
-    if (Anonymous()) {
-      static auto anonyName = "anonymous<"
-          + std::to_string(reinterpret_cast<unsigned long long>(this))
-          + ">";
-      return anonyName;
-    }
-    */
     return Identifier::Name();
   }
 
-  /*
-  bool operator==(const Object& other) const {
-    // TODO(wgtdkp): Not implemented
-    assert(false);
+  std::string Label() const {
+    assert(IsStatic());
+    if (linkage_ == ::Linkage::L_NONE)
+      return Name() + "." + std::to_string(id_);
+    return Name();
   }
 
-  bool operator!=(const Object& other) const {
-    return !(*this == other);
-  }
-  */
 protected:
   Object(const Token* tok, ::Type* type,
          int storage=0, enum Linkage linkage=L_NONE,
@@ -882,7 +871,7 @@ private:
   unsigned char bitFieldWidth_;
 
   bool anonymous_;
-  //static size_t _labelId {0};
+  long id_ {0};
 };
 
 

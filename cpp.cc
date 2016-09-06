@@ -868,7 +868,7 @@ std::string* Preprocessor::SearchFile(
       auto fd = openat(dd, name.c_str(), O_RDONLY);
       if (fd != -1) {
         close(fd);
-        return new std::string(*iter + "/" + name);
+        return new std::string(*iter + name);
       }
     }
   } else {
