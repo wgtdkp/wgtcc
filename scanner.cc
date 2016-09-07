@@ -201,16 +201,20 @@ Token* Scanner::SkipIdentifier() {
 // Scan PP-Number 
 Token* Scanner::SkipNumber() {
   PutBack();
+  bool sawHexPrefix = false;
   int tag = Token::I_CONSTANT;	
   auto c = Next();
   while (c == '.' || isdigit(c) || isalpha(c) || c == '_' || IsUCN(c)) {
     if (c == 'e' || c =='E' || c == 'p' || c == 'P') {
       if (!Try('-')) Try('+');
-      tag = Token::F_CONSTANT;
+      if (!((c == 'e' || c == 'E') && sawHexPrefix))
+        tag = Token::F_CONSTANT;
     }  else if (IsUCN(c)) {
       ScanEscaped();
     } else if (c == '.') {
       tag = Token::F_CONSTANT;
+    } else if (c == 'x' || c == 'X') {
+      sawHexPrefix = true;
     }
     c = Next();
   }

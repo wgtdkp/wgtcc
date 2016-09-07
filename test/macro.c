@@ -412,7 +412,7 @@ int main() {
   empty();
   noarg();
   null();
-  counter();
+  //counter();
   //gnuext();
   return 0;
 }
