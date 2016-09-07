@@ -167,13 +167,13 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs)
 }
 
 
-ArithmType* BinaryOp::Promote()
+ArithmType* BinaryOp::Convert()
 {
   // Both lhs and rhs are ensured to be have arithmetic type
   auto lhsType = lhs_->Type()->ToArithm();
   auto rhsType = rhs_->Type()->ToArithm();
   
-  auto type = MaxType(lhsType, rhsType);
+  auto type = ArithmType::MaxType(lhsType, rhsType);
   if (lhsType != type) {// Pointer comparation is enough!
     lhs_ = UnaryOp::New(Token::CAST, lhs_, type);
   }
@@ -276,7 +276,7 @@ void BinaryOp::MultiOpTypeChecking()
       !(lhs_->Type()->IsInteger() && rhs_->Type()->IsInteger())) {
     Error(this, "operands of '%%' should be integers");
   }
-  type_ = Promote();
+  type_ = Convert();
 }
 
 /*
@@ -310,15 +310,18 @@ void BinaryOp::AdditiveOpTypeChecking()
   } else {
     if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
       Error(this, "invalid operands to binary %s", tok_->str_.c_str());
-    type_ = Promote();
+    type_ = Convert();
   }
 }
 
 void BinaryOp::ShiftOpTypeChecking()
 {
-  if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger())
-    Error(this, "expect integers for shift operator '%s'", tok_->str_.c_str());
-  Promote();
+  auto lhsType = lhs_->Type()->ToArithm();
+  auto rhsType = rhs_->Type()->ToArithm();
+  if (!lhsType || !lhsType->IsInteger() || !rhsType || !rhsType->IsInteger())
+    Error(this, "expect integers for shift operator");
+  lhs_ = Expr::MayCast(lhs_, ArithmType::IntegerPromote(lhsType));
+  rhs_ = Expr::MayCast(rhs_, ArithmType::IntegerPromote(rhsType));
   type_ = lhs_->Type();
 }
 
@@ -329,7 +332,7 @@ void BinaryOp::RelationalOpTypeChecking()
   } else if (!lhs_->Type()->IsReal() || !rhs_->Type()->IsReal()) {
     Error(this, "expect real type of operands");
   }
-  Promote();
+  Convert();
   type_ = ArithmType::New(T_INT);
 }
 
@@ -341,7 +344,7 @@ void BinaryOp::EqualityOpTypeChecking()
   } else {
     if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
       Error(this, "invalid operands to binary %s", tok_->str_.c_str());
-    Promote();
+    Convert();
   }
 
   type_ = ArithmType::New(T_INT);
@@ -351,14 +354,14 @@ void BinaryOp::BitwiseOpTypeChecking()
 {
   if (!lhs_->Type()->IsInteger() || !rhs_->Type()->IsInteger())
     Error(this, "operands of '&' should be integer");
-  type_ = Promote();
+  type_ = Convert();
 }
 
 void BinaryOp::LogicalOpTypeChecking()
 {
   if (!lhs_->Type()->IsScalar() || !rhs_->Type()->IsScalar())
     Error(this, "the operand should be arithmetic type or pointer");
-  Promote();
+  Convert();
   type_ = ArithmType::New(T_INT);
 }
 
@@ -409,11 +412,11 @@ bool UnaryOp::IsLVal() {
 }
 
 
-ArithmType* UnaryOp::Promote()
+ArithmType* UnaryOp::Convert()
 {
   //
   auto arithmType = operand_->Type()->ToArithm(); 
-  auto type = MaxType(arithmType, arithmType);
+  auto type = ArithmType::MaxType(arithmType, arithmType);
   if (type != arithmType) {
     operand_ = UnaryOp::New(Token::CAST, operand_, type);
   }
@@ -483,12 +486,12 @@ void UnaryOp::UnaryArithmOpTypeChecking()
   if (Token::PLUS == op_ || Token::MINUS == op_) {
     if (!operand_->Type()->ToArithm())
       Error(this, "Arithmetic type expected");
-    Promote();
+    Convert();
     type_ = operand_->Type();
   } else if ('~' == op_) {
     if (!operand_->Type()->IsInteger())
       Error(this, "integer expected for operator '~'");
-    Promote();
+    Convert();
     type_ = operand_->Type();
   } else if (!operand_->Type()->IsScalar()) {
     Error(this, "arithmetic type or pointer expected for operator '!'");
@@ -531,12 +534,12 @@ ConditionalOp* ConditionalOp::New(const Token* tok,
 }
 
 
-ArithmType* ConditionalOp::Promote()
+ArithmType* ConditionalOp::Convert()
 {
   auto lhsType = exprTrue_->Type()->ToArithm();
   auto rhsType = exprFalse_->Type()->ToArithm();
   
-  auto type = MaxType(lhsType, rhsType);
+  auto type = ArithmType::MaxType(lhsType, rhsType);
   if (lhsType != type) {// Pointer comparation is enough!
     exprTrue_ = UnaryOp::New(Token::CAST, exprTrue_, type);
   }
@@ -556,7 +559,7 @@ void ConditionalOp::TypeChecking()
   auto lhsType = exprTrue_->Type();
   auto rhsType = exprFalse_->Type();
   if (lhsType->ToArithm() && rhsType->ToArithm()) {
-    type_ = Promote();
+    type_ = Convert();
   } else {
     // TODO(wgtdkp): void*
     EnsureCompatible(lhsType, rhsType);
@@ -671,7 +674,7 @@ Object* Object::New(const Token* tok, ::Type* type,
   ret->pool_ = &objectPool;
 
   static long id = 0;
-  if (ret->IsStatic())
+  if (ret->IsStatic() || ret->Anonymous())
     ret->id_ = ++id;
 
   return ret;

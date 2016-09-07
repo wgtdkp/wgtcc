@@ -146,6 +146,35 @@ int ArithmType::Width() const {
   return _intWidth; // Make compiler happy
 }
 
+int ArithmType::Rank() const
+{
+  switch (tag_) {
+  case T_BOOL: return 0;
+  case T_CHAR: case T_UNSIGNED | T_CHAR: return 1;
+  case T_SHORT: case T_UNSIGNED | T_SHORT: return 2;
+  case T_INT: case T_UNSIGNED: case T_UNSIGNED | T_INT: return 3;
+  case T_LONG: case T_UNSIGNED | T_LONG: return 4;
+  case T_LLONG: case T_UNSIGNED | T_LLONG: return 5;
+  case T_FLOAT: return 6;
+  case T_DOUBLE: return 7;
+  case T_LONG | T_DOUBLE: return 8;
+  default: Error("complex not supported yet");
+  }
+  return 0;
+}
+
+ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs)
+{
+  if (lhs->IsInteger())
+    lhs = ArithmType::IntegerPromote(lhs);
+  if (rhs->IsInteger())
+    rhs = ArithmType::IntegerPromote(rhs);
+  auto ret = lhs->Rank() > rhs->Rank() ? lhs: rhs;
+  if (lhs->Width() == rhs->Width() && (lhs->IsUnsigned() || rhs->IsUnsigned()))
+    return ArithmType::New(T_UNSIGNED | ret->Tag());
+  return ret;
+}
+
 int ArithmType::Spec2Tag(int spec) {
   spec &= ~T_SIGNED;
   if ((spec & T_SHORT) || (spec & T_LONG)
@@ -388,28 +417,3 @@ void StructType::MergeAnony(Object* anony)
   }
 }
 
-
-ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType)
-{
-  int intWidth = Type::_intWidth;
-
-  if (lhsType->Width() < intWidth && rhsType->Width() < intWidth) {
-    return ArithmType::New(T_INT);
-  } else if (lhsType->Width() > rhsType->Width()) {
-    if (rhsType->IsFloat())
-      return rhsType;
-    return lhsType;
-  } else if (lhsType->Width() < rhsType->Width()) {
-    if (lhsType->IsFloat())
-      return lhsType;
-    return rhsType;
-  } else if (lhsType->IsFloat()) {
-    return lhsType;
-  } else if (rhsType->IsFloat()) {
-    return rhsType;
-  } else if (lhsType->Tag() & T_UNSIGNED) {
-    return lhsType;
-  } else {
-    return rhsType;
-  }
-}

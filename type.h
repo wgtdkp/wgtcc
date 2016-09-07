@@ -125,6 +125,7 @@ public:
   virtual bool IsInteger() const { return false; }
   virtual bool IsBool() const { return false; }
   virtual bool IsVoidPointer() const { return false; }
+  virtual bool IsUnsigned() const { return false; }
    
   virtual VoidType* ToVoid() { return nullptr; }
   virtual const VoidType* ToVoid() const { return nullptr; }
@@ -201,12 +202,21 @@ public:
   virtual std::string Str() const;
   virtual bool IsScalar() const { return true; }
   virtual bool IsInteger() const { return !IsFloat() && !IsComplex(); }
+  virtual bool IsUnsigned() const { return tag_ & T_UNSIGNED; }
   virtual bool IsFloat() const {
     return (tag_ & T_FLOAT) || (tag_ & T_DOUBLE);
   }
   virtual bool IsBool() const { return tag_ & T_BOOL; }
   bool IsComplex() const { return tag_ & T_COMPLEX; }
   int Tag() const { return tag_; }
+  int Rank() const;
+  static ArithmType* IntegerPromote(ArithmType* type) {
+    assert(type->IsInteger());
+    if (type->Rank() < ArithmType::New(T_INT)->Rank())
+      return ArithmType::New(T_INT);
+    return type;
+  }
+  static ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType);
 
 protected:
   explicit ArithmType(MemPool* pool, int spec)
@@ -392,8 +402,5 @@ private:
   int width_;
   int align_;
 };
-
-
-ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType);
 
 #endif

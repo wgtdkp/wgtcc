@@ -366,7 +366,7 @@ public:
     }
   }
 
-  ArithmType* Promote();
+  ArithmType* Convert();
 
   virtual void TypeChecking();
   void SubScriptingOpTypeChecking();
@@ -426,7 +426,7 @@ public:
   //TODO: like '*p' is lvalue, but '~i' is not lvalue
   virtual bool IsLVal();
 
-  ArithmType* Promote();
+  ArithmType* Convert();
 
   void TypeChecking();
   void IncDecOpTypeChecking();
@@ -468,7 +468,7 @@ public:
     return false;
   }
 
-  ArithmType* Promote();
+  ArithmType* Convert();
   
   virtual void TypeChecking();
 
@@ -844,8 +844,10 @@ public:
   }
 
   std::string Label() const {
-    assert(IsStatic());
-    if (linkage_ == ::Linkage::L_NONE)
+    assert(IsStatic() || anonymous_);
+    if (anonymous_)
+      return "anonymous." + std::to_string(id_);
+    if (linkage_ == L_NONE)
       return Name() + "." + std::to_string(id_);
     return Name();
   }

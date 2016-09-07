@@ -12,7 +12,7 @@ class Evaluator<Addr>;
 struct StaticInitializer;
 
 typedef std::vector<Type*> TypeList;
-typedef std::vector<const char*> LocationList;
+typedef std::vector<std::string> LocationList;
 typedef std::vector<ROData> RODataList;
 typedef std::vector<StaticInitializer> StaticInitList;
 
@@ -180,6 +180,7 @@ protected:
 
   void Emit(const char* format, ...);
   void EmitLabel(const std::string& label);
+  void EmitZero(ObjectAddr addr, int width);
   void EmitLoad(const std::string& addr, Type* type);
   void EmitLoad(const std::string& addr, int width, bool flt);
   void EmitStore(const std::string& addr, Type* type);
@@ -187,8 +188,8 @@ protected:
   void EmitLoadBitField(const std::string& addr, Object* bitField);
   void EmitStoreBitField(const ObjectAddr& addr, Type* type);
 
-  int Push(const char* reg);
-  int Pop(const char* reg);
+  int Push(const std::string& reg);
+  int Pop(const std::string& reg);
 
   void Spill(bool flt);
 

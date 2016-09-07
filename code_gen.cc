@@ -27,10 +27,11 @@ FuncDef* Generator::curFunc_ = nullptr;
 /*
  * Register usage:
  *  xmm0: accumulator of floating datas;
- *  xmm8: temp register for param passing
+ *  xmm8: temp register for param passing(xmm0)
  *  xmm9: source operand register;
  *  xmm10: tmp register for floating data swap;
  *  rax: accumulator;
+ *  r12, r13: temp register for rdx and rcx
  *  r11: source operand register;
  *  r10: register stores intermediate data when LValGenerator
  *       eval the address.
@@ -221,20 +222,20 @@ static inline void GetOperands(const char*& src,
 */
 
 // The 'reg' must be 8 bytes  
-int Generator::Push(const char* reg)
+int Generator::Push(const std::string& reg)
 {
   offset_ -= 8;
   auto mov = reg[0] == 'x' ? "movsd": "movq";
-  Emit("%s #%s, %d(#rbp)", mov, reg, offset_);
+  Emit("%s #%s, %d(#rbp)", mov, reg.c_str(), offset_);
   return offset_;
 }
 
 
 // The 'reg' must be 8 bytes
-int Generator::Pop(const char* reg)
+int Generator::Pop(const std::string& reg)
 {
   auto mov = reg[0] == 'x' ? "movsd": "movq";
-  Emit("%s %d(#rbp), #%s", mov, offset_, reg);
+  Emit("%s %d(#rbp), #%s", mov, offset_, reg.c_str());
   offset_ += 8;
   return offset_;
 }
@@ -313,8 +314,7 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   auto type = binary->lhs_->Type();
   auto width = type->Width();
   auto flt = type->IsFloat();
-  auto sign = type->ToPointer() 
-           || !(type->ToArithm()->Tag() & T_UNSIGNED);
+  auto sign = !type->IsUnsigned();
 
   Visit(binary->lhs_);
   Spill(flt);
@@ -347,11 +347,9 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   case Token::LEFT: inst = "sal";
   case Token::RIGHT: inst = sign ? "sar": "shr";
     inst = op == Token::LEFT ? "sal": (sign ? "sar": "shr");
-    Emit("xchgq #r11, #rcx"); // Save %rcx
     Emit("movq #r11, #rcx");
     Emit("%s #cl, #%s", GetInst(inst, width, flt).c_str(),
         GetDes(width, flt));
-    Emit("xchgq #r11, #rcx"); // Restore %rcx
     return;
   }
   Emit("%s #%s, #%s", GetInst(inst, width, flt).c_str(),
@@ -556,7 +554,6 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
     Emit("%s #xmm9, #xmm0", inst);
     return;
   }
-  Emit("xchgq #rdx, #r11"); // Save %rdx
   if (!sign) {
     Emit("xor #rdx, #rdx");
     Emit("%s #%s", GetInst("div", width, flt).c_str(), GetSrc(width, flt));
@@ -566,7 +563,6 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
   }
   if (op == '%')
     Emit("mov #rdx, #rax");
-  Emit("xchgq #rdx, #r11"); // Restore %rdx
 }
 
  
@@ -639,7 +635,7 @@ void Generator::GenCastOp(UnaryOp* cast)
   } else {
     assert(srcType->ToArithm());
     int width = srcType->Width();
-    auto sign = !(srcType->ToArithm()->Tag() & T_UNSIGNED);
+    auto sign = !srcType->IsUnsigned();
     const char* inst;
     switch (width) {
     case 1:
@@ -824,8 +820,11 @@ void Generator::VisitDeclaration(Declaration* decl)
     if (!obj->HasInit())
       return;
 
+    int lastEnd = obj->Offset();
     for (const auto& init: decl->Inits()) {
       ObjectAddr addr = {"", "rbp", obj->Offset() + init.offset_};
+      if (lastEnd != addr.offset_)
+        EmitZero({"", "rbp", lastEnd}, addr.offset_ - lastEnd);
       if (init.type_->IsScalar()) {
         VisitExpr(init.expr_);
         EmitStore(addr.Repr(), init.type_);
@@ -835,7 +834,11 @@ void Generator::VisitDeclaration(Declaration* decl)
       } else {
         assert(false);
       }
+      lastEnd = addr.offset_ + init.type_->Width();
     }
+    auto objEnd = obj->Offset() + obj->Type()->Width();
+    if (lastEnd != objEnd)
+      EmitZero({"", "rbp", lastEnd}, objEnd - lastEnd);
     return;
   }
 
@@ -1197,10 +1200,15 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         Emit("movsd #xmm0, #xmm8");
       else {
         auto inst = GetInst("mov", types[i]);
-        Emit("%s #xmm0, #%s", inst.c_str(), locs[i]);
+        Emit("%s #xmm0, #%s", inst.c_str(), locs[i].c_str());
       }
     } else {
-        Emit("movq #rax, #%s", locs[i]);
+      if (locs[i] == "rdx")
+        Emit("movq #rax, #r12");
+      else if (locs[i] == "rcx")
+        Emit("movq #rax, #r13");
+      else
+        Emit("movq #rax, #%s", locs[i].c_str());
     }
   }
 
@@ -1213,6 +1221,10 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   auto addr = LValGenerator().GenExpr(funcCall->Designator());
   if (locations.xregCnt_ > 0)
     Emit("movsd #xmm8, #xmm0");
+  if (locations.regCnt_ > 2)
+    Emit("movq #r12, #rdx");
+  if (locations.regCnt_ > 3)
+    Emit("movq #r13, #rcx");
   if (addr._base.size() == 0 && addr.offset_ == 0) {
     Emit("call %s", addr.label_.c_str());
   } else {
@@ -1345,6 +1357,7 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit)
   for (auto extDecl: unit->ExtDecls()) {
     Visit(extDecl);
 
+    // float and string literal
     if (rodatas_.size())
       Emit(".section .rodata");
     for (auto rodata: rodatas_) {
@@ -1433,6 +1446,18 @@ void Generator::EmitLabel(const std::string& label)
   fprintf(outFile_, "%s:\n", label.c_str());
 }
 
+void Generator::EmitZero(ObjectAddr addr, int width)
+{
+  int units[] = {8, 4, 2, 1};
+  for (auto unit: units) {
+    while (width >= unit) {
+      Emit("movq $0, #rax");
+      EmitStore(addr.Repr(), unit, false);
+      addr.offset_ += unit;
+      width -= unit;
+    }
+  }
+}
 
 void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 {
@@ -1460,12 +1485,6 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 
 void LValGenerator::VisitObject(Object* obj)
 {
-  if (obj->Anonymous()) {
-    assert(obj->Decl());
-    Generator().Visit(obj->Decl());
-    obj->SetDecl(nullptr);
-  }
-
   if (obj->IsStatic()) {
     addr_ = {obj->Label(), "rip", 0};
   } else {

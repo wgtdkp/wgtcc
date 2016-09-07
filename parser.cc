@@ -152,8 +152,6 @@ Expr* Parser::ParsePrimaryExpr()
 {
   if (ts_.Empty()) {
     Error(ts_.Peek(), "premature end of input");
-  } else if (ts_.Peek()->IsKeyWord()) {
-    Error(ts_.Peek(), "unexpected keyword");
   }
 
   auto tok = ts_.Next();
@@ -314,11 +312,14 @@ Constant* Parser::ParseInteger(const Token* tok)
         Error(tok, "invalid suffix");
       tag |= T_UNSIGNED;
     } else {
-      if (str[end + 1] == 'l' || str[end + 1] =='L')
-        ++end;
-      if (tag & T_LONG)
+      if ((tag & T_LONG) || (tag & T_LLONG))
         Error(tok, "invalid suffix");
-      tag |= T_LONG;
+      if (str[end + 1] == 'l' || str[end + 1] =='L') {
+        tag |= T_LLONG;
+        ++end;
+      } else {
+        tag |= T_LONG;
+      }
     }
   }
 
@@ -355,8 +356,42 @@ Constant* Parser::ParseInteger(const Token* tok)
 // TODO(wgtdkp):
 Expr* Parser::ParseGeneric()
 {
-  assert(0);
-  return nullptr;
+  ts_.Expect('(');
+  auto controlExpr = ParseAssignExpr();
+  ts_.Expect(',');
+  Expr* selectedExpr = nullptr;
+  bool isDefault = false;
+  while (true) {
+    if (ts_.Try(Token::DEFAULT)) {
+      ts_.Expect(':');
+      auto defaultExpr = ParseAssignExpr();
+      if (!selectedExpr) {
+        selectedExpr = defaultExpr;
+        isDefault = true;
+      }
+    } else {
+      auto tok = ts_.Peek();
+      auto type = ParseTypeName();
+      ts_.Expect(':');
+      auto expr = ParseAssignExpr();
+      if (type->Compatible(*controlExpr->Type())) {
+        if (selectedExpr && !isDefault) {
+          Error(tok, "more than one generic association"
+              " are compatible with control expression");
+        }
+        selectedExpr = expr;
+        isDefault = false;
+      }
+    }
+    if (!ts_.Try(',')) {
+      ts_.Expect(')');
+      break;
+    }
+  }
+
+  if (!selectedExpr)
+    Error(ts_.Peek(), "no compatible generic association");
+  return selectedExpr;
 }
 
 
@@ -379,21 +414,18 @@ Expr* Parser::ParsePostfixExpr()
   return ParsePostfixExprTail(primExpr);
 }
 
-
-static std::string AnonymousName(Object* anony) {
-  return "anonymous<"
-       + std::to_string(reinterpret_cast<unsigned long long>(anony))
-       + ">";
-}
-
-
 Object* Parser::ParseCompoundLiteral(Type* type)
 {
   auto linkage = curScope_->Type() == S_FILE ? L_INTERNAL: L_NONE;
   auto anony = Object::New(ts_.Peek(), type, 0, linkage);
   anony->SetAnonymous(true);
-  curScope_->Insert(AnonymousName(anony), anony);
-  ParseInitDeclaratorSub(anony);
+  auto decl = ParseInitDeclaratorSub(anony);
+  
+  // Just for generator to find the compound literal
+  if (curScope_->Type() == S_FILE)
+    unit_->Add(decl);
+  else
+    curScope_->Insert(anony->Label(), anony);
   return anony;
 }
 
@@ -1068,10 +1100,12 @@ Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
     default:
       if (typeSpec == 0 && IsTypeName(tok)) {
         auto ident = curScope_->Find(tok);
-        if (ident) {
-          ident = ident->ToTypeName();
-          type = ident ? ident->Type(): nullptr;
-        }
+        type = ident->Type();
+        // We may change the length of a array type by initializer,
+        // thus, make a copy of this type.
+        auto arrType = type->ToArray();
+        if (arrType && !type->Complete())
+          type = ArrayType::New(arrType->Len(), arrType->Derived());
         typeSpec |= T_TYPEDEF_NAME;
       } else  {
         goto end_of_loop;
@@ -1134,8 +1168,14 @@ Type* Parser::ParseEnumSpec()
     if (ts_.Try('{')) {
       //定义enum类型
       auto tagIdent = curScope_->FindTagInCurScope(tok);
-      if (tagIdent == nullptr)
-        goto enum_decl;
+      if (!tagIdent) {
+        auto type = ArithmType::New(T_INT);
+        // TODO(wgtdkp):
+        //type->SetComplete(false);
+        auto ident = Identifier::New(tok, type, L_NONE);
+        curScope_->InsertTag(ident);
+        return ParseEnumerator(type);   //处理反大括号: '}'
+      }
 
       if (!tagIdent->Type()->Complete()) {
         return ParseEnumerator(tagIdent->Type()->ToArithm());
@@ -1150,7 +1190,8 @@ Type* Parser::ParseEnumSpec()
         return tagIdent->Type();
       }
       auto type = ArithmType::New(T_INT);
-      type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
+      // TODO(wgtdkp):
+      //type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
       auto ident = Identifier::New(tok, type, L_NONE);
       curScope_->InsertTag(ident);
       return type;
@@ -1159,21 +1200,17 @@ Type* Parser::ParseEnumSpec()
   
   ts_.Expect('{');
 
-enum_decl:
   auto type = ArithmType::New(T_INT);
-  type->SetComplete(false);
-  if (tagName.size() != 0) {
-    auto ident = Identifier::New(tok, type, L_NONE);
-    curScope_->InsertTag(ident);
-  }
-  
+  // TODO(wgtdkp):
+  //type->SetComplete(false);
   return ParseEnumerator(type);   //处理反大括号: '}'
 }
 
 
 Type* Parser::ParseEnumerator(ArithmType* type)
 {
-  assert(type && !type->Complete() && type->IsInteger());
+  // TODO(wgtdkp):
+  assert(type /*&& !type->Complete()*/ && type->IsInteger());
   
   //std::set<int> valSet;
   int val = 0;
@@ -1223,9 +1260,15 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
     tagName = tok->str_;
     if (ts_.Try('{')) {
       //看见大括号，表明现在将定义该struct/union类型
+      //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义      
       auto tagIdent = curScope_->FindTagInCurScope(tok);
-      if (tagIdent == nullptr) //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
-        goto struct_decl; //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
+      if (!tagIdent) {
+        //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
+        auto type = StructType::New(isStruct, tagName.size(), curScope_);
+        auto ident = Identifier::New(tok, type, L_NONE);
+        curScope_->InsertTag(ident); 
+        return ParseStructUnionDecl(type); //处理反大括号: '}'
+      }
       
       /*
        * 在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
@@ -1270,15 +1313,9 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
   //没见到identifier，那就必须有struct/union的定义，这叫做匿名struct/union;
   ts_.Expect('{');
 
-struct_decl:
   //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
   //所以现在是第一次开始定义一个完整的struct/union类型
-  auto type = StructType::New(isStruct, tagName.size(), curScope_);
-  if (tagName.size() != 0) {
-    auto ident = Identifier::New(tok, type, L_NONE);
-    curScope_->InsertTag(ident);
-  }
-  
+  auto type = StructType::New(isStruct, tagName.size(), curScope_);  
   return ParseStructUnionDecl(type); //处理反大括号: '}'
 }
 
@@ -2036,6 +2073,7 @@ void Parser::ParseArrayInitializer(Declaration* decl,
     }
 
     ParseInitializer(decl, type->Derived(), offset + idx * width, designated);
+    designated = false;
     ++idx;
 
     if (type->Complete() && idx >= type->Len()) {
@@ -2128,7 +2166,7 @@ void Parser::ParseStructInitializer(Declaration* decl,
     if (!type->IsStruct())
       break;
 
-    if (member == type->Members().end())
+    if (!hasBrace && member == type->Members().end())
       break;
 
     // Needless comma at the end is allowed

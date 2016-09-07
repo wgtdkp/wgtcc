@@ -78,8 +78,8 @@ Token* Scanner::Scan(bool ws) {
       if (Try('%')) {
         if (Try(':'))	return MakeToken(Token::DSHARP);
         PutBack();
-        return MakeToken('#');
       }
+      return MakeToken('#');
     }
     return MakeToken(c);
   case '>':
