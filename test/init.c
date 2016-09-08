@@ -156,8 +156,7 @@ static void test_excessive() {
 #endif
 }
 
-static void test1()
-{  
+static void test1() {
     typedef struct {
         union {
             struct {
@@ -179,8 +178,7 @@ static void test1()
     expect(3, foo.h);
 }
 
-static void test2()
-{
+static void test2() {
     typedef struct {
         char a;
         float b;
@@ -207,8 +205,7 @@ static void test2()
     expect(2, b2.b);
 }
 
-static void test_array()
-{
+static void test_array() {
     int arr[3] = {1, 2, 3};
     int arr1[] = {[0] = 1, 2, [0] = 2};
     typedef struct {
@@ -234,23 +231,93 @@ static void test_array()
 }
 
 
-static void test_literal()
-{
+static void test_literal() {
     char arr[] = "123456789";
     expect(10, sizeof(arr));
 }
 
-static void test_dup()
-{
+static void test_dup() {
     int arr[] = {[0] = 1, 2, 3, 4, 5, [0] = 5};
     expect(5, arr[0]);
 }
 
+static void test_struct_anonymous_1() {
+    typedef struct {
+        struct {
+            int a;
+            int b;
+        };
+        union {
+            char c;
+            int d;
+        };
+    } foo_t;
+    // undesignated
+    foo_t foo = {1, 2, 3};
+    expect(1, foo.a);
+    expect(2, foo.b);
+    expect(3, foo.c);
+    expect(3, foo.d);
+    foo_t foo1 = {1, 2, .d = 3};
+    expect(1, foo.a);
+    expect(2, foo.b);
+    expect(3, foo.c);
+    expect(3, foo.d);
+}
+
+static void test_struct_anonymous_2() {
+    typedef struct {
+        union {
+            int a;
+            char b;
+        };
+        union {
+            int c;
+            long d;
+        };
+    } foo_t;
+    foo_t foo = {1, 2};
+    expect(1, foo.a);
+    expect(1, foo.b);
+    expect(2, foo.c);
+    expect(2, foo.d);
+}
+
+static void test_struct_anonymous_complex() {
+    typedef struct {
+        char a;
+        short b;
+        int c;
+        union {
+            struct {
+                union {
+                    int d;
+                    char e;
+                };
+                struct {
+                    long f;
+                };
+            };
+            int g;
+        } h;
+    } foo_t;
+
+    foo_t foo1 = {.b = 1, 2, {3, 4}};
+    expect(0, foo1.a);
+    expect(1, foo1.b);
+    expect(2, foo1.c);
+    expect(3, foo1.h.d);
+    expect(3, foo1.h.e);
+    expect(4, foo1.h.f);
+    expect(3, foo1.h.g);
+}
 
 int main()
 {
     test1();
     test2();
+    test_literal();
+    test_dup();
     test_array();
     test_string();
     test_struct();
@@ -262,6 +329,9 @@ int main()
     test_zero();
     test_typedef();
     test_excessive();
+    test_struct_anonymous_1();
+    test_struct_anonymous_2();
+    test_struct_anonymous_complex();
     return 0;
 }
 
