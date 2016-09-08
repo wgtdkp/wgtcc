@@ -45,16 +45,16 @@ public:
   Constant* ParseCharacter(const Token* tok);
   Encoding ParseLiteral(std::string& str, const Token* tok);
   Constant* ConcatLiterals(const Token* tok);
-
   Expr* ParseGeneric();
 
   void Parse();
   void ParseTranslationUnit();
   FuncDef* ParseFuncDef(Identifier* ident);
-  /************ Expressions ************/
   
+  /*
+   * Expressions
+   */
   Expr* ParseExpr();
-
   Expr* ParsePrimaryExpr();
   Object* ParseCompoundLiteral(Type* type);
   Expr* ParsePostfixExpr();
@@ -84,99 +84,63 @@ public:
   Expr* ParseLogicalAndExpr();
   Expr* ParseLogicalOrExpr();
   Expr* ParseConditionalExpr();
-
   Expr* ParseCommaExpr();
-
   Expr* ParseAssignExpr();
 
   /************* Declarations **************/
   CompoundStmt* ParseDecl();
-  
+  void ParseStaticAssert();
   Type* ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec);
-  
   Type* ParseSpecQual();
-  
   int ParseAlignas();
-  
   Type* ParseStructUnionSpec(bool isStruct);
-  
   Type* ParseEnumSpec();
-  
   StructType* ParseStructUnionDecl(StructType* type);
-  
-  bool ParseBitField(StructType* structType,
-      const Token* tok, Type* type, bool packed);
-
+  void ParseBitField(StructType* structType, const Token* tok, Type* type);
   Type* ParseEnumerator(ArithmType* type);
-  
-  //declarator
   int ParseQual();
-  
   Type* ParsePointer(Type* typePointedTo);
-  
   TokenTypePair ParseDeclarator(Type* type);
-  
   Type* ParseArrayFuncDeclarator(const Token* ident, Type* base);
-  
   int ParseArrayLength();
-  
   bool ParseParamList(FuncType::ParamList& params);
-  
   Object* ParseParamDecl();
 
   //typename
   Type* ParseAbstractDeclarator(Type* type);
-  
   Identifier* ParseDirectDeclarator(Type* type,
       int storageSpec, int funcSpec, int align);
-
   //initializer
   void ParseInitializer(Declaration* decl, Type* type,
       int offset, bool designated, bool forceBrace=false);
-  
   void ParseArrayInitializer(Declaration* decl,
       ArrayType* type, int offset, bool designated);
-      
   StructType::Iterator ParseStructDesignator(StructType* type,
       const std::string& name);
-
   void ParseStructInitializer(Declaration* decl,
       StructType* type, int offset, bool designated);
-
   bool ParseLiteralInitializer(Declaration* init,
       ArrayType* type, int offset);
-
   Declaration* ParseInitDeclarator(Identifier* ident);
   Declaration* ParseInitDeclaratorSub(Object* obj);
-  /************* Statements ***************/
-  Stmt* ParseStmt();
-  
-  CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
-  
-  IfStmt* ParseIfStmt();
-  
-  CompoundStmt* ParseSwitchStmt();
-  
-  CompoundStmt* ParseWhileStmt();
-  
-  CompoundStmt* ParseDoStmt();
-  
-  CompoundStmt* ParseForStmt();
-  
-  JumpStmt* ParseGotoStmt();
-  
-  JumpStmt* ParseContinueStmt();
-  
-  JumpStmt* ParseBreakStmt();
-  
-  ReturnStmt* ParseReturnStmt();
-  
-  CompoundStmt* ParseLabelStmt(const Token* label);
-  
-  CompoundStmt* ParseCaseStmt();
-  
-  CompoundStmt* ParseDefaultStmt();
 
+  /*
+   * Statements
+   */
+  Stmt* ParseStmt();
+  CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
+  IfStmt* ParseIfStmt();
+  CompoundStmt* ParseSwitchStmt();
+  CompoundStmt* ParseWhileStmt();
+  CompoundStmt* ParseDoStmt();
+  CompoundStmt* ParseForStmt();
+  JumpStmt* ParseGotoStmt();
+  JumpStmt* ParseContinueStmt();
+  JumpStmt* ParseBreakStmt();
+  ReturnStmt* ParseReturnStmt();
+  CompoundStmt* ParseLabelStmt(const Token* label);
+  CompoundStmt* ParseCaseStmt();
+  CompoundStmt* ParseDefaultStmt();
   Identifier* ProcessDeclarator(const Token* tok, Type* type,
       int storageSpec, int funcSpec, int align);
 

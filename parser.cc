@@ -72,7 +72,10 @@ void Parser::ParseTranslationUnit()
 {
   while (!ts_.Peek()->IsEOF()) {            
     //curParamScope_ = nullptr;
-
+    if (ts_.Try(Token::STATIC_ASSERT)) {
+      ParseStaticAssert();
+      continue;
+    }
     int storageSpec, funcSpec, align;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec, &align);
     auto tokTypePair = ParseDeclarator(type);
@@ -860,31 +863,37 @@ Expr* Parser::ParseAssignExpr()
   return BinaryOp::New(tok, '=', lhs, rhs);
 }
 
+void Parser::ParseStaticAssert()
+{
+  ts_.Expect('(');
+  auto condExpr = ParseAssignExpr();
+  ts_.Expect(',');
+  auto msg = ConcatLiterals(ts_.Expect(Token::LITERAL));
+  ts_.Expect(')');
+  ts_.Expect(';');
+  if (!Evaluator<long>().Eval(condExpr)) {
+    Error(ts_.Peek(), "static assertion failed: %s\n",
+          msg->SVal()->c_str());
+  }
+}
 
 // Return: list of declarations
 CompoundStmt* Parser::ParseDecl()
 {
   StmtList stmts;
-
   if (ts_.Try(Token::STATIC_ASSERT)) {
-    // TODO(wgtdkp): static_assert();
-    assert(false);
+    ParseStaticAssert();
   } else {
     int storageSpec, funcSpec, align;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec, &align);
-    
-    // init-declarator 的 FIRST 集合：'*', identifier, '('
-    //if (ts_.Test('*') || ts_.Test(Token::IDENTIFIER) || ts_.Test('(')) {
-    if (!ts_.Try(';')) {
+    if (!ts_.Test(';')) {
       do {
         auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec, align);
         auto init = ParseInitDeclarator(ident);
         if (init) stmts.push_back(init);
       } while (ts_.Try(','));
-      ts_.Expect(';');
     }
-    //}            
-    //ts_.Expect(';');
+    ts_.Expect(';');
   }
 
   return CompoundStmt::New(stmts);
@@ -1328,12 +1337,16 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
   auto scopeBackup = curScope_;
   curScope_ = type->MemberMap(); // Internal symbol lookup rely on curScope_
 
-  bool packed = true;
   while (!ts_.Try('}')) {
     if (ts_.Empty()) {
       Error(ts_.Peek(), "premature end of input");
     }
     
+    if(ts_.Try(Token::STATIC_ASSERT)) {
+      ParseStaticAssert();
+      continue;
+    }
+
     // 解析type specifier/qualifier, 不接受storage等
     int align;
     auto memberType = ParseDeclSpec(nullptr, nullptr, &align);
@@ -1343,7 +1356,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
       memberType = tokTypePair.second;
       
       if (ts_.Try(':')) {
-        packed = ParseBitField(type, tok, memberType, packed);
+        ParseBitField(type, tok, memberType);
         // TODO(wgtdkp): continue; ?
         continue;
       }
@@ -1379,14 +1392,15 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
   }
   
   //struct/union定义结束，设置其为完整类型
+  type->Finalize();
   type->SetComplete(true);
   curScope_ = scopeBackup;
   return type;
 }
 
 
-bool Parser::ParseBitField(StructType* structType,
-    const Token* tok, Type* type, bool packed)
+void Parser::ParseBitField(StructType* structType,
+    const Token* tok, Type* type)
 {
   if (!type->IsInteger()) {
     Error(tok ? tok: ts_.Peek(), "expect integer type for bitfield");
@@ -1398,9 +1412,9 @@ bool Parser::ParseBitField(StructType* structType,
     Error(expr, "expect non negative value");
   } else if (width == 0 && tok) {
     Error(tok, "no declarator expected for a bitfield with width 0");
-  } else if (width == 0) {
-    return true;
-  } else if (width > type->Width() * 8) {
+  }/* else if (width == 0) {
+    return false;
+  } */else if (width > type->Width() * 8) {
     Error(expr, "width exceeds its type");
   }
 
@@ -1412,18 +1426,33 @@ bool Parser::ParseBitField(StructType* structType,
   int bitFieldOffset;
   unsigned char begin;
 
-  if (structType->Members().size() == 0) {
+  if (!structType->IsStruct()) {
+    begin = 0;
+    bitFieldOffset = 0;
+  } else if (structType->Members().size() == 0) {
     begin = 0;
     bitFieldOffset = 0;
   } else {
     auto last = structType->Members().back();
     auto totalBits = (last->Offset() - offset) * 8;
-    if (last->BitFieldWidth()) { // Is not bit field
+    if (last->BitFieldWidth()) {
       totalBits += last->BitFieldEnd();
-    } else {
+    } else { // Is not bit field
       totalBits += last->Type()->Width() * 8;
     }
 
+    if (width == 0)
+      width = type->Width() * 8 - totalBits; // So posterior bitfield would be packed
+    if (width == 0) // A bitfield with zero width is never added to member list 
+      return;       // Because we use bitfield width to tell if a member is bitfield or not.
+    if (width + totalBits <= type->Width() * 8) {
+      begin = totalBits % 8;
+      bitFieldOffset = totalBits / 8;
+    } else {
+      begin = 0;
+      bitFieldOffset = Type::MakeAlign(structType->Offset(), type->Width());
+    }
+    /*
     auto bitsOffset = Type::MakeAlign(totalBits, 8);
     if (packed && (width + totalBits <= bitsOffset)) {
       begin = totalBits % 8;
@@ -1435,11 +1464,12 @@ bool Parser::ParseBitField(StructType* structType,
       begin = 0;
       bitFieldOffset = Type::MakeAlign(structType->Offset(), type->Width());
     }
+    */
   }
 
   auto bitField = Object::New(tok, type, 0, L_NONE, begin, width);
+  bitField->SetAnonymous(!tok);
   structType->AddBitField(bitField, bitFieldOffset);
-  return false;
 }
 
 
@@ -2111,9 +2141,10 @@ StructType::Iterator Parser::ParseStructDesignator(StructType* type,
         return iter; //ParseStructDesignator(anonyType);
       }
     } else if ((*iter)->Name() == name) {
-      break;
+      return iter;
     }
   }
+  assert(false);
   return iter;
 }
 
@@ -2152,14 +2183,22 @@ void Parser::ParseStructInitializer(Declaration* decl,
       }
       member = ParseStructDesignator(type, name);
     }
+    if (member == type->Members().end())
+      break;
 
     if ((*member)->Anonymous()) {
-      ts_.PutBack(); ts_.PutBack();
+      if (designated) { // Put back '.' and member name. 
+        ts_.PutBack();
+        ts_.PutBack();
+      }
+      // Because offsets of member of anonymous struct/union are based
+      // directly on external struct/union
       ParseInitializer(decl, (*member)->Type(), offset, designated);
     } else {
       ParseInitializer(decl, (*member)->Type(),
           offset + (*member)->Offset(), designated);
     }
+    designated = false;
     ++member;
 
     // Union, just init the first member
