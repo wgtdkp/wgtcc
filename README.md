@@ -2,7 +2,7 @@
 a small C11 compiler in C++
 
 ## GOAL
-**wgtcc** is aimed to implemented the full C11 standard with some exceptions:
+**wgtcc** is aimed to implement the full C11 standard with some exceptions:
 
 1. some features are supported only in grammar level(like keyword _register_)
 2. features that disgusting me are removed(like default _int_ type without type specifier)
