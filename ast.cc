@@ -189,6 +189,15 @@ ArithmType* BinaryOp::Convert()
  * Type checking
  */
 
+void Expr::EnsureCompatibleOrVoidPointer(::Type* lhs, ::Type* rhs) const
+{
+  if (lhs->ToPointer() && rhs->ToPointer()
+      && (lhs->IsVoidPointer() || rhs->IsVoidPointer())) {
+    return;
+  }
+  EnsureCompatible(lhs, rhs);
+}
+
 void Expr::EnsureCompatible(::Type* lhs, ::Type* rhs) const
 {
   if (!lhs->Compatible(*rhs))
@@ -347,8 +356,7 @@ void BinaryOp::RelationalOpTypeChecking()
 void BinaryOp::EqualityOpTypeChecking()
 {
   if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
-    if (!lhs_->Type()->IsVoidPointer() && !rhs_->Type()->IsVoidPointer())
-      EnsureCompatible(lhs_->Type(), rhs_->Type());
+    EnsureCompatibleOrVoidPointer(lhs_->Type(), rhs_->Type());
   } else {
     if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
       Error(this, "invalid operands to binary %s", tok_->str_.c_str());
@@ -381,12 +389,7 @@ void BinaryOp::AssignOpTypeChecking()
   } */
   
   if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm()) {
-    if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
-      if (!lhs_->Type()->IsVoidPointer() && !rhs_->Type()->IsVoidPointer())
-        EnsureCompatible(lhs_->Type(), rhs_->Type());
-    } else {
-      EnsureCompatible(lhs_->Type(), rhs_->Type());
-    }
+    EnsureCompatibleOrVoidPointer(lhs_->Type(), rhs_->Type());
   }
   
   // The other constraints are lefted to cast operator
@@ -466,8 +469,8 @@ void UnaryOp::IncDecOpTypeChecking()
   }/* else if (operand_->Type()->IsConst()) {
     Error(this, "cannot modifiy 'const' qualified expression");
   }*/
-  if (!operand_->Type()->IsReal())
-    Error(this, "expect operand of real type");
+  if (!operand_->Type()->IsReal() && !operand_->Type()->ToPointer())
+    Error(this, "expect operand of real type or pointer");
   type_ = operand_->Type();
 }
 
@@ -567,8 +570,7 @@ void ConditionalOp::TypeChecking()
   if (lhsType->ToArithm() && rhsType->ToArithm()) {
     type_ = Convert();
   } else {
-    // TODO(wgtdkp): void*
-    EnsureCompatible(lhsType, rhsType);
+    EnsureCompatibleOrVoidPointer(lhsType, rhsType);
     type_ = lhsType;
   }
 }

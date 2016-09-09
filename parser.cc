@@ -1965,9 +1965,7 @@ void Parser::ParseInitializer(Declaration* decl, Type* type, int offset,
     }
     return;
   } else if (structType) {
-    if (forceBrace && !ts_.Test('{')) {
-      ts_.Expect('{');
-    } else if (!designated && !ts_.Test('{')) {
+    if (!designated && !ts_.Test('{')) {
       auto mark = ts_.Mark();
       expr = ParseAssignExpr();
       if (structType->Compatible(*expr->Type())) {
@@ -1975,6 +1973,8 @@ void Parser::ParseInitializer(Declaration* decl, Type* type, int offset,
         return;
       }
       ts_.ResetTo(mark);
+      if (forceBrace)
+        ts_.Expect('{');
     }
     return ParseStructInitializer(decl, structType, offset, designated);
   }

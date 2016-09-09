@@ -800,6 +800,7 @@ void Generator::VisitConstant(Constant* cons)
 
 // Use %ecx as temp register
 // TempVar is only used for condition expression of 'switch'
+// and struct copy
 void Generator::VisitTempVar(TempVar* tempVar)
 {
   assert(tempVar->Type()->IsInteger());
@@ -1287,17 +1288,21 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
 
   auto& params = funcDef->Type()->Params();
   // Arrange space to store params passed by registers
-  auto retType = funcDef->Type()->Derived()->ToStruct();
+  bool retStruct = funcDef->Type()->Derived()->ToStruct();
   TypeList types;
   for (auto param: params)
     types.push_back(param->Type());
 
-  auto locations = GetParamLocations(types, retType);
+  auto locations = GetParamLocations(types, retStruct);
   const auto& locs = locations.locs_;
 
   if (funcDef->Type()->Variadic()) {
     GenSaveArea(); // 'offset' is now the begin of save area
-    int regOffset = retType ? offset_ + 8: offset_;
+    if (retStruct) {
+      retAddrOffset_ = offset_;
+      offset_ += 8;
+    }
+    int regOffset = offset_;
     int xregOffset = offset_ + 48;
     int byMemOffset = 16;
     for (size_t i = 0; i < locs.size(); i++) {
@@ -1313,6 +1318,8 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
       }
     }
   } else {
+    if (retStruct)
+      retAddrOffset_ = Push("rdi");
     int byMemOffset = 16;
     for (size_t i = 0; i < locs.size(); i++) {
       if (locs[i][0] == 'm') {
@@ -1518,7 +1525,15 @@ void LValGenerator::VisitIdentifier(Identifier* ident)
 
 void LValGenerator::VisitTempVar(TempVar* tempVar)
 {
-  addr_ = {"%ecx", "", 0};
+  std::string label;
+  switch (tempVar->Type()->Width()) {
+  case 1: label = "%cl"; break;
+  case 2: label = "%cx"; break;
+  case 4: label = "%ecx"; break;
+  case 8: label = "%rcx"; break;
+  default: assert(false);
+  }
+  addr_ = {label, "", 0};
 }
 
 

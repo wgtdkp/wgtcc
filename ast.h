@@ -323,7 +323,7 @@ public:
 
   virtual void TypeChecking() = 0;
   void EnsureCompatible(::Type* lhs, ::Type* rhs) const;
-
+  void EnsureCompatibleOrVoidPointer(::Type* lhs, ::Type* rhs) const;
   const Token* Tok() const {
     return tok_;
   }

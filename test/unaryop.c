@@ -24,6 +24,14 @@ static void test_inc_dec_float() {
   expect_float(1.0f, a);
 }
 
+static void test_inc_dec_pointer() {
+  int arr[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  int* p = arr;
+  expect(0, *p++);
+  expect(1, *p);
+  expect(2, *++p);
+}
+
 static void test_minus_plus() {
   int a = 3, b = 4;
   expect(-3, -a);
@@ -38,6 +46,7 @@ static void test_minus_plus() {
 int main() {
   test_inc_dec();
   test_inc_dec_float();
+  test_inc_dec_pointer();
   test_minus_plus();
   return 0;
 }

@@ -169,6 +169,21 @@ static void test_funcdesg() {
 // Make sure the compiler doesn't interpret it as a function definition.
 static _Alignas(32) char char32;
 
+typedef struct {
+    int line;
+    int column;
+} pos_t;
+
+static pos_t get_pos(int column, int line) {
+  return (pos_t){column, line};
+}
+
+static void test_return_struct() {
+  pos_t pos = get_pos(1, 2);
+  expect(1, pos.line);
+  expect(2, pos.column);
+}
+
 int main() {
     expect(77, t1());
     t2(79);
@@ -190,5 +205,6 @@ int main() {
     test_bool();
     //test_struct();
     test_funcdesg();
+    test_return_struct();
     return 0;
 }
