@@ -1,8 +1,14 @@
 //#include "test.h"
-#include <stdio.h>
+
+
+static void test() {
+  union {
+    _Alignas(8) char a;
+    int b;
+  };
+}
 
 int main() {
-  enum ENUM;
-  int a = 3;
+  test();
   return 0;
 }

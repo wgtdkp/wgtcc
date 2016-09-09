@@ -34,6 +34,8 @@ class Constant;
 
 class Identifier;
 class Object;
+class Initializer;
+class Declaration;
 class Enumerator;
 
 //statement
@@ -76,54 +78,6 @@ public:
 
 protected:
    Stmt() {}
-};
-
-
-struct Initializer
-{
-  int offset_;
-  Type* type_;
-  Expr* expr_;
-
-  bool operator<(const Initializer& rhs) const {
-    return offset_ < rhs.offset_;
-  }
-};
-
-class Declaration: public Stmt
-{
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-  
-  typedef std::set<Initializer> InitList;
-
-public:
-  static Declaration* New(Object* obj);
-
-  virtual ~Declaration() {}
-
-  virtual void Accept(Visitor* v);
-
-  InitList& Inits() {
-    return inits_;
-  }
-
-  //StaticInitList StaticInits() {
-  //    return _staticInits;
-  //}
-
-  Object* Obj() {
-    return obj_;
-  }
-
-  void AddInit(Initializer init);
-
-protected:
-  Declaration(Object* obj): obj_(obj) {}
-
-  Object* obj_;
-  InitList inits_;
 };
 
 
@@ -277,7 +231,68 @@ private:
 };
 
 
-/********** Expr ************/
+struct Initializer
+{
+  //// It could be the object it self or, it will be the member
+  //// that was initialized
+  Type* type_;
+  int offset_;
+  unsigned char bitFieldBegin_;
+  unsigned char bitFieldWidth_;
+
+  //Object* obj_;
+  Expr* expr_;
+
+  Initializer(Type* type, int offset, Expr* expr,
+      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
+      : type_(type), offset_(offset), bitFieldBegin_(bitFieldBegin),
+        bitFieldWidth_(bitFieldWidth), expr_(expr) {}       
+
+  bool operator<(const Initializer& rhs) const;
+};
+
+
+class Declaration: public Stmt
+{
+  template<typename T> friend class Evaluator;
+  friend class AddrEvaluator;
+  friend class Generator;
+  
+  typedef std::set<Initializer> InitList;
+
+public:
+  static Declaration* New(Object* obj);
+
+  virtual ~Declaration() {}
+
+  virtual void Accept(Visitor* v);
+
+  InitList& Inits() {
+    return inits_;
+  }
+
+  //StaticInitList StaticInits() {
+  //    return _staticInits;
+  //}
+
+  Object* Obj() {
+    return obj_;
+  }
+
+  void AddInit(Initializer init);
+
+protected:
+  Declaration(Object* obj): obj_(obj) {}
+
+  Object* obj_;
+  InitList inits_;
+};
+
+
+/*
+ * Expr
+ */
+
 /*
  * Expr
  *      BinaryOp
@@ -675,12 +690,6 @@ public:
     return tok_->str_;
   }
 
-  /*
-  ::Scope* Scope() {
-    return scope_;
-  }
-  */
-
   enum Linkage Linkage() const {
     return linkage_;
   }
@@ -689,23 +698,12 @@ public:
     linkage_ = linkage;
   }
 
-  /*
-  virtual bool operator==(const Identifier& other) const {
-    return Name() == other.Name()
-      && *type_ == *other.type_
-  }
-  */
-
   virtual void TypeChecking() {}
 
 protected:
   Identifier(const Token* tok, ::Type* type, enum Linkage linkage)
       : Expr(tok, type), linkage_(linkage) {}
-  
-  /*
-  // An identifier has property scope
-  ::Scope* scope_;
-  */
+
   // An identifier has property linkage
   enum Linkage linkage_;
 };
@@ -860,7 +858,7 @@ protected:
         storage_(storage), offset_(0), align_(type->Align()), decl_(nullptr),
         bitFieldBegin_(bitFieldBegin), bitFieldWidth_(bitFieldWidth),
         anonymous_(false) {}
-
+  
 private:
   int storage_;
   int offset_;
@@ -877,8 +875,9 @@ private:
 };
 
 
-
-/*************** Declaration ******************/
+/*
+ * Declaration
+ */
 
 class FuncDef : public ExtDecl
 {

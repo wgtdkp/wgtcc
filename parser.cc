@@ -1934,19 +1934,20 @@ Declaration* Parser::ParseInitDeclaratorSub(Object* obj)
   // Once again, we need not to worry about 
   // the order of the initialization.
   if (obj->Decl()) {
-    ParseInitializer(obj->Decl(), obj->Type(), 0, false);
+    ParseInitializer(obj->Decl(), obj->Type(), 0, false, true);
     return nullptr;
   } else {
     auto decl = Declaration::New(obj);
-    ParseInitializer(decl, obj->Type(), 0, false);
+    ParseInitializer(decl, obj->Type(), 0, false, true);
     obj->SetDecl(decl);
     return decl;
   }
 }
 
 
-void Parser::ParseInitializer(Declaration* decl, Type* type,
-    int offset, bool designated, bool forceBrace)
+void Parser::ParseInitializer(Declaration* decl, Type* type, int offset,
+    bool designated, bool forceBrace,
+    unsigned char bitFieldBegin, unsigned char bitFieldWidth)
 {
   if (designated && !ts_.Test('.') && !ts_.Test('[')) {
     ts_.Expect('=');
@@ -1970,7 +1971,7 @@ void Parser::ParseInitializer(Declaration* decl, Type* type,
       auto mark = ts_.Mark();
       expr = ParseAssignExpr();
       if (structType->Compatible(*expr->Type())) {
-        decl->AddInit({offset, structType, expr});
+        decl->AddInit({structType, offset, expr});
         return;
       }
       ts_.ResetTo(mark);
@@ -1985,8 +1986,7 @@ void Parser::ParseInitializer(Declaration* decl, Type* type,
     ts_.Try(',');
     ts_.Expect('}');
   }
-
-  decl->AddInit({offset, type, expr});
+  decl->AddInit({type, offset, expr, bitFieldBegin, bitFieldWidth});
 }
 
 
@@ -2034,7 +2034,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     auto p = reinterpret_cast<const long*>(str);
     auto type = ArithmType::New(T_LONG);
     auto val = Constant::New(tok, T_LONG, static_cast<long>(*p));
-    decl->AddInit({offset, type, val});
+    decl->AddInit({type, offset, val});
     offset += 8;
     str += 8;
   }
@@ -2043,7 +2043,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     auto p = reinterpret_cast<const int*>(str);
     auto type = ArithmType::New(T_INT);
     auto val = Constant::New(tok, T_INT, static_cast<long>(*p));
-    decl->AddInit({offset, type, val});
+    decl->AddInit({type, offset, val});
     offset += 4;
     str += 4;
   }
@@ -2052,7 +2052,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     auto p = reinterpret_cast<const short*>(str);
     auto type = ArithmType::New(T_SHORT);
     auto val = Constant::New(tok, T_SHORT, static_cast<long>(*p));
-    decl->AddInit({offset, type, val});
+    decl->AddInit({type, offset, val});
     offset += 2;
     str += 2;
   }
@@ -2061,7 +2061,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     auto p = str;
     auto type = ArithmType::New(T_CHAR);
     auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
-    decl->AddInit({offset, type, val});
+    decl->AddInit({type, offset, val});
     offset++;
     str++;
   }
@@ -2112,7 +2112,7 @@ void Parser::ParseArrayInitializer(Declaration* decl,
       type->SetLen(std::max(idx, type->Len()));
     }
 
-    // Needless comma at the end is allowed
+    // Needless comma at the end is legal
     if (!ts_.Try(',')) {
       if (hasBrace)
         ts_.Expect('}');
@@ -2193,10 +2193,12 @@ void Parser::ParseStructInitializer(Declaration* decl,
       }
       // Because offsets of member of anonymous struct/union are based
       // directly on external struct/union
-      ParseInitializer(decl, (*member)->Type(), offset, designated);
+      ParseInitializer(decl, (*member)->Type(), offset, designated, false,
+          (*member)->BitFieldBegin(), (*member)->BitFieldWidth());
     } else {
       ParseInitializer(decl, (*member)->Type(),
-          offset + (*member)->Offset(), designated);
+          offset + (*member)->Offset(), designated, false,
+          (*member)->BitFieldBegin(), (*member)->BitFieldWidth());
     }
     designated = false;
     ++member;

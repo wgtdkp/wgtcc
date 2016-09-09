@@ -172,7 +172,7 @@ ArithmType* BinaryOp::Convert()
   // Both lhs and rhs are ensured to be have arithmetic type
   auto lhsType = lhs_->Type()->ToArithm();
   auto rhsType = rhs_->Type()->ToArithm();
-  
+  assert(lhsType && rhsType);
   auto type = ArithmType::MaxType(lhsType, rhsType);
   if (lhsType != type) {// Pointer comparation is enough!
     lhs_ = UnaryOp::New(Token::CAST, lhs_, type);
@@ -291,21 +291,27 @@ void BinaryOp::AdditiveOpTypeChecking()
   auto lhsType = lhs_->Type()->ToPointer();
   auto rhsType = rhs_->Type()->ToPointer();
   if (lhsType) {
-    if (op_ == Token::MINUS) {
-      if ((rhsType && !lhsType->Compatible(*rhsType)) ||
-          !rhs_->Type()->IsInteger()) {
+    if (op_ == '-') {
+      if (rhsType) {
+        if (!lhsType->Compatible(*rhsType))
+          Error(this, "invalid operands to binary -");
+        type_ = ArithmType::New(T_LONG); // ptrdiff_t
+      } else if (!rhs_->Type()->IsInteger()) {
         Error(this, "invalid operands to binary -");
+      } else {
+        type_ = lhsType;
       }
-      type_ = ArithmType::New(T_LONG); // ptrdiff_t
     } else if (!rhs_->Type()->IsInteger()) {
-      Error(this, "invalid operands to binary -");
+      Error(this, "invalid operands to binary +");
     } else {
-      type_ = lhs_->Type();
+      type_ = lhsType;
     }
   } else if (rhsType) {
-    if (op_ != Token::ADD || !lhs_->Type()->IsInteger())
-      Error(this, "invalid operands to binary '%s'", tok_->str_.c_str());
-    type_ = rhs_->Type();
+    if (op_ == '+' && !lhs_->Type()->IsInteger())
+      Error(this, "invalid operands to binary '+'");
+    else if (op_ == '-' && !lhsType)
+      Error(this, "invalid operands to binary '-'");
+    type_ = op_ == '-' ? ArithmType::New(T_LONG): rhs_->Type();
     std::swap(lhs_, rhs_); // To simplify code gen
   } else {
     if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm())
@@ -329,10 +335,12 @@ void BinaryOp::RelationalOpTypeChecking()
 {
   if (lhs_->Type()->ToPointer() || rhs_->Type()->ToPointer()) {
     EnsureCompatible(lhs_->Type(), rhs_->Type());
-  } else if (!lhs_->Type()->IsReal() || !rhs_->Type()->IsReal()) {
-    Error(this, "expect real type of operands");
-  }
-  Convert();
+  } else {
+    if (!lhs_->Type()->IsReal() || !rhs_->Type()->IsReal()) {
+      Error(this, "expect real type of operands");
+    }
+    Convert();
+  } 
   type_ = ArithmType::New(T_INT);
 }
 
@@ -361,7 +369,6 @@ void BinaryOp::LogicalOpTypeChecking()
 {
   if (!lhs_->Type()->IsScalar() || !rhs_->Type()->IsScalar())
     Error(this, "the operand should be arithmetic type or pointer");
-  Convert();
   type_ = ArithmType::New(T_INT);
 }
 
@@ -414,13 +421,12 @@ bool UnaryOp::IsLVal() {
 
 ArithmType* UnaryOp::Convert()
 {
-  //
-  auto arithmType = operand_->Type()->ToArithm(); 
-  auto type = ArithmType::MaxType(arithmType, arithmType);
-  if (type != arithmType) {
-    operand_ = UnaryOp::New(Token::CAST, operand_, type);
-  }
-  return type;
+  auto arithmType = operand_->Type()->ToArithm();
+  assert(arithmType); 
+  if (arithmType->IsInteger())
+    arithmType = ArithmType::IntegerPromote(arithmType);
+  operand_ = Expr::MayCast(operand_, arithmType);
+  return arithmType;
 }
 
 
@@ -503,16 +509,16 @@ void UnaryOp::UnaryArithmOpTypeChecking()
 
 void UnaryOp::CastOpTypeChecking()
 {
+  auto operandType = Type::MayCast(operand_->Type());
+    
   // The type_ has been initiated to dest type
   if (type_->ToVoid()) {
     // The expression becomes a void expression
-  } else if (type_->ToPointer() && operand_->Type()->ToArray()) {
-  } else if (type_->ToPointer() && operand_->Type()->ToFunc()) {
-  } else if (!type_->IsScalar() || !operand_->Type()->IsScalar()) {
+  } else if (!type_->IsScalar() || !operandType->IsScalar()) {
     Error(this, "the cast type should be arithemetic type or pointer");
-  } else if (type_->IsFloat() && operand_->Type()->ToPointer()) {
+  } else if (type_->IsFloat() && operandType->ToPointer()) {
     Error(this, "cannot cast a pointer to floating");
-  } else if (type_->ToPointer() && operand_->Type()->IsFloat()) {
+  } else if (type_->ToPointer() && operandType->IsFloat()) {
     Error(this, "cannot cast a floating to pointer");
   }
 }
@@ -538,7 +544,7 @@ ArithmType* ConditionalOp::Convert()
 {
   auto lhsType = exprTrue_->Type()->ToArithm();
   auto rhsType = exprFalse_->Type()->ToArithm();
-  
+  assert(lhsType && rhsType);
   auto type = ArithmType::MaxType(lhsType, rhsType);
   if (lhsType != type) {// Pointer comparation is enough!
     exprTrue_ = UnaryOp::New(Token::CAST, exprTrue_, type);
@@ -680,6 +686,14 @@ Object* Object::New(const Token* tok, ::Type* type,
   return ret;
 }
 
+/*
+Object* Object::Copy(const Object& other)
+{
+  auto ret = new (ObjectPool.Alloc()) Object();
+  *ret = other;
+  return ret;
+}
+*/
 
 /*
  * Constant
@@ -750,6 +764,7 @@ EmptyStmt* EmptyStmt::New()
   return ret;
 }
 
+
 //else stmt Ĭ���� null
 IfStmt* IfStmt::New(Expr* cond, Stmt* then, Stmt* els)
 {
@@ -758,12 +773,14 @@ IfStmt* IfStmt::New(Expr* cond, Stmt* then, Stmt* els)
   return ret;
 }
 
+
 CompoundStmt* CompoundStmt::New(std::list<Stmt*>& stmts, ::Scope* scope)
 {
   auto ret = new (compoundStmtPool.Alloc()) CompoundStmt(stmts, scope);
   ret->pool_ = &compoundStmtPool;
   return ret;
 }
+
 
 JumpStmt* JumpStmt::New(LabelStmt* label)
 {
@@ -772,12 +789,14 @@ JumpStmt* JumpStmt::New(LabelStmt* label)
   return ret;
 }
 
+
 ReturnStmt* ReturnStmt::New(Expr* expr)
 {
   auto ret = new (returnStmtPool.Alloc()) ReturnStmt(expr);
   ret->pool_ = &returnStmtPool;
   return ret;
 }
+
 
 LabelStmt* LabelStmt::New()
 {
@@ -786,10 +805,19 @@ LabelStmt* LabelStmt::New()
   return ret;
 }
 
+
 FuncDef* FuncDef::New(Identifier* ident, LabelStmt* retLabel)
 {
   auto ret = new (funcDefPool.Alloc()) FuncDef(ident, retLabel);
   ret->pool_ = &funcDefPool;
 
   return ret;
+}
+
+
+bool Initializer::operator<(const Initializer& rhs) const
+{
+  if (offset_ < rhs.offset_)
+    return true;
+  return (offset_ == rhs.offset_ && bitFieldBegin_ < rhs.bitFieldBegin_);
 }

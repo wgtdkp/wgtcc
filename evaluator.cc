@@ -54,8 +54,12 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary)
   case Token::LE: val_ = L <= R; break;
   case Token::GE: val_ = L >= R; break;
   case '=': case ',': val_ = R; break;
-  case ']': case '.':
-    Error(binary, "expect constant expression"); 
+  case '.': {
+    auto addr = Evaluator<Addr>().Eval(binary);
+    if (addr.label_.size())
+      Error(binary, "expect constant expression");
+    val_ = addr.offset_;
+  } 
   default: assert(false);
   }
 
@@ -83,6 +87,12 @@ void Evaluator<T>::VisitUnaryOp(UnaryOp* unary)
     else
       val_ = VAL;
     break;
+  case Token::ADDR: {
+    auto addr = Evaluator<Addr>().Eval(unary->operand_);
+    if (addr.label_.size())
+      Error(unary, "expect constant expression");
+    val_ = addr.offset_;
+  } break;
   default: Error(unary, "expect constant expression");
   }
 
@@ -140,7 +150,7 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
   case '.': {
     addr_.label_ = l.label_;
     auto type = binary->lhs_->Type()->ToStruct();
-    auto offset = type->GetMember(R.label_)->Offset();
+    auto offset = type->GetMember(binary->rhs_->tok_->str_)->Offset();
     addr_.offset_ = l.offset_ + offset;
     break;
   }
@@ -191,7 +201,7 @@ void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp)
 void Evaluator<Addr>::VisitConstant(Constant* cons) 
 {
   if (cons->Type()->IsInteger()) {
-    addr_.offset_ = cons->IVal();
+    addr_ = {"", static_cast<int>(cons->IVal())};
   } else if (cons->Type()->ToArray()) {
     Generator().ConsLabel(cons); // Add the literal to rodatas_.
     addr_.label_ = Generator::rodatas_.back().label_;

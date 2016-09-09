@@ -9,7 +9,8 @@ void test1()
         unsigned char c: 3;
         unsigned int d: 24;
     } foo_t;
-    printf("%d\n", sizeof(foo_t));
+    expect(8, sizeof(foo_t));
+    //printf("%d\n", sizeof(foo_t));
 }
 
 void test2()
@@ -21,17 +22,19 @@ void test2()
         unsigned char c: 3;
         unsigned int d: 24;
     } foo_t;
-    printf("%d\n", sizeof(foo_t));
+    expect(8, sizeof(foo_t));
+    //printf("%d\n", sizeof(foo_t));
 }
 
 void test3()
 {
     typedef struct {
-        unsigned short a: 8;
-        unsigned char: 0;
+        unsigned short a: 6;
+        unsigned short: 0;
         unsigned char b: 1;
     } foo_t;
-    printf("%d\n", sizeof(foo_t));
+    expect(2, sizeof(foo_t));
+    //printf("%d\n", sizeof(foo_t));
 }
 
 void test4()
@@ -40,7 +43,7 @@ void test4()
         unsigned short a: 8;
         unsigned int b: 9;
     } foo_t;
-    printf("%d\n", sizeof(foo_t));
+    expect(4, sizeof(foo_t));
 }
 
 void test5()
@@ -52,14 +55,8 @@ void test5()
         };
         unsigned long c;
     } foo_t;
-    printf("%d\n", sizeof(foo_t));
-    //foo_t foo;
-    //foo.c = 0;
-    //foo.a = 33;
-    //foo.b = 33;
-    //printf("%lx\n", foo.a);   
-    //printf("%lx\n", foo.b);   
-    //printf("%lx\n", foo.c);    
+    expect(8, sizeof(foo_t));
+    //printf("%d\n", sizeof(foo_t));
 }
 
 void test6()
@@ -68,7 +65,8 @@ void test6()
         unsigned short a: 8;
         unsigned short b: 9;
     } foo_t;
-    printf("%d\n", sizeof(foo_t));
+    expect(4, sizeof(foo_t));
+    //printf("%d\n", sizeof(foo_t));
 }
 
 void test7()
@@ -77,13 +75,8 @@ void test7()
         unsigned int a: 8;
         unsigned short b: 9;
     } foo_t;
-    printf("%d\n", sizeof(foo_t));
-    foo_t foo;
-    
-    memset((void*)&foo, 0, sizeof(foo_t));
-    foo.a = 34;
-    foo.b = 34;
-    printf("%x\n", *((int*)&foo));
+    expect(4, sizeof(foo_t));
+    //printf("%d\n", sizeof(foo_t));
 }
 
 int main()

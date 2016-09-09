@@ -33,9 +33,9 @@ FuncDef* Generator::curFunc_ = nullptr;
  *  rax: accumulator;
  *  r12, r13: temp register for rdx and rcx
  *  r11: source operand register;
- *  r10: register stores intermediate data when LValGenerator
- *       eval the address.
+ *  r10: base register when LValGenerator eval the address.
  *  rcx: tempvar register, like the tempvar of 'switch'
+ *       temp register for struct copy
  */
 
 static std::vector<const char*> regs {
@@ -477,18 +477,17 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
 
 void Generator::GenAssignOp(BinaryOp* assign)
 {
-  // The base register of addr is %r10
+  // The base register of addr is %r10, %rip, %rbp
   auto addr = LValGenerator().GenExpr(assign->lhs_);
+  // Base register of static object maybe %rip
+  if (addr.base_ == "r10")
+    Push(addr.base_);
   VisitExpr(assign->rhs_);
-  //Spill(assign->Type()->IsFloat());
-  //Restore(assign->Type()->IsFloat());
+  if (addr.base_ == "r10")
+    Pop(addr.base_);
 
   if (assign->Type()->IsScalar()) {
-    if (addr.bitFieldWidth_ != 0) {
-      EmitStoreBitField(addr, assign->Type());
-    } else {
-      EmitStore(addr.Repr(), assign->Type());
-    }
+      EmitStore(addr, assign->Type());
   } else {
     // struct/union type
     // The address of rhs is in %rax
@@ -519,11 +518,12 @@ void Generator::EmitStoreBitField(const ObjectAddr& addr, Type* type)
 void Generator::CopyStruct(ObjectAddr desAddr, int width)
 {
   int units[] = {8, 4, 2, 1};
-  ObjectAddr srcAddr = {"", "rax", 0};
+  Emit("movq #rax, #rcx");
+  ObjectAddr srcAddr = {"", "rcx", 0};
   for (auto unit: units) {
     while (width >= unit) {
-      EmitLoad(srcAddr.Repr(), width, false);
-      EmitStore(desAddr.Repr(), width, false);
+      EmitLoad(srcAddr.Repr(), unit, false);
+      EmitStore(desAddr.Repr(), unit, false);
       desAddr.offset_ += unit;
       srcAddr.offset_ += unit;
       width -= unit;
@@ -823,13 +823,14 @@ void Generator::VisitDeclaration(Declaration* decl)
     int lastEnd = obj->Offset();
     for (const auto& init: decl->Inits()) {
       ObjectAddr addr = {"", "rbp", obj->Offset() + init.offset_};
+      addr.bitFieldBegin_ = init.bitFieldBegin_;
+      addr.bitFieldWidth_ = init.bitFieldWidth_;
       if (lastEnd != addr.offset_)
         EmitZero({"", "rbp", lastEnd}, addr.offset_ - lastEnd);
+      VisitExpr(init.expr_);
       if (init.type_->IsScalar()) {
-        VisitExpr(init.expr_);
-        EmitStore(addr.Repr(), init.type_);
+        EmitStore(addr, init.type_);
       } else if (init.type_->ToStruct()) {
-        VisitExpr(init.expr_);
         CopyStruct(addr, init.type_->Width());
       } else {
         assert(false);
@@ -890,8 +891,13 @@ void Generator::GenStaticDecl(Declaration* decl)
   
   // TODO(wgtdkp): Add .zero
   int offset = 0;
-  for (auto init: decl->Inits()) {
-    auto staticInit = GetStaticInit(init);
+  auto iter = decl->Inits().begin();
+  for (; iter != decl->Inits().end();) {
+    auto staticInit = GetStaticInit(
+        iter,
+        decl->Inits().end(),
+        std::max(iter->offset_, offset));
+
     if (staticInit.offset_ > offset) {
       Emit(".zero %d", staticInit.offset_ - offset);
     }
@@ -1225,7 +1231,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     Emit("movq #r12, #rdx");
   if (locations.regCnt_ > 3)
     Emit("movq #r13, #rcx");
-  if (addr._base.size() == 0 && addr.offset_ == 0) {
+  if (addr.base_.size() == 0 && addr.offset_ == 0) {
     Emit("call %s", addr.label_.c_str());
   } else {
     Emit("leaq %s, #r10", addr.Repr().c_str());
@@ -1406,6 +1412,13 @@ void Generator::EmitLoad(const std::string& addr, int width, bool flt)
   Emit("%s %s, #%s", load, addr.c_str(), des);
 }
 
+void Generator::EmitStore(const ObjectAddr& addr, Type* type)
+{
+  if (addr.bitFieldWidth_ != 0)
+    EmitStoreBitField(addr, type);
+  else
+    EmitStore(addr.Repr(), type);
+}
 
 void Generator::EmitStore(const std::string& addr, Type* type)
 {
@@ -1511,7 +1524,7 @@ void LValGenerator::VisitTempVar(TempVar* tempVar)
 
 std::string ObjectAddr::Repr() const
 {
-  auto ret = _base.size() ? "(%" + _base + ")": "";
+  auto ret = base_.size() ? "(%" + base_ + ")": "";
   if (label_.size() == 0) {
     if (offset_ == 0)
       return ret;
@@ -1526,22 +1539,53 @@ std::string ObjectAddr::Repr() const
 }
 
 
-StaticInitializer Generator::GetStaticInit(const Initializer& init)
+StaticInitializer Generator::GetStaticInit(
+    Declaration::InitList::iterator& iter,
+    Declaration::InitList::iterator end,
+    int offset)
 {
-  // Delay until code gen
-  auto width = init.type_->Width();
-  if (init.type_->IsInteger()) {
-    auto val = Evaluator<long>().Eval(init.expr_);
-    return {init.offset_, width, val, ""};
-  } else if (init.type_->IsFloat()) {
-    auto val = Evaluator<double>().Eval(init.expr_);
+  auto init = iter++;
+  auto width = init->type_->Width();
+  if (init->type_->IsInteger()) {
+    if (init->bitFieldWidth_ == 0) {
+      auto val = Evaluator<long>().Eval(init->expr_);
+      return {init->offset_, width, val, ""};
+    }
+    int totalBits = 0;
+    unsigned char val = 0;
+    while (init != end && init->offset_ <= offset && totalBits < 8) {
+      auto bitVal = Evaluator<long>().Eval(init->expr_);
+      auto begin = init->bitFieldBegin_;
+      auto width = init->bitFieldWidth_;
+      auto valBegin = 0;
+      auto valWidth = 0;
+      auto mask = 0UL;
+      if (init->offset_ < offset) {
+        begin = 0;
+        width -= (8 - init->bitFieldBegin_);
+        if (offset - init->offset_ > 1)
+          width -= (offset - init->offset_ - 1) * 8;
+        //width = std::max(8 - begin, width);
+        valBegin = init->bitFieldWidth_ - width;
+      }
+      valWidth = std::min(static_cast<unsigned char>(8 - begin), width);
+      mask = Object::BitFieldMask(valBegin, valWidth);
+      val |= ((bitVal & mask) >> valBegin) << begin;
+      totalBits = begin + valWidth;
+      if (width - valWidth <= 0)
+        ++init;
+    }
+    iter = init;
+    return {offset, 1, val, ""};
+  } else if (init->type_->IsFloat()) {
+    auto val = Evaluator<double>().Eval(init->expr_);
     auto lval = *reinterpret_cast<long*>(&val);
-    return {init.offset_, width, lval, ""};
-  } else if (init.type_->ToPointer()) {
-    auto addr = Evaluator<Addr>().Eval(init.expr_);
-    return {init.offset_, width, addr.offset_, addr.label_};
-  } else {
-    assert(false);
+    return {init->offset_, width, lval, ""};
+  } else if (init->type_->ToPointer()) {
+    auto addr = Evaluator<Addr>().Eval(init->expr_);
+    return {init->offset_, width, addr.offset_, addr.label_};
+  } else { // Struct initializer
+    Error(init->expr_, "initializer element is not constant");
     return StaticInitializer(); //Make compiler happy
   }
 }

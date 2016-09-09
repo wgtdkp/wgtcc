@@ -346,6 +346,19 @@ std::string StructType::Str() const
   return str + ":" + std::to_string(width_);
 }
 
+// Remove useless unnamed bitfield members
+// They are just for parsing
+void StructType::Finalize()
+{
+  for (auto iter = members_.begin(); iter != members_.end();) {
+    if ((*iter)->BitFieldWidth() && (*iter)->Anonymous()) {
+      members_.erase(iter++);
+    } else {
+      ++iter;
+    }
+  }
+}
+
 
 void StructType::AddMember(Object* member)
 {
@@ -363,6 +376,7 @@ void StructType::AddMember(Object* member)
   } else {
     assert(offset_ == 0);
     width_ = std::max(width_, member->Type()->Width());
+    width_ = MakeAlign(width_, align_);
   }
 }
 
@@ -372,14 +386,19 @@ void StructType::AddBitField(Object* bitField, int offset)
   bitField->SetOffset(offset);
   members_.push_back(bitField);
   //auto name = bitField->Tok() ? bitField->Name(): AnonymousBitField();
-  if (bitField->Tok())
+  if (!bitField->Anonymous())
     memberMap_->Insert(bitField->Name(), bitField);
 
   auto bytes = MakeAlign(bitField->BitFieldEnd(), 8) / 8;
-  align_ = std::max(align_, bitField->Align());
-  // Does not aligned 
-  offset_ = offset + bytes;
-  width_ = MakeAlign(offset_, align_);
+  //align_ = std::max(align_, bitField->Align());
+  // Does not aligned, default is 1
+  if (isStruct_) {
+    offset_ = offset + bytes;
+    width_ = MakeAlign(offset_, std::max(align_, bitField->Align()));
+  } else {
+    assert(offset_ == 0);
+    width_ = std::max(width_, bitField->Type()->Width());
+  }
 }
 
 

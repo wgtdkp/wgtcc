@@ -112,7 +112,8 @@ public:
       int storageSpec, int funcSpec, int align);
   //initializer
   void ParseInitializer(Declaration* decl, Type* type,
-      int offset, bool designated, bool forceBrace=false);
+      int offset, bool designated=false, bool forceBrace=false,
+      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
   void ParseArrayInitializer(Declaration* decl,
       ArrayType* type, int offset, bool designated);
   StructType::Iterator ParseStructDesignator(StructType* type,

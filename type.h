@@ -378,7 +378,8 @@ public:
   int Offset() const { return offset_; }
   bool HasTag() { return hasTag_; }
   void MergeAnony(Object* anony);
-
+  void Finalize();
+  
 protected:
   // default is incomplete
   StructType(MemPool* pool, bool isStruct, bool hasTag, Scope* parent);

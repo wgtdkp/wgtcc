@@ -68,12 +68,12 @@ private:
 struct ObjectAddr
 {
   ObjectAddr(const std::string& label, const std::string& base, int offset)
-      : label_(label), _base(base), offset_(offset) {}
+      : label_(label), base_(base), offset_(offset) {}
 
   std::string Repr() const;
   
   std::string label_;
-  std::string _base;
+  std::string base_;
   int offset_;
   unsigned char bitFieldBegin_ {0};
   unsigned char bitFieldWidth_ {0};
@@ -160,7 +160,10 @@ protected:
   // Unary
   void GenIncDec(Expr* operand, bool postfix, const std::string& inst);
 
-  StaticInitializer GetStaticInit(const Initializer& init);
+  StaticInitializer GetStaticInit(
+      Declaration::InitList::iterator& iter,
+      Declaration::InitList::iterator end,
+      int offset);
 
   void GenStaticDecl(Declaration* decl);
   
@@ -183,6 +186,7 @@ protected:
   void EmitZero(ObjectAddr addr, int width);
   void EmitLoad(const std::string& addr, Type* type);
   void EmitLoad(const std::string& addr, int width, bool flt);
+  void EmitStore(const ObjectAddr& addr, Type* type);
   void EmitStore(const std::string& addr, Type* type);
   void EmitStore(const std::string& addr, int width, bool flt);
   void EmitLoadBitField(const std::string& addr, Object* bitField);

@@ -127,7 +127,8 @@ public:
 
     //alignment specifier
     ALIGNAS, //_Alignas
-
+    // For syntactic convenience
+    STATIC_ASSERT, //_Static_assert
     //storage class specifier
     TYPEDEF,
     EXTERN,
@@ -152,9 +153,10 @@ public:
     ALIGNOF, //_Alignof
     GENERIC, //_Generic
     IMAGINARY, //_Imaginary
-    STATIC_ASSERT, //_Static_assert
-    /* key words end */
-  
+    
+    /*
+     * key words end
+     */
     IDENTIFIER,
     CONSTANT,
     I_CONSTANT,
@@ -235,7 +237,7 @@ public:
   static bool IsKeyWord(const std::string& name);
 
   static bool IsKeyWord(int tag) {
-    return CONST <= tag && tag <= STATIC_ASSERT;
+    return CONST <= tag && tag < IDENTIFIER;
   }
 
   bool IsKeyWord() const {
