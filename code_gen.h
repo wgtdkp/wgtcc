@@ -192,6 +192,7 @@ protected:
   void EmitLoadBitField(const std::string& addr, Object* bitField);
   void EmitStoreBitField(const ObjectAddr& addr, Type* type);
 
+  int Push(const Type* type);
   int Push(const std::string& reg);
   int Pop(const std::string& reg);
 

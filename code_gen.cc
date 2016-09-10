@@ -225,13 +225,28 @@ static inline void GetOperands(const char*& src,
 }
 */
 
-// The 'reg' must be 8 bytes  
+// The 'reg' always be 8 bytes  
 int Generator::Push(const std::string& reg)
 {
   offset_ -= 8;
   auto mov = reg[0] == 'x' ? "movsd": "movq";
   Emit("%s #%s, %d(#rbp)", mov, reg.c_str(), offset_);
   return offset_;
+}
+
+
+int Generator::Push(const Type* type)
+{
+  if (type->IsFloat()) {
+    return Push("xmm0");
+  } else if (type->IsScalar()) {
+    return Push("rax");
+  } else {
+    offset_ -= type->Width();
+    offset_ = Type::MakeAlign(offset_, 8);
+    CopyStruct({"", "rbp", offset_}, type->Width());
+    return offset_;
+  }
 }
 
 
@@ -1191,13 +1206,10 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   auto byMemCnt = locs.size() - locations.regCnt_ - locations.xregCnt_;
 
   offset_ = Type::MakeAlign(offset_ - byMemCnt * 8, 16) + byMemCnt * 8;  
-  for (int i = locs.size() - 1; i >=0; i--) {
+  for (int i = locs.size() - 1; i >=0; --i) {
     if (locs[i][0] == 'm') {
       Visit(funcCall->args_[i]);
-      if (types[i]->IsFloat())
-        Push("xmm0");
-      else
-        Push("rax");
+      Push(funcCall->args_[i]->Type());
     }
   }
 
@@ -1214,12 +1226,14 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         Emit("%s #xmm0, #%s", inst.c_str(), locs[i].c_str());
       }
     } else {
-      if (locs[i] == "rdx")
+      // Save %rdx %rcx in temp register
+      if (locs[i] == "rdx") {
         Emit("movq #rax, #r12");
-      else if (locs[i] == "rcx")
+      } else if (locs[i] == "rcx") {
         Emit("movq #rax, #r13");
-      else
+      } else {
         Emit("movq #rax, #%s", locs[i].c_str());
+      }
     }
   }
 

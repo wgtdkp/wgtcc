@@ -1794,13 +1794,11 @@ bool Parser::ParseParamList(FuncType::ParamList& params)
   params.push_back(param);
 
   while (ts_.Try(',')) {
-    if (ts_.Try(Token::ELLIPSIS)) {
+    if (ts_.Try(Token::ELLIPSIS))
       return true;
-    }
     param = ParseParamDecl();
-    if (param->Type()->ToVoid()) {
+    if (param->Type()->ToVoid())
       Error(param, "'void' must be the only parameter");
-    }
     params.push_back(param);
   }
   return false;
@@ -1810,27 +1808,19 @@ bool Parser::ParseParamList(FuncType::ParamList& params)
 Object* Parser::ParseParamDecl()
 {
   int storageSpec, funcSpec;
-  // C11 6.7.5 [2]: alignment specifier cannot specified in params
+  // C11 6.7.5 [2]: alignment specifier cannot be specified in params
   auto type = ParseDeclSpec(&storageSpec, &funcSpec, nullptr);
-  
-  // No declarator
-  if (ts_.Test(',') || ts_.Test(')')) {
-    auto ret = Object::New(ts_.Peek(), type, 0, Linkage::L_NONE);
-    ret->SetAnonymous(true);
-    return ret;
-  }
-  
   auto tokTypePair = ParseDeclarator(type);
   auto tok = tokTypePair.first;
   type = Type::MayCast(tokTypePair.second);
-  if (tok == nullptr) { // Abstract declarator
+  if (!tok) { // Abstract declarator
     auto ret = Object::New(ts_.Peek(), type, 0, Linkage::L_NONE);
     ret->SetAnonymous(true);
     return ret;
     //return type;
   }
 
-  // align set to 0 stands for not specified
+  // align set to non positive, stands for not specified
   auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec, -1);
   if (!ident->ToObject())
     Error(ident, "expect object in param list");

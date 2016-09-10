@@ -1,21 +1,19 @@
 #include "test.h"
 
-typedef struct {
-    int line;
-    int column;
-} Pos;
+//#define expect(a, b) 
 
-static Pos get_pos() {
-  return (Pos){1, 2};
+typedef struct { int a, b, c, d; } MyType;
+
+int sum(MyType x) {
+  return x.a + x.b + x.c + x.d;
 }
 
-static void test() {
-  Pos pos = get_pos();
-  expect(1, pos.line);
-  expect(2, pos.column);
+static void test_struct() {
+  MyType myType = {2, 3, 4, 5};
+  expect(14, sum(myType));
 }
 
 int main() {
-  test();
+  test_struct();
   return 0;
 }
