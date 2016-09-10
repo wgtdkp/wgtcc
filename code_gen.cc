@@ -603,15 +603,10 @@ void Generator::GenPointerArithm(BinaryOp* binary)
     Emit("subq #r11, #rax");
 }
 
-
+// Only objects Allocated on stack
 void Generator::VisitObject(Object* obj)
 {
   auto addr = LValGenerator().GenExpr(obj).Repr();
-  if (obj->Anonymous()) {
-    assert(obj->Decl());
-    VisitStmt(obj->Decl());
-    obj->SetDecl(nullptr);
-  }
 
   if (!obj->Type()->IsScalar()) {
     // Return the address of the object in rax
@@ -1531,6 +1526,12 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 
 void LValGenerator::VisitObject(Object* obj)
 {
+  if (!obj->IsStatic() && obj->Anonymous()) {
+    assert(obj->Decl());
+    Generator().Visit(obj->Decl());
+    obj->SetDecl(nullptr);
+  }
+
   if (obj->IsStatic()) {
     addr_ = {obj->Label(), "rip", 0};
   } else {

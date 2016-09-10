@@ -686,7 +686,7 @@ public:
   }
 
 
-  virtual const std::string& Name() const {
+  virtual const std::string Name() const {
     return tok_->str_;
   }
 
@@ -748,6 +748,9 @@ class Object : public Identifier
 
 public:
   static Object* New(const Token* tok, ::Type* type,
+      int storage=0, enum Linkage linkage=L_NONE,
+      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
+  static Object* NewAnony(const Token* tok, ::Type* type,
       int storage=0, enum Linkage linkage=L_NONE,
       unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
 
@@ -833,11 +836,11 @@ public:
     return anonymous_;
   }
 
-  void SetAnonymous(bool anonymous) {
-    anonymous_ = anonymous;
-  }
+  //void SetAnonymous(bool anonymous) {
+  //  anonymous_ = anonymous;
+  //}
 
-  virtual const std::string& Name() const {
+  virtual const std::string Name() const {
     return Identifier::Name();
   }
 

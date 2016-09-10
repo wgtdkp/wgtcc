@@ -684,7 +684,21 @@ Object* Object::New(const Token* tok, ::Type* type,
   static long id = 0;
   if (ret->IsStatic() || ret->Anonymous())
     ret->id_ = ++id;
+  return ret;
+}
 
+Object* Object::NewAnony(const Token* tok, ::Type* type, 
+    int storage, enum Linkage linkage,
+    unsigned char bitFieldBegin, unsigned char bitFieldWidth)
+{
+  auto ret = new (objectPool.Alloc())
+      Object(tok, type, storage, linkage, bitFieldBegin, bitFieldWidth);
+  ret->pool_ = &objectPool;
+  ret->anonymous_ = true;
+
+  static long id = 0;
+  if (ret->IsStatic() || ret->anonymous_)
+    ret->id_ = ++id;
   return ret;
 }
 

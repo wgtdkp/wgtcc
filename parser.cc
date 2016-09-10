@@ -408,21 +408,19 @@ Expr* Parser::ParsePostfixExpr()
   if ('(' == tok->tag_ && IsTypeName(ts_.Peek())) {
     auto type = ParseTypeName();
     ts_.Expect(')');
-    return ParseCompoundLiteral(type);
+    auto anony = ParseCompoundLiteral(type);
+    return ParsePostfixExprTail(anony);
   }
 
   ts_.PutBack();
   auto primExpr = ParsePrimaryExpr();
-  
   return ParsePostfixExprTail(primExpr);
 }
 
 Object* Parser::ParseCompoundLiteral(Type* type)
 {
   auto linkage = curScope_->Type() == S_FILE ? L_INTERNAL: L_NONE;
-  auto anony = Object::New(ts_.Peek(), type, 0, linkage);
-  // FIXME: pass panonymous to constructor
-  anony->SetAnonymous(true);
+  auto anony = Object::NewAnony(ts_.Peek(), type, 0, linkage);
   auto decl = ParseInitDeclaratorSub(anony);
   
   // Just for generator to find the compound literal
@@ -608,7 +606,8 @@ Expr* Parser::ParseCastExpr()
     auto type = ParseTypeName();
     ts_.Expect(')');
     if (ts_.Test('{')) {
-      return ParseCompoundLiteral(type);
+      auto anony = ParseCompoundLiteral(type);
+      return ParsePostfixExprTail(anony);
     }
     auto operand = ParseCastExpr();
     return UnaryOp::New(Token::CAST, operand, type);
@@ -1364,8 +1363,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
         auto suType = memberType->ToStruct();
         if (suType && !suType->HasTag()) {
           // FIXME: setting 'tok' to nullptr is not good
-          auto anony = Object::New(ts_.Peek(), suType);
-          anony->SetAnonymous(true);
+          auto anony = Object::NewAnony(ts_.Peek(), suType);
           type->MergeAnony(anony);
           continue;
         } else {
@@ -1474,8 +1472,12 @@ void Parser::ParseBitField(StructType* structType,
     */
   }
 
-  auto bitField = Object::New(tok, type, 0, L_NONE, begin, width);
-  bitField->SetAnonymous(!tok);
+  Object* bitField;
+  if (tok) {
+    bitField = Object::New(tok, type, 0, L_NONE, begin, width);
+  } else {
+    bitField = Object::NewAnony(ts_.Peek(), type, 0, L_NONE, begin, width);
+  }
   structType->AddBitField(bitField, bitFieldOffset);
 }
 
@@ -1821,10 +1823,7 @@ Object* Parser::ParseParamDecl()
   auto tok = tokTypePair.first;
   type = Type::MayCast(tokTypePair.second);
   if (!tok) { // Abstract declarator
-    auto ret = Object::New(ts_.Peek(), type, 0, Linkage::L_NONE);
-    ret->SetAnonymous(true);
-    return ret;
-    //return type;
+    return Object::NewAnony(ts_.Peek(), type, 0, Linkage::L_NONE);
   }
 
   // align set to non positive, stands for not specified
