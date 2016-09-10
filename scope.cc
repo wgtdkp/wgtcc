@@ -86,6 +86,17 @@ Identifier* Scope::FindTagInCurScope(const std::string& name) {
 }
 
 
+Scope::TagList Scope::AllTagsInCurScope() const
+{
+  TagList tags;
+  for (auto& kv: identMap_) {
+    if (IsTagName(kv.first))
+      tags.push_back(kv.second);
+  }
+  return tags;
+}
+
+
 void Scope::Print()
 {
   std::cout << "scope: " << this << std::endl;

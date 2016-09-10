@@ -1,19 +1,26 @@
-#include "test.h"
+//#include "test.h"
 
+//int g1 = 80;
+//int *g2 = &(int){ 81 };
+//struct g3 { int x; } *g3 = &(struct g3){ 82 };
+//struct g4 { char x; struct g4a { int y[2]; } *z; } *g4 = &(struct g4){ 83, &(struct g4a){ 84, 85 } };
 
-typedef struct {
-  int x;
-  int y;
-} pos_t;
+struct g4 {
+  char x;
+  struct g4a {
+    int y[2];
+  }* z;
+};
 
-static int test_struct(int a1, int a2, int a3, int a4, int a5, int a6, int a7, ...) {
-  va_list args;
-  va_start(args, a7);
-  pos_t pos = va_arg(args, pos_t);
-  return pos.x + pos.y;
+struct g4a c = {1, 2};
+
+static void test() {
+  struct g4a {
+    int x;
+    int y;
+  };
 }
+
 int main() {
-  pos_t pos = {3, 7};
-  expect(10, test_struct(1, 2, 3, 4, 5, 6, 7, pos));
   return 0;
 }

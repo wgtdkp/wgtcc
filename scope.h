@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <vector>
 
 
 class Identifier;
@@ -21,6 +22,7 @@ enum ScopeType {
 class Scope
 {
   friend class StructType;
+  typedef std::vector<Identifier*> TagList;
   typedef std::map<std::string, Identifier*> IdentMap;
 
 public:
@@ -40,15 +42,12 @@ public:
   enum ScopeType Type() const {
     return type_;
   }
-  
-  std::string TagName(const std::string& name) {
-    return name + "@:tag";
-  }
 
   Identifier* Find(const Token* tok);
   Identifier* FindInCurScope(const Token* tok);
   Identifier* FindTag(const Token* tok);
   Identifier* FindTagInCurScope(const Token* tok);
+  TagList AllTagsInCurScope() const;
 
   void Insert(Identifier* ident);
 
@@ -76,13 +75,15 @@ public:
 
 private:
   Identifier* Find(const std::string& name);
-
   Identifier* FindInCurScope(const std::string& name);
-
   Identifier* FindTag(const std::string& name);
-
   Identifier* FindTagInCurScope(const std::string& name);
-
+  std::string TagName(const std::string& name) {
+    return name + "@:tag";
+  }
+  static bool IsTagName(const std::string& name) {
+    return name.size() > 5 && name[name.size() - 5] == '@';
+  }
   //void Insert(const std::string& name, Identifier* ident);
 
   const Scope& operator=(const Scope& other);

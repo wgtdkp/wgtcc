@@ -1292,8 +1292,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
         return ParseStructUnionDecl(tagIdent->Type()->ToStruct());
       } else {
         //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
-        Error(tok, "redefinition of struct tag '%s'",
-            tagName.c_str());
+        Error(tok, "redefinition of struct tag '%s'", tagName.c_str());
       }
     } else {
       /*
@@ -1310,7 +1309,6 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
       if (tagIdent) {
         return tagIdent->Type();
       }
-      
       //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
       auto type = StructType::New(isStruct, true, curScope_);
       
@@ -1395,7 +1393,15 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
   //struct/union定义结束，设置其为完整类型
   type->Finalize();
   type->SetComplete(true);
+  // TODO(wgtdkp): we need to export tags defined inside struct
+  const auto& tags = curScope_->AllTagsInCurScope();
+  for (auto tag: tags) {
+    if (scopeBackup->FindTag(tag->Tok()))
+      Error(tag, "redefinition of tag '%s'\n", tag->Name().c_str());
+    scopeBackup->InsertTag(tag);
+  }
   curScope_ = scopeBackup;
+  
   return type;
 }
 
