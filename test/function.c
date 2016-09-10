@@ -150,7 +150,7 @@ static void test_bool() {
     expect(1, booltest2(512));
     expect(1, booltest2(513));
 }
-/*
+
 typedef struct { int a, b, c, d; } MyType;
 
 int sum(MyType x) {
@@ -160,7 +160,7 @@ int sum(MyType x) {
 static void test_struct() {
     expect(14, sum((MyType){ 2, 3, 4, 5 }));
 }
-*/
+
 static void test_funcdesg() {
     test_funcdesg;
 }
@@ -184,6 +184,20 @@ static void test_return_struct() {
   expect(2, pos.column);
 }
 
+static void array_func_param(int arr[]) {
+    expect(8, sizeof(arr));
+}
+
+static void array_func_param_1(int arr[4]) {
+    expect(8, sizeof(arr));
+}
+
+static void test_func_param() {
+    int* p;
+    array_func_param(p);
+    array_func_param_1(p);
+}
+
 int main() {
     expect(77, t1());
     t2(79);
@@ -203,8 +217,9 @@ int main() {
     empty();
     empty2();
     test_bool();
-    //test_struct();
+    test_struct();
     test_funcdesg();
     test_return_struct();
+    test_func_param();
     return 0;
 }

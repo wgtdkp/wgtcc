@@ -61,6 +61,7 @@ static ParamClass Classify(Type* paramType, int offset=0)
       return ParamClass::SSE;
     if (type->Tag() == (T_LONG | T_DOUBLE)) {
       // TODO(wgtdkp):
+      return ParamClass::SSE;
       assert(false); 
       return ParamClass::X87;
     }
@@ -72,6 +73,9 @@ static ParamClass Classify(Type* paramType, int offset=0)
       return ParamClass::COMPLEX_X87;
   }
 
+  auto type = paramType->ToStruct();
+  assert(type);
+  return ParamClass::MEMORY;
   // TODO(wgtdkp): Support agrregate type 
   assert(false);
   /*
@@ -1308,7 +1312,11 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     for (size_t i = 0; i < locs.size(); i++) {
       if (locs[i][0] == 'm') {
         params[i]->SetOffset(byMemOffset);
-        byMemOffset += 8;
+        //byMemOffset += 8;
+        // TODO(wgtdkp): width of incomplete array ?
+        // What about the var args, var args offset always increment by 8
+        byMemOffset += params[i]->Type()->Width();
+        byMemOffset = Type::MakeAlign(byMemOffset, 8);
       } else if (locs[i][0] == 'x') {
         params[i]->SetOffset(xregOffset);
         xregOffset += 16;
@@ -1324,7 +1332,10 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     for (size_t i = 0; i < locs.size(); i++) {
       if (locs[i][0] == 'm') {
         params[i]->SetOffset(byMemOffset);
-        byMemOffset += 8;
+        //byMemOffset += 8;
+        // TODO(wgtdkp): width of incomplete array ?
+        byMemOffset += params[i]->Type()->Width();
+        byMemOffset = Type::MakeAlign(byMemOffset, 8);
         continue;
       }
       params[i]->SetOffset(Push(locs[i]));
