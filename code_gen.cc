@@ -1168,6 +1168,7 @@ void Generator::GenBuiltin(FuncCall* funcCall)
     EmitLabel(overflowLabel);
     Emit("movq %s, #rax", overflowAddr.c_str());
     Emit("movq #rax, #r11");
+    // Arguments passed by memory is aligned by at least 8 bytes
     Emit("addq $%d, #r11", Type::MakeAlign(argType->Width(), 8));
     Emit("movq #r11, %s", overflowAddr.c_str());
     EmitLabel(endLabel);

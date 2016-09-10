@@ -421,6 +421,7 @@ Object* Parser::ParseCompoundLiteral(Type* type)
 {
   auto linkage = curScope_->Type() == S_FILE ? L_INTERNAL: L_NONE;
   auto anony = Object::New(ts_.Peek(), type, 0, linkage);
+  // FIXME: pass panonymous to constructor
   anony->SetAnonymous(true);
   auto decl = ParseInitDeclaratorSub(anony);
   

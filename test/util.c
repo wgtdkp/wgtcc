@@ -1,19 +1,19 @@
 #include "test.h"
 
-//#define expect(a, b) 
 
-typedef struct { int a, b, c, d; } MyType;
+typedef struct {
+  int x;
+  int y;
+} pos_t;
 
-int sum(MyType x) {
-  return x.a + x.b + x.c + x.d;
+static int test_struct(int a1, int a2, int a3, int a4, int a5, int a6, int a7, ...) {
+  va_list args;
+  va_start(args, a7);
+  pos_t pos = va_arg(args, pos_t);
+  return pos.x + pos.y;
 }
-
-static void test_struct() {
-  MyType myType = {2, 3, 4, 5};
-  expect(14, sum(myType));
-}
-
 int main() {
-  test_struct();
+  pos_t pos = {3, 7};
+  expect(10, test_struct(1, 2, 3, 4, 5, 6, 7, pos));
   return 0;
 }

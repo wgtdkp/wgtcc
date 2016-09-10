@@ -6,6 +6,7 @@
 #include <memory.h>
 #include <string.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stddef.h>
 
 #define fail(msg)																	\
