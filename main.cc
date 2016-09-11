@@ -30,6 +30,7 @@ void Usage()
   exit(0);
 }
 
+
 int main(int argc, char* argv[])
 {
   bool printPreProcessed = false;
@@ -39,7 +40,9 @@ int main(int argc, char* argv[])
     Usage();
   }
   program = std::string(argv[0]);
-
+  // Preprocessing
+  Preprocessor cpp(&inFileName);
+  
   for (auto i = 1; i < argc; i++) {
     if (argv[i][0] != '-') {
       inFileName = std::string(argv[i]);
@@ -48,22 +51,28 @@ int main(int argc, char* argv[])
 
     switch (argv[i][1]) {
     case 'I':
-      assert(0);
-      //cpp.AddSearchPath(std::string(&argv[i][2]));
+      cpp.AddSearchPath(std::string(&argv[i][2]));
       break;
-    case 'D':
-      assert(0);
-      //ParseDef(cpp, &argv[i][2]);
-      break;
-
+    case 'D': {
+      auto def = std::string(&argv[i][2]);
+      auto pos = def.find('=');
+      std::string macro;
+      std::string* replace;
+      if (pos == std::string::npos) {
+        macro = def;
+        replace = new std::string();
+      } else {
+        macro = def.substr(0, pos);
+        replace = new std::string(def.substr(pos + 1));
+      }
+      cpp.AddMacro(macro, replace); 
+    } break;
     case 'P':
       switch (argv[i][2]) {
       case 'P': printPreProcessed = true; break;
       case 'A': printAssembly = true; break;
-      default:
-        Error("unrecognized command line option '%s'", argv[i]);
-      }
-      break;
+      default: Error("unrecognized command line option '%s'", argv[i]);
+      } break;
     case '-': // --
       switch (argv[i][2]) {
       case 'h': Usage(); break;
@@ -84,9 +93,6 @@ int main(int argc, char* argv[])
   clock_t begin = clock();
   // change current directory
 
-  // Preprocessing
-  Preprocessor cpp(&inFileName);
-  
   outFileName = inFileName;
   std::string dir = "./";  
   auto pos = inFileName.rfind('/');
