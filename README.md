@@ -7,7 +7,6 @@ a small C11 compiler in C++
 1. some features are supported only in grammar level(like keyword _register_)
 2. features that disgusting me are removed(like default _int_ type without type specifier)
 3. some non standard GNU extensions are supported, but you should not rely on **wgtcc** of a full supporting
-4. the keyword _auto_ will be redigned for type deduce
 
 ## FRONT END
 A basic recursive descend parser 
@@ -27,6 +26,5 @@ after finishing parsing and generating code.
 4. [macro expansion algorithm](https://github.com/wgtdkp/wgtcc/blob/master/doc/cpp.algo.pdf)
 
 ## TODO
-1. redesign keyword _auto_ for type deduce(like C++11)
-2. support type qualification
-3. support variable length array
+1. support type qualification
+2. support variable length array
