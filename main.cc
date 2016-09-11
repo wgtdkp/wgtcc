@@ -24,7 +24,7 @@ void Usage()
   printf("Usage: wgtcc [options] file...\n"
        "Options: \n"
        "  --help    show this information\n"
-       "  -D        define macro\n"
+       "  -D        define object like macro\n"
        "  -I        add search path\n");
   
   exit(0);
