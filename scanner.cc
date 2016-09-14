@@ -23,6 +23,7 @@ void Scanner::Tokenize(TokenSequence& ts) {
   }
 }
 
+
 std::string Scanner::ScanHeadName(const Token* lhs, const Token* rhs) {
   std::string str;
   const char* begin = lhs->loc_.Begin() + 1;
@@ -197,6 +198,7 @@ Token* Scanner::SkipIdentifier() {
   PutBack();
   return MakeToken(Token::IDENTIFIER);
 }
+
 
 // Scan PP-Number 
 Token* Scanner::SkipNumber() {
@@ -379,24 +381,6 @@ std::string* ReadFile(const std::string& fileName) {
   return text;
 }
 
-/*
-int Scanner::Next() {
-  int c = *p_++;
-  if (c == '\\' && *p_ == '\n') {
-    ++loc_.line_;
-    loc_.column_ = 1;
-    loc_.lineBegin_ = ++p_;
-    return Next();
-  } else if (c == '\n') {
-    ++loc_.line_;
-    loc_.column_ = 1;
-    loc_.lineBegin_ = p_;
-  } else {
-    ++loc_.column_;
-  }
-  return c;
-}
-*/
 
 int Scanner::Next() {
   int c = Peek();
@@ -411,6 +395,7 @@ int Scanner::Next() {
   return c;
 }
 
+
 int Scanner::Peek() {
   int c = (uint8_t)(*p_);
   if (c == '\\' && p_[1] == '\n') {
@@ -422,6 +407,7 @@ int Scanner::Peek() {
   }
   return c;
 }
+
 
 // There couldn't be more than one PutBack() that
 // cross two line, so just leave lineBegin, because
