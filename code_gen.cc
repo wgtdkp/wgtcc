@@ -200,30 +200,6 @@ static const char* GetSrc(int width, bool flt)
   }
 }
 
-/*
-static const char* GetDes(Type* type)
-{
-  assert(type->IsScalar());
-  return GetDes(type->Width(), type->IsFloat());
-}
-
-
-static const char* GetSrc(Type* type)
-{
-  assert(type->IsScalar());
-  return GetSrc(type->Width(), type->IsFloat());
-}
-*/
-
-/*
-static inline void GetOperands(const char*& src,
-    const char*& des, int width, bool flt)
-{
-  assert(width == 4 || width == 8);
-  src = flt ? "xmm9": (width == 8 ? "r11": "r11d");
-  des = flt ? "xmm0": (width == 8 ? "rax": "eax");
-}
-*/
 
 // The 'reg' always be 8 bytes  
 int Generator::Push(const std::string& reg)
@@ -467,7 +443,6 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
   if (!ref->Type()->IsScalar()) {
     Emit("leaq %s, #rax", addr.Repr().c_str());
   } else {
-    // TODO(wgtdkp): handle bit field
     if (member->BitFieldWidth()) {
       EmitLoadBitField(addr.Repr(), member);
     } else {
@@ -483,7 +458,6 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
   assert(type && type->IsInteger());
 
   EmitLoad(addr, type);
-
   Emit("andq $%lu, #rax", Object::BitFieldMask(bitField));
 
   auto shiftRight = (type->Tag() & T_UNSIGNED) ? "shrq": "sarq";    
@@ -603,6 +577,7 @@ void Generator::GenPointerArithm(BinaryOp* binary)
     Emit("subq #r11, #rax");
 }
 
+
 // Only objects Allocated on stack
 void Generator::VisitObject(Object* obj)
 {
@@ -632,9 +607,6 @@ void Generator::GenCastOp(UnaryOp* cast)
     if (desType->IsBool()) {
       Emit("pxor #xmm9, #xmm9");
       GenCompOp(srcType->Width(), true, "setne");
-      //auto inst = srcType->Width() == 4 ? "ucomsiss": "ucomsisd";
-	    //Emit("%s	#xmm9, #xmm0", inst);
-	    //Emit("setp	#al");
     } else {
       const char* inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
       Emit("%s #xmm0, #rax", inst);
@@ -829,9 +801,9 @@ void Generator::VisitDeclaration(Declaration* decl)
 
   if (!obj->IsStatic()) {
     // The object has no linkage and has 
-    //     no static storage(the object is on stack).
-    // If it has no initialization, then it's value is random
-    //     initialized.
+    // no static storage(the object is on stack).
+    // If it has no initialization,
+    // then it's value is random initialized.
     if (!obj->HasInit())
       return;
 
@@ -864,18 +836,6 @@ void Generator::VisitDeclaration(Declaration* decl)
     GenStaticDecl(decl);
 }
 
-/*
-// literal initializer
-        GenLiteralInit(addr.Repr(), init.type_->ToArray(), init.expr_);
-
-void Generator::GenLiteralInit(const std::string& addr, ArrayType* type, Expr* expr)
-{
-  assert(type);
-  auto literal = Evaluator<Addr>().Eval(expr);
-  auto sval = 
-
-}
-*/
 
 void Generator::GenStaticDecl(Declaration* decl)
 {
@@ -908,14 +868,11 @@ void Generator::GenStaticDecl(Declaration* decl)
   int offset = 0;
   auto iter = decl->Inits().begin();
   for (; iter != decl->Inits().end();) {
-    auto staticInit = GetStaticInit(
-        iter,
-        decl->Inits().end(),
-        std::max(iter->offset_, offset));
+    auto staticInit = GetStaticInit(iter,
+        decl->Inits().end(), std::max(iter->offset_, offset));
 
-    if (staticInit.offset_ > offset) {
+    if (staticInit.offset_ > offset)
       Emit(".zero %d", staticInit.offset_ - offset);
-    }
 
     switch (staticInit.width_) {
     case 1:
@@ -997,7 +954,6 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
     Visit(expr);
     if (expr->Type()->ToStruct()) {
       // %rax now has the address of the struct/union
-      
       ObjectAddr addr = {"", "rbp", retAddrOffset_};
       Emit("movq %s, #r11", addr.Repr().c_str());
       addr = {"", "r11", 0};
@@ -1197,7 +1153,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     types.push_back(arg->Type());
   
   const auto& locations = GetParamLocations(types, retType);
-  // align stack frame by 16 bytes
+  // Align stack frame by 16 bytes
   const auto& locs = locations.locs_;
   auto byMemCnt = locs.size() - locations.regCnt_ - locations.xregCnt_;
 
@@ -1421,7 +1377,6 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit)
 void Generator::Gen()
 {
   Emit(".file \"%s\"", inFileName.c_str());
-
   VisitTranslationUnit(parser_->Unit());
 }
 
@@ -1487,6 +1442,7 @@ void Generator::EmitLabel(const std::string& label)
   fprintf(outFile_, "%s:\n", label.c_str());
 }
 
+
 void Generator::EmitZero(ObjectAddr addr, int width)
 {
   int units[] = {8, 4, 2, 1};
@@ -1499,6 +1455,7 @@ void Generator::EmitZero(ObjectAddr addr, int width)
     }
   }
 }
+
 
 void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 {
