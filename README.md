@@ -4,6 +4,17 @@ a small C11 compiler in C++
 ## PLATFORM
   x86-64 only
 
+## INSTALL
+  ```bash
+  $ make install # root required
+  $ make test
+  ```
+  or you can play with the examples:
+  ```bash
+  ./build/wgtcc heart.c
+  ./build/wgtcc chinese.c
+  ```
+
 ## GOAL
 **wgtcc** is aimed to implement the full C11 standard with some exceptions:
 
