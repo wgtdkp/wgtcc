@@ -14,6 +14,9 @@ install:
 	@sudo cp -r ./include /usr/local/wgtcc
 	@make all
 
+uninstall:
+	@sudo rm -rf /usr/local/wgtcc
+
 all:
 	@mkdir -p $(OBJS_DIR)
 	@make $(TARGET)
