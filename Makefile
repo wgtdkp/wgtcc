@@ -19,7 +19,7 @@ all:
 	make $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) -o $(OBJS_DIR)$@ $^
+	$(CC) -O2 -o $(OBJS_DIR)$@ $^
 
 $(OBJS_DIR)%.o: %.cc
 #	mkdir -p $(dir $@)
