@@ -520,7 +520,7 @@ static void test_bitfield_mix() {
     char c: 3;
     int d: 6;
   } foo_t;
-  expect(8, sizeof(foo_t));
+  expect(4, sizeof(foo_t));
 }
 
 static void test_unnamed_bitfield() {
