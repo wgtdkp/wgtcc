@@ -456,8 +456,8 @@ void Preprocessor::ParseLine(TokenSequence ls)
   Expand(ts, ls);
   auto tok = ts.Expect(Token::I_CONSTANT);
 
-  int line;
-  size_t end;
+  int line = 0;
+  size_t end = 0;
   try {
     line = stoi(tok->str_, &end, 10);
   } catch (const std::out_of_range oor) {
@@ -698,7 +698,7 @@ void Preprocessor::ParseDef(TokenSequence ls)
 
 bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
 {
-  const Token* tok;
+  const Token* tok = is.Peek();
   while (!is.Empty()) {
     tok = is.Next();
     if (tok->tag_ == ')') {

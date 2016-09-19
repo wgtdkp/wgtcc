@@ -115,6 +115,8 @@ void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp)
   } else if (condType->ToPointer()) {
     auto val = Evaluator<Addr>().Eval(condOp->cond_);
     cond = val.label_.size() || val.offset_;
+  } else {
+    assert(false);
   }
 
   if (cond) {
@@ -132,11 +134,9 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
   
   auto l = Evaluator<Addr>().Eval(binary->lhs_);
   
-  int width;
-  auto pointerType = binary->lhs_->Type()->ToPointer();
-  if (pointerType) {
-    width = pointerType->Derived()->Width();
-  }
+  auto pointerType = binary->Type()->ToPointer();
+  assert(pointerType);
+  auto width = pointerType->Derived()->Width();
 
   switch (binary->op_) {
   case '+':
@@ -188,6 +188,8 @@ void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp)
   } else if (condType->ToPointer()) {
     auto val = Evaluator<Addr>().Eval(condOp->cond_);
     cond = val.label_.size() || val.offset_;
+  } else {
+    assert(false);
   }
 
   if (cond) {

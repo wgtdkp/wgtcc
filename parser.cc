@@ -213,7 +213,7 @@ Constant* Parser::ConcatLiterals(const Token* tok)
     *val += nextVal;
   }
 
-  int tag;
+  int tag = T_CHAR;
   switch (enc) {
   case Encoding::NONE:
   case Encoding::UTF8:
@@ -254,7 +254,7 @@ Constant* Parser::ParseFloat(const Token* tok)
 {
   const auto& str = tok->str_;
   size_t end = 0;
-  double val;
+  double val = 0.0;
   try {
     val = stod(str, &end);
   } catch (const std::out_of_range& oor) {
@@ -300,8 +300,8 @@ Constant* Parser::ParseCharacter(const Token* tok)
 Constant* Parser::ParseInteger(const Token* tok)
 {
   const auto& str = tok->str_;
-  size_t end;
-  long val;
+  size_t end = 0;
+  long val = 0;
   try {
     val = stoull(str, &end, 0);
   } catch (const std::out_of_range& oor) {

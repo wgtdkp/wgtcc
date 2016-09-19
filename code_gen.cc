@@ -119,7 +119,8 @@ std::string Generator::ConsLabel(Constant* cons)
     float  valss = valsd;
     // TODO(wgtdkp): Add rodata
     auto width = cons->Type()->Width();
-    long val = width == 4 ? *(int*)&valss: *(long*)&valsd;
+    long val = width == 4 ? (union {float valss; int val;}){valss}.val:
+        (union {double valsd; long val;}){valsd}.val;
     const ROData& rodata = ROData(val, width);
     rodatas_.push_back(rodata);
     return rodata.label_;
@@ -1578,7 +1579,7 @@ StaticInitializer Generator::GetStaticInit(
     return {offset, 1, val, ""};
   } else if (init->type_->IsFloat()) {
     auto val = Evaluator<double>().Eval(init->expr_);
-    auto lval = *reinterpret_cast<long*>(&val);
+    auto lval = (union {double val; long lval;}){val}.lval;
     return {init->offset_, width, lval, ""};
   } else if (init->type_->ToPointer()) {
     auto addr = Evaluator<Addr>().Eval(init->expr_);

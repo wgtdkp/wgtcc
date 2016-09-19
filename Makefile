@@ -19,11 +19,10 @@ all:
 	make $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) -O2 -o $(OBJS_DIR)$@ $^
+	$(CC) -o $(OBJS_DIR)$@ $^
 
 $(OBJS_DIR)%.o: %.cc
-#	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) -O2 -o $@ -c $<
 
 .PHONY: clean
 

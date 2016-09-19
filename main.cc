@@ -135,9 +135,8 @@ int main(int argc, char* argv[])
   }
   
   std::string sys = "gcc -std=c11 -Wall " + outFileName;
-  system(sys.c_str());
+  auto ret = system(sys.c_str());
 
   std::cout << "time: " << (end - begin) * 1.0f / CLOCKS_PER_SEC << std::endl;
-
-  return 0;
+  return ret;
 }
