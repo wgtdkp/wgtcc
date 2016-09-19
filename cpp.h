@@ -1,7 +1,6 @@
 #ifndef _WGTCC_CPP_H_
 #define _WGTCC_CPP_H_
 
-#include "string_pair.h"
 #include "token.h"
 #include "scanner.h"
 

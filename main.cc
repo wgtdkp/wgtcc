@@ -25,7 +25,8 @@ void Usage()
        "Options: \n"
        "  --help    show this information\n"
        "  -D        define object like macro\n"
-       "  -I        add search path\n");
+       "  -I        add search path\n"
+       "  -o        specify output filename\n");
   
   exit(0);
 }
@@ -50,6 +51,11 @@ int main(int argc, char* argv[])
     }
 
     switch (argv[i][1]) {
+    case 'o':
+      if (i + 1 == argc)
+        Usage();
+      outFileName = argv[++i];
+      break;
     case 'I':
       cpp.AddSearchPath(std::string(&argv[i][2]));
       break;
@@ -90,9 +96,9 @@ int main(int argc, char* argv[])
     Usage();
   }
 
-  clock_t begin = clock();
+  //clock_t begin = clock();
   // change current directory
-
+  auto tmpOutFileName = outFileName;
   outFileName = inFileName;
   std::string dir = "./";  
   auto pos = inFileName.rfind('/');
@@ -102,6 +108,8 @@ int main(int argc, char* argv[])
     outFileName = inFileName.substr(pos + 1);
   }
   outFileName.back() = 's';
+  if (tmpOutFileName.size())
+    outFileName = tmpOutFileName;
   cpp.AddSearchPath(dir);
 
   TokenSequence ts;
@@ -117,7 +125,6 @@ int main(int argc, char* argv[])
   parser.Parse();
   
   // CodeGen
-  
   auto outFile = fopen(outFileName.c_str(), "w");
   assert(outFile);
 
@@ -125,7 +132,7 @@ int main(int argc, char* argv[])
   Generator g;
   g.Gen();
 
-  clock_t end = clock(); 
+  //clock_t end = clock(); 
 
   fclose(outFile);
 
@@ -137,6 +144,6 @@ int main(int argc, char* argv[])
   std::string sys = "gcc -std=c11 -Wall " + outFileName;
   auto ret = system(sys.c_str());
 
-  std::cout << "time: " << (end - begin) * 1.0f / CLOCKS_PER_SEC << std::endl;
+  //std::cout << "time: " << (end - begin) * 1.0f / CLOCKS_PER_SEC << std::endl;
   return ret;
 }

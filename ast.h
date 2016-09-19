@@ -2,7 +2,6 @@
 #define _WGTCC_AST_H_
 
 #include "error.h"
-#include "string_pair.h"
 #include "token.h"
 #include "type.h"
 

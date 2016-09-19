@@ -134,16 +134,19 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
   
   auto l = Evaluator<Addr>().Eval(binary->lhs_);
   
+  int width = 1;
   auto pointerType = binary->Type()->ToPointer();
-  assert(pointerType);
-  auto width = pointerType->Derived()->Width();
+  if (pointerType)
+    width = pointerType->Derived()->Width();
 
   switch (binary->op_) {
   case '+':
+    assert(pointerType);
     addr_.label_ = l.label_;
     addr_.offset_ = l.offset_ + LR * width;
     break;
   case '-':
+    assert(pointerType);
     addr_.label_ = l.label_;
     addr_.offset_ = l.offset_ + LR * width;
     break;
