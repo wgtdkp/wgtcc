@@ -1,13 +1,16 @@
 #include "test.h"
-#include "add.h"
 
-static void test() {
-  int i = MAX;
-  expect(3, i);
-  expect(3, ADD(1, 2));
+static void test_bitfield_mix() {
+  typedef union {
+    char b: 4;
+    char a;    
+    char c: 3;
+    int d: 6;
+  } foo_t;
+  expect(4, sizeof(foo_t));
 }
 
 int main() {
-  test();
+  test_bitfield_mix();
   return 0;
 }

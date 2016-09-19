@@ -1,4 +1,5 @@
 // Copyright 2012 Rui Ueyama. Released under the MIT license.
+// @wgtdkp: passed
 
 #include <stdbool.h>
 #include "test.h"

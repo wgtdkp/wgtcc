@@ -1,5 +1,6 @@
-#include "test.h"
+// @wgtdkp: passed
 
+#include "test.h"
 
 void test1()
 {

@@ -1,5 +1,6 @@
 // Copyright 2012 Rui Ueyama. Released under the MIT license.
-// @wgtdkp: passed: except test_struct()
+// @wgtdkp: passed
+
 #include "test.h"
 #include <stdbool.h>
 
