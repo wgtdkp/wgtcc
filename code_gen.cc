@@ -264,7 +264,7 @@ void Generator::Save(bool flt)
 
 
 /*
- * Operaotr/Instruction mapping:
+ * Operator/Instruction mapping:
  * +  add
  * -  sub
  * *  mul
@@ -301,11 +301,13 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     return GenMemberRefOp(binary);
   if (op == ',')
     return GenCommaOp(binary);
-  if (binary->Type()->ToPointer())
+  // Why lhs_->Type() ?
+  // Because, the type of pointer subtraction is arithmetic type
+  if (binary->lhs_->Type()->ToPointer())
     return GenPointerArithm(binary);
 
   // Careful: for compare operator, the type of the expression
-  //     is always integer, while the type of lhs and rhs could be float
+  // is always integer, while the type of lhs and rhs could be float
   // After convertion, lhs and rhs always has the same type
   auto type = binary->lhs_->Type();
   auto width = type->Width();
@@ -340,8 +342,7 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   case '|': inst = "or"; break;
   case '&': inst = "and"; break;
   case '^': inst = "xor"; break;
-  case Token::LEFT: inst = "sal";
-  case Token::RIGHT: inst = sign ? "sar": "shr";
+  case Token::LEFT: case Token::RIGHT:
     inst = op == Token::LEFT ? "sal": (sign ? "sar": "shr");
     Emit("movq #r11, #rcx");
     Emit("%s #cl, #%s", GetInst(inst, width, flt).c_str(),
@@ -562,20 +563,30 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
  
 void Generator::GenPointerArithm(BinaryOp* binary)
 {
-  // For '+', we have swap lhs_ and rhs_ to ensure that 
+  // For '+', we have swapped lhs_ and rhs_ to ensure that 
   // the pointer is at lhs.
   Visit(binary->lhs_);
   Spill(false);
   Visit(binary->rhs_);
   
-  auto type = binary->lhs_->Type()->ToPointer()->Derived();
-  if (type->Width() > 1)
-    Emit("imulq $%d, #rax", type->Width());
+  //auto type = binary->lhs_->Type()->ToPointer()->Derived();
+  //if (type->Width() > 1)
+  //  Emit("imulq $%d, #rax", type->Width());
   Restore(false);
-  if (binary->op_ == '+')
+
+  auto type = binary->lhs_->Type()->ToPointer()->Derived();
+  auto width = type->Width();
+  if (binary->op_ == '+') {
+    if (width > 1)
+      Emit("imulq $%d, #r11", width);
     Emit("addq #r11, #rax");
-  else
+  } else {
     Emit("subq #r11, #rax");
+    if (width > 1) {
+      Emit("movq $%d, #r11", width);
+      GenDivOp(false, true, 8, '/');
+    }
+  }
 }
 
 
