@@ -13,8 +13,10 @@ install:
 	@sudo mkdir -p /usr/local/wgtcc
 	@sudo cp -r ./include /usr/local/wgtcc
 	@make all
+	@sudo cp ./build/wgtcc /usr/local/bin/wgtcc
 
 uninstall:
+	@sudo rm -f  /usr/local/bin/wgtcc
 	@sudo rm -rf /usr/local/wgtcc
 
 all:
@@ -25,7 +27,7 @@ $(TARGET): $(OBJS)
 	$(CC) -o $(OBJS_DIR)$@ $^
 
 $(OBJS_DIR)%.o: %.cc
-	$(CC) $(CFLAGS) -O2 -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 TESTS := $(filter-out test/util.c, $(wildcard test/*.c))
 

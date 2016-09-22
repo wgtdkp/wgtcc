@@ -9,10 +9,10 @@ a small C11 compiler in C++
   $ make install # root required
   $ make test
   ```
-  or you can play with the examples:
+  then you can play with the examples:
   ```bash
-  ./build/wgtcc heart.c
-  ./build/wgtcc chinese.c
+  wgtcc example/heart.c
+  wgtcc example/chinese.c
   ```
 
 ## GOAL
