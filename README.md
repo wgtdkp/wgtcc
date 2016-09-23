@@ -11,8 +11,8 @@ a small C11 compiler in C++
   ```
   then you can play with the examples:
   ```bash
-  wgtcc example/heart.c
-  wgtcc example/chinese.c
+  $ wgtcc example/heart.c
+  $ wgtcc example/chinese.c
   ```
 
 ## GOAL
