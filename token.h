@@ -477,12 +477,14 @@ public:
 
   // If there is preceding newline
   void InsertFront(TokenSequence& ts) {
-    auto pos = GetInsertFrontPos();
+    //auto pos = GetInsertFrontPos();
+    auto pos = begin_;
     begin_ = tokList_->insert(pos, ts.begin_, ts.end_);
   }
 
   void InsertFront(const Token* tok) {
-    auto pos = GetInsertFrontPos();
+    //auto pos = GetInsertFrontPos();
+    auto pos = begin_;
     begin_ = tokList_->insert(pos, tok);
   }
 
