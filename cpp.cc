@@ -49,7 +49,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
     if ((direcitve = GetDirective(is)) != Token::INVALID) {
       ParseDirective(os, is, direcitve);
     } else if (!inCond && !NeedExpand()) {
-      // Discards 
+      // Discards the token
       is.Next();
     } else if (tok->hs_ && tok->hs_->find(name) != tok->hs_->end()) {
       os.InsertBack(is.Next());
@@ -185,15 +185,10 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
     // No new Token generated
     // How to handle it???
   } else {
-    // ERROR: the ws_ and hs_ property is not inherited
-    os.PopBack();
-    //os.InsertBack(ts.Next());
     auto newTok = const_cast<Token*>(ts.Next());
     newTok->ws_ = lhs->ws_;
     newTok->hs_ = lhs->hs_;
     os.InsertBack(newTok);
-    //lhs->tag_ = newTok->tag_;
-    //lhs->str_ = newTok->str_;
   }
 
   if (!ts.Empty()) {
@@ -262,6 +257,8 @@ void Preprocessor::Process(TokenSequence& os)
   // Becareful about the include order, as include file always puts
   // the file to the header of the token sequence
   auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false);
+  if (!wgtccHeaderFile)
+    Error("can't find header files, try reinstall wgtcc");
   IncludeFile(is, wgtccHeaderFile);
   Expand(os, is);
   Finalize(os);
@@ -282,7 +279,6 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
   //TokenSequence ts(is);
   //TokenSequence ap(is);
   auto fp = macro->Params().begin();
-  //ap.begin_ = is.begin_;
   TokenSequence ap;
 
   int cnt = 1;
@@ -295,7 +291,6 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
       --cnt;
     
     if ((is.Test(',') && cnt == 1) || cnt == 0) {
-      //ap.end_ = is.begin_;
 
       if (fp == macro->Params().end()) {
         if (!macro->Variadic())
@@ -306,7 +301,6 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
           ap.InsertBack(is.Peek());
       } else {
         paramMap.insert(std::make_pair(*fp, ap));
-        //ap.begin_ = ++ap.end_;
         ap = TokenSequence();
         ++fp;
       }
@@ -652,6 +646,9 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
       Error(ls.Peek(), "expect new line");
 
     const auto& fileName = Scanner::ScanHeadName(lhs, rhs);
+    if (fileName == "bits/mathcalls.h") {
+      std::cout << fileName << std::endl;
+    }
     auto fullPath = SearchFile(fileName, true, next, tok->loc_.fileName_);
     if (fullPath == nullptr) {
       Error(tok, "%s: No such file or directory", fileName.c_str());

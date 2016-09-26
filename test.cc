@@ -1,16 +1,22 @@
-#include <iostream>
-#include <string>
-
 #include "scanner.h"
 #include "token.h"
 
+#include <iostream>
+#include <string>
+#include <list>
+
 std::string program;
 
-void PrintToken(const Token& tok) {
+static void PrintToken(const Token& tok) {
   std::cout << tok.str_ << "\t"
             << tok.loc_.line_ << "\t"
             << tok.loc_.column_ << "\t"
             << tok.ws_ << std::endl; 
+}
+
+static void test_list() {
+  std::list<int> li;
+  li.push_back();  
 }
 
 

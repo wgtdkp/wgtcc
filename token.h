@@ -207,14 +207,8 @@ public:
 
   Token& operator=(const Token& other) {
     tag_ = other.tag_;
-    //fileName_ = other.fileName_;
-    //line_ = other.line_;
     ws_ = other.ws_;
-    //column_ = other.column_;
-    //lineBegin_ = other.lineBegin_;
     loc_ = other.loc_;
-    //begin_ = other.begin_;
-    //end_ = other.end_;
     str_ = other.str_;
 
     hs_ = other.hs_;
@@ -378,6 +372,17 @@ public:
 
   void FinalizeSubst(bool leadingWS, const HideSet& hs) {
     auto ts = *this;
+
+    if (!ts.Empty() && (*ts.tokList_->begin())->str_ == "__atan2") {
+      auto iter = tokList_->begin();
+      for (; iter != tokList_->end(); ++iter) {
+        std::cout << *(*iter)->loc_.fileName_ << std::endl;
+        std::cout << (*iter)->loc_.line_ << std::endl;
+        std::cout << (*iter)->str_ << std::endl;
+        std::cout << std::flush;
+      }
+    }
+
     while (!ts.Empty()) {
       auto tok = const_cast<Token*>(ts.Next());
       if (!tok->hs_)
@@ -438,8 +443,11 @@ public:
   void PopBack() {
     assert(!Empty());
     assert(end_ == tokList_->end());
+    auto size_eq1 = tokList_->back() == *begin_;
     tokList_->pop_back();
     end_ = tokList_->end();
+    if (size_eq1)
+      begin_ = end_;
   }
 
   TokenList::iterator Mark() {
