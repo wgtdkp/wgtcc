@@ -56,6 +56,10 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
     } else if ((macro = FindMacro(name))) {
       is.Next();
       
+      if (name == "__END_NAMESPACE_STD") {
+        std::cout << name << std::endl;
+      }
+
       if (name == "__FILE__") {
         HandleTheFileMacro(os, tok);
       } else if (name == "__LINE__") {

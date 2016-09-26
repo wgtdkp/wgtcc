@@ -475,13 +475,15 @@ public:
     }
   }
 
+  // If there is preceding newline
   void InsertFront(TokenSequence& ts) {
-    begin_ = tokList_->insert(begin_, ts.begin_, ts.end_);
+    auto pos = GetInsertFrontPos();
+    begin_ = tokList_->insert(pos, ts.begin_, ts.end_);
   }
 
   void InsertFront(const Token* tok) {
-    //assert(tokList_ == seq.tokList_);
-    begin_ = tokList_->insert(begin_, tok);
+    auto pos = GetInsertFrontPos();
+    begin_ = tokList_->insert(pos, tok);
   }
 
   bool IsBeginOfLine() const;
@@ -495,6 +497,17 @@ public:
   void Print() const;
 
 private:
+  // Find a insert position with no preceding newline
+  TokenList::iterator GetInsertFrontPos() {
+    auto pos = begin_;
+    if (pos == tokList_->begin())
+      return pos;
+    --pos;
+    while (pos != tokList_->begin() && (*pos)->tag_ == Token::NEW_LINE)
+      --pos;
+    return ++pos;
+  }
+
   TokenList* tokList_;
   TokenList::iterator begin_;
   TokenList::iterator end_;
