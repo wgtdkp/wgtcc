@@ -372,17 +372,6 @@ public:
 
   void FinalizeSubst(bool leadingWS, const HideSet& hs) {
     auto ts = *this;
-
-    if (!ts.Empty() && (*ts.tokList_->begin())->str_ == "__atan2") {
-      auto iter = tokList_->begin();
-      for (; iter != tokList_->end(); ++iter) {
-        std::cout << *(*iter)->loc_.fileName_ << std::endl;
-        std::cout << (*iter)->loc_.line_ << std::endl;
-        std::cout << (*iter)->str_ << std::endl;
-        std::cout << std::flush;
-      }
-    }
-
     while (!ts.Empty()) {
       auto tok = const_cast<Token*>(ts.Next());
       if (!tok->hs_)
@@ -390,7 +379,7 @@ public:
       else
         tok->hs_->insert(hs.begin(), hs.end());
     }
-    // Even the token sequence is empty
+    // Even if the token sequence is empty
     const_cast<Token*>(Peek())->ws_ = leadingWS;
   }
 
@@ -412,7 +401,7 @@ public:
     auto ret = Peek();
     if (!ret->IsEOF()) {
       ++begin_;
-      Peek(); // May skip newline token
+      Peek(); // May skip newline token, but why ?
     }
     return ret;
   }
