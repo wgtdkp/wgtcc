@@ -2407,7 +2407,7 @@ CompoundStmt* Parser::ParseForStmt()
  * while 循环结构：
  * while (expression) statement
  * 展开后的结构：
- * cond: if (expression1) then empty
+ * cond: if (expression) then empty
  *		else goto end
  *		statement
  *		goto cond

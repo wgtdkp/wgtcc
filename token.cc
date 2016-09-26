@@ -168,7 +168,6 @@ Token* Token::New(int tag, const SourceLocation& loc,
   return new (TokenPool.Alloc()) Token(tag, loc, str, ws);
 }
 
-
 bool TokenSequence::Empty()
 {
   return Peek()->tag_ == Token::END;
@@ -205,7 +204,6 @@ bool TokenSequence::IsBeginOfLine() const
 
 const Token* TokenSequence::Peek()
 {
-  
   static auto eof = Token::New(Token::END);
   if (begin_ != end_ && (*begin_)->tag_ == Token::NEW_LINE) {
     ++begin_;
@@ -214,8 +212,6 @@ const Token* TokenSequence::Peek()
     if (end_ != tokList_->begin())
       *eof = *Back();
     eof->tag_ = Token::END;
-    //eof.begin_ = back->end_;
-    //eof.end_ = eof.begin_ + 1;
     return eof;
   } else if (parser_ && (*begin_)->tag_ == Token::IDENTIFIER
       && (*begin_)->str_ == "__func__") {
@@ -223,17 +219,6 @@ const Token* TokenSequence::Peek()
     fileName->tag_ = Token::LITERAL;
     fileName->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
     *begin_ = fileName;
-    // A token may be referenced at several place, cannot directly modify a token
-    // in a token sequence.    
-    //(*begin_)->tag_ = Token::LITERAL;
-    //(*begin_)->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
-    //std::string* name;
-    //if(curFunc)
-    //    name = new std::string("\"" + curFunc->Name() + "\"");
-    //else
-    //    name = new std::string("\"\"");
-    //begin_->begin_ = const_cast<char*>(name->c_str());
-    //begin_->end_ = begin_->begin_ + name->size();
   }
   return *begin_;
 }
