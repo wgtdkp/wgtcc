@@ -469,12 +469,14 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
   Emit("%s $%d, #rax", shiftRight, right);
 }
 
-
+// FIXME(wgtdkp): for combined assignment operator, if the rvalue expr
+// has some side-effect, the rvalue will be evaluated twice!
 void Generator::GenAssignOp(BinaryOp* assign)
 {
   // The base register of addr is %r10, %rip, %rbp
   auto addr = LValGenerator().GenExpr(assign->lhs_);
   // Base register of static object maybe %rip
+  // Visit rhs_ may changes r10
   if (addr.base_ == "r10")
     Push(addr.base_);
   VisitExpr(assign->rhs_);
