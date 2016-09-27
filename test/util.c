@@ -1,16 +1,14 @@
-#include <math.h>
-#include <stdio.h>
-/*
-#define __CONCAT(name,r) name##r
-#define __MATHDECL(function,suffix) \
-  double __MATH_PRECNAME(__CONCAT(__,function),suffix)
-#define __MATH_PRECNAME(name,r)	__CONCAT(name,r)
+#define __WORDSIZE 64
 
-__MATHDECL (acos,);
-*/
+# if __WORDSIZE == 64
+typedef long int __jmp_buf[8];
+# elif defined  __x86_64__
+typedef long long int __jmp_buf[8];
+# else
+typedef int __jmp_buf[6];
+# endif
+
 int main() {
   double c;
-  double a = sin(c);
-  printf("%f\n", a);
   return 0;
 }

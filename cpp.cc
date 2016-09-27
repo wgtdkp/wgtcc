@@ -537,14 +537,24 @@ void Preprocessor::ParseElif(TokenSequence ls)
 {
   auto directive = ls.Next(); // Skip the directive
 
-  if (ppCondStack_.empty()) {
+  if (ppCondStack_.empty())
     Error(directive, "unexpected 'elif' directive");
-  }
-
   auto top = ppCondStack_.top();
-  if (top.tag_ == Token::PP_ELSE) {
+  if (top.tag_ == Token::PP_ELSE)
     Error(directive, "unexpected 'elif' directive");
+
+  while (!ppCondStack_.empty()) {
+    top = ppCondStack_.top();
+    if (top.tag_ == Token::PP_IF ||
+        top.tag_ == Token::PP_IFDEF ||
+        top.tag_ == Token::PP_IFNDEF ||
+        top.cond_) {
+      break;
+    }
+    ppCondStack_.pop();
   }
+  if (ppCondStack_.empty())
+    Error(directive, "unexpected 'elif' directive");
   auto enabled = top.enabled_;
   if (!enabled) {
     ppCondStack_.push({Token::PP_ELIF, false, false});
@@ -574,11 +584,24 @@ void Preprocessor::ParseElse(TokenSequence ls)
   auto directive = ls.Next();
   if (!ls.Empty())
     Error(ls.Peek(), "expect new line");
+
   if (ppCondStack_.empty())
     Error(directive, "unexpected 'else' directive");
-
-  auto top = ppCondStack_.top();
+  auto top = ppCondStack_.top();  
   if (top.tag_ == Token::PP_ELSE)
+    Error(directive, "unexpected 'else' directive");
+  
+  while (!ppCondStack_.empty()) {
+    top = ppCondStack_.top();
+    if (top.tag_ == Token::PP_IF ||
+        top.tag_ == Token::PP_IFDEF ||
+        top.tag_ == Token::PP_IFNDEF ||
+        top.cond_) {
+      break;
+    }
+    ppCondStack_.pop();
+  }
+  if (ppCondStack_.empty())
     Error(directive, "unexpected 'else' directive");
 
   auto cond = !top.cond_;
