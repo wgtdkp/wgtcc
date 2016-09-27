@@ -119,9 +119,7 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
   while (!is.Empty()) {
     if (is.Test('#') && FindActualParam(ap, params, is.Peek2()->str_)) {
       is.Next(); is.Next();
-      auto tok = Token::New(*ap.Peek());
-      tok->tag_ = Token::LITERAL;
-      tok->str_ = Stringize(ap);
+      auto tok = Stringize(ap);
       os.InsertBack(tok);
     } else if (is.Test(Token::DSHARP)
         && FindActualParam(ap, params, is.Peek2()->str_)) {
@@ -202,7 +200,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
 /*
  * This is For the '#' operator in func-like macro
  */
-std::string Preprocessor::Stringize(TokenSequence is)
+const Token* Preprocessor::Stringize(TokenSequence is)
 {
   std::string str = "\"";
   while (!is.Empty()) {
@@ -221,7 +219,11 @@ std::string Preprocessor::Stringize(TokenSequence is)
     }
   }
   str.push_back('\"');
-  return str;
+
+  auto ret = Token::New(*is.Peek());
+  ret->tag_ = Token::LITERAL;
+  ret->str_ = str;
+  return ret;
 }
 
 
@@ -437,8 +439,9 @@ void Preprocessor::ParsePragma(TokenSequence ls)
 void Preprocessor::ParseError(TokenSequence ls)
 {
   ls.Next();
-  
-  const auto& msg = Stringize(ls);
+  const auto& literal = Stringize(ls);
+  std::string msg;
+  Scanner(literal).ScanLiteral(msg);
   Error(ls.Peek(), "%s", msg.c_str());
 }
 
