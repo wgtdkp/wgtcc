@@ -99,7 +99,7 @@ public:
              bool leadingWS, const HideSet& hs, ParamMap& params);
   void Glue(TokenSequence& os, TokenSequence is);
   void Glue(TokenSequence& os, const Token* tok);
-  std::string Stringize(TokenSequence is);
+  const Token* Stringize(TokenSequence is);
   void Stringize(std::string& str, TokenSequence is);
   const Token* ParseActualParam(TokenSequence& is, Macro* macro, ParamMap& paramMap);
   int GetDirective(TokenSequence& is);
