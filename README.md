@@ -1,5 +1,5 @@
 # wgtcc
-a small C11 compiler in C++
+a small C11 compiler in C++11
 
 ## ENVIRONMENT
   1. x86-64
