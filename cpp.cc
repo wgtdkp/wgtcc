@@ -55,10 +55,6 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
       os.InsertBack(is.Next());
     } else if ((macro = FindMacro(name))) {
       is.Next();
-      
-      if (name == "__END_NAMESPACE_STD") {
-        std::cout << name << std::endl;
-      }
 
       if (name == "__FILE__") {
         HandleTheFileMacro(os, tok);
@@ -180,8 +176,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
   TokenSequence ts;
   Scanner scanner(str, lhs->loc_);
   scanner.Tokenize(ts);
-  
-  //--os.end_;
+
   is.Next();
 
   if (ts.Empty()) {
@@ -189,6 +184,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
     // No new Token generated
     // How to handle it???
   } else {
+    os.PopBack();
     auto newTok = const_cast<Token*>(ts.Next());
     newTok->ws_ = lhs->ws_;
     newTok->hs_ = lhs->hs_;
@@ -650,9 +646,6 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
       Error(ls.Peek(), "expect new line");
 
     const auto& fileName = Scanner::ScanHeadName(lhs, rhs);
-    if (fileName == "bits/mathcalls.h") {
-      std::cout << fileName << std::endl;
-    }
     auto fullPath = SearchFile(fileName, true, next, tok->loc_.fileName_);
     if (fullPath == nullptr) {
       Error(tok, "%s: No such file or directory", fileName.c_str());
