@@ -31,7 +31,8 @@ void Usage()
   exit(0);
 }
 
-
+// TODO(wgtdkp): gen only assembly code
+// or pass args to gcc
 int main(int argc, char* argv[])
 {
   bool printPreProcessed = false;
