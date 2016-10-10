@@ -34,11 +34,13 @@ Type* Type::MayCast(Type* type)
   return type;
 }
 
+
 VoidType* VoidType::New()
 {
   static auto voidType = new (voidTypePool.Alloc()) VoidType(&voidTypePool);
   return voidType;
 }
+
 
 ArithmType* ArithmType::New(int typeSpec) {
 #define NEW_TYPE(tag) \
@@ -82,29 +84,37 @@ ArithmType* ArithmType::New(int typeSpec) {
 #undef NEW_TYPE
 }
 
+
 ArrayType* ArrayType::New(int len, Type* eleType)
 {
   return new (arrayTypePool.Alloc())
       ArrayType(&arrayTypePool, len, eleType);
 }
 
+
 //static IntType* NewIntType();
 FuncType* FuncType::New(Type* derived, int funcSpec,
-    bool variadic, const ParamList& params) {
+    bool variadic, const ParamList& params)
+{
   return new (funcTypePool.Alloc())
       FuncType(&funcTypePool, derived, funcSpec, variadic, params);
 }
 
-PointerType* PointerType::New(Type* derived) {
+
+PointerType* PointerType::New(Type* derived)
+{
   return new (pointerTypePool.Alloc())
       PointerType(&pointerTypePool, derived);
 }
 
+
 StructType* StructType::New(
-    bool isStruct, bool hasTag, Scope* parent) {
+    bool isStruct, bool hasTag, Scope* parent)
+{
   return new (structUnionTypePool.Alloc())
       StructType(&structUnionTypePool, isStruct, hasTag, parent);
 }
+
 
 /*
 static EnumType* Type::NewEnumType() {
@@ -115,7 +125,8 @@ static EnumType* Type::NewEnumType() {
 */
 
 /*************** ArithmType *********************/
-int ArithmType::Width() const {
+int ArithmType::Width() const
+{
   switch (tag_) {
   case T_BOOL: case T_CHAR: case T_UNSIGNED | T_CHAR:
     return 1;
@@ -146,6 +157,7 @@ int ArithmType::Width() const {
   return _intWidth; // Make compiler happy
 }
 
+
 int ArithmType::Rank() const
 {
   switch (tag_) {
@@ -163,6 +175,7 @@ int ArithmType::Rank() const
   return 0;
 }
 
+
 ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs)
 {
   if (lhs->IsInteger())
@@ -175,7 +188,9 @@ ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs)
   return ret;
 }
 
-int ArithmType::Spec2Tag(int spec) {
+
+int ArithmType::Spec2Tag(int spec)
+{
   spec &= ~T_SIGNED;
   if ((spec & T_SHORT) || (spec & T_LONG)
       || (spec & T_LLONG)) {
@@ -248,12 +263,14 @@ std::string ArithmType::Str() const
   return "error"; // Make compiler happy
 }
 
+
 bool PointerType::Compatible(const Type& other) const
 {
   // C11 6.7.6.1 [2]: pointer compatibility
   auto otherPointer = other.ToPointer();
   return otherPointer && derived_->Compatible(*otherPointer->derived_);
 }
+
 
 bool ArrayType::Compatible(const Type& other) const
 {
@@ -268,6 +285,7 @@ bool ArrayType::Compatible(const Type& other) const
   if (complete_ != otherArray->complete_) return false;
   return len_ == otherArray->len_;
 }
+
 
 bool FuncType::Compatible(const Type& other) const
 {
@@ -309,12 +327,14 @@ std::string FuncType::Str() const
   return str + ")";
 }
 
+
 StructType::StructType(MemPool* pool, bool isStruct,
                        bool hasTag, Scope* parent)
     : Type(pool, false), isStruct_(isStruct), hasTag_(hasTag),
       memberMap_(new Scope(parent, S_BLOCK)), offset_(0), width_(0),
       // If a struct type has no member, it gets alignment of 1
       align_(1) {}
+
 
 Object* StructType::GetMember(const std::string& member)
 {
@@ -324,6 +344,7 @@ Object* StructType::GetMember(const std::string& member)
   return ident->ToObject();
 }
 
+
 void StructType::CalcWidth()
 {
   width_ = 0;
@@ -332,6 +353,7 @@ void StructType::CalcWidth()
     width_ += iter->second->Type()->Width();
   }
 }
+
 
 bool StructType::Compatible(const Type& other) const {
   // TODO:
@@ -345,6 +367,7 @@ std::string StructType::Str() const
   std::string str = isStruct_ ? "struct": "union";
   return str + ":" + std::to_string(width_);
 }
+
 
 // Remove useless unnamed bitfield members
 // They are just for parsing
