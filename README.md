@@ -1,8 +1,10 @@
 # wgtcc
-a small C11 compiler in C++
+a small C11 compiler in C++11
 
-## PLATFORM
-  x86-64 only
+## ENVIRONMENT
+  1. x86-64
+  2. linux 4.4.0
+  3. gcc 5.4.0 (or any version supports C++11)  
 
 ## INSTALL
   ```bash
