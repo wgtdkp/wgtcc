@@ -303,8 +303,10 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
     return GenCommaOp(binary);
   // Why lhs_->Type() ?
   // Because, the type of pointer subtraction is arithmetic type
-  if (binary->lhs_->Type()->ToPointer())
+  if (binary->lhs_->Type()->ToPointer() &&
+      (op == '+' || op == '-')) {
     return GenPointerArithm(binary);
+  }
 
   // Careful: for compare operator, the type of the expression
   // is always integer, while the type of lhs and rhs could be float
@@ -565,15 +567,12 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
  
 void Generator::GenPointerArithm(BinaryOp* binary)
 {
+  assert(binary->op_ == '+' || binary->op_ == '-');
   // For '+', we have swapped lhs_ and rhs_ to ensure that 
   // the pointer is at lhs.
   Visit(binary->lhs_);
   Spill(false);
   Visit(binary->rhs_);
-  
-  //auto type = binary->lhs_->Type()->ToPointer()->Derived();
-  //if (type->Width() > 1)
-  //  Emit("imulq $%d, #rax", type->Width());
   Restore(false);
 
   auto type = binary->lhs_->Type()->ToPointer()->Derived();
