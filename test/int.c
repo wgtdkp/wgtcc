@@ -1,5 +1,5 @@
 // Copyright 2012 Rui Ueyama. Released under the MIT license.
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include "test.h"
 
@@ -9,6 +9,10 @@ static void expects(short a, short b) {
         printf("  %d expected, but got %d\n", a, b);
         exit(1);
     }
+}
+
+static void test_promotion() {
+    expect(1, 1 < 0x80000000);
 }
 
 int main() {
@@ -25,5 +29,8 @@ int main() {
     expectl(4294967295L, 4294967295);
     expectl(1152921504606846976, 1152921504606846976);
     expectl(1152921504606846977, 1152921504606846976 + 1);
+
+    test_promotion();
+
     return 0;
 }

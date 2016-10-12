@@ -1,4 +1,4 @@
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include "test.h"
 

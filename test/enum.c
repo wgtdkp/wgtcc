@@ -1,4 +1,4 @@
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include "test.h"
 
@@ -12,7 +12,7 @@ void test()
 		DD,
 	} idtype_t;
 
-	expect(1, AA);
+	expect(0, AA);
 	expect(3, BB);
 	expect(4, DD);
 	{

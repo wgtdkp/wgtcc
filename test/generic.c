@@ -1,5 +1,5 @@
 // Copyright 2012 Rui Ueyama. Released under the MIT license.
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include <stdbool.h>
 #include "test.h"
@@ -102,7 +102,12 @@ static void test_struct() {
 }
 
 static void test_array() {
+    // wgtcc's implementation should be more comform to the standard
+#ifdef __wgtcc__
     expect(20, _Generic("abc", char[4]: 20, default: 21));
+#elif defined __gcc__
+    expect(21, _Generic("abc", char[4]: 20, char*: 21));
+#endif
     expect(22, _Generic((int*)NULL, int *: 22, default: 23));
     expect(23, _Generic((int*)NULL, int[1]: 22, default: 23));
 }

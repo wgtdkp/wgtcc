@@ -1,5 +1,5 @@
 // Copyright 2012 Rui Ueyama. Released under the MIT license.
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include <float.h>
 #include <stdarg.h>
@@ -103,7 +103,10 @@ int main() {
 
     expectf(10.5, tf1(10.5));
     expectf(10.0, tf1(10));
-    expectf(10.6, tf2(10.6));
+    // 10.6 is double
+    // tf2(10.6) is float
+    // GCC fails too
+    //expectf(10.6, tf2(10.6));
     expectf(10.0, tf2(10));
     expectf(10.0, tf3(10.7));
     expectf(10.0, tf3(10));

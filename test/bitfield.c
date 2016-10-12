@@ -1,4 +1,4 @@
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include "test.h"
 
@@ -34,7 +34,7 @@ void test3()
         unsigned short: 0;
         unsigned char b: 1;
     } foo_t;
-    expect(2, sizeof(foo_t));
+    expect(4, sizeof(foo_t));
     //printf("%d\n", sizeof(foo_t));
 }
 

@@ -1,4 +1,4 @@
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #define TEST_HEADER "test.h"
 #include TEST_HEADER

@@ -33,10 +33,14 @@ TESTS := $(filter-out test/util.c, $(wildcard test/*.c))
 
 TEST_ASMS = $(SRCS:.c=.s)
 
-test: $(TARGET)
+test: all
 	@for test in $(TESTS); do					\
-		echo $$test;										\
+		echo "gcc $$test";							\
+		gcc -std=c11 -w $$test;					\
+		./a.out;												\
+		echo "wgtcc $$test";						\
 		./$(OBJS_DIR)$(TARGET) $$test;	\
+		./a.out;												\
 	done
 	@rm -f *.s
 	@rm -f ./a.out

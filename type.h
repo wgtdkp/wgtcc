@@ -402,6 +402,7 @@ private:
   int offset_;
   int width_;
   int align_;
+  int bitFieldAlign_;
 };
 
 #endif

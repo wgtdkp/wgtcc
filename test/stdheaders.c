@@ -1,4 +1,4 @@
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include <assert.h>
 #if !__STDC_NO_COMPLEX__

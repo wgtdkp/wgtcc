@@ -333,7 +333,7 @@ StructType::StructType(MemPool* pool, bool isStruct,
     : Type(pool, false), isStruct_(isStruct), hasTag_(hasTag),
       memberMap_(new Scope(parent, S_BLOCK)), offset_(0), width_(0),
       // If a struct type has no member, it gets alignment of 1
-      align_(1) {}
+      align_(1), bitFieldAlign_(1) {}
 
 
 Object* StructType::GetMember(const std::string& member)
@@ -392,7 +392,8 @@ void StructType::AddMember(Object* member)
   memberMap_->Insert(member->Name(), member);
 
   align_ = std::max(align_, member->Align());
-
+  bitFieldAlign_ = std::max(bitFieldAlign_, align_);
+  
   if (isStruct_) {
     offset_ = offset + member->Type()->Width();
     width_ = MakeAlign(offset_, align_);
@@ -413,11 +414,11 @@ void StructType::AddBitField(Object* bitField, int offset)
     memberMap_->Insert(bitField->Name(), bitField);
 
   auto bytes = MakeAlign(bitField->BitFieldEnd(), 8) / 8;
-  //align_ = std::max(align_, bitField->Align());
+  bitFieldAlign_ = std::max(bitFieldAlign_, bitField->Align());
   // Does not aligned, default is 1
   if (isStruct_) {
     offset_ = offset + bytes;
-    width_ = MakeAlign(offset_, std::max(align_, bitField->Align()));
+    width_ = MakeAlign(offset_, std::max(bitFieldAlign_, bitField->Align()));
   } else {
     assert(offset_ == 0);
     width_ = std::max(width_, bitField->Type()->Width());

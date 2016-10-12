@@ -1,5 +1,5 @@
 // Copyright 2012 Rui Ueyama. Released under the MIT license.
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include "test.h"
 #include <stdalign.h>

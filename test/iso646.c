@@ -1,5 +1,5 @@
 // Copyright 2014 Rui Ueyama. Released under the MIT license.
-// @wgtdkp: passed
+// @wgtcc: passed
 
 #include <iso646.h>
 #include "test.h"
