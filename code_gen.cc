@@ -12,8 +12,9 @@
 
 extern std::string inFileName;
 extern std::string outFileName;
+extern bool debug;
 
-
+const std::string* Generator::last_file = nullptr;
 Parser* Generator::parser_ = nullptr;
 FILE* Generator::outFile_ = nullptr;
 //std::string Generator::_cons;
@@ -289,6 +290,7 @@ void Generator::Save(bool flt)
  */
 void Generator::VisitBinaryOp(BinaryOp* binary)
 {
+  EmitLoc(binary);
   auto op = binary->op_;
 
   if (op == '=')
@@ -321,7 +323,7 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   Visit(binary->rhs_);
   Restore(flt);
 
-  const char* inst;
+  const char* inst = nullptr;
 
   switch (op) {
   case '*': return GenMulOp(width, flt, sign); 
@@ -594,6 +596,7 @@ void Generator::GenPointerArithm(BinaryOp* binary)
 // Only objects Allocated on stack
 void Generator::VisitObject(Object* obj)
 {
+  EmitLoc(obj);
   auto addr = LValGenerator().GenExpr(obj).Repr();
 
   if (!obj->Type()->IsScalar()) {
@@ -662,6 +665,7 @@ void Generator::GenCastOp(UnaryOp* cast)
 
 void Generator::VisitUnaryOp(UnaryOp* unary)
 {
+  EmitLoc(unary);
   switch  (unary->op_) {
   case Token::PREFIX_INC:
     return GenIncDec(unary->operand_, false, "add");
@@ -761,6 +765,7 @@ void Generator::GenIncDec(Expr* operand, bool postfix, const std::string& inst)
 
 void Generator::VisitConditionalOp(ConditionalOp* condOp)
 {
+  EmitLoc(condOp);
   auto ifStmt = IfStmt::New(condOp->cond_,
       condOp->exprTrue_, condOp->exprFalse_);
   VisitIfStmt(ifStmt);
@@ -769,6 +774,7 @@ void Generator::VisitConditionalOp(ConditionalOp* condOp)
 
 void Generator::VisitEnumerator(Enumerator* enumer)
 {
+  EmitLoc(enumer);
   auto cons = Constant::New(enumer->Tok(), T_INT, (long)enumer->Val());
   Visit(cons);
 }
@@ -777,12 +783,14 @@ void Generator::VisitEnumerator(Enumerator* enumer)
 // Ident must be function
 void Generator::VisitIdentifier(Identifier* ident)
 {
+  EmitLoc(ident);
   Emit("leaq %s, #rax", ident->Name().c_str());
 }
 
 
 void Generator::VisitConstant(Constant* cons)
 {
+  EmitLoc(cons);
   auto label = ConsLabel(cons);
 
   if (!cons->Type()->IsScalar()) {
@@ -810,6 +818,7 @@ void Generator::VisitTempVar(TempVar* tempVar)
 
 void Generator::VisitDeclaration(Declaration* decl)
 {
+  EmitLoc(decl->obj_);
   auto obj = decl->obj_;
 
   if (!obj->IsStatic()) {
@@ -856,8 +865,8 @@ void Generator::GenStaticDecl(Declaration* decl)
   assert(obj->IsStatic());
 
   const auto& label = obj->Label();
-  auto width = obj->Type()->Width();
-  auto align = obj->Align();
+  const auto width = obj->Type()->Width();
+  const auto align = obj->Align();
 
   // Omit the external without initilizer
   if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
@@ -874,10 +883,10 @@ void Generator::GenStaticDecl(Declaration* decl)
 
   Emit(".align %d", align);
   Emit(".type %s, @object", label.c_str());
+  // Does not decide the size of obj
   Emit(".size %s, %d", label.c_str(), width);
   EmitLabel(label.c_str());
   
-  // TODO(wgtdkp): Add .zero
   int offset = 0;
   auto iter = decl->Inits().begin();
   for (; iter != decl->Inits().end();) {
@@ -911,6 +920,9 @@ void Generator::GenStaticDecl(Declaration* decl)
 
     offset = staticInit.offset_ + staticInit.width_;
   }
+  // Decides the size of object
+  if (width > offset)
+    Emit(".zero %d", width - offset);
 }
 
 
@@ -1144,6 +1156,7 @@ void Generator::GenBuiltin(FuncCall* funcCall)
 
 void Generator::VisitFuncCall(FuncCall* funcCall)
 {
+  EmitLoc(funcCall);
   auto funcType = funcCall->FuncType();
   if (Parser::IsBuiltin(funcType))
     return GenBuiltin(funcCall);
@@ -1393,6 +1406,25 @@ void Generator::Gen()
   VisitTranslationUnit(parser_->Unit());
 }
 
+void Generator::EmitLoc(Expr* expr)
+{
+  if (!debug) return;
+  static int fileno = 0;
+  if (expr->tok_ == nullptr)
+    return;
+  const auto loc = &expr->tok_->loc_;
+  if (loc->fileName_ != last_file) {
+    Emit(".file %d \"%s\"", ++fileno, loc->fileName_->c_str());
+    last_file = loc->fileName_;
+  }
+  Emit(".loc %d %d %d", fileno, loc->line_, 0);
+  
+  std::string line;
+  for (const char* p = loc->lineBegin_; *p && *p != '\n'; ++p)
+    line.push_back(*p);
+  Emit("# %s", line.c_str());
+}
+
 
 void Generator::EmitLoad(const std::string& addr, Type* type)
 {
@@ -1472,6 +1504,7 @@ void Generator::EmitZero(ObjectAddr addr, int width)
 
 void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 {
+  EmitLoc(binary);
   assert(binary->op_ == '.');
 
   addr_ = LValGenerator().GenExpr(binary->lhs_);
@@ -1487,6 +1520,7 @@ void LValGenerator::VisitBinaryOp(BinaryOp* binary)
 
 void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 {
+  EmitLoc(unary);
   assert(unary->op_ == Token::DEREF);
   Generator().VisitExpr(unary->operand_);
   Emit("movq #rax, #r10");
@@ -1496,6 +1530,7 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
 
 void LValGenerator::VisitObject(Object* obj)
 {
+  EmitLoc(obj);
   if (!obj->IsStatic() && obj->Anonymous()) {
     assert(obj->Decl());
     Generator().Visit(obj->Decl());
@@ -1514,7 +1549,7 @@ void LValGenerator::VisitObject(Object* obj)
 void LValGenerator::VisitIdentifier(Identifier* ident)
 {
   assert(!ident->ToTypeName());
-
+  EmitLoc(ident);
   // Function address
   addr_ = {ident->Name(), "", 0};
 }

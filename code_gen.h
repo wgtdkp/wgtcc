@@ -191,6 +191,7 @@ protected:
   void EmitStore(const std::string& addr, int width, bool flt);
   void EmitLoadBitField(const std::string& addr, Object* bitField);
   void EmitStoreBitField(const ObjectAddr& addr, Type* type);
+  void EmitLoc(Expr* expr);
 
   int Push(const Type* type);
   int Push(const std::string& reg);
@@ -205,6 +206,8 @@ protected:
   void Exchange(bool flt);
 
 protected:
+  static const std::string* last_file;
+
   static Parser* parser_;
   static FILE* outFile_;
 

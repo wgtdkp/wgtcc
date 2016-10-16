@@ -1,16 +1,13 @@
+#include <stdio.h>
 
-void test3()
-{
-  typedef struct {
-    unsigned short a: 6;
-    unsigned short: 0;
-    unsigned char b: 1;
-  } foo_t;
-  //expect(2, sizeof(foo_t));
-  //printf("%d\n", sizeof(foo_t));
-}
+typedef struct {
+  int a;
+  int b;
+} foo_t;
+
+foo_t* foo = &(foo_t) {3, 4};
 
 int main() {
-  double c;
+  printf("%d, %d\n", foo->a, foo->b);
   return 0;
 }

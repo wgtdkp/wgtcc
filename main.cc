@@ -19,6 +19,7 @@
 std::string program;
 std::string inFileName;
 std::string outFileName;
+bool debug = false;
 static bool onlyPreprocess = false;
 static bool onlyCompile = false;
 static std::list<std::string> gccArgs;
@@ -198,6 +199,7 @@ int main(int argc, char* argv[])
       auto fileName = std::string(argv[i]);
       ValidateFileName(fileName);
       wgtccFileNames.push_back(fileName);
+      fileName = GetName(fileName);
       fileName.back() = 's';
       gccFileNames.push_back(fileName);
       continue;
@@ -211,6 +213,7 @@ int main(int argc, char* argv[])
     case 'I': ParseInclude(argc, argv, i); break;
     case 'D': ParseDefine(argc, argv, i); break;
     case 'o': ParseOut(argc, argv, i); break;
+    case 'g': gccArgs.pop_back(); debug = true; break;
     default:;
     }
   }
