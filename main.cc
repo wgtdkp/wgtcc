@@ -222,6 +222,11 @@ int main(int argc, char* argv[])
     Error("cannot specify option '-E', '-S' or '-o' with multi file");
   }
 
+#ifdef DEBUG
+  inFileName = wgtccFileNames[0];
+  RunWgtcc();
+  return RunGcc();
+#else
   bool hasError = false;
   for (auto& fileName: wgtccFileNames) {
     pid_t pid = fork();
@@ -240,4 +245,5 @@ int main(int argc, char* argv[])
   if (hasError || onlyPreprocess || onlyCompile)
     return 0;
   return RunGcc();
+#endif
 }

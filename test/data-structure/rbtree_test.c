@@ -1,5 +1,5 @@
 #include "test.h"
-#include "../rbtree.h"
+#include "rbtree.h"
 
 static void verify_root(rbtree_node_t* root) {
   EXPECT(BLACK, root->color);

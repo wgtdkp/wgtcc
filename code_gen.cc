@@ -1161,6 +1161,10 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   if (Parser::IsBuiltin(funcType))
     return GenBuiltin(funcCall);
 
+  if (funcCall->designator_->tok_->str_ == "ast_gvar") {
+    std::cout << std::endl;
+  }
+
   auto base = offset_;
   // Alloc memory for return value if it is struct/union
   auto retType = funcCall->Type()->ToStruct();
@@ -1195,7 +1199,8 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
     if (locs[i][0] == 'm')
       continue;
     Visit(funcCall->args_[i]);
-    
+    Push(funcCall->args_[i]->Type());
+    /*
     if (locs[i][0] == 'x') {
       if (locs[i][3] == '0')
         Emit("movsd #xmm0, #xmm8");
@@ -1213,6 +1218,13 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
         Emit("movq #rax, #%s", locs[i].c_str());
       }
     }
+    */
+  }
+
+  for (const auto& loc: locs) {
+    if (loc[0] == 'm')
+      continue;
+    Pop(loc);
   }
 
   // If variadic, set %al to floating param number
@@ -1222,12 +1234,14 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 
   Emit("leaq %d(#rbp), #rsp", offset_);
   auto addr = LValGenerator().GenExpr(funcCall->Designator());
+  /*
   if (locations.xregCnt_ > 0)
     Emit("movsd #xmm8, #xmm0");
   if (locations.regCnt_ > 2)
     Emit("movq #r12, #rdx");
   if (locations.regCnt_ > 3)
     Emit("movq #r13, #rcx");
+  */
   if (addr.base_.size() == 0 && addr.offset_ == 0) {
     Emit("call %s", addr.label_.c_str());
   } else {
