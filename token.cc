@@ -234,7 +234,7 @@ const Token* TokenSequence::Expect(int expect)
 }
 
 
-void TokenSequence::Print() const
+void TokenSequence::Print(FILE* fp) const
 {
   unsigned lastLine = 0;
   auto ts = *this;
@@ -242,14 +242,15 @@ void TokenSequence::Print() const
     //bool isBegin = ts.IsBeginOfLine();
     auto tok = ts.Next();
     if (lastLine != tok->loc_.line_) {
-      std::cout << std::endl;
-      std::cout << std::string(tok->loc_.column_, ' ');
+      fputs("\n", fp);
+      for (unsigned i = 0; i < tok->loc_.column_; ++i)
+        fputc(' ', fp);
     } else if (tok->ws_) {
-      std::cout << " ";
+      fputc(' ', fp);
     }
-    std::cout << tok->str_;
-    std::cout << std::flush;
+    fputs(tok->str_.c_str(), fp);
+    fflush(fp);
     lastLine = tok->loc_.line_;
   }
-  std::cout << std::endl;
+  fputs("\n", fp);
 }

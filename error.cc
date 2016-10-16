@@ -33,7 +33,7 @@ void Error(const char* format, ...)
   
   fprintf(stderr, "\n");
 
-  exit(0);
+  exit(-1);
 }
 
 
@@ -63,7 +63,7 @@ static void VError(const SourceLocation& loc, const char* format, va_list args)
   for (unsigned i = 1; i + nspaces < loc.column_; i++)
     fputc(' ', stderr);
   fprintf(stderr, ANSI_COLOR_GREEN "^\n");
-  exit(0);	
+  exit(-1);	
 }
 
 

@@ -895,5 +895,8 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
 
 void Preprocessor::AddSearchPath(const std::string& path)
 {
-  searchPathList_.push_back(path);
+  if (path.back() != '/')
+    searchPathList_.push_back(path + "/");
+  else
+    searchPathList_.push_back(path);
 }

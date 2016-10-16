@@ -483,7 +483,7 @@ public:
     parser_ = parser;
   }
 
-  void Print() const;
+  void Print(FILE* fp=stdout) const;
 
 private:
   // Find a insert position with no preceding newline
