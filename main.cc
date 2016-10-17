@@ -38,7 +38,7 @@ static void Usage()
        "  -I        Add search path\n"
        "  -E        Preprocess only; do not compile, assemble or link\n"
        "  -S        Compile only; do not assemble or link\n"
-       "  -o        ");
+       "  -o        specify output file\n");
   
   exit(-2);
 }
@@ -184,6 +184,7 @@ static void ParseOut(int argc, char* argv[], int& i)
 /* Use:
  *   wgtcc: compile
  *   gcc: assemble and link
+ * Allowing multi file may not be a good idea... 
  */
 int main(int argc, char* argv[])
 {
