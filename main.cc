@@ -45,8 +45,8 @@ static void Usage()
 
 
 static void ValidateFileName(const std::string& fileName) {
-  auto pos = fileName.rfind('.');
-  if (pos == std::string::npos || "c" != fileName.substr(pos + 1))
+  auto ext = fileName.substr(std::max(0, fileName.size() - 2));
+  if (ext != ".c" && ext != ".s")
     Error("bad file name format:'%s'", fileName.c_str());
 }
 
@@ -87,6 +87,9 @@ static std::string GetName(const std::string& path)
 
 static int RunWgtcc()
 {
+  if (inFileName.back() == 's')
+    return 0;
+
   Preprocessor cpp(&inFileName);
   for (auto& def: defines)
     DefineMacro(cpp, def);
