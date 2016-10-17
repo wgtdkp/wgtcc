@@ -947,6 +947,10 @@ param: storage: null, only type specifier and qualifier accepted;
 */
 Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
 {
+#define ERR_FUNC_SPEC ("unexpected function specifier")
+#define ERR_STOR_SPEC ("unexpected storage specifier")
+#define ERR_DECL_SPEC ("two or more data types in declaration specifiers")
+
   Type* type = nullptr;
   int qualSpec = 0;
   int typeSpec = 0;    
@@ -962,13 +966,13 @@ Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
     //function specifier
     case Token::INLINE:
       if (!funcSpec)
-        Error(tok, "unexpected function specifier");
+        Error(tok, ERR_FUNC_SPEC);
       *funcSpec |= F_INLINE;
       break;
 
     case Token::NORETURN:
       if (!funcSpec)
-        Error(tok, "unexpected function specifier");
+        Error(tok, ERR_FUNC_SPEC);
       *funcSpec |= F_NORETURN;
       break;
 
@@ -993,7 +997,7 @@ Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
 
     case Token::STATIC:
       if (!storageSpec)
-        Error(tok, "unexpected storage specifier");
+        Error(tok, ERR_FUNC_SPEC);
       if (*storageSpec & ~S_THREAD)
         Error(tok, "duplicated storage specifier");
       *storageSpec |= S_STATIC;
@@ -1001,7 +1005,7 @@ Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
 
     case Token::THREAD:
       if (!storageSpec)
-        Error(tok, "unexpected storage specifier");
+        Error(tok, ERR_FUNC_SPEC);
       if (*storageSpec & ~COMP_THREAD)
         Error(tok, "duplicated storage specifier");
       *storageSpec |= S_THREAD;
@@ -1023,81 +1027,81 @@ Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
     //type specifier
     case Token::SIGNED:
       if (typeSpec & ~COMP_SIGNED)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_SIGNED;
       break;
 
     case Token::UNSIGNED:
       if (typeSpec & ~COMP_UNSIGNED)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_UNSIGNED;
       break;
 
     case Token::VOID:
       if (typeSpec & ~0)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_VOID;
       break;
 
     case Token::CHAR:
       if (typeSpec & ~COMP_CHAR)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_CHAR;
       break;
 
     case Token::SHORT:
       if (typeSpec & ~COMP_SHORT)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_SHORT;
       break;
 
     case Token::INT:
       if (typeSpec & ~COMP_INT)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_INT;
       break;
 
     case Token::LONG:
       if (typeSpec & ~COMP_LONG)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       TypeLL(typeSpec); 
       break;
       
     case Token::FLOAT:
       if (typeSpec & ~T_COMPLEX)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_FLOAT;
       break;
 
     case Token::DOUBLE:
       if (typeSpec & ~COMP_DOUBLE)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_DOUBLE;
       break;
 
     case Token::BOOL:
       if (typeSpec != 0)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_BOOL;
       break;
 
     case Token::COMPLEX:
       if (typeSpec & ~COMP_COMPLEX)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       typeSpec |= T_COMPLEX;
       break;
 
     case Token::STRUCT: 
     case Token::UNION:
       if (typeSpec & ~0)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       type = ParseStructUnionSpec(Token::STRUCT == tok->tag_); 
       typeSpec |= T_STRUCT_UNION;
       break;
 
     case Token::ENUM:
       if (typeSpec != 0)
-        Error(tok, "two or more data types in declaration specifiers");
+        Error(tok, ERR_DECL_SPEC);
       type = ParseEnumSpec();
       typeSpec |= T_ENUM;
       break;
@@ -1145,6 +1149,10 @@ end_of_loop:
 
   type->SetQual(qualSpec);
   return type;
+
+#undef ERR_FUNC_SPEC
+#undef ERR_STOR_SPEC
+#undef ERR_DECL_SPEC
 }
 
 

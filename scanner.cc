@@ -8,7 +8,7 @@ void Scanner::Tokenize(TokenSequence& ts) {
   while (true) {
     auto tok = Scan();
     if (tok->tag_ == Token::END) {
-      if (ts.Back()->tag_ != Token::NEW_LINE) {
+      if (ts.Empty() || (ts.Back()->tag_ != Token::NEW_LINE)) {
         auto t = Token::New(*tok);
         t->tag_ = Token::NEW_LINE;
         t->str_ = "\n";

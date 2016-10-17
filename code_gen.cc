@@ -1161,10 +1161,6 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   if (Parser::IsBuiltin(funcType))
     return GenBuiltin(funcCall);
 
-  if (funcCall->designator_->tok_->str_ == "ast_gvar") {
-    std::cout << std::endl;
-  }
-
   auto base = offset_;
   // Alloc memory for return value if it is struct/union
   auto retType = funcCall->Type()->ToStruct();
