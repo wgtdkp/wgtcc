@@ -141,6 +141,8 @@ public:
   virtual const DerivedType* ToDerived() const { return nullptr; }
   virtual StructType* ToStruct() { return nullptr; }
   virtual const StructType* ToStruct() const { return nullptr; }
+  virtual EnumType* ToEnum() { return nullptr; }
+  virtual const EnumType* ToEnum() const { return nullptr; }
 
 protected:
   Type(MemPool* pool, bool complete)
@@ -158,8 +160,6 @@ protected:
 
 class VoidType : public Type
 {
-  friend class Type;
-
 public:
   static VoidType* New();
 
@@ -185,8 +185,6 @@ protected:
 
 class ArithmType : public Type
 {
-  friend class Type;
-
 public:
   static ArithmType* New(int typeSpec);
 
@@ -231,7 +229,6 @@ private:
 
 class DerivedType : public Type
 {
-  //friend class Type;
 public:
   Type* Derived() {
     return derived_;
@@ -259,8 +256,6 @@ protected:
 
 class PointerType : public DerivedType
 {
-  friend class Type;
-
 public:
   static PointerType* New(Type* derived);
 
@@ -282,8 +277,6 @@ protected:
 
 class ArrayType : public DerivedType
 {
-  friend class Type;
-
 public:
   static ArrayType* New(int len, Type* eleType);
   virtual ~ArrayType() { /*delete derived_;*/ }
@@ -351,8 +344,6 @@ private:
 
 class StructType : public Type
 {
-  friend class Type;
-  
 public:
   typedef std::list<Object*> MemberList;
   typedef std::list<Object*>::iterator Iterator;
@@ -403,6 +394,28 @@ private:
   int width_;
   int align_;
   int bitFieldAlign_;
+};
+
+class EnumType: public Type {
+public:
+  static EnumType* New(bool complete=false);
+
+  virtual ~EnumType() {}
+
+  virtual EnumType* ToEnum() { return this; }
+  virtual const EnumType* ToEnum() const { return this; }
+  virtual bool Compatible(const Type& other) const {
+    return other.IsInteger() && Type::Compatible(other);
+  }
+
+  virtual int Width() const {
+    return ArithmType::New(T_INT)->Width();
+  }
+
+  virtual std::string Str() const { return "enum:4"; }
+
+protected:
+  explicit EnumType(MemPool* pool, bool complete): Type(pool, complete) {}  
 };
 
 #endif

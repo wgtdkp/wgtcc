@@ -45,7 +45,7 @@ static void Usage()
 
 
 static void ValidateFileName(const std::string& fileName) {
-  auto ext = fileName.substr(std::max(0, fileName.size() - 2));
+  auto ext = fileName.substr(std::max(0UL, fileName.size() - 2));
   if (ext != ".c" && ext != ".s")
     Error("bad file name format:'%s'", fileName.c_str());
 }

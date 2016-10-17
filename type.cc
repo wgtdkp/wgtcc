@@ -18,6 +18,7 @@ static MemPoolImp<FuncType>         funcTypePool;
 static MemPoolImp<PointerType>      pointerTypePool;
 static MemPoolImp<StructType>  structUnionTypePool;
 static MemPoolImp<ArithmType>       arithmTypePool;
+static MemPoolImp<EnumType>         enumTypePool;
 
 
 Type* Type::MayCast(Type* type)
@@ -113,6 +114,12 @@ StructType* StructType::New(
 {
   return new (structUnionTypePool.Alloc())
       StructType(&structUnionTypePool, isStruct, hasTag, parent);
+}
+
+
+EnumType* EnumType::New(bool complete)
+{
+  return new (enumTypePool.Alloc()) EnumType(&enumTypePool, complete);
 }
 
 
@@ -459,4 +466,3 @@ void StructType::MergeAnony(Object* anony)
     width_ = std::max(width_, anonyType->Width());
   }
 }
-

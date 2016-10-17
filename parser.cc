@@ -1197,8 +1197,7 @@ Type* Parser::ParseEnumSpec()
       if (!tagIdent->Type()->Complete()) {
         return ParseEnumerator(tagIdent->Type()->ToArithm());
       } else {
-        Error(tok, "redefinition of enumeration tag '%s'",
-            tagName.c_str());
+        Error(tok, "redefinition of enumeration tag '%s'", tagName.c_str());
       }
     } else {
       //Type* type = curScope_->FindTag(tagName);
