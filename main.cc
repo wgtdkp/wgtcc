@@ -140,12 +140,7 @@ static int RunGcc()
   std::string systemArg = "gcc";
   for (const auto& arg: gccArgs)
     systemArg += " " + arg;
-  std::cout << systemArg << std::endl;
   auto ret = system(systemArg.c_str());
-  //for (const auto& fileName: gccFileNames) {
-  //  auto rm = "rm -f " + fileName;
-  //  if(system(rm.c_str())) {}
-  //}
   return ret;
 }
 
