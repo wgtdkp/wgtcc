@@ -72,5 +72,6 @@ int main() {
     t5();
     t6();
     t7();
+    array_of_zero_size();
     return 0;
 }
