@@ -1372,7 +1372,11 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
       if (type->GetMember(name)) {
         Error(tok, "duplicate member '%s'", name.c_str());
       } else if (!memberType->Complete()) {
-        if (memberType->ToArray()) {
+        // C11 6.7.2.1 [3]:
+        if (type->IsStruct() &&
+            // Struct has more than one named member
+            type->MemberMap()->size() > 0 &&
+            memberType->ToArray()) {
           ts_.Expect(';'); ts_.Expect('}');
           ADD_MEMBER();
           goto finalize;
