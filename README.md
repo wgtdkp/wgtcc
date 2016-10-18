@@ -8,8 +8,9 @@ a small C11 compiler in C++11
 
 ## INSTALL
   ```bash
-  $ make install # root required
+  $ make all
   $ make test
+  $ make install # root required
   ```
   then you can play with the examples:
   ```bash

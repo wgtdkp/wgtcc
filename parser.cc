@@ -1352,21 +1352,6 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
       auto tok = tokTypePair.first;
       memberType = tokTypePair.second;
       
-      const auto& name = tok->str_;                
-      if (type->GetMember(name)) {
-        Error(tok, "duplicate member '%s'", name.c_str());
-      } else if (!memberType->Complete()) {
-        if (memberType->ToArray()) {
-          ts_.Expect(';'); ts_.Expect('}');
-          ADD_MEMBER();
-          goto finalize;
-        } else {
-          Error(tok, "field '%s' has incomplete type", name.c_str());
-        }
-      } else if (memberType->ToFunc()) {
-        Error(tok, "field '%s' declared as a function", name.c_str());
-      }
-
       if (ts_.Try(':')) {
         ParseBitField(type, tok, memberType);
         continue;
@@ -1381,6 +1366,21 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
         } else {
           Error(ts_.Peek(), "declaration does not declare anything");
         }
+      }
+
+      const auto& name = tok->str_;                
+      if (type->GetMember(name)) {
+        Error(tok, "duplicate member '%s'", name.c_str());
+      } else if (!memberType->Complete()) {
+        if (memberType->ToArray()) {
+          ts_.Expect(';'); ts_.Expect('}');
+          ADD_MEMBER();
+          goto finalize;
+        } else {
+          Error(tok, "field '%s' has incomplete type", name.c_str());
+        }
+      } else if (memberType->ToFunc()) {
+        Error(tok, "field '%s' declared as a function", name.c_str());
       }
 
       ADD_MEMBER();

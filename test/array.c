@@ -59,6 +59,11 @@ static void t7() {
     expect(68, a[8]);
 }
 
+static void array_of_zero_size() {
+    int arr[7][0];
+    expect(0, sizeof(arr));
+}
+
 int main() {
     t1();
     t2();
