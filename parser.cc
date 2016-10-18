@@ -75,7 +75,10 @@ void Parser::ParseTranslationUnit()
     if (ts_.Try(Token::STATIC_ASSERT)) {
       ParseStaticAssert();
       continue;
+    } else if (ts_.Try(';')) {
+      continue;
     }
+    
     int storageSpec, funcSpec, align;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec, &align);
     auto tokTypePair = ParseDeclarator(type);
