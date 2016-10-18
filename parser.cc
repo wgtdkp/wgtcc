@@ -1322,12 +1322,18 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 
 StructType* Parser::ParseStructUnionDecl(StructType* type)
 {
+#define ADD_MEMBER() {                        \
+  auto member = Object::New(tok, memberType); \
+  if (align > 0)                              \
+    member->SetAlign(align);                  \
+  type->AddMember(member);                    \
+}
+
   //既然是定义，那输入肯定是不完整类型，不然就是重定义了
   assert(type && !type->Complete());
   
   auto scopeBackup = curScope_;
   curScope_ = type->MemberMap(); // Internal symbol lookup rely on curScope_
-
   while (!ts_.Try('}')) {
     if (ts_.Empty()) {
       Error(ts_.Peek(), "premature end of input");
@@ -1346,16 +1352,29 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
       auto tok = tokTypePair.first;
       memberType = tokTypePair.second;
       
+      const auto& name = tok->str_;                
+      if (type->GetMember(name)) {
+        Error(tok, "duplicate member '%s'", name.c_str());
+      } else if (!memberType->Complete()) {
+        if (memberType->ToArray()) {
+          ts_.Expect(';'); ts_.Expect('}');
+          ADD_MEMBER();
+          goto finalize;
+        } else {
+          Error(tok, "field '%s' has incomplete type", name.c_str());
+        }
+      } else if (memberType->ToFunc()) {
+        Error(tok, "field '%s' declared as a function", name.c_str());
+      }
+
       if (ts_.Try(':')) {
         ParseBitField(type, tok, memberType);
-        // TODO(wgtdkp): continue; ?
         continue;
       }
 
       if (tok == nullptr) {
         auto suType = memberType->ToStruct();
         if (suType && !suType->HasTag()) {
-          // FIXME: setting 'tok' to nullptr is not good
           auto anony = Object::NewAnony(ts_.Peek(), suType);
           type->MergeAnony(anony);
           continue;
@@ -1364,23 +1383,11 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
         }
       }
 
-      const auto& name = tok->str_;                
-      if (type->GetMember(name)) {
-        Error(tok, "duplicate member '%s'", name.c_str());
-      } else if (!memberType->Complete()) {
-        Error(tok, "field '%s' has incomplete type", name.c_str());
-      } else if (memberType->ToFunc()) {
-        Error(tok, "field '%s' declared as a function", name.c_str());
-      }
-
-      auto member = Object::New(tok, memberType);
-      if (align > 0)
-        member->SetAlign(align);
-      type->AddMember(member);
+      ADD_MEMBER();
     } while (ts_.Try(','));
     ts_.Expect(';');
   }
-  
+finalize:  
   //struct/union定义结束，设置其为完整类型
   type->Finalize();
   type->SetComplete(true);

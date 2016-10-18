@@ -338,7 +338,8 @@ std::string FuncType::Str() const
 StructType::StructType(MemPool* pool, bool isStruct,
                        bool hasTag, Scope* parent)
     : Type(pool, false), isStruct_(isStruct), hasTag_(hasTag),
-      memberMap_(new Scope(parent, S_BLOCK)), offset_(0), width_(0),
+      memberMap_(new Scope(parent, S_BLOCK)),
+      offset_(0), width_(0),
       // If a struct type has no member, it gets alignment of 1
       align_(1), bitFieldAlign_(1) {}
 
@@ -444,7 +445,7 @@ void StructType::MergeAnony(Object* anony)
     auto& name = kv.first;
     auto member = kv.second->ToObject();
     // Every member of anonymous struct/union
-    //     are offseted by external struct/union
+    // are offseted by external struct/union
     member->SetOffset(offset + member->Offset());
 
     if (GetMember(name)) {

@@ -284,7 +284,9 @@ public:
   virtual ArrayType* ToArray() { return this; }
   virtual const ArrayType* ToArray() const { return this; }
   virtual bool Compatible(const Type& other) const;
-  virtual int Width() const { return derived_->Width() * len_; }
+  virtual int Width() const {
+    return Complete() ? (derived_->Width() * len_): 0;
+  }
   virtual int Align() const { return derived_->Align(); }
   virtual std::string Str() const {
     return derived_->Str() + "[]:" + std::to_string(Width());
