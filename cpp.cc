@@ -758,28 +758,44 @@ void Preprocessor::IncludeFile(TokenSequence& is, const std::string* fileName)
 }
 
 
+static std::string GetDir(const std::string& path)
+{
+  auto pos = path.rfind('/');
+  if (pos == std::string::npos)
+    return "./";
+  return path.substr(0, pos + 1);
+}
+
+
 std::string* Preprocessor::SearchFile(
     const std::string& name,
     bool libHeader,
     bool next,
     const std::string* curPath)
 {
+#define RETURN(val) {         \
+  if (curPath)                \
+    searchPaths_.pop_back();  \
+  return (val);               \
+}
+
+  if (curPath) searchPaths_.push_back(GetDir(*curPath));
   PathList::iterator begin, end;
   if (libHeader && !next) {
-    auto iter = searchPathList_.begin();
-    for (; iter != searchPathList_.end(); iter++) {
+    auto iter = searchPaths_.begin();
+    for (; iter != searchPaths_.end(); iter++) {
       auto dd = open(iter->c_str(), O_RDONLY);
       if (dd == -1) // TODO(wgtdkp): or ensure it before preprocessing
         continue;
       auto fd = openat(dd, name.c_str(), O_RDONLY);
       if (fd != -1) {
         close(fd);
-        return new std::string(*iter + name);
+        RETURN(new std::string(*iter + name));
       }
     }
   } else {
-    auto iter = searchPathList_.rbegin();
-    for (; iter != searchPathList_.rend(); iter++) {
+    auto iter = searchPaths_.rbegin();
+    for (; iter != searchPaths_.rend(); iter++) {
       auto dd = open(iter->c_str(), O_RDONLY);
       if (dd == -1) // TODO(wgtdkp): or ensure it before preprocessing
         continue;
@@ -794,13 +810,13 @@ std::string* Preprocessor::SearchFile(
           else 
             next = false;
         } else {
-          return new std::string(path);
+          RETURN(new std::string(path));
         }
       }
     }
   }
-
-  return nullptr;
+  RETURN(nullptr);
+#undef RETURN
 }
 
 
@@ -896,7 +912,7 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
 void Preprocessor::AddSearchPath(const std::string& path)
 {
   if (path.back() != '/')
-    searchPathList_.push_back(path + "/");
+    searchPaths_.push_back(path + "/");
   else
-    searchPathList_.push_back(path);
+    searchPaths_.push_back(path);
 }

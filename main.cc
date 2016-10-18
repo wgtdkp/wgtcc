@@ -67,15 +67,6 @@ static void DefineMacro(Preprocessor& cpp, const std::string& def)
 }
 
 
-static std::string GetDir(const std::string& path)
-{
-  auto pos = path.rfind('/');
-  if (pos == std::string::npos)
-    return "./";
-  return path.substr(0, pos + 1);
-}
-
-
 static std::string GetName(const std::string& path)
 {
   auto pos = path.rfind('/');
@@ -95,8 +86,7 @@ static int RunWgtcc()
     DefineMacro(cpp, def);
   for (auto& path: includePaths)
     cpp.AddSearchPath(path);
-  cpp.AddSearchPath(GetDir(inFileName));
-  
+
   FILE* fp = nullptr;
   if (outFileName.size())
     fp = fopen(outFileName.c_str(), "w");

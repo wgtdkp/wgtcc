@@ -181,7 +181,7 @@ private:
   bool curCond_;
   
   MacroMap macroMap_;
-  PathList searchPathList_;
+  PathList searchPaths_;
 };
 
 #endif
