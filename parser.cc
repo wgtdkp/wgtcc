@@ -1194,11 +1194,9 @@ Type* Parser::ParseEnumSpec()
         return ParseEnumerator(type);   //处理反大括号: '}'
       }
 
-      if (!tagIdent->Type()->Complete()) {
-        return ParseEnumerator(tagIdent->Type()->ToArithm());
-      } else {
+      if (!tagIdent->Type()->IsInteger()) // struct/union tag
         Error(tok, "redefinition of enumeration tag '%s'", tagName.c_str());
-      }
+      return ParseEnumerator(tagIdent->Type()->ToArithm());
     } else {
       //Type* type = curScope_->FindTag(tagName);
       auto tagIdent = curScope_->FindTag(tok);
@@ -1215,7 +1213,6 @@ Type* Parser::ParseEnumSpec()
   }
   
   ts_.Expect('{');
-
   auto type = ArithmType::New(T_INT);
   // TODO(wgtdkp):
   //type->SetComplete(false);
@@ -1225,10 +1222,7 @@ Type* Parser::ParseEnumSpec()
 
 Type* Parser::ParseEnumerator(ArithmType* type)
 {
-  // TODO(wgtdkp):
-  assert(type /*&& !type->Complete()*/ && type->IsInteger());
-  
-  //std::set<int> valSet;
+  assert(type && type->IsInteger());
   int val = 0;
   do {
     auto tok = ts_.Expect(Token::IDENTIFIER);
@@ -1241,22 +1235,14 @@ Type* Parser::ParseEnumerator(ArithmType* type)
     if (ts_.Try('=')) {
       auto expr = ParseAssignExpr();
       val = Evaluator<long>().Eval(expr);
-
-      //if (valSet.find(val) != valSet.end()) {
-      //    Error(expr, "conflict enumerator constant '%d'", val);
-      //}
     }
-    //valSet.insert(val);
     auto enumer = Enumerator::New(tok, val);
     ++val;
-
     curScope_->Insert(enumer);
-
     ts_.Try(',');
   } while (!ts_.Try('}'));
   
   type->SetComplete(true);
-  
   return type;
 }
 

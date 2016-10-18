@@ -396,16 +396,28 @@ private:
   int bitFieldAlign_;
 };
 
+// Not used yet
 class EnumType: public Type {
 public:
   static EnumType* New(bool complete=false);
 
   virtual ~EnumType() {}
+  virtual bool IsInteger() const { return true; }
+  virtual ArithmType* ToArithm() {
+    assert(false);
+    return ArithmType::New(T_INT);
+  };
+  virtual const ArithmType* ToArithm() const {
+    assert(false);
+    return ArithmType::New(T_INT);
+  }
 
   virtual EnumType* ToEnum() { return this; }
   virtual const EnumType* ToEnum() const { return this; }
   virtual bool Compatible(const Type& other) const {
-    return other.IsInteger() && Type::Compatible(other);
+    // As enum is always casted to INT, there is no chance for this call    
+    assert(false);
+    return (other.ToEnum() || other.IsInteger()) && Type::Compatible(other);    
   }
 
   virtual int Width() const {
