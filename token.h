@@ -96,14 +96,15 @@ public:
     ELLIPSIS,
     /* punctuators end */
 
-    /* key words */
-    //type qualifier
+    /* KEYWORD BEGIN */
+    /* TYPE QUALIFIER BEGIN */
     CONST,
     RESTRICT,
     VOLATILE,
-    ATOMIC, //_Atomic
+    ATOMIC,
+    /* TYPE QUALIFIER END */
 
-    //type specifier
+    /* TYPE SPECIFIER BEGIN */
     VOID,
     CHAR,
     SHORT,
@@ -118,24 +119,25 @@ public:
     STRUCT,
     UNION,
     ENUM,
+    /* TYPE SPECIFIER END */
 
-    TYPEDEF_NAME, //not used
-
-    //function specifier
+    ATTRIBUTE, // GNU extension __attribute__
+    /* FUNCTION SPECIFIER BEGIN */
     INLINE,
     NORETURN,	//_Noreturn
+    /* FUNCTION SPECIFIER END */
 
-    //alignment specifier
     ALIGNAS, //_Alignas
     // For syntactic convenience
     STATIC_ASSERT, //_Static_assert
-    //storage class specifier
+    /* STORAGE CLASS SPECIFIER BEGIN */
     TYPEDEF,
     EXTERN,
     STATIC,
     THREAD,	//_Thread_local
     AUTO,
     REGISTER,
+    /* STORAGE CLASS SPECIFIER END */
 
     BREAK,
     CASE,
@@ -153,10 +155,8 @@ public:
     ALIGNOF, //_Alignof
     GENERIC, //_Generic
     IMAGINARY, //_Imaginary
-    
-    /*
-     * key words end
-     */
+    /* KEYWORD END */
+     
     IDENTIFIER,
     CONSTANT,
     I_CONSTANT,
