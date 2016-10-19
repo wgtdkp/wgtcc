@@ -200,11 +200,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  if (!onlyCompile || outFileName.size() == 0) {
-    outFileName = GetName(inFileName);
-    outFileName.back() = 's';
-  }
-
 #ifdef DEBUG
   RunWgtcc();
 #else
@@ -226,7 +221,10 @@ int main(int argc, char* argv[])
 
   if (onlyPreprocess || onlyCompile)
     return 0;
-  
+  if (!onlyCompile || outFileName.size() == 0) {
+    outFileName = GetName(inFileName);
+    outFileName.back() = 's';
+  }
   gccInFileName = outFileName;
   gccInFileName.back() = 's';
   gccArgs.push_back(gccInFileName);
