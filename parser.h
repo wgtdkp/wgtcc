@@ -56,6 +56,7 @@ public:
    */
   Expr* ParseExpr();
   Expr* ParsePrimaryExpr();
+  Type* TryCompoundLiteral();
   Object* ParseCompoundLiteral(Type* type);
   Expr* ParsePostfixExpr();
   Expr* ParsePostfixExprTail(Expr* primExpr);

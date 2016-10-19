@@ -78,7 +78,7 @@ void Parser::ParseTranslationUnit()
     } else if (ts_.Try(';')) {
       continue;
     }
-    
+
     int storageSpec, funcSpec, align;
     auto type = ParseDeclSpec(&storageSpec, &funcSpec, &align);
     auto tokTypePair = ParseDeclarator(type);
@@ -401,21 +401,30 @@ Expr* Parser::ParseGeneric()
 }
 
 
+Type* Parser::TryCompoundLiteral()
+{
+  auto mark = ts_.Mark();
+  if (ts_.Try('(') && IsTypeName(ts_.Peek())) {
+    auto type = ParseTypeName();
+    if (ts_.Try(')') && ts_.Test('{'))
+      return type;
+  }
+  ts_.ResetTo(mark);
+  return nullptr;
+}
+
+
 Expr* Parser::ParsePostfixExpr()
 {
-  auto tok = ts_.Next();
-  if (tok->IsEOF()) {
-    Error(tok, "premature end of input");
-  }
+  if (ts_.Peek()->IsEOF())
+    Error(ts_.Peek(), "premature end of input");
 
-  if ('(' == tok->tag_ && IsTypeName(ts_.Peek())) {
-    auto type = ParseTypeName();
-    ts_.Expect(')');
+  auto type = TryCompoundLiteral();
+  if (type) {
     auto anony = ParseCompoundLiteral(type);
     return ParsePostfixExprTail(anony);
   }
 
-  ts_.PutBack();
   auto primExpr = ParsePrimaryExpr();
   return ParsePostfixExprTail(primExpr);
 }
@@ -1446,7 +1455,9 @@ void Parser::ParseBitField(StructType* structType,
     bitFieldOffset = 0;
   } else {
     auto last = structType->Members().back();
-    auto totalBits = (last->Offset() - offset) * 8;
+    // FIXME(wgtdkp):
+    //auto totalBits = (last->Offset() - offset) * 8;
+    auto totalBits = last->Offset() * 8;
     if (last->BitFieldWidth()) {
       totalBits += last->BitFieldEnd();
     } else { // Is not bit field
@@ -1659,10 +1670,11 @@ Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
     // The same declaration, simply return the prio declaration
     if (!ident->Type()->Complete())
       ident->Type()->SetComplete(type->Complete());
-    // Prev declaration of a function may omit the param name
-    if (type->ToFunc()) {
+    // Prio declaration of a function may omit the param name
+    if (type->ToFunc())
       ident->Type()->ToFunc()->SetParams(type->ToFunc()->Params());
-    }
+    else if (ident->ToObject() && !(storageSpec & S_EXTERN))
+      ident->ToObject()->SetStorage(ident->ToObject()->Storage() & ~S_EXTERN);
     return ident;
   } else if (linkage == L_EXTERNAL) {
     ident = curScope_->Find(tok);
@@ -1705,11 +1717,9 @@ Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
       obj->SetAlign(align);
     ret = obj;
   }
-
   curScope_->Insert(ret);
-  
   if (linkage == L_EXTERNAL && ident == nullptr) {
-    externalSymbols_->Insert(ret);
+      externalSymbols_->Insert(ret);
   }
 
   return ret;
@@ -1829,6 +1839,8 @@ Object* Parser::ParseParamDecl()
   auto tokTypePair = ParseDeclarator(type);
   auto tok = tokTypePair.first;
   type = Type::MayCast(tokTypePair.second);
+  //if (type->ToStruct())
+  //  Error(tok? tok: ts_.Peek(), "current implementation of x86-64 ABI do not support struct in param");
   if (!tok) { // Abstract declarator
     return Object::NewAnony(ts_.Peek(), type, 0, Linkage::L_NONE);
   }
@@ -1959,6 +1971,11 @@ void Parser::ParseInitializer(Declaration* decl, Type* type, int offset,
   Expr* expr;
   auto arrType = type->ToArray();
   auto structType = type->ToStruct();
+  // A compound literal in initializer is reduced to a initializer directly
+  // It means that the compound literal will never be created
+  auto literalType = TryCompoundLiteral();
+  if (literalType && !literalType->Compatible(*type))
+      Error("incompatible type of initializer");
   if (arrType) {
     if (forceBrace && !ts_.Test('{') && !ts_.Test(Token::LITERAL)) {
       ts_.Expect('{');
@@ -2701,6 +2718,7 @@ bool Parser::IsBuiltin(const FuncType* type)
 // Builtin functions will be inlined
 void Parser::DefineBuiltins()
 {
+  // FIXME: potential bug: using same object for params!!!
   auto voidPtr = PointerType::New(VoidType::New());
   auto param = Object::New(nullptr, voidPtr);
   FuncType::ParamList pl;
