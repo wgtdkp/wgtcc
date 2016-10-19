@@ -43,5 +43,7 @@ after finishing parsing and generating code.
 4. [macro expansion algorithm](https://github.com/wgtdkp/wgtcc/blob/master/doc/cpp.algo.pdf)
 
 ## TODO
-1. support type qualification
+1. support GNU extensions(e.g. keyword \_\_attribute__)
 2. support variable length array
+3. optimization(e.g. register allocation)
+4. support type qualification
