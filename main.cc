@@ -22,11 +22,10 @@ std::string outFileName;
 bool debug = false;
 static bool onlyPreprocess = false;
 static bool onlyCompile = false;
+static std::string gccInFileName;
 static std::list<std::string> gccArgs;
 static std::vector<std::string> defines;
 static std::vector<std::string> includePaths;
-static std::vector<std::string> gccFileNames;
-static std::vector<std::string> wgtccFileNames;
 
 
 static void Usage()
@@ -46,7 +45,7 @@ static void Usage()
 
 static void ValidateFileName(const std::string& fileName) {
   auto ext = fileName.substr(std::max(0UL, fileName.size() - 2));
-  if (ext != ".c" && ext != ".s")
+  if (ext != ".c" && ext != ".s" && ext != ".o")
     Error("bad file name format:'%s'", fileName.c_str());
 }
 
@@ -124,8 +123,6 @@ static int RunGcc()
   }
   if (!specStd)
     gccArgs.push_front("-std=c11");
-  for (const auto& fileName: gccFileNames)
-    gccArgs.push_back(fileName);
 
   std::string systemArg = "gcc";
   for (const auto& arg: gccArgs)
@@ -185,12 +182,8 @@ int main(int argc, char* argv[])
   
   for (auto i = 1; i < argc; i++) {
     if (argv[i][0] != '-') {
-      auto fileName = std::string(argv[i]);
-      ValidateFileName(fileName);
-      wgtccFileNames.push_back(fileName);
-      fileName = GetName(fileName);
-      fileName.back() = 's';
-      gccFileNames.push_back(fileName);
+      inFileName = std::string(argv[i]);
+      ValidateFileName(inFileName);
       continue;
     }
 
@@ -207,32 +200,35 @@ int main(int argc, char* argv[])
     }
   }
 
-  if ((onlyPreprocess || onlyCompile) && wgtccFileNames.size() > 1) {
-    Error("cannot specify option '-E', '-S' or '-o' with multi file");
+  if (!onlyCompile || outFileName.size() == 0) {
+    outFileName = GetName(inFileName);
+    outFileName.back() = 's';
   }
 
 #ifdef DEBUG
-  inFileName = wgtccFileNames[0];
   RunWgtcc();
-  return RunGcc();
 #else
   bool hasError = false;
-  for (auto& fileName: wgtccFileNames) {
-    pid_t pid = fork();
-    if (pid < 0) {
-      Error("fork error");
-    } else if (pid == 0) {
-      inFileName = fileName;
-      return RunWgtcc();
-    } else {
-      int stat;
-      wait(&stat);
-      hasError = hasError || !WIFEXITED(stat);
-    }
+  pid_t pid = fork();
+  if (pid < 0) {
+    Error("fork error");
+  } else if (pid == 0) {
+    return RunWgtcc();
+  } else {
+    int stat;
+    wait(&stat);
+    hasError = hasError || !WIFEXITED(stat);
   }
 
-  if (hasError || onlyPreprocess || onlyCompile)
+  if (hasError)
     return 0;
-  return RunGcc();
 #endif
+
+  if (onlyPreprocess || onlyCompile)
+    return 0;
+  
+  gccInFileName = outFileName;
+  gccInFileName.back() = 's';
+  gccArgs.push_back(gccInFileName);
+  return RunGcc();
 }

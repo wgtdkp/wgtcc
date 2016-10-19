@@ -27,7 +27,7 @@ static void test_zero_size() {
   expect(8, alignof(bar_t));
 }
 
-int main(void) {
+int main() {
   test_incomp();
   test_zero_size();
   return 0;

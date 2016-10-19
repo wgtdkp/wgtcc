@@ -73,7 +73,6 @@ static ParamClass Classify(Type* paramType, int offset=0)
     if ((type->Tag() & T_LONG) && (type->Tag() & T_DOUBLE))
       return ParamClass::COMPLEX_X87;
   }
-
   auto type = paramType->ToStruct();
   assert(type);
   return ParamClass::MEMORY;
@@ -1175,8 +1174,11 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   }
 
   TypeList types;
-  for (auto arg: funcCall->args_)
+  for (auto arg: funcCall->args_) {
+    //if (arg->Type()->ToStruct())
+    //  Error(funcCall, "current implementation of x86-64 ABI does not support passing struct");
     types.push_back(arg->Type());
+  }
   
   const auto& locations = GetParamLocations(types, retType);
   // Align stack frame by 16 bytes
