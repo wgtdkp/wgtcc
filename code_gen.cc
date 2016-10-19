@@ -633,6 +633,11 @@ void Generator::GenCastOp(UnaryOp* cast)
       || srcType->ToFunc()
       || srcType->ToArray()) {
     // Do nothing
+    // Handle bool
+    if (desType->IsBool()) {
+      Emit("testq #rax, #rax");
+      Emit("setne #al");
+    }
   } else {
     assert(srcType->ToArithm());
     int width = srcType->Width();
@@ -974,7 +979,7 @@ void Generator::VisitLabelStmt(LabelStmt* labelStmt)
 void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
 {
   auto expr = returnStmt->expr_;
-  if (expr) {
+  if (expr) { // The return expr could be nil
     Visit(expr);
     if (expr->Type()->ToStruct()) {
       // %rax now has the address of the struct/union
