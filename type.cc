@@ -93,6 +93,13 @@ ArrayType* ArrayType::New(int len, Type* eleType)
 }
 
 
+ArrayType* ArrayType::New(Expr* expr, Type* eleType)
+{
+  return new (arrayTypePool.Alloc())
+      ArrayType(&arrayTypePool, expr, eleType);
+}
+
+
 //static IntType* NewIntType();
 FuncType* FuncType::New(Type* derived, int funcSpec,
     bool variadic, const ParamList& params)

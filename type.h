@@ -13,6 +13,7 @@
 /********* Type System ***********/
 class Scope;
 class Token;
+class Expr;
 
 class Type;
 class VoidType;
@@ -279,6 +280,7 @@ class ArrayType : public DerivedType
 {
 public:
   static ArrayType* New(int len, Type* eleType);
+  static ArrayType* New(Expr* expr, Type* eleType);
   virtual ~ArrayType() { /*delete derived_;*/ }
 
   virtual ArrayType* ToArray() { return this; }
@@ -295,14 +297,23 @@ public:
   int GetElementOffset(int idx) const { return derived_->Width() * idx; }
   int Len() const { return len_; }
   void SetLen(int len) { len_ = len; }
+  bool Variadic() const { return lenExpr_ != nullptr; }
 
 protected:
+  ArrayType(MemPool* pool, Expr* lenExpr, Type* derived)
+      : DerivedType(pool, derived),
+        lenExpr_(lenExpr), len_(0) {
+    SetComplete(false);
+    SetQual(Q_CONST);
+  }
+  
   ArrayType(MemPool* pool, int len, Type* derived)
-      : DerivedType(pool, derived), len_(len) {
+      : DerivedType(pool, derived),
+        lenExpr_(nullptr), len_(len) {
     SetComplete(len_ >= 0);
     SetQual(Q_CONST);
   }
-
+  const Expr* lenExpr_;
   int len_;
 };
 
