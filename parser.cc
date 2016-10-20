@@ -2804,15 +2804,15 @@ void Parser::ParseAttribute()
 {
   if (!ts_.Test(Token::IDENTIFIER))
     return;
-  auto name = ts_.Next();
+  //auto name = ts_.Next();
   if (ts_.Try('(')) {
     if (ts_.Try(')'))
       return;
     
-    auto param = ts_.Expect(Token::IDENTIFIER);
+    /*auto param =*/ ts_.Expect(Token::IDENTIFIER);
     if (ts_.Test(',')) {
       while (ts_.Try(','))
-        auto expr = ParseExpr();
+        {} //auto expr = ParseExpr();
     }
     ts_.Try(')');
   }
