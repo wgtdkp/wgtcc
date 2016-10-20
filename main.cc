@@ -86,7 +86,7 @@ static int RunWgtcc()
   for (auto& path: includePaths)
     cpp.AddSearchPath(path);
 
-  FILE* fp = nullptr;
+  FILE* fp = stdout;
   if (outFileName.size())
     fp = fopen(outFileName.c_str(), "w");
   TokenSequence ts;
@@ -221,12 +221,16 @@ int main(int argc, char* argv[])
 
   if (onlyPreprocess || onlyCompile)
     return 0;
-  if (!onlyCompile || outFileName.size() == 0) {
+
+  if (outFileName.size() == 0) {
     outFileName = GetName(inFileName);
     outFileName.back() = 's';
   }
   gccInFileName = outFileName;
   gccInFileName.back() = 's';
   gccArgs.push_back(gccInFileName);
-  return RunGcc();
+  auto ret = RunGcc();
+  auto cmd = "rm -f " + outFileName;
+  if (system(cmd.c_str())) {}
+  return ret;
 }
