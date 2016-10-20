@@ -104,6 +104,8 @@ void Parser::ParseTranslationUnit()
         decl = ParseInitDeclarator(ident);
         if (decl) unit_->Add(decl);
       }
+      // GNU extension: function/type/variable attributes
+      TryAttributeSpecList();
       ts_.Expect(';');
     }
   }
@@ -1158,6 +1160,9 @@ end_of_loop:
     type = ArithmType::New(typeSpec);
     break;
   }
+  // GNU extension: type attributes
+  //if (storageSpec && (*storageSpec & S_TYPEDEF))
+  //  TryAttributeSpecList();
 
   type->SetQual(qualSpec);
   return type;
@@ -1190,6 +1195,9 @@ int Parser::ParseAlignas()
 
 Type* Parser::ParseEnumSpec()
 {
+  // GNU extension: type attributes
+  TryAttributeSpecList();
+
   std::string tagName;
   auto tok = ts_.Peek();
   if (ts_.Try(Token::IDENTIFIER)) {
@@ -1238,7 +1246,9 @@ Type* Parser::ParseEnumerator(ArithmType* type)
   int val = 0;
   do {
     auto tok = ts_.Expect(Token::IDENTIFIER);
-    
+    // GNU extension: enumerator attributes
+    TryAttributeSpecList();
+
     const auto& enumName = tok->str_;
     auto ident = curScope_->FindInCurScope(tok);
     if (ident) {
@@ -1268,6 +1278,9 @@ Type* Parser::ParseEnumerator(ArithmType* type)
  */
 Type* Parser::ParseStructUnionSpec(bool isStruct)
 {
+  // GNU extension: type attributes
+  TryAttributeSpecList();
+
   std::string tagName;
   auto tok = ts_.Peek();
   if (ts_.Try(Token::IDENTIFIER)) {
@@ -1403,7 +1416,10 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
     } while (ts_.Try(','));
     ts_.Expect(';');
   }
-finalize:  
+finalize:
+  // GNU extension: type attributes
+  TryAttributeSpecList();
+
   //struct/union定义结束，设置其为完整类型
   type->Finalize();
   type->SetComplete(true);
@@ -1579,6 +1595,8 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
     return TokenTypePair(tokenTypePair.first, retType);
   } else if (ts_.Peek()->IsIdentifier()) {
     auto tok = ts_.Next();
+    // GNU extension: variable attributes
+    TryAttributeSpecList();
     auto retType = ParseArrayFuncDeclarator(tok, pointerType);
     return TokenTypePair(tok, retType);
   } else {
@@ -2260,6 +2278,9 @@ Stmt* Parser::ParseStmt()
     Error(tok, "premature end of input");
 
   switch (tok->tag_) {
+  // GNU extension: statement attributes
+  case Token::ATTRIBUTE:
+    TryAttributeSpecList();
   case ';':
     return EmptyStmt::New();
   case '{':
@@ -2288,8 +2309,11 @@ Stmt* Parser::ParseStmt()
     return ParseDefaultStmt();
   }
 
-  if (tok->IsIdentifier() && ts_.Try(':'))
+  if (tok->IsIdentifier() && ts_.Try(':')) {
+    // GNU extension: label attributes
+    TryAttributeSpecList();
     return ParseLabelStmt(tok);
+  }
   
   ts_.PutBack();
   auto expr = ParseExpr();
@@ -2746,4 +2770,50 @@ Identifier* Parser::GetBuiltin(const Token* tok)
   }
   assert(false);
   return nullptr;
+}
+
+/*
+ * GNU extensions
+ */
+
+// Attribute
+void Parser::TryAttributeSpecList()
+{
+  while (ts_.Try(Token::ATTRIBUTE))
+    ParseAttributeSpec();
+}
+
+
+void Parser::ParseAttributeSpec()
+{
+  ts_.Expect('(');
+  ts_.Expect('(');
+
+  while (!ts_.Try(')')) {
+    ParseAttribute();
+    if (!ts_.Try(',')) {
+      ts_.Expect(')');
+      break;
+    }
+  }
+  ts_.Expect(')');
+}
+
+
+void Parser::ParseAttribute()
+{
+  if (!ts_.Test(Token::IDENTIFIER))
+    return;
+  auto name = ts_.Next();
+  if (ts_.Try('(')) {
+    if (ts_.Try(')'))
+      return;
+    
+    auto param = ts_.Expect(Token::IDENTIFIER);
+    if (ts_.Test(',')) {
+      while (ts_.Try(','))
+        auto expr = ParseExpr();
+    }
+    ts_.Try(')');
+  }
 }

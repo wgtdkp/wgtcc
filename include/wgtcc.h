@@ -36,6 +36,13 @@
 #define __x86_64__ 1
 #define linux 1
 
+#if 0
+#define __GNUC__  5
+#define __GNUC_MINOR__  4
+#define __GNUC_PATCHLEVEL__ 0
+#endif
+
+#define __asm__ asm
 #define __alignof__ alignof
 #define __const__ const
 #define __inline__ inline

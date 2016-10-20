@@ -146,6 +146,12 @@ public:
   Identifier* ProcessDeclarator(const Token* tok, Type* type,
       int storageSpec, int funcSpec, int align);
 
+  // GNU extensions
+  void TryAttributeSpecList();
+  void ParseAttributeSpec();
+  void ParseAttribute();
+
+
   bool IsTypeName(const Token* tok) const{
     if (tok->IsTypeSpecQual())
       return true;
