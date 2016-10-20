@@ -784,8 +784,9 @@ public:
 
   void SetAlign(int align) {
     assert(align > 0);
-    if (align < align_)
-      Error(this, "alignment specifier cannot reduce alignment");
+    // Allowing reduce alignment to implement __attribute__((packed))
+    //if (align < align_)
+    //  Error(this, "alignment specifier cannot reduce alignment");
     align_ = align;
   }
 
