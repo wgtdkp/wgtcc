@@ -38,6 +38,21 @@ static void t6() {
     expect(20, *a);
 }
 
+static void decl_array() {
+    int arr[4][4];
+    int (*p)[4] = arr[2];
+    p[0][0] = 1, p[0][1] = 2, p[0][2] = 3, p[0][3] = 4;
+    p[1][0] = 5, p[1][1] = 6, p[1][2] = 7, p[1][3] = 8;
+    expect(1, arr[2][0]);
+    expect(2, arr[2][1]);
+    expect(3, arr[2][2]);
+    expect(4, arr[2][3]);
+    expect(5, arr[3][0]);
+    expect(6, arr[3][1]);
+    expect(7, arr[3][2]);
+    expect(8, arr[3][3]);
+}
+
 static int ((t7))();
 static int ((*t8))();
 static int ((*(**t9))(int*(), int(*), int()));
@@ -49,5 +64,6 @@ int main() {
     t4();
     t5();
     t6();
+    decl_array();
     return 0;
 }
