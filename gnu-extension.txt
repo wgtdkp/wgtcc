@@ -1,0 +1,28 @@
+# GNU EXTENSION GRAMMA
+
+attribute-specifier:
+  __ATTRIBUTE__ '(' '(' attribute-list-opt ')' ')'
+
+attribute-list:
+  attribute-opt
+  attribute-list ',' attribute-opt
+
+attribute:
+  attribute-name
+  attribute-name '(' ')'
+  attribute-name '(' parameter-list ')'
+
+attribute-name:
+  identifier
+
+parameter-list:
+  identifier
+  identifier ',' expression-list
+  expression-list-opt
+
+expression-list:
+  expression
+  expression-list ',' expression
+
+
+empty:
