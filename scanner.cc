@@ -378,6 +378,7 @@ std::string* ReadFile(const std::string& fileName) {
   int c;
   while (EOF != (c = fgetc(f)))
       text->push_back(c);
+  fclose(f);
   return text;
 }
 

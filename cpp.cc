@@ -787,7 +787,9 @@ std::string* Preprocessor::SearchFile(
     auto fd = openat(dd, name.c_str(), O_RDONLY);
     close(dd);
     if (fd != -1) {
-      close(fd);
+      // Intentional, so that recursive include
+      // will result in running out of file descriptor
+      //close(fd);
       auto path = *iter + name;
       if (next) {
         if (path != curPath)
@@ -803,6 +805,8 @@ std::string* Preprocessor::SearchFile(
           searchPaths_.pop_front();
         return new std::string(path);
       }
+    } else if (errno == EMFILE) {
+      Error("may recursive include");
     }
   }
   return nullptr;
