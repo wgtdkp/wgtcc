@@ -135,13 +135,13 @@ static int RunGcc()
 static void ParseInclude(int argc, char* argv[], int& i)
 {
   if (argv[i][2]) {
-    includePaths.push_back(&argv[i][2]);
+    includePaths.push_front(&argv[i][2]);
     return;
   }
 
   if (i == argc - 1)
     Error("missing argument to '%s'", argv[i]);
-  includePaths.push_back(argv[++i]);
+  includePaths.push_front(argv[++i]);
   gccArgs.push_back(argv[i]);
 }
 

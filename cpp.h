@@ -156,7 +156,7 @@ public:
       bool next,
       const std::string& curPath);
 
-  void AddSearchPath(const std::string& path);
+  void AddSearchPath(std::string path);
   void HandleTheFileMacro(TokenSequence& os, const Token* macro);
   void HandleTheLineMacro(TokenSequence& os, const Token* macro);
   void UpdateFirstTokenLine(TokenSequence ts);
@@ -170,7 +170,7 @@ public:
     auto top = ppCondStack_.top();
     return top.enabled_ && top.cond_;
   }
-
+  
 private:
   void Init();
 
@@ -181,7 +181,7 @@ private:
   bool curCond_;
   
   MacroMap macroMap_;
-  PathList searchPaths_;
+  PathList searchPaths_;  
 };
 
 #endif

@@ -795,6 +795,8 @@ std::string* Preprocessor::SearchFile(
         else
           next = false;
       } else {
+        if (path == curPath)
+          continue;
         if (libHeader && !next)
           searchPaths_.pop_back();
         else
@@ -834,11 +836,11 @@ static std::string* Date()
 void Preprocessor::Init()
 {
   // Preinclude search paths
-  AddSearchPath("/usr/local/wgtcc/include/");
-  AddSearchPath("/usr/include/");
-  AddSearchPath("/usr/include/linux/");
-  AddSearchPath("/usr/include/x86_64-linux-gnu/");
   AddSearchPath("/usr/local/include/");
+  AddSearchPath("/usr/include/x86_64-linux-gnu/");
+  AddSearchPath("/usr/include/linux/");
+  AddSearchPath("/usr/include/");
+  AddSearchPath("/usr/local/wgtcc/include/");
   
   // The __FILE__ and __LINE__ macro is empty
   // They are handled seperately
@@ -896,10 +898,11 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
 }
 
 
-void Preprocessor::AddSearchPath(const std::string& path)
+void Preprocessor::AddSearchPath(std::string path)
 {
   if (path.back() != '/')
-    searchPaths_.push_back(path + "/");
-  else
-    searchPaths_.push_back(path);
+    path += "/";
+  if (path[0] != '/')
+    path = "./" + path;
+  searchPaths_.push_front(path);
 }
