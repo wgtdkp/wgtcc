@@ -258,7 +258,7 @@ void Preprocessor::Process(TokenSequence& os)
 
   // Becareful about the include order, as include file always puts
   // the file to the header of the token sequence
-  auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false);
+  auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false, inFileName);
   if (!wgtccHeaderFile)
     Error("can't find header files, try reinstall wgtcc");
   IncludeFile(is, wgtccHeaderFile);
@@ -649,7 +649,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
     }
     std::string fileName;
     Scanner(tok).ScanLiteral(fileName);
-    auto fullPath = SearchFile(fileName, false, next, tok->loc_.fileName_);
+    auto fullPath = SearchFile(fileName, false, next, *tok->loc_.fileName_);
     if (fullPath == nullptr)
       Error(tok, "%s: No such file or directory", fileName.c_str());
 
@@ -672,7 +672,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
       Error(ls.Peek(), "expect new line");
 
     const auto& fileName = Scanner::ScanHeadName(lhs, rhs);
-    auto fullPath = SearchFile(fileName, true, next, tok->loc_.fileName_);
+    auto fullPath = SearchFile(fileName, true, next, *tok->loc_.fileName_);
     if (fullPath == nullptr) {
       Error(tok, "%s: No such file or directory", fileName.c_str());
     }
@@ -769,54 +769,41 @@ static std::string GetDir(const std::string& path)
 
 std::string* Preprocessor::SearchFile(
     const std::string& name,
-    bool libHeader,
+    const bool libHeader,
     bool next,
-    const std::string* curPath)
+    const std::string& curPath)
 {
-#define RETURN(val) {         \
-  if (curPath)                \
-    searchPaths_.pop_back();  \
-  return (val);               \
-}
+  if (libHeader && !next)
+    searchPaths_.push_back(GetDir(curPath));
+  else
+    searchPaths_.push_front(GetDir(curPath));
 
-  if (curPath) searchPaths_.push_back(GetDir(*curPath));
   PathList::iterator begin, end;
-  if (libHeader && !next) {
-    auto iter = searchPaths_.begin();
-    for (; iter != searchPaths_.end(); iter++) {
-      auto dd = open(iter->c_str(), O_RDONLY);
-      if (dd == -1) // TODO(wgtdkp): or ensure it before preprocessing
-        continue;
-      auto fd = openat(dd, name.c_str(), O_RDONLY);
-      if (fd != -1) {
-        close(fd);
-        RETURN(new std::string(*iter + name));
-      }
-    }
-  } else {
-    auto iter = searchPaths_.rbegin();
-    for (; iter != searchPaths_.rend(); iter++) {
-      auto dd = open(iter->c_str(), O_RDONLY);
-      if (dd == -1) // TODO(wgtdkp): or ensure it before preprocessing
-        continue;
-      auto fd = openat(dd, name.c_str(), O_RDONLY);
-      if (fd != -1) {
-        close(fd);
-        auto path = *iter + name;
-        if (next) {
-          assert(curPath);
-          if (path != *curPath)
-            continue;
-          else 
-            next = false;
-        } else {
-          RETURN(new std::string(path));
-        }
+  auto iter = searchPaths_.begin();
+  for (; iter != searchPaths_.end(); iter++) {
+    auto dd = open(iter->c_str(), O_RDONLY);
+    if (dd == -1) // TODO(wgtdkp): or ensure it before preprocessing
+      continue;
+    auto fd = openat(dd, name.c_str(), O_RDONLY);
+    close(dd);
+    if (fd != -1) {
+      close(fd);
+      auto path = *iter + name;
+      if (next) {
+        if (path != curPath)
+          continue;
+        else
+          next = false;
+      } else {
+        if (libHeader && !next)
+          searchPaths_.pop_back();
+        else
+          searchPaths_.pop_front();
+        return new std::string(path);
       }
     }
   }
-  RETURN(nullptr);
-#undef RETURN
+  return nullptr;
 }
 
 

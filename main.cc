@@ -25,7 +25,7 @@ static bool onlyCompile = false;
 static std::string gccInFileName;
 static std::list<std::string> gccArgs;
 static std::vector<std::string> defines;
-static std::vector<std::string> includePaths;
+static std::list<std::string> includePaths;
 
 
 static void Usage()

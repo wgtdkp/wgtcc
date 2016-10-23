@@ -152,9 +152,9 @@ public:
 
   std::string* SearchFile(
       const std::string& name,
-      bool libHeader,
+      const bool libHeader,
       bool next,
-      const std::string* curPath=nullptr);
+      const std::string& curPath);
 
   void AddSearchPath(const std::string& path);
   void HandleTheFileMacro(TokenSequence& os, const Token* macro);
