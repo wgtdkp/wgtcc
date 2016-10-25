@@ -199,6 +199,29 @@ static void test_func_param() {
     array_func_param_1(p);
 }
 
+
+// See issue: https://github.com/wgtdkp/wgtcc/issues/9
+typedef struct {
+    int i;
+    int j;
+} pair_t;
+
+static int c = 10;
+static int foo(int* i) {
+    return *i;
+}
+
+static pair_t ret_pair(int a) {
+    pair_t pair = {1, 2};
+    return pair;
+}
+
+static void test_func_ret_struct() {
+    ret_pair(foo(&c));
+    expect(10, c);
+}
+
+
 int main() {
     expect(77, t1());
     t2(79);
@@ -222,5 +245,6 @@ int main() {
     test_funcdesg();
     test_return_struct();
     test_func_param();
+    test_func_ret_struct();
     return 0;
 }

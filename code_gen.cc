@@ -1204,31 +1204,11 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
       continue;
     Visit(funcCall->args_[i]);
     Push(funcCall->args_[i]->Type());
-    /*
-    if (locs[i][0] == 'x') {
-      if (locs[i][3] == '0')
-        Emit("movsd #xmm0, #xmm8");
-      else {
-        auto inst = GetInst("mov", types[i]);
-        Emit("%s #xmm0, #%s", inst.c_str(), locs[i].c_str());
-      }
-    } else {
-      // Save %rdx %rcx in temp register
-      if (locs[i] == "rdx") {
-        Emit("movq #rax, #r12");
-      } else if (locs[i] == "rcx") {
-        Emit("movq #rax, #r13");
-      } else {
-        Emit("movq #rax, #%s", locs[i].c_str());
-      }
-    }
-    */
   }
 
   for (const auto& loc: locs) {
-    if (loc[0] == 'm')
-      continue;
-    Pop(loc);
+    if (loc[0] != 'm')
+      Pop(loc);
   }
 
   // If variadic, set %al to floating param number
@@ -1241,14 +1221,6 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 
   Emit("leaq %d(#rbp), #rsp", offset_);
   auto addr = LValGenerator().GenExpr(funcCall->Designator());
-  /*
-  if (locations.xregCnt_ > 0)
-    Emit("movsd #xmm8, #xmm0");
-  if (locations.regCnt_ > 2)
-    Emit("movq #r12, #rdx");
-  if (locations.regCnt_ > 3)
-    Emit("movq #r13, #rcx");
-  */
   if (addr.base_.size() == 0 && addr.offset_ == 0) {
     Emit("call %s", addr.label_.c_str());
   } else {
