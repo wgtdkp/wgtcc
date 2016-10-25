@@ -1167,15 +1167,16 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 
   auto base = offset_;
   // Alloc memory for return value if it is struct/union
+  int retStructOffset;
   auto retType = funcCall->Type()->ToStruct();
   if (retType) {
-    auto offset = offset_;
-    offset -= retType->Width();
-    offset = Type::MakeAlign(offset, retType->Align());
-    Emit("leaq %d(#rbp), #rdi", offset);
-    
-    //Emit("subq $%d, #rsp", offset_ - offset);
-    offset_ = offset;
+    retStructOffset = offset_;
+    retStructOffset -= retType->Width();
+    retStructOffset = Type::MakeAlign(retStructOffset, retType->Align());
+    // No!!! you can't suppose that the 
+    // visition of arguments won't change the value of %rdi
+    //Emit("leaq %d(#rbp), #rdi", offset);
+    offset_ = retStructOffset;
   }
 
   TypeList types;
@@ -1233,6 +1234,9 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
   // If variadic, set %al to floating param number
   if (funcType->Variadic()) {
     Emit("movq $%d, %rax", locations.xregCnt_);
+  }
+  if (retType) {
+    Emit("leaq %d(#rbp), #rdi", retStructOffset);
   }
 
   Emit("leaq %d(#rbp), #rsp", offset_);
