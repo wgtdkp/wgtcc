@@ -456,7 +456,7 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
     case '[': lhs = ParseSubScripting(lhs); break;
     case '(': lhs = ParseFuncCall(lhs); break;
     case Token::PTR: lhs = UnaryOp::New(Token::DEREF, lhs);
-    // Fall through    
+    // Fall through
     case '.': lhs = ParseMemberRef(tok, '.', lhs); break;
     case Token::INC:
     case Token::DEC: lhs = ParsePostfixIncDec(tok, lhs); break;
@@ -1371,11 +1371,11 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
 
     // 解析type specifier/qualifier, 不接受storage等
     int align;
-    auto memberType = ParseDeclSpec(nullptr, nullptr, &align);
+    auto baseType = ParseDeclSpec(nullptr, nullptr, &align);
     do {
-      auto tokTypePair = ParseDeclarator(memberType);
+      auto tokTypePair = ParseDeclarator(baseType);
       auto tok = tokTypePair.first;
-      memberType = tokTypePair.second;
+      auto memberType = tokTypePair.second;
       
       if (ts_.Try(':')) {
         ParseBitField(type, tok, memberType);
@@ -2540,7 +2540,8 @@ CompoundStmt* Parser::ParseDoStmt()
   LabelStmt* defaultLabelBackup = defaultLabel_;  \
   LabelStmt* breakDestBackup = breakDest_;        \
   breakDest_ = breakDest;                         \
-  caseLabels_ = &caseLabels; 
+  caseLabels_ = &caseLabels;                      \
+  defaultLabel_ = nullptr;
 
 #define EXIT_SWITCH_BODY()			    \
   caseLabels_ = caseLabelsBackup;     \
