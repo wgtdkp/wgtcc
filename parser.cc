@@ -2534,8 +2534,8 @@ CompoundStmt* Parser::ParseDoStmt()
 }
 
 
-#define ENTER_SWITCH_BODY(breakDest, caseLabels)    \
-{ 												    \
+#define ENTER_SWITCH_BODY(breakDest, caseLabels)  \
+{ 												                        \
   CaseLabelList* caseLabelsBackup = caseLabels_;  \
   LabelStmt* defaultLabelBackup = defaultLabel_;  \
   LabelStmt* breakDestBackup = breakDest_;        \
@@ -2543,7 +2543,7 @@ CompoundStmt* Parser::ParseDoStmt()
   caseLabels_ = &caseLabels;                      \
   defaultLabel_ = nullptr;
 
-#define EXIT_SWITCH_BODY()			    \
+#define EXIT_SWITCH_BODY()			      \
   caseLabels_ = caseLabelsBackup;     \
   breakDest_ = breakDestBackup;       \
   defaultLabel_ = defaultLabelBackup;	\
