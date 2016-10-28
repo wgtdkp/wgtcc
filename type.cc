@@ -281,8 +281,10 @@ std::string ArithmType::Str() const
 bool PointerType::Compatible(const Type& other) const
 {
   // C11 6.7.6.1 [2]: pointer compatibility
+  // Constraints loosed: pointer and integer are compatible
   auto otherPointer = other.ToPointer();
-  return otherPointer && derived_->Compatible(*otherPointer->derived_);
+  return other.IsInteger() ||
+         (otherPointer && derived_->Compatible(*otherPointer->derived_));
 }
 
 

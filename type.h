@@ -194,6 +194,9 @@ public:
   virtual const ArithmType* ToArithm() const { return this; }
   virtual bool Compatible(const Type& other) const {
     // C11 6.2.7 [1]: Two types have compatible type if their types are the same
+    // But i would to loose this constraints: integer and pointer are compatible
+    if (IsInteger() && other.ToPointer())
+      return other.Compatible(*this);
     return this == &other;
   }
 
