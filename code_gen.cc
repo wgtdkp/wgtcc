@@ -1023,7 +1023,13 @@ void Generator::AllocObjects(Scope* scope, const FuncDef::ParamList& params)
     heap.pop();
 
     offset -= obj->Type()->Width();
-    offset = Type::MakeAlign(offset, obj->Align());
+    auto align = obj->Align();
+    if (obj->Type()->ToArray()) {
+      // The alignment of an array is at least the aligment of a pointer
+      // (as it is always cast to a pointer)
+      align = std::max(align, 8);
+    }
+    offset = Type::MakeAlign(offset, align);
     obj->SetOffset(offset);
   }
 
