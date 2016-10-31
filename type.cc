@@ -145,30 +145,30 @@ int ArithmType::Width() const
   case T_BOOL: case T_CHAR: case T_UNSIGNED | T_CHAR:
     return 1;
   case T_SHORT: case T_UNSIGNED | T_SHORT:
-    return _intWidth >> 1;
+    return intWidth_ >> 1;
   case T_INT: case T_UNSIGNED: case T_UNSIGNED | T_INT:
-    return _intWidth;
+    return intWidth_;
   case T_LONG: case T_UNSIGNED | T_LONG:
-    return _intWidth << 1;
+    return intWidth_ << 1;
   case T_LLONG: case T_UNSIGNED | T_LLONG:
-    return _intWidth << 1;
+    return intWidth_ << 1;
   case T_FLOAT:
-    return _intWidth;
+    return intWidth_;
   case T_DOUBLE:
-    return _intWidth << 1;
+    return intWidth_ << 1;
   case T_LONG | T_DOUBLE:
-    return _intWidth << 1;
+    return intWidth_ << 1;
   case T_FLOAT | T_COMPLEX:
-    return _intWidth << 1;
+    return intWidth_ << 1;
   case T_DOUBLE | T_COMPLEX:
-    return _intWidth << 2;
+    return intWidth_ << 2;
   case T_LONG | T_DOUBLE | T_COMPLEX:
-    return _intWidth << 2;
+    return intWidth_ << 2;
   default:
     assert(false);
   }
 
-  return _intWidth; // Make compiler happy
+  return intWidth_; // Make compiler happy
 }
 
 

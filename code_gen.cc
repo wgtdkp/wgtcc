@@ -1027,7 +1027,7 @@ void Generator::AllocObjects(Scope* scope, const FuncDef::ParamList& params)
     if (obj->Type()->ToArray()) {
       // The alignment of an array is at least the aligment of a pointer
       // (as it is always cast to a pointer)
-      align = std::max(align, 8);
+      align = std::max(align, );
     }
     offset = Type::MakeAlign(offset, align);
     obj->SetOffset(offset);

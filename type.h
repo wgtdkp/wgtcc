@@ -90,7 +90,8 @@ private:
 class Type
 {
 public:
-  static const int _intWidth = 4;
+  static const int intWidth_ = 4;
+  static const int machineWidth_ = 8;
 
   bool operator!=(const Type& other) const = delete;
   bool operator==(const Type& other) const = delete;
