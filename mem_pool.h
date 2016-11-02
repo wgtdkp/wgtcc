@@ -51,15 +51,15 @@ private:
   };
   
   union Chunk {
-    Chunk* _next;
+    Chunk* next_;
     char _mem[sizeof(T)];
   };
   
   struct Block {
     Block() {
       for (size_t i = 0; i < COUNT - 1; i++)
-        chunks_[i]._next = &chunks_[i+1];
-      chunks_[COUNT-1]._next = nullptr;
+        chunks_[i].next_ = &chunks_[i+1];
+      chunks_[COUNT-1].next_ = nullptr;
     }
     Chunk chunks_[COUNT];
   };
@@ -83,7 +83,7 @@ void* MemPoolImp<T>::Alloc()
   }
   
   auto ret = root_;
-  root_ = root_->_next;
+  root_ = root_->next_;
 
   ++allocated_;
   return ret;
@@ -97,7 +97,7 @@ void MemPoolImp<T>::Free(void* addr)
     return;
 
   auto chunk = static_cast<Chunk*>(addr);
-  chunk->_next = root_;
+  chunk->next_ = root_;
   root_ = chunk;
 
   --allocated_;
