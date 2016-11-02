@@ -180,7 +180,7 @@ int main(int argc, char* argv[])
   // Preprocessing
   //Preprocessor cpp(&inFileName);
   
-  for (auto i = 1; i < argc; i++) {
+  for (auto i = 1; i < argc; ++i) {
     if (argv[i][0] != '-') {
       inFileName = std::string(argv[i]);
       ValidateFileName(inFileName);

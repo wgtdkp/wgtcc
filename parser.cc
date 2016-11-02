@@ -32,7 +32,7 @@ void Parser::ExitFunc() {
   // Resolve 那些待定的jump；
   // 如果有jump无法resolve，也就是有未定义的label，报错；
   for (auto iter = unresolvedJumps_.begin();
-      iter != unresolvedJumps_.end(); iter++) {
+       iter != unresolvedJumps_.end(); ++iter) {
     auto label = iter->first;
     auto labelStmt = FindLabel(label->str_);
     if (labelStmt == nullptr) {
@@ -2585,7 +2585,7 @@ CompoundStmt* Parser::ParseSwitchStmt()
   stmts.push_back(testLabel);
 
   for (auto iter = caseLabels.begin();
-      iter != caseLabels.end(); iter++) {
+       iter != caseLabels.end(); ++iter) {
     auto cond = BinaryOp::New(tok, Token::EQ, t, iter->first);
     auto then = JumpStmt::New(iter->second);
     auto ifStmt = IfStmt::New(cond, then, nullptr);

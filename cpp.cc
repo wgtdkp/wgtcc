@@ -780,7 +780,7 @@ std::string* Preprocessor::SearchFile(
 
   PathList::iterator begin, end;
   auto iter = searchPaths_.begin();
-  for (; iter != searchPaths_.end(); iter++) {
+  for (; iter != searchPaths_.end(); ++iter) {
     auto dd = open(iter->c_str(), O_RDONLY);
     if (dd == -1) // TODO(wgtdkp): or ensure it before preprocessing
       continue;

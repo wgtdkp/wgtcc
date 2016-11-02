@@ -102,7 +102,7 @@ void Scope::Print()
   std::cout << "scope: " << this << std::endl;
 
   auto iter = identMap_.begin();
-  for (; iter != identMap_.end(); iter++) {
+  for (; iter != identMap_.end(); ++iter) {
     auto name = iter->first;
     auto ident = iter->second;
     if (ident->ToTypeName()) {

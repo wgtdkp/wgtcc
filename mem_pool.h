@@ -57,7 +57,7 @@ private:
   
   struct Block {
     Block() {
-      for (size_t i = 0; i < COUNT - 1; i++)
+      for (size_t i = 0; i < COUNT - 1; ++i)
         chunks_[i].next_ = &chunks_[i+1];
       chunks_[COUNT-1].next_ = nullptr;
     }

@@ -87,7 +87,7 @@ static ParamClass Classify(Type* paramType, int offset=0)
 
   std::vector<ParamClass> classes;
   int cnt = (type->Width() + 7) / 8;
-  for (int i = 0; i < cnt; i++) {
+  for (int i = 0; i < cnt; ++i) {
     auto  types = FieldsIn8Bytes(type, i);
     assert(types.size() > 0);
     
@@ -98,7 +98,7 @@ static ParamClass Classify(Type* paramType, int offset=0)
   }
 
   bool sawX87 = false;
-  for (int i = 0; i < classes.size(); i++) {
+  for (int i = 0; i < classes.size(); ++i) {
     if (classes[i] == PC_MEMORY)
       return PC_MEMORY;
     if (classes[i] == PC_X87_UP && sawX87)
@@ -1009,7 +1009,7 @@ void Generator::AllocObjects(Scope* scope, const FuncDef::ParamList& params)
 
   auto paramSet = std::set<Object*>(params.begin(), params.end());
   std::priority_queue<Object*, std::vector<Object*>, Comp> heap;
-  for (auto iter = scope->begin(); iter != scope->end(); iter++) {
+  for (auto iter = scope->begin(); iter != scope->end(); ++iter) {
     auto obj = iter->second->ToObject();
     if (!obj || obj->IsStatic())
       continue;
@@ -1027,7 +1027,7 @@ void Generator::AllocObjects(Scope* scope, const FuncDef::ParamList& params)
     if (obj->Type()->ToArray()) {
       // The alignment of an array is at least the aligment of a pointer
       // (as it is always cast to a pointer)
-      align = std::max(align, );
+      align = std::max(align, 8);
     }
     offset = Type::MakeAlign(offset, align);
     obj->SetOffset(offset);
@@ -1300,7 +1300,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     int regOffset = offset_;
     int xregOffset = offset_ + 48;
     int byMemOffset = 16;
-    for (size_t i = 0; i < locs.size(); i++) {
+    for (size_t i = 0; i < locs.size(); ++i) {
       if (locs[i][0] == 'm') {
         params[i]->SetOffset(byMemOffset);
         //byMemOffset += 8;
@@ -1320,7 +1320,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     if (retStruct)
       retAddrOffset_ = Push("rdi");
     int byMemOffset = 16;
-    for (size_t i = 0; i < locs.size(); i++) {
+    for (size_t i = 0; i < locs.size(); ++i) {
       if (locs[i][0] == 'm') {
         params[i]->SetOffset(byMemOffset);
         //byMemOffset += 8;

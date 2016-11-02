@@ -332,7 +332,7 @@ std::string FuncType::Str() const
 {
   auto str = derived_->Str() + "(";
   auto iter = params_.begin();
-  for (; iter != params_.end(); iter++) {
+  for (; iter != params_.end(); ++iter) {
     str += (*iter)->Type()->Str() + ", ";
   }
   if (variadic_)
@@ -366,7 +366,7 @@ void StructType::CalcWidth()
 {
   width_ = 0;
   auto iter = memberMap_->identMap_.begin();
-  for (; iter != memberMap_->identMap_.end(); iter++) {
+  for (; iter != memberMap_->identMap_.end(); ++iter) {
     width_ += iter->second->Type()->Width();
   }
 }

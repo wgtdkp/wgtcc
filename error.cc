@@ -60,7 +60,7 @@ static void VError(const SourceLocation& loc, const char* format, va_list args)
   }
   
   fprintf(stderr, "\n    ");
-  for (unsigned i = 1; i + nspaces < loc.column_; i++)
+  for (unsigned i = 1; i + nspaces < loc.column_; ++i)
     fputc(' ', stderr);
   fprintf(stderr, ANSI_COLOR_GREEN "^\n");
   exit(-1);	
