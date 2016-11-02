@@ -12,13 +12,13 @@
 
 /***************** Type *********************/
 
-static MemPoolImp<VoidType>         voidTypePool;
-static MemPoolImp<ArrayType>        arrayTypePool;
-static MemPoolImp<FuncType>         funcTypePool;
-static MemPoolImp<PointerType>      pointerTypePool;
-static MemPoolImp<StructType>  structUnionTypePool;
-static MemPoolImp<ArithmType>       arithmTypePool;
-static MemPoolImp<EnumType>         enumTypePool;
+static MemPoolImp<VoidType>     voidTypePool;
+static MemPoolImp<ArrayType>    arrayTypePool;
+static MemPoolImp<FuncType>     funcTypePool;
+static MemPoolImp<PointerType>  pointerTypePool;
+static MemPoolImp<StructType>   structUnionTypePool;
+static MemPoolImp<ArithmType>   arithmTypePool;
+static MemPoolImp<EnumType>     enumTypePool;
 
 
 Type* Type::MayCast(Type* type)
