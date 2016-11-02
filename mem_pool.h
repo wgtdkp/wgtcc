@@ -52,7 +52,7 @@ private:
   
   union Chunk {
     Chunk* next_;
-    char _mem[sizeof(T)];
+    char mem_[sizeof(T)];
   };
   
   struct Block {
