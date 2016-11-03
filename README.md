@@ -1,4 +1,4 @@
-# wgtcc
+# wgtcc [![Build Status](https://travis-ci.org/wgtdkp/wgtcc.svg?branch=master)](https://travis-ci.org/wgtdkp/wgtcc)
 a small C11 compiler in C++11
 
 ## ENVIRONMENT
