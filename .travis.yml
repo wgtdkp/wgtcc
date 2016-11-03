@@ -13,3 +13,4 @@ install:
 
 script: 
   - $CXX --version
+  - make && make test
