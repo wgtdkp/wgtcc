@@ -33,19 +33,19 @@ static void test_if() {
 static void test_for() {
     int i;
     int acc = 0;
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < 5; ++i) {
         acc = acc + i;
     }
     expect(10, acc);
     
     acc = 0;
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < 5; ++i) {
         acc = acc + i;
     }
     expect(10, acc);
     
     acc = 0;
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 100; ++i) {
         if (i < 5) continue;
         if (i == 9) break;
         acc += i;
@@ -58,7 +58,7 @@ static void test_for() {
 
     for (;;)
         break;
-    for (i = 0; i < 100; i++)
+    for (i = 0; i < 100; ++i)
         ;
 
     i = 0;

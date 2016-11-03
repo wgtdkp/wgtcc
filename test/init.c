@@ -4,12 +4,12 @@
 #include "test.h"
 
 static void verify(int *expected, int *got, int len) {
-    for (int i = 0; i < len; i++)
+    for (int i = 0; i < len; ++i)
         expect(expected[i], got[i]);
 }
 
 static void verify_short(short *expected, short *got, int len) {
-    for (int i = 0; i < len; i++)
+    for (int i = 0; i < len; ++i)
         expect(expected[i], got[i]);
 }
 

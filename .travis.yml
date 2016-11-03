@@ -1,9 +1,17 @@
-language: C++
-rvm:
-    5.4.0
-    g++
+language: cpp
 
-install: true
-script:
-    make all
-    make test
+compiler:
+  - g++
+
+before_install:
+  # g++5.4.0
+  - if [ "$CXX" == "g++" ]; then sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test; fi
+  - sudo apt-get update -qq
+
+install:
+  # g++5.4.0
+  - if [ "$CXX" = "g++" ]; then sudo apt-get install -qq g++-5.4; fi
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-5.4"; fi
+
+script: 
+  - $CXX --version

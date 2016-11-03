@@ -9,6 +9,8 @@ SRCS = main.cc  token.cc ast.cc scope.cc type.cc cpp.cc		\
 CFLAGS = -g -std=c++11 -Wall -DDEBUG
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cc=.o))
 
+default: all
+
 install:
 	@sudo mkdir -p /usr/local/wgtcc
 	@sudo cp -r ./include /usr/local/wgtcc
