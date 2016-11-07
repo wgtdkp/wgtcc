@@ -107,7 +107,7 @@ public:
     if (!obj->IsStatic()) {
       Error(obj, "expect static object");
     }
-    addr_.label_ = obj->Label();
+    addr_.label_ = obj->Repr();
     addr_.offset_ = 0;
   }
 

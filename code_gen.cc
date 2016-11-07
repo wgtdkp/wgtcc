@@ -40,13 +40,13 @@ FuncDef* Generator::curFunc_ = nullptr;
  */
 
 static std::vector<const char*> regs {
-  "rdi", "rsi", "rdx",
-  "rcx", "r8", "r9"
+  "%rdi", "%rsi", "%rdx",
+  "%rcx", "%r8", "%r9"
 };
 
 static std::vector<const char*> xregs {
-  "xmm0", "xmm1", "xmm2", "xmm3",
-  "xmm4", "xmm5", "xmm6", "xmm7"
+  "%xmm0", "%xmm1", "%xmm2", "%xmm3",
+  "%xmm4", "%xmm5", "%xmm6", "%xmm7"
 };
 
 static ParamClass Classify(Type* paramType, int offset=0)
@@ -168,35 +168,35 @@ static std::string GetInst(const std::string& inst, Type* type)
 }
 
 
-static const char* GetReg(int width)
+static std::string GetReg(int width)
 {
   switch (width) {
-  case 1: return "al";
-  case 2: return "ax";
-  case 4: return "eax";
-  case 8: return "rax";
-  default: assert(false); return nullptr;
+  case 1: return "%al";
+  case 2: return "%ax";
+  case 4: return "%eax";
+  case 8: return "%rax";
+  default: assert(false); return "";
   }
 }
 
-static const char* GetDes(int width, bool flt)
+static std::string GetDes(int width, bool flt)
 {
   if (flt) {
-    return "xmm0";
+    return "%xmm0";
   }
   return GetReg(width);
 }
 
-static const char* GetSrc(int width, bool flt)
+static std::string GetSrc(int width, bool flt)
 {
   if (flt) {
-    return "xmm9";
+    return "%xmm9";
   }
   switch (width) {
-  case 1: return "r11b";
-  case 2: return "r11w";
-  case 4: return "r11d";
-  case 8: return "r11";
+  case 1: return "%r11b";
+  case 2: return "%r11w";
+  case 4: return "%r11d";
+  case 8: return "%r11";
   default: assert(false); return "";
   }
 }
@@ -206,8 +206,8 @@ static const char* GetSrc(int width, bool flt)
 int Generator::Push(const std::string& reg)
 {
   offset_ -= 8;
-  auto mov = reg[0] == 'x' ? "movsd": "movq";
-  Emit("%s #%s, %d(#rbp)", mov, reg.c_str(), offset_);
+  auto mov = reg[1] == 'x' ? "movsd": "movq";
+  Emit(mov, reg, ObjectAddr(offset_));
   return offset_;
 }
 
@@ -215,13 +215,13 @@ int Generator::Push(const std::string& reg)
 int Generator::Push(const Type* type)
 {
   if (type->IsFloat()) {
-    return Push("xmm0");
+    return Push("%xmm0");
   } else if (type->IsScalar()) {
-    return Push("rax");
+    return Push("%rax");
   } else {
     offset_ -= type->Width();
     offset_ = Type::MakeAlign(offset_, 8);
-    CopyStruct({"", "rbp", offset_}, type->Width());
+    CopyStruct({"", "%rbp", offset_}, type->Width());
     return offset_;
   }
 }
@@ -230,8 +230,8 @@ int Generator::Push(const Type* type)
 // The 'reg' must be 8 bytes
 int Generator::Pop(const std::string& reg)
 {
-  auto mov = reg[0] == 'x' ? "movsd": "movq";
-  Emit("%s %d(#rbp), #%s", mov, offset_, reg.c_str());
+  auto mov = reg[1] == 'x' ? "movsd": "movq";
+  Emit(mov, ObjectAddr(offset_), reg);
   offset_ += 8;
   return offset_;
 }
@@ -239,16 +239,16 @@ int Generator::Pop(const std::string& reg)
 
 void Generator::Spill(bool flt)
 {
-  Push(flt ? "xmm0": "rax");
+  Push(flt ? "%xmm0": "%rax");
 }
 
 
 void Generator::Restore(bool flt)
 {
-  auto src = GetSrc(8, flt);
-  auto des = GetDes(8, flt);
-  auto inst = GetInst("mov", 8, flt);
-  Emit("%s #%s, #%s", inst.c_str(), des, src);
+  const auto& src = GetSrc(8, flt);
+  const auto& des = GetDes(8, flt);
+  const auto& inst = GetInst("mov", 8, flt);
+  Emit(inst, des, src);
   Pop(des);
 }
 
@@ -256,9 +256,11 @@ void Generator::Restore(bool flt)
 void Generator::Save(bool flt)
 {
   if (flt) {        
-    Emit("movsd #xmm0, #xmm9");
+    //Emit("movsd #xmm0, #xmm9");
+    Emit("movsd %xmm0, %xmm9");
   } else {
-    Emit("movq #rax, #r11");
+    //Emit("movq #rax, #r11");
+    Emit("movq %rax, %r11");
   }
 }
 
@@ -347,13 +349,11 @@ void Generator::VisitBinaryOp(BinaryOp* binary)
   case '^': inst = "xor"; break;
   case Token::LEFT: case Token::RIGHT:
     inst = op == Token::LEFT ? "sal": (sign ? "sar": "shr");
-    Emit("movq #r11, #rcx");
-    Emit("%s #cl, #%s", GetInst(inst, width, flt).c_str(),
-        GetDes(width, flt));
+    Emit("movq %r11, %rcx");
+    Emit(GetInst(inst, width, flt), "%cl", GetDes(width, flt));
     return;
   }
-  Emit("%s #%s, #%s", GetInst(inst, width, flt).c_str(),
-      GetSrc(width, flt), GetDes(width, flt));
+  Emit(GetInst(inst, width, flt), GetSrc(width, flt), GetDes(width, flt));
 }
 
 
@@ -369,9 +369,9 @@ void Generator::GenMulOp(int width, bool flt, bool sign)
   auto inst = flt ? "mul": (sign ? "imul": "mul");
   
   if (flt) {
-    Emit("%s #xmm9, #xmm0", GetInst(inst, width, flt).c_str());
+    Emit(GetInst(inst, width, flt), "%xmm9", "%xmm0");
   } else {
-    Emit("%s #%s", GetInst(inst, width, flt).c_str(), GetSrc(width, flt));
+    Emit(GetInst(inst, width, flt), GetSrc(width, flt));
   }
 }
 
@@ -382,11 +382,11 @@ void Generator::GenCompZero(Type* type)
   auto flt = type->IsFloat();
   
   if (!flt) {
-    Emit("cmp $0, #%s", GetReg(width));
+    Emit("cmp", "$0", GetReg(width));
   } else {
-    Emit("pxor #xmm9, #xmm9");
+    Emit("pxor", "%xmm9", "%xmm9");
     auto cmp = width == 8 ? "ucomisd": "ucomiss";
-    Emit("%s #xmm9, #xmm0", cmp);
+    Emit(cmp, "%xmm9", "%xmm0");
   }
 }
 
@@ -397,19 +397,19 @@ void Generator::GenAndOp(BinaryOp* andOp)
   GenCompZero(andOp->lhs_->Type());
 
   auto labelFalse = LabelStmt::New();
-  Emit("je %s", labelFalse->Label().c_str());
+  Emit("je", labelFalse);
 
   VisitExpr(andOp->rhs_);
   GenCompZero(andOp->rhs_->Type());
 
-  Emit("je %s", labelFalse->Label().c_str());
+  Emit("je", labelFalse);
   
-  Emit("movq $1, #rax");
+  Emit("movq", "$1", "%rax");
   auto labelTrue = LabelStmt::New();
-  Emit("jmp %s", labelTrue->Label().c_str());
-  EmitLabel(labelFalse->Label());
-  Emit("xorq #rax, #rax"); // Set %rax to 0
-  EmitLabel(labelTrue->Label());
+  Emit("jmp", labelTrue);
+  EmitLabel(labelFalse->Repr());
+  Emit("xorq", "%rax", "%rax"); // Set %rax to 0
+  EmitLabel(labelTrue->Repr());
 }
 
 
@@ -419,19 +419,19 @@ void Generator::GenOrOp(BinaryOp* orOp)
   GenCompZero(orOp->lhs_->Type());
 
   auto labelTrue = LabelStmt::New();
-  Emit("jne %s", labelTrue->Label().c_str());
+  Emit("jne", labelTrue);
 
   VisitExpr(orOp->rhs_);
   GenCompZero(orOp->rhs_->Type());
 
-  Emit("jne %s", labelTrue->Label().c_str());
+  Emit("jne", labelTrue);
   
-  Emit("xorq #rax, #rax"); // Set %rax to 0
+  Emit("xorq", "%rax", "%rax"); // Set %rax to 0
   auto labelFalse = LabelStmt::New();
-  Emit("jmp %s", labelFalse->Label().c_str());
-  EmitLabel(labelTrue->Label());
-  Emit("movq $1, #rax");
-  EmitLabel(labelFalse->Label());    
+  Emit("jmp", labelFalse);
+  EmitLabel(labelTrue->Repr());
+  Emit("movq", "$1", "%rax");
+  EmitLabel(labelFalse->Repr());    
 }
 
 
@@ -446,7 +446,7 @@ void Generator::GenMemberRefOp(BinaryOp* ref)
   addr.offset_ += member->Offset();
 
   if (!ref->Type()->IsScalar()) {
-    Emit("leaq %s, #rax", addr.Repr().c_str());
+    Emit("leaq", addr, "%rax");
   } else {
     if (member->BitFieldWidth()) {
       EmitLoadBitField(addr.Repr(), member);
@@ -463,13 +463,13 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField)
   assert(type && type->IsInteger());
 
   EmitLoad(addr, type);
-  Emit("andq $%lu, #rax", Object::BitFieldMask(bitField));
+  Emit("andq", Object::BitFieldMask(bitField), "%rax");
 
   auto shiftRight = (type->Tag() & T_UNSIGNED) ? "shrq": "sarq";    
   auto left = 64 - bitField->bitFieldBegin_ - bitField->bitFieldWidth_;
   auto right = 64 - bitField->bitFieldWidth_;
-  Emit("salq $%d, #rax", left);
-  Emit("%s $%d, #rax", shiftRight, right);
+  Emit("salq", left, "%rax");
+  Emit(shiftRight, right, "%rax");
 }
 
 // FIXME(wgtdkp): for combined assignment operator, if the rvalue expr
@@ -480,10 +480,10 @@ void Generator::GenAssignOp(BinaryOp* assign)
   auto addr = LValGenerator().GenExpr(assign->lhs_);
   // Base register of static object maybe %rip
   // Visit rhs_ may changes r10
-  if (addr.base_ == "r10")
+  if (addr.base_ == "%r10")
     Push(addr.base_);
   VisitExpr(assign->rhs_);
-  if (addr.base_ == "r10")
+  if (addr.base_ == "%r10")
     Pop(addr.base_);
 
   if (assign->Type()->IsScalar()) {
@@ -504,12 +504,12 @@ void Generator::EmitStoreBitField(const ObjectAddr& addr, Type* type)
   // The value to be stored is in %rax now
   auto mask = Object::BitFieldMask(addr.bitFieldBegin_, addr.bitFieldWidth_);
 
-  Emit("salq $%d, #rax", addr.bitFieldBegin_);
-  Emit("andq $%lu, #rax", mask);
-  Emit("movq #rax, #r11");
+  Emit("salq", addr.bitFieldBegin_, "%rax");
+  Emit("andq", mask, "%rax");
+  Emit("movq", "%rax", "%r11");
   EmitLoad(addr.Repr(), arithmType);
-  Emit("andq $%lu, #rax", ~mask);
-  Emit("orq #r11, #rax");
+  Emit("andq", ~mask, "%rax");
+  Emit("orq", "%r11", "%rax");
 
   EmitStore(addr.Repr(), type);
 }
@@ -518,8 +518,8 @@ void Generator::EmitStoreBitField(const ObjectAddr& addr, Type* type)
 void Generator::CopyStruct(ObjectAddr desAddr, int width)
 {
   int units[] = {8, 4, 2, 1};
-  Emit("movq #rax, #rcx");
-  ObjectAddr srcAddr = {"", "rcx", 0};
+  Emit("movq", "%rax", "%rcx");
+  ObjectAddr srcAddr = {"", "%rcx", 0};
   for (auto unit: units) {
     while (width >= unit) {
       EmitLoad(srcAddr.Repr(), unit, false);
@@ -541,9 +541,9 @@ void Generator::GenCompOp(int width, bool flt, const char* set)
     cmp = GetInst("cmp", width, flt);
   }
 
-  Emit("%s #%s, #%s", cmp.c_str(), GetSrc(width, flt), GetDes(width, flt));
-  Emit("%s #al", set);
-  Emit("movzbq #al, #rax");
+  Emit(cmp, GetSrc(width, flt), GetDes(width, flt));
+  Emit(set, "%al");
+  Emit("movzbq", "%al", "%rax");
 }
 
 
@@ -551,18 +551,18 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op)
 {
   if (flt) {
     auto inst = width == 4 ? "divss": "divsd";
-    Emit("%s #xmm9, #xmm0", inst);
+    Emit(inst, "%xmm9", "%xmm0");
     return;
   }
   if (!sign) {
-    Emit("xor #rdx, #rdx");
-    Emit("%s #%s", GetInst("div", width, flt).c_str(), GetSrc(width, flt));
+    Emit("xor", "%rdx", "%rdx");
+    Emit(GetInst("div", width, flt), GetSrc(width, flt));
   } else {
     Emit(width == 4 ? "cltd": "cqto");
-    Emit("%s #%s", GetInst("idiv", width, flt).c_str(), GetSrc(width, flt));      
+    Emit(GetInst("idiv", width, flt), GetSrc(width, flt));      
   }
   if (op == '%')
-    Emit("mov #rdx, #rax");
+    Emit("movq", "%rdx", "%rax");
 }
 
  
@@ -580,12 +580,12 @@ void Generator::GenPointerArithm(BinaryOp* binary)
   auto width = type->Width();
   if (binary->op_ == '+') {
     if (width > 1)
-      Emit("imulq $%d, #r11", width);
-    Emit("addq #r11, #rax");
+      Emit("imulq", width, "%r11");
+    Emit("addq", "%r11", "%rax");
   } else {
-    Emit("subq #r11, #rax");
+    Emit("subq", "%r11", "%rax");
     if (width > 1) {
-      Emit("movq $%d, #r11", width);
+      Emit("movq", width, "%r11");
       GenDivOp(false, true, 8, '/');
     }
   }
@@ -600,7 +600,7 @@ void Generator::VisitObject(Object* obj)
 
   if (!obj->Type()->IsScalar()) {
     // Return the address of the object in rax
-    Emit("leaq %s, #rax", addr.c_str());
+    Emit("leaq", addr, "%rax");
   } else {
     EmitLoad(addr, obj->Type());
   }
@@ -615,28 +615,27 @@ void Generator::GenCastOp(UnaryOp* cast)
   if (srcType->IsFloat() && desType->IsFloat()) {
     if (srcType->Width() == desType->Width())
       return;
-    const char* inst = srcType->Width() == 4 ? "cvtss2sd": "cvtsd2ss";
-    Emit("%s #xmm0, #xmm0", inst);
+    auto inst = srcType->Width() == 4 ? "cvtss2sd": "cvtsd2ss";
+    Emit(inst, "%xmm0", "%xmm0");
   } else if (srcType->IsFloat()) {
     // Handle bool
     if (desType->IsBool()) {
-      Emit("pxor #xmm9, #xmm9");
+      Emit("pxor", "%xmm9", "%xmm9");
       GenCompOp(srcType->Width(), true, "setne");
     } else {
-      const char* inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
-      Emit("%s #xmm0, #rax", inst);
+      auto inst = srcType->Width() == 4 ? "cvttss2si": "cvttsd2si";
+      Emit(inst, "%xmm0", "%rax");
     }
   } else if (desType->IsFloat()) {
-    const char* inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
-    Emit("%s #rax, #xmm0", inst);
+    auto inst = desType->Width() == 4 ? "cvtsi2ss": "cvtsi2sd";
+    Emit(inst, "%rax", "%xmm0");
   } else if (srcType->ToPointer()
       || srcType->ToFunc()
       || srcType->ToArray()) {
-    // Do nothing
     // Handle bool
     if (desType->IsBool()) {
-      Emit("testq #rax, #rax");
-      Emit("setne #al");
+      Emit("testq", "%rax", "%rax");
+      Emit("setne", "%al");
     }
   } else {
     assert(srcType->ToArithm());
@@ -646,11 +645,11 @@ void Generator::GenCastOp(UnaryOp* cast)
     switch (width) {
     case 1:
       inst = sign ? "movsbq": "movzbq";
-      Emit("%s #%s, #rax", inst, GetReg(width));
+      Emit(inst, GetReg(width), "%rax");
       break;
     case 2:
       inst = sign ? "movswq": "movzwq";
-      Emit("%s #%s, #rax", inst, GetReg(width));
+      Emit(inst, GetReg(width), "%rax");
       break;
     case 4: inst = "movl"; 
       if (desType->Width() == 8)
@@ -660,8 +659,8 @@ void Generator::GenCastOp(UnaryOp* cast)
     }
     // Handle bool
     if (desType->IsBool()) {
-      Emit("testq #rax, #rax");
-      Emit("setne #al");
+      Emit("testq", "%rax", "%rax");
+      Emit("setne", "%al");
     }
   }
 }
@@ -681,7 +680,7 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
     return GenIncDec(unary->operand_, true, "sub");
   case Token::ADDR: {
     auto addr = LValGenerator().GenExpr(unary->operand_).Repr();
-    Emit("leaq %s, #rax", addr.c_str());
+    Emit("leaq", addr, "%rax");
   } return;
   case Token::DEREF:
     return GenDerefOp(unary);
@@ -691,12 +690,12 @@ void Generator::VisitUnaryOp(UnaryOp* unary)
     return GenMinusOp(unary);
   case '~':
     VisitExpr(unary->operand_);
-    return Emit("notq #rax");
+    return Emit("notq", "%rax");
   case '!':
     VisitExpr(unary->operand_);
     GenCompZero(unary->operand_->Type());
-    Emit("sete #al");
-    Emit("movzbl #al, #eax"); // type of !operator is int
+    Emit("sete", "%al");
+    Emit("movzbl", "%al", "%eax"); // type of !operator is int
     return;
   case Token::CAST:
     Visit(unary->operand_);
@@ -711,7 +710,7 @@ void Generator::GenDerefOp(UnaryOp* deref)
 {
   VisitExpr(deref->operand_);
   if (deref->Type()->IsScalar()) {
-    ObjectAddr addr {"", "rax", 0};
+    ObjectAddr addr {"", "%rax", 0};
     EmitLoad(addr.Repr(), deref->Type());
   } else {
     // Just let it go!
@@ -727,11 +726,11 @@ void Generator::GenMinusOp(UnaryOp* minus)
   VisitExpr(minus->operand_);
 
   if (flt) {
-    Emit("pxor #xmm9, #xmm9");
-    Emit("%s #xmm0, #xmm9", GetInst("sub", width, flt).c_str());
-    Emit("%s #xmm9, #xmm0", GetInst("mov", width, flt).c_str());
+    Emit("pxor", "%xmm9", "%xmm9");
+    Emit(GetInst("sub", width, flt), "%xmm0", "%xmm9");
+    Emit(GetInst("mov", width, flt), "%xmm9", "%xmm0");
   } else {
-    Emit("%s #%s", GetInst("neg", width, flt).c_str(), GetDes(width, flt));
+    Emit(GetInst("neg", width, flt), GetDes(width, flt));
   }
 }
 
@@ -758,12 +757,14 @@ void Generator::GenIncDec(Expr* operand, bool postfix, const std::string& inst)
     else
       cons = Constant::New(operand->Tok(), T_DOUBLE, 1.0);
   }
-  auto consLabel = ConsLabel(cons);
 
-  auto addSub = GetInst(inst, operand->Type());    
-  Emit("%s %s, #%s", addSub.c_str(), consLabel.c_str(), GetDes(width, flt));
+  Emit(GetInst(inst, operand->Type()), ConsLabel(cons), GetDes(width, flt));
   EmitStore(addr, operand->Type());
-  if (postfix) Emit(flt ? "movsd #xmm9, #xmm0": "movq #r11, #rax");
+  if (postfix && flt) {
+    Emit("movsd", "%xmm9", "%xmm0");
+  } else if (postfix) {
+    Emit("mov", "%r11", "%rax");
+  }
 }
 
 
@@ -788,7 +789,7 @@ void Generator::VisitEnumerator(Enumerator* enumer)
 void Generator::VisitIdentifier(Identifier* ident)
 {
   EmitLoc(ident);
-  Emit("leaq %s, #rax", ident->Name().c_str());
+  Emit("leaq", ident->Name(), "%rax");
 }
 
 
@@ -798,13 +799,13 @@ void Generator::VisitConstant(Constant* cons)
   auto label = ConsLabel(cons);
 
   if (!cons->Type()->IsScalar()) {
-    Emit("leaq %s, #rax", label.c_str());
+    Emit("leaq", label, "%rax");
   } else {
     auto width = cons->Type()->Width();
     auto flt = cons->Type()->IsFloat();
     auto load = GetInst("mov", width, flt);
     auto des = GetDes(width, flt);
-    Emit("%s %s, #%s", load.c_str(), label.c_str(), des);
+    Emit(load, label, des);
   }
 }
 
@@ -815,8 +816,7 @@ void Generator::VisitConstant(Constant* cons)
 void Generator::VisitTempVar(TempVar* tempVar)
 {
   assert(tempVar->Type()->IsInteger());
-
-  Emit("movl #ecx, #eax");
+  Emit("movl", "%ecx", "%eax");
 }
 
 
@@ -835,11 +835,11 @@ void Generator::VisitDeclaration(Declaration* decl)
 
     int lastEnd = obj->Offset();
     for (const auto& init: decl->Inits()) {
-      ObjectAddr addr = {"", "rbp", obj->Offset() + init.offset_};
+      ObjectAddr addr = ObjectAddr(obj->Offset() + init.offset_);
       addr.bitFieldBegin_ = init.bitFieldBegin_;
       addr.bitFieldWidth_ = init.bitFieldWidth_;
       if (lastEnd != addr.offset_)
-        EmitZero({"", "rbp", lastEnd}, addr.offset_ - lastEnd);
+        EmitZero(ObjectAddr(lastEnd), addr.offset_ - lastEnd);
       VisitExpr(init.expr_);
       if (init.type_->IsScalar()) {
         EmitStore(addr, init.type_);
@@ -852,7 +852,7 @@ void Generator::VisitDeclaration(Declaration* decl)
     }
     auto objEnd = obj->Offset() + obj->Type()->Width();
     if (lastEnd != objEnd)
-      EmitZero({"", "rbp", lastEnd}, objEnd - lastEnd);
+      EmitZero(ObjectAddr(lastEnd), objEnd - lastEnd);
     return;
   }
 
@@ -868,7 +868,7 @@ void Generator::GenStaticDecl(Declaration* decl)
   auto obj = decl->obj_;
   assert(obj->IsStatic());
 
-  const auto& label = obj->Label();
+  const auto& label = obj->Repr();
   const auto width = obj->Type()->Width();
   const auto align = obj->Align();
 
@@ -878,18 +878,19 @@ void Generator::GenStaticDecl(Declaration* decl)
   
   Emit(".data");
   auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
-  Emit("%s %s", glb, label.c_str());
+  Emit(glb, label);
 
-  if (!obj->HasInit()) {    
-    Emit(".comm %s, %d, %d", label.c_str(), width, align);
+  if (!obj->HasInit()) {
+    Emit(".comm", label + ", " +  std::to_string(width) +
+                  ", " + std::to_string(align));
     return;
   }
 
-  Emit(".align %d", align);
-  Emit(".type %s, @object", label.c_str());
+  Emit(".align", std::to_string(align));
+  Emit(".type", label, "@object");
   // Does not decide the size of obj
-  Emit(".size %s, %d", label.c_str(), width);
-  EmitLabel(label.c_str());
+  Emit(".size", label, std::to_string(width));
+  EmitLabel(label);
   
   int offset = 0;
   auto iter = decl->Inits().begin();
@@ -898,35 +899,36 @@ void Generator::GenStaticDecl(Declaration* decl)
         decl->Inits().end(), std::max(iter->offset_, offset));
 
     if (staticInit.offset_ > offset)
-      Emit(".zero %d", staticInit.offset_ - offset);
+      Emit(".zero", std::to_string(staticInit.offset_ - offset));
 
     switch (staticInit.width_) {
     case 1:
-      Emit(".byte %d", static_cast<char>(staticInit.val_));
+      Emit(".byte", std::to_string(static_cast<char>(staticInit.val_)));
       break;
     case 2:
-      Emit(".value %d", static_cast<short>(staticInit.val_));
+      Emit(".value", std::to_string(static_cast<short>(staticInit.val_)));
       break;
     case 4:
-      Emit(".long %d", static_cast<int>(staticInit.val_));
+      Emit(".long", std::to_string(static_cast<int>(staticInit.val_)));
       break;
-    case 8:
+    case 8: {
+      std::string val;
       if (staticInit.label_.size() == 0) {
-        Emit(".quad %ld", staticInit.val_);
+        val = std::to_string(staticInit.val_);
       } else if (staticInit.val_ != 0) {
-        Emit(".quad %s+%ld", staticInit.label_.c_str(), staticInit.val_);
+        val = staticInit.label_ + "+" + std::to_string(staticInit.val_);
       } else {
-        Emit(".quad %s", staticInit.label_.c_str());
+        val = staticInit.label_;
       }
-      break;
+      Emit(".quad", val);
+    } break;
     default: assert(false);
     }
-
     offset = staticInit.offset_ + staticInit.width_;
   }
   // Decides the size of object
   if (width > offset)
-    Emit(".zero %d", width - offset);
+    Emit(".zero", std::to_string(width - offset));
 }
 
 
@@ -941,38 +943,38 @@ void Generator::VisitIfStmt(IfStmt* ifStmt)
   VisitExpr(ifStmt->cond_);
 
   // Compare to 0
-  auto elseLabel = LabelStmt::New()->Label();
-  auto endLabel = LabelStmt::New()->Label();
+  auto elseLabel = LabelStmt::New();
+  auto endLabel = LabelStmt::New();
 
   GenCompZero(ifStmt->cond_->Type());
 
   if (ifStmt->else_) {
-    Emit("je %s", elseLabel.c_str());
+    Emit("je", elseLabel);
   } else {
-    Emit("je %s", endLabel.c_str());
+    Emit("je", endLabel);
   }
 
   VisitStmt(ifStmt->then_);
   
   if (ifStmt->else_) {
-    Emit("jmp %s", endLabel.c_str());
-    EmitLabel(elseLabel.c_str());
+    Emit("jmp", endLabel);
+    EmitLabel(elseLabel->Repr());
     VisitStmt(ifStmt->else_);
   }
   
-  EmitLabel(endLabel.c_str());
+  EmitLabel(endLabel->Repr());
 }
 
 
 void Generator::VisitJumpStmt(JumpStmt* jumpStmt)
 {
-  Emit("jmp %s", jumpStmt->label_->Label().c_str());
+  Emit("jmp", jumpStmt->label_);
 }
 
 
 void Generator::VisitLabelStmt(LabelStmt* labelStmt)
 {
-  EmitLabel(labelStmt->Label());
+  EmitLabel(labelStmt->Repr());
 }
 
 
@@ -983,14 +985,14 @@ void Generator::VisitReturnStmt(ReturnStmt* returnStmt)
     Visit(expr);
     if (expr->Type()->ToStruct()) {
       // %rax now has the address of the struct/union
-      ObjectAddr addr = {"", "rbp", retAddrOffset_};
-      Emit("movq %s, #r11", addr.Repr().c_str());
-      addr = {"", "r11", 0};
+      ObjectAddr addr = ObjectAddr(retAddrOffset_);
+      Emit("movq", addr, "%r11");
+      addr = {"", "%r11", 0};
       CopyStruct(addr, expr->Type()->Width());
-      Emit("movq #r11, #rax");
+      Emit("movq", "%r11", "%rax");
     }
   }
-  Emit("jmp %s", curFunc_->retLabel_->Label().c_str());
+  Emit("jmp", curFunc_->retLabel_);
 }
 
 
@@ -1061,9 +1063,9 @@ void Generator::GetParamRegOffsets(int& gpOffset, int& fpOffset,
   fpOffset = 48;
   overflow = 16;
   for (const auto& loc: locations.locs_) {
-    if (loc[0] == 'x')
+    if (loc[1] == 'x')
       fpOffset += 16;
-    else if (loc[0] == 'm')
+    else if (loc[1] == 'm')
       overflow += 8;
     else
       gpOffset += 8;
@@ -1105,17 +1107,17 @@ void Generator::GenBuiltin(FuncCall* funcCall)
   addr.offset_ -= offset;
 
   if (type == Parser::vaStartType_) {
-    Emit("leaq -176(#rbp), #rax");
-    Emit("movq #rax, %s", saveAreaAddr.c_str());
+    Emit("leaq", "-176(%rbp)", "%rax");
+    Emit("movq", "%rax", saveAreaAddr);
     
     int gpOffset, fpOffset, overflowOffset;
     GetParamRegOffsets(gpOffset, fpOffset, overflowOffset, curFunc_->Type());
-    Emit("leaq %d(#rbp), #rax", overflowOffset);
-    Emit("movq #rax, %s", overflowAddr.c_str());
-    Emit("movl $%d, #eax", gpOffset);
-    Emit("movl #eax, %s", gpOffsetAddr.c_str());
-    Emit("movl $%d, #eax", fpOffset);
-    Emit("movl #eax, %s", fpOffsetAddr.c_str());
+    Emit("leaq", ObjectAddr(overflowOffset), "%rax");
+    Emit("movq", "%rax", overflowAddr);
+    Emit("movl", gpOffset, "%eax");
+    Emit("movl", "%eax", gpOffsetAddr);
+    Emit("movl", fpOffset, "%eax");
+    Emit("movl", "%eax", fpOffsetAddr);
   } else if (type == Parser::vaArgType_) {
     static int cnt[2] = {0, 0};
     auto overflowLabel = ".L_va_arg_overflow" + std::to_string(++cnt[0]);
@@ -1124,39 +1126,39 @@ void Generator::GenBuiltin(FuncCall* funcCall)
     auto argType = funcCall->args_[1]->Type()->ToPointer()->Derived();
     auto cls = Classify(argType);
     if (cls == ParamClass::INTEGER) {
-      Emit("movq %s, #rax", saveAreaAddr.c_str());
-      Emit("movq #rax, #r11");
-      Emit("movl %s, #eax", gpOffsetAddr.c_str());
+      Emit("movq", saveAreaAddr, "%rax");
+      Emit("movq", "%rax", "%r11");
+      Emit("movl", gpOffsetAddr, "%eax");
       Emit("cltq");
-      Emit("cmpq $48, #rax");
-      Emit("jae %s", overflowLabel.c_str());
-      Emit("addq #rax, #r11");
-      Emit("addq $8, #rax");
-      Emit("movl #eax, %s", gpOffsetAddr.c_str());
-      Emit("movq #r11, #rax");
-      Emit("jmp %s", endLabel.c_str());
+      Emit("cmpq", 48, "%rax");
+      Emit("jae",  overflowLabel);
+      Emit("addq", "%rax", "%r11");
+      Emit("addq", 8, "%rax");
+      Emit("movl", "%eax", gpOffsetAddr);
+      Emit("movq", "%r11", "%rax");
+      Emit("jmp",  endLabel);
     } else if (cls == ParamClass::SSE) {
-      Emit("movq %s, #rax", saveAreaAddr.c_str());
-      Emit("movq #rax, #r11");
-      Emit("movl %s, #eax", fpOffsetAddr.c_str());
+      Emit("movq", saveAreaAddr, "%rax");
+      Emit("movq", "%rax", "%r11");
+      Emit("movl", fpOffsetAddr, "%eax");
       Emit("cltq");
-      Emit("cmpq $176, #rax");
-      Emit("jae %s", overflowLabel.c_str());
-      Emit("addq #rax, #r11");
-      Emit("addq $16, #rax");
-      Emit("movl #eax, %s", fpOffsetAddr.c_str());
-      Emit("movq #r11, #rax");
-      Emit("jmp %s", endLabel.c_str());
+      Emit("cmpq", 176, "%rax");
+      Emit("jae",  overflowLabel);
+      Emit("addq", "%rax", "%r11");
+      Emit("addq", 16, "%rax");
+      Emit("movl", "%eax", fpOffsetAddr);
+      Emit("movq", "%r11", "%rax");
+      Emit("jmp",  endLabel);
     } else if (cls == ParamClass::MEMORY) {
     } else {
       Error("internal error");
     }
     EmitLabel(overflowLabel);
-    Emit("movq %s, #rax", overflowAddr.c_str());
-    Emit("movq #rax, #r11");
+    Emit("movq", overflowAddr, "%rax");
+    Emit("movq", "%rax", "%r11");
     // Arguments passed by memory is aligned by at least 8 bytes
-    Emit("addq $%d, #r11", Type::MakeAlign(argType->Width(), 8));
-    Emit("movq #r11, %s", overflowAddr.c_str());
+    Emit("addq", Type::MakeAlign(argType->Width(), 8), "%r11");
+    Emit("movq", "%r11", overflowAddr);
     EmitLabel(endLabel);
   } else {
     assert(false);
@@ -1199,39 +1201,39 @@ void Generator::VisitFuncCall(FuncCall* funcCall)
 
   offset_ = Type::MakeAlign(offset_ - byMemCnt * 8, 16) + byMemCnt * 8;  
   for (int i = locs.size() - 1; i >=0; --i) {
-    if (locs[i][0] == 'm') {
+    if (locs[i][1] == 'm') {
       Visit(funcCall->args_[i]);
       Push(funcCall->args_[i]->Type());
     }
   }
 
   for (int i = locs.size() - 1; i >= 0; i--) {
-    if (locs[i][0] == 'm')
+    if (locs[i][1] == 'm')
       continue;
     Visit(funcCall->args_[i]);
     Push(funcCall->args_[i]->Type());
   }
 
   for (const auto& loc: locs) {
-    if (loc[0] != 'm')
+    if (loc[1] != 'm')
       Pop(loc);
   }
 
   // If variadic, set %al to floating param number
   if (funcType->Variadic()) {
-    Emit("movq $%d, %rax", locations.xregCnt_);
+    Emit("movq", locations.xregCnt_, "%rax");
   }
   if (retType) {
-    Emit("leaq %d(#rbp), #rdi", retStructOffset);
+    Emit("leaq", ObjectAddr(retStructOffset), "%rdi");
   }
 
-  Emit("leaq %d(#rbp), #rsp", offset_);
+  Emit("leaq", ObjectAddr(offset_), "%rsp");
   auto addr = LValGenerator().GenExpr(funcCall->Designator());
   if (addr.base_.size() == 0 && addr.offset_ == 0) {
-    Emit("call %s", addr.label_.c_str());
+    Emit("call", addr.label_);
   } else {
-    Emit("leaq %s, #r10", addr.Repr().c_str());
-    Emit("call *#r10");
+    Emit("leaq", addr, "%r10");
+    Emit("call", "*%r10");
   }
 
   // Reset stack frame
@@ -1256,7 +1258,7 @@ ParamLocations Generator::GetParamLocations(const TypeList& types, bool retStruc
       if (locations.xregCnt_ < xregs.size())
         reg = xregs[locations.xregCnt_++];
     }
-    locations.locs_.push_back(reg ? reg: "mem");
+    locations.locs_.push_back(reg ? reg: "%mem");
   }
   return locations;
 }
@@ -1269,15 +1271,16 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
   auto name = funcDef->Name();
 
   Emit(".text");
-  if (funcDef->Linkage() == L_INTERNAL)
-    Emit(".local %s", name.c_str());
-  else
-    Emit(".globl %s", name.c_str());
-  Emit(".type %s, @function", name.c_str());
+  if (funcDef->Linkage() == L_INTERNAL) {
+    Emit(".local", name);
+  } else {
+    Emit(".globl", name);
+  }
+  Emit(".type", name, "@function");
 
   EmitLabel(name);
-  Emit("pushq #rbp");
-  Emit("movq #rsp, #rbp");
+  Emit("pushq", "%rbp");
+  Emit("movq", "%rsp", "%rbp");
 
   offset_ = 0;
 
@@ -1301,14 +1304,14 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     int xregOffset = offset_ + 48;
     int byMemOffset = 16;
     for (size_t i = 0; i < locs.size(); ++i) {
-      if (locs[i][0] == 'm') {
+      if (locs[i][1] == 'm') {
         params[i]->SetOffset(byMemOffset);
         //byMemOffset += 8;
         // TODO(wgtdkp): width of incomplete array ?
         // What about the var args, var args offset always increment by 8
         byMemOffset += params[i]->Type()->Width();
         byMemOffset = Type::MakeAlign(byMemOffset, 8);
-      } else if (locs[i][0] == 'x') {
+      } else if (locs[i][1] == 'x') {
         params[i]->SetOffset(xregOffset);
         xregOffset += 16;
       } else {
@@ -1318,10 +1321,10 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     }
   } else {
     if (retStruct)
-      retAddrOffset_ = Push("rdi");
+      retAddrOffset_ = Push("%rdi");
     int byMemOffset = 16;
     for (size_t i = 0; i < locs.size(); ++i) {
-      if (locs[i][0] == 'm') {
+      if (locs[i][1] == 'm') {
         params[i]->SetOffset(byMemOffset);
         //byMemOffset += 8;
         // TODO(wgtdkp): width of incomplete array ?
@@ -1339,7 +1342,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef)
     Visit(stmt);
   }
 
-  EmitLabel(funcDef->retLabel_->Label());
+  EmitLabel(funcDef->retLabel_->Repr());
   Emit("leaveq");
   Emit("retq");
 }
@@ -1350,18 +1353,18 @@ void Generator::GenSaveArea()
   static const int begin = -176;
   int offset = begin;
   for (auto reg: regs) {
-    Emit("movq #%s, %d(#rbp)", reg, offset);
+    Emit("movq", reg, ObjectAddr(offset));
     offset += 8;
   }
-  Emit("testb #al, #al");
+  Emit("testb", "%al", "%al");
   auto label = LabelStmt::New();
-  Emit("je %s", label->Label().c_str());
+  Emit("je", label);
   for (auto xreg: xregs) {
-    Emit("movaps #%s, %d(#rbp)", xreg, offset);
+    Emit("movaps", xreg, ObjectAddr(offset));
     offset += 16;
   }
   assert(offset == 0);
-  EmitLabel(label->Label());
+  EmitLabel(label->Repr());
 
   offset_ = begin;
 }
@@ -1374,19 +1377,19 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit)
 
     // float and string literal
     if (rodatas_.size())
-      Emit(".section .rodata");
+      Emit(".section", ".rodata");
     for (auto rodata: rodatas_) {
       if (rodata.align_ == 1) {// Literal
         EmitLabel(rodata.label_);
-        Emit(".string \"%s\"", rodata.sval_.c_str());
+        Emit(".string", "\"" + rodata.sval_ + "\"");
       } else if (rodata.align_ == 4) {
-        Emit(".align 4");
+        Emit(".align", "4");
         EmitLabel(rodata.label_);
-        Emit(".long %d", static_cast<int>(rodata.ival_));
+        Emit(".long", std::to_string(static_cast<int>(rodata.ival_)));
       } else {
-        Emit(".align 8");
+        Emit(".align", "8");
         EmitLabel(rodata.label_);
-        Emit(".quad %ld", rodata.ival_);
+        Emit(".quad", std::to_string(rodata.ival_));
       }
     }
     rodatas_.clear();
@@ -1401,7 +1404,7 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit)
 
 void Generator::Gen()
 {
-  Emit(".file \"%s\"", inFileName.c_str());
+  Emit(".file", "\"" + inFileName + "\"");
   VisitTranslationUnit(parser_->Unit());
 }
 
@@ -1413,15 +1416,16 @@ void Generator::EmitLoc(Expr* expr)
     return;
   const auto loc = &expr->tok_->loc_;
   if (loc->fileName_ != last_file) {
-    Emit(".file %d \"%s\"", ++fileno, loc->fileName_->c_str());
+    Emit(".file", std::to_string(++fileno) + " \"" + *loc->fileName_ + "\"");
     last_file = loc->fileName_;
   }
-  Emit(".loc %d %d %d", fileno, loc->line_, 0);
+  Emit(".loc", std::to_string(fileno) + " " +
+               std::to_string(loc->line_) + " 0");
   
   std::string line;
   for (const char* p = loc->lineBegin_; *p && *p != '\n'; ++p)
     line.push_back(*p);
-  Emit("# %s", line.c_str());
+  Emit("# " + line);
 }
 
 
@@ -1436,7 +1440,7 @@ void Generator::EmitLoad(const std::string& addr, int width, bool flt)
 {
   auto load = GetLoad(width, flt);
   auto des = GetDes(width == 4 ? 4: 8, flt);
-  Emit("%s %s, #%s", load, addr.c_str(), des);
+  Emit(load, addr, des);
 }
 
 void Generator::EmitStore(const ObjectAddr& addr, Type* type)
@@ -1457,27 +1461,7 @@ void Generator::EmitStore(const std::string& addr, int width, bool flt)
 {
   auto store = GetInst("mov", width, flt);
   auto des = GetDes(width, flt);
-  Emit("%s #%s, %s", store.c_str(), des, addr.c_str());
-}
-
-
-void Generator::Emit(const char* format, ...)
-{
-  fprintf(outFile_, "\t");
-
-  std::string str(format);
-  auto pos = str.find(' ');
-  if (pos != std::string::npos) {
-    str[pos] = '\t';
-    while ((pos = str.find('#', pos)) != std::string::npos)
-      str.replace(pos, 1, "%%");
-  }
-  
-  va_list args;
-  va_start(args, format);
-  vfprintf(outFile_, str.c_str(), args);
-  va_end(args);
-  fprintf(outFile_, "\n");
+  Emit(store, des, addr);
 }
 
 
@@ -1490,9 +1474,9 @@ void Generator::EmitLabel(const std::string& label)
 void Generator::EmitZero(ObjectAddr addr, int width)
 {
   int units[] = {8, 4, 2, 1};
+  Emit("xorq", "%rax", "%rax");
   for (auto unit: units) {
     while (width >= unit) {
-      Emit("movq $0, #rax");
       EmitStore(addr.Repr(), unit, false);
       addr.offset_ += unit;
       width -= unit;
@@ -1522,8 +1506,8 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary)
   EmitLoc(unary);
   assert(unary->op_ == Token::DEREF);
   Generator().VisitExpr(unary->operand_);
-  Emit("movq #rax, #r10");
-  addr_ = {"", "r10", 0};
+  Emit("movq", "%rax", "%r10");
+  addr_ = {"", "%r10", 0};
 }
 
 
@@ -1537,9 +1521,9 @@ void LValGenerator::VisitObject(Object* obj)
   }
 
   if (obj->IsStatic()) {
-    addr_ = {obj->Label(), "rip", 0};
+    addr_ = {obj->Repr(), "%rip", 0};
   } else {
-    addr_ = {"", "rbp", obj->Offset()};
+    addr_ = {"", "%rbp", obj->Offset()};
   }
 }
 
@@ -1570,7 +1554,7 @@ void LValGenerator::VisitTempVar(TempVar* tempVar)
 
 std::string ObjectAddr::Repr() const
 {
-  auto ret = base_.size() ? "(%" + base_ + ")": "";
+  auto ret = base_.size() ? "(" + base_ + ")": "";
   if (label_.size() == 0) {
     if (offset_ == 0)
       return ret;

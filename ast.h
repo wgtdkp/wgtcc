@@ -111,7 +111,7 @@ public:
   
   virtual void Accept(Visitor* v);
   
-  std::string Label() const {
+  std::string Repr() const {
     return ".L" + std::to_string(tag_);
   }
 
@@ -583,7 +583,7 @@ public:
 
   std::string SValRepr() const;
 
-  std::string Label() const {
+  std::string Repr() const {
     return std::string(".LC") + std::to_string(id_);
   }
 
@@ -844,7 +844,7 @@ public:
     return Identifier::Name();
   }
 
-  std::string Label() const {
+  std::string Repr() const {
     assert(IsStatic() || anonymous_);
     if (anonymous_)
       return "anonymous." + std::to_string(id_);

@@ -67,6 +67,9 @@ private:
 
 struct ObjectAddr
 {
+  explicit ObjectAddr(int offset)
+      : ObjectAddr("", "%rbp", offset) {}
+
   ObjectAddr(const std::string& label, const std::string& base, int offset)
       : label_(label), base_(base), offset_(offset) {}
 
@@ -181,7 +184,51 @@ protected:
   void GetParamRegOffsets(int& gpOffset, int& fpOffset,
       int& overflow, FuncType* funcType);
 
-  void Emit(const char* format, ...);
+  //void Emit(const char* format, ...);
+  void Emit(const std::string& str) {
+    fprintf(outFile_, "\t%s\n", str.c_str());
+  }
+
+  void Emit(const std::string& inst,
+            const std::string& src,
+            const std::string& des) {
+    Emit(inst + "\t" + src + ", " + des);
+  }
+
+  void Emit(const std::string& inst,
+            int imm,
+            const std::string& reg) {
+    Emit(inst + "\t$" + std::to_string(imm) + ", " + reg);
+  }
+
+  void Emit(const std::string& inst,
+            const std::string& des) {
+    Emit(inst + "\t" + des);
+  }
+
+  void Emit(const std::string& inst,
+            const LabelStmt* label) {
+    Emit(inst + "\t" + label->Repr());
+  }
+
+  void Emit(const std::string& inst,
+            const ObjectAddr& src,
+            const ObjectAddr& des) {
+    Emit(inst, src.Repr(), des.Repr());
+  }
+
+  void Emit(const std::string& inst,
+            const std::string& src,
+            const ObjectAddr& des) {
+    Emit(inst, src, des.Repr());
+  }
+
+  void Emit(const std::string& inst,
+            const ObjectAddr& src,
+            const std::string& des) {
+    Emit(inst, src.Repr(), des);
+  }
+
   void EmitLabel(const std::string& label);
   void EmitZero(ObjectAddr addr, int width);
   void EmitLoad(const std::string& addr, Type* type);

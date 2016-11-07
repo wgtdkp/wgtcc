@@ -6,7 +6,7 @@ SRCS = main.cc  token.cc ast.cc scope.cc type.cc cpp.cc		\
 	error.cc scanner.cc parser.cc evaluator.cc  code_gen.cc	\
 	encoding.cc
 	
-CFLAGS = -g -std=c++11 -Wall -DDEBUG
+CFLAGS = -g -std=c++11 -Wall -DDEBUG -Wfatal-errors
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cc=.o))
 
 default: all

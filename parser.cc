@@ -441,7 +441,7 @@ Object* Parser::ParseCompoundLiteral(Type* type)
   if (curScope_->Type() == S_FILE)
     unit_->Add(decl);
   else
-    curScope_->Insert(anony->Label(), anony);
+    curScope_->Insert(anony->Repr(), anony);
   return anony;
 }
 
