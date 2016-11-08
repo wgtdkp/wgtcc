@@ -12,28 +12,30 @@
 #include <memory>
 #include <stack>
 
-class Preprocessor;
 
+class Preprocessor;
 typedef std::pair<const Token*, Type*> TokenTypePair;
 
-class Parser
-{
+class Parser {
   typedef std::vector<Constant*> LiteralList;
   typedef std::vector<Object*> StaticObjectList;
   typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
   typedef std::list<std::pair<const Token*, JumpStmt*>> LabelJumpList;
   typedef std::map<std::string, LabelStmt*> LabelMap;
-  
   friend class Generator;
+
 public:
   explicit Parser(const TokenSequence& ts) 
     : unit_(TranslationUnit::New()),
       ts_(ts),
       externalSymbols_(new Scope(nullptr, S_BLOCK)),
-      errTok_(nullptr), curScope_(new Scope(nullptr, S_FILE)),
-      /*curParamScope_(nullptr),*/ curFunc_(nullptr),
-      breakDest_(nullptr), continueDest_(nullptr),
-      caseLabels_(nullptr), defaultLabel_(nullptr) {
+      errTok_(nullptr),
+      curScope_(new Scope(nullptr, S_FILE)),
+      curFunc_(nullptr),
+      breakDest_(nullptr),
+      continueDest_(nullptr),
+      caseLabels_(nullptr),
+      defaultLabel_(nullptr) {
         ts_.SetParser(this);
       }
 
@@ -51,9 +53,8 @@ public:
   void ParseTranslationUnit();
   FuncDef* ParseFuncDef(Identifier* ident);
   
-  /*
-   * Expressions
-   */
+  
+  // Expressions
   Expr* ParseExpr();
   Expr* ParsePrimaryExpr();
   Type* TryCompoundLiteral();
@@ -70,7 +71,6 @@ public:
   Constant* ParseAlignof();
   UnaryOp* ParsePrefixIncDec(const Token* tok);
   UnaryOp* ParseUnaryOp(const Token* tok, int op);
-  //UnaryOp* ParseDerefOperand();
 
   Type* ParseTypeName();
   Expr* ParseCastExpr();
@@ -88,7 +88,7 @@ public:
   Expr* ParseCommaExpr();
   Expr* ParseAssignExpr();
 
-  /************* Declarations **************/
+  // Declarations
   CompoundStmt* ParseDecl();
   void ParseStaticAssert();
   Type* ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec);
@@ -107,28 +107,36 @@ public:
   bool ParseParamList(FuncType::ParamList& params);
   Object* ParseParamDecl();
 
-  //typename
   Type* ParseAbstractDeclarator(Type* type);
   Identifier* ParseDirectDeclarator(Type* type,
-      int storageSpec, int funcSpec, int align);
-  //initializer
-  void ParseInitializer(Declaration* decl, Type* type,
-      int offset, bool designated=false, bool forceBrace=false,
-      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
+                                    int storageSpec,
+                                    int funcSpec,
+                                    int align);
+  // Initializer
+  void ParseInitializer(Declaration* decl,
+                        Type* type,
+                        int offset,
+                        bool designated=false,
+                        bool forceBrace=false,
+                        unsigned char bitFieldBegin=0,
+                        unsigned char bitFieldWidth=0);
   void ParseArrayInitializer(Declaration* decl,
-      ArrayType* type, int offset, bool designated);
+                             ArrayType* type,
+                             int offset,
+                             bool designated);
   StructType::Iterator ParseStructDesignator(StructType* type,
-      const std::string& name);
+                                             const std::string& name);
   void ParseStructInitializer(Declaration* decl,
-      StructType* type, int offset, bool designated);
+                              StructType* type,
+                              int offset,
+                              bool designated);
   bool ParseLiteralInitializer(Declaration* init,
-      ArrayType* type, int offset);
+                               ArrayType* type,
+                               int offset);
   Declaration* ParseInitDeclarator(Identifier* ident);
   Declaration* ParseInitDeclaratorSub(Object* obj);
 
-  /*
-   * Statements
-   */
+  // Statements
   Stmt* ParseStmt();
   CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
   IfStmt* ParseIfStmt();
@@ -143,14 +151,15 @@ public:
   CompoundStmt* ParseLabelStmt(const Token* label);
   CompoundStmt* ParseCaseStmt();
   CompoundStmt* ParseDefaultStmt();
-  Identifier* ProcessDeclarator(const Token* tok, Type* type,
-      int storageSpec, int funcSpec, int align);
-
+  Identifier* ProcessDeclarator(const Token* tok,
+                                Type* type,
+                                int storageSpec,
+                                int funcSpec,
+                                int align);
   // GNU extensions
   void TryAttributeSpecList();
   void ParseAttributeSpec();
   void ParseAttribute();
-
 
   bool IsTypeName(const Token* tok) const{
     if (tok->IsTypeSpecQual())
@@ -190,8 +199,6 @@ public:
 
   void EnterProto() {
     curScope_ = new Scope(curScope_, S_PROTO);
-    //if (curParamScope_ == nullptr)
-    //  curParamScope_ = curScope_;
   }
 
   void ExitProto() {
@@ -218,10 +225,6 @@ public:
     return unit_;
   }
 
-  //StaticObjectList& StaticObjects() {
-  //    return _staticObjects;
-  //}
-  
   FuncDef* CurFunc() {
     return curFunc_;
   }
@@ -244,20 +247,11 @@ private:
   // It contains all external symbols(resolved and not resolved)
   Scope* externalSymbols_;
   
-  //LiteralList _literals;
-  //StaticObjectList _staticObjects;
-
-
   const Token* errTok_;
-  //std::stack<Token*> _buf;
-
   Scope* curScope_;
-  //Scope* curParamScope_;
-  //Identifier* curFunc_;
   FuncDef* curFunc_;
   LabelMap curLabels_;
   LabelJumpList unresolvedJumps_;
-  
   
   LabelStmt* breakDest_;
   LabelStmt* continueDest_;

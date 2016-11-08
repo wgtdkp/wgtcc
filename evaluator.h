@@ -9,8 +9,7 @@
 class Expr;
 
 template<typename T>
-class Evaluator: public Visitor
-{
+class Evaluator: public Visitor {
 public:
   Evaluator() {}
 
@@ -71,16 +70,13 @@ private:
 };
 
 
-struct Addr
-{
+struct Addr {
   std::string label_;
   int offset_;
 };
 
 template<>
-class Evaluator<Addr>: public Visitor
-{
-  
+class Evaluator<Addr>: public Visitor {
 public:
   Evaluator<Addr>() {}
   

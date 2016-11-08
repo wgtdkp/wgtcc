@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+
 std::string program;
 std::string inFileName;
 std::string outFileName;
@@ -28,8 +29,7 @@ static std::vector<std::string> defines;
 static std::list<std::string> includePaths;
 
 
-static void Usage()
-{
+static void Usage() {
   printf("Usage: wgtcc [options] file...\n"
        "Options: \n"
        "  --help    Display this information\n"
@@ -50,8 +50,7 @@ static void ValidateFileName(const std::string& fileName) {
 }
 
 
-static void DefineMacro(Preprocessor& cpp, const std::string& def)
-{
+static void DefineMacro(Preprocessor& cpp, const std::string& def) {
   auto pos = def.find('=');
   std::string macro;
   std::string* replace;
@@ -66,8 +65,7 @@ static void DefineMacro(Preprocessor& cpp, const std::string& def)
 }
 
 
-static std::string GetName(const std::string& path)
-{
+static std::string GetName(const std::string& path) {
   auto pos = path.rfind('/');
   if (pos == std::string::npos)
     return path;
@@ -75,8 +73,7 @@ static std::string GetName(const std::string& path)
 }
 
 
-static int RunWgtcc()
-{
+static int RunWgtcc() {
   if (inFileName.back() == 's')
     return 0;
 
@@ -111,8 +108,7 @@ static int RunWgtcc()
 }
 
 
-static int RunGcc()
-{
+static int RunGcc() {
   // Froce C11
   bool specStd = false;
   for (auto& arg: gccArgs) {
@@ -132,8 +128,7 @@ static int RunGcc()
 }
 
 
-static void ParseInclude(int argc, char* argv[], int& i)
-{
+static void ParseInclude(int argc, char* argv[], int& i) {
   if (argv[i][2]) {
     includePaths.push_front(&argv[i][2]);
     return;
@@ -145,8 +140,8 @@ static void ParseInclude(int argc, char* argv[], int& i)
   gccArgs.push_back(argv[i]);
 }
 
-static void ParseDefine(int argc, char* argv[], int& i)
-{
+
+static void ParseDefine(int argc, char* argv[], int& i) {
   if (argv[i][2]) {
     defines.push_back(&argv[i][2]);
     return;
@@ -158,21 +153,21 @@ static void ParseDefine(int argc, char* argv[], int& i)
   gccArgs.push_back(argv[i]);
 }
 
-static void ParseOut(int argc, char* argv[], int& i)
-{
+
+static void ParseOut(int argc, char* argv[], int& i) {
   if (i == argc - 1)
     Error("missing argument to '%s'", argv[i]);
   outFileName = argv[++i];
   gccArgs.push_back(argv[i]);
 }
 
+
 /* Use:
  *   wgtcc: compile
  *   gcc: assemble and link
  * Allowing multi file may not be a good idea... 
  */
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
   if (argc < 2)
     Usage();
 

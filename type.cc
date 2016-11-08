@@ -5,12 +5,9 @@
 #include "token.h"
 
 #include <cassert>
-
 #include <algorithm>
 #include <iostream>
 
-
-/***************** Type *********************/
 
 static MemPoolImp<VoidType>     voidTypePool;
 static MemPoolImp<ArrayType>    arrayTypePool;
@@ -21,8 +18,7 @@ static MemPoolImp<ArithmType>   arithmTypePool;
 static MemPoolImp<EnumType>     enumTypePool;
 
 
-Type* Type::MayCast(Type* type)
-{
+Type* Type::MayCast(Type* type) {
   auto funcType = type->ToFunc();
   auto arrayType = type->ToArray();
   if (funcType) {
@@ -36,16 +32,16 @@ Type* Type::MayCast(Type* type)
 }
 
 
-VoidType* VoidType::New()
-{
+VoidType* VoidType::New() {
   static auto voidType = new (voidTypePool.Alloc()) VoidType(&voidTypePool);
   return voidType;
 }
 
 
 ArithmType* ArithmType::New(int typeSpec) {
-#define NEW_TYPE(tag) \
+#define NEW_TYPE(tag)                                           \
   new (arithmTypePool.Alloc()) ArithmType(&arithmTypePool, tag);
+
   static auto boolType    = NEW_TYPE(T_BOOL);
   static auto charType    = NEW_TYPE(T_CHAR);
   static auto ucharType   = NEW_TYPE(T_UNSIGNED | T_CHAR);
@@ -86,61 +82,45 @@ ArithmType* ArithmType::New(int typeSpec) {
 }
 
 
-ArrayType* ArrayType::New(int len, Type* eleType)
-{
+ArrayType* ArrayType::New(int len, Type* eleType) {
   return new (arrayTypePool.Alloc())
-      ArrayType(&arrayTypePool, len, eleType);
+         ArrayType(&arrayTypePool, len, eleType);
 }
 
 
-ArrayType* ArrayType::New(Expr* expr, Type* eleType)
-{
+ArrayType* ArrayType::New(Expr* expr, Type* eleType) {
   return new (arrayTypePool.Alloc())
-      ArrayType(&arrayTypePool, expr, eleType);
+         ArrayType(&arrayTypePool, expr, eleType);
 }
 
 
-//static IntType* NewIntType();
-FuncType* FuncType::New(Type* derived, int funcSpec,
-    bool variadic, const ParamList& params)
-{
+FuncType* FuncType::New(Type* derived,
+                        int funcSpec,
+                        bool variadic,
+                        const ParamList& params) {
   return new (funcTypePool.Alloc())
-      FuncType(&funcTypePool, derived, funcSpec, variadic, params);
+         FuncType(&funcTypePool, derived, funcSpec, variadic, params);
 }
 
 
-PointerType* PointerType::New(Type* derived)
-{
+PointerType* PointerType::New(Type* derived) {
   return new (pointerTypePool.Alloc())
-      PointerType(&pointerTypePool, derived);
+         PointerType(&pointerTypePool, derived);
 }
 
 
-StructType* StructType::New(
-    bool isStruct, bool hasTag, Scope* parent)
-{
+StructType* StructType::New(bool isStruct, bool hasTag, Scope* parent) {
   return new (structUnionTypePool.Alloc())
-      StructType(&structUnionTypePool, isStruct, hasTag, parent);
+         StructType(&structUnionTypePool, isStruct, hasTag, parent);
 }
 
 
-EnumType* EnumType::New(bool complete)
-{
+EnumType* EnumType::New(bool complete) {
   return new (enumTypePool.Alloc()) EnumType(&enumTypePool, complete);
 }
 
 
-/*
-static EnumType* Type::NewEnumType() {
-  // TODO(wgtdkp):
-  assert(false);
-  return nullptr;
-}
-*/
-
-/*************** ArithmType *********************/
-int ArithmType::Width() const
-{
+int ArithmType::Width() const {
   switch (tag_) {
   case T_BOOL: case T_CHAR: case T_UNSIGNED | T_CHAR:
     return 1;
@@ -172,8 +152,7 @@ int ArithmType::Width() const
 }
 
 
-int ArithmType::Rank() const
-{
+int ArithmType::Rank() const {
   switch (tag_) {
   case T_BOOL: return 0;
   case T_CHAR: case T_UNSIGNED | T_CHAR: return 1;
@@ -190,8 +169,7 @@ int ArithmType::Rank() const
 }
 
 
-ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs)
-{
+ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs) {
   if (lhs->IsInteger())
     lhs = ArithmType::IntegerPromote(lhs);
   if (rhs->IsInteger())
@@ -203,8 +181,7 @@ ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs)
 }
 
 
-int ArithmType::Spec2Tag(int spec)
-{
+int ArithmType::Spec2Tag(int spec) {
   spec &= ~T_SIGNED;
   if ((spec & T_SHORT) || (spec & T_LONG)
       || (spec & T_LLONG)) {
@@ -214,9 +191,8 @@ int ArithmType::Spec2Tag(int spec)
 }
 
 
-std::string ArithmType::Str() const
-{
-  std::string width = std::string(":") + std::to_string(Width());
+std::string ArithmType::Str() const {
+  std::string width = ":" + std::to_string(Width());
 
   switch (tag_) {
   case T_BOOL:
@@ -278,8 +254,7 @@ std::string ArithmType::Str() const
 }
 
 
-bool PointerType::Compatible(const Type& other) const
-{
+bool PointerType::Compatible(const Type& other) const {
   // C11 6.7.6.1 [2]: pointer compatibility
   // Constraints loosed: pointer and integer are compatible
   auto otherPointer = other.ToPointer();
@@ -288,8 +263,7 @@ bool PointerType::Compatible(const Type& other) const
 }
 
 
-bool ArrayType::Compatible(const Type& other) const
-{
+bool ArrayType::Compatible(const Type& other) const {
   // C11 6.7.6.2 [6]: For two array type to be compatible,
   // the element types must be compatible, and have same length
   // if both specified.
@@ -303,8 +277,7 @@ bool ArrayType::Compatible(const Type& other) const
 }
 
 
-bool FuncType::Compatible(const Type& other) const
-{
+bool FuncType::Compatible(const Type& other) const {
   auto otherFunc = other.ToFunc();
   //the other type is not an function type
   if (!otherFunc) return false;
@@ -328,8 +301,7 @@ bool FuncType::Compatible(const Type& other) const
 }
 
 
-std::string FuncType::Str() const
-{
+std::string FuncType::Str() const {
   auto str = derived_->Str() + "(";
   auto iter = params_.begin();
   for (; iter != params_.end(); ++iter) {
@@ -344,17 +316,22 @@ std::string FuncType::Str() const
 }
 
 
-StructType::StructType(MemPool* pool, bool isStruct,
-                       bool hasTag, Scope* parent)
-    : Type(pool, false), isStruct_(isStruct), hasTag_(hasTag),
+StructType::StructType(MemPool* pool,
+                       bool isStruct,
+                       bool hasTag,
+                       Scope* parent)
+    : Type(pool, false),
+      isStruct_(isStruct),
+      hasTag_(hasTag),
       memberMap_(new Scope(parent, S_BLOCK)),
-      offset_(0), width_(0),
+      offset_(0),
+      width_(0),
       // If a struct type has no member, it gets alignment of 1
-      align_(1), bitFieldAlign_(1) {}
+      align_(1),
+      bitFieldAlign_(1) {}
 
 
-Object* StructType::GetMember(const std::string& member)
-{
+Object* StructType::GetMember(const std::string& member) {
   auto ident = memberMap_->FindInCurScope(member);
   if (ident == nullptr)
     return nullptr;
@@ -362,8 +339,7 @@ Object* StructType::GetMember(const std::string& member)
 }
 
 
-void StructType::CalcWidth()
-{
+void StructType::CalcWidth() {
   width_ = 0;
   auto iter = memberMap_->identMap_.begin();
   for (; iter != memberMap_->identMap_.end(); ++iter) {
@@ -373,14 +349,12 @@ void StructType::CalcWidth()
 
 
 bool StructType::Compatible(const Type& other) const {
-  // TODO:
   return this == &other; // Pointer comparison
 }
 
 
 // TODO(wgtdkp): more detailed representation
-std::string StructType::Str() const
-{
+std::string StructType::Str() const {
   std::string str = isStruct_ ? "struct": "union";
   return str + ":" + std::to_string(width_);
 }
@@ -388,8 +362,7 @@ std::string StructType::Str() const
 
 // Remove useless unnamed bitfield members
 // They are just for parsing
-void StructType::Finalize()
-{
+void StructType::Finalize() {
   for (auto iter = members_.begin(); iter != members_.end();) {
     if ((*iter)->BitFieldWidth() && (*iter)->Anonymous()) {
       members_.erase(iter++);
@@ -400,8 +373,7 @@ void StructType::Finalize()
 }
 
 
-void StructType::AddMember(Object* member)
-{
+void StructType::AddMember(Object* member) {
   auto offset = MakeAlign(offset_, member->Align());
   member->SetOffset(offset);
   
@@ -422,11 +394,9 @@ void StructType::AddMember(Object* member)
 }
 
 
-void StructType::AddBitField(Object* bitField, int offset)
-{
+void StructType::AddBitField(Object* bitField, int offset) {
   bitField->SetOffset(offset);
   members_.push_back(bitField);
-  //auto name = bitField->Tok() ? bitField->Name(): AnonymousBitField();
   if (!bitField->Anonymous())
     memberMap_->Insert(bitField->Name(), bitField);
 
@@ -444,8 +414,7 @@ void StructType::AddBitField(Object* bitField, int offset)
 
 
 // Move members of Anonymous struct/union to external struct/union
-void StructType::MergeAnony(Object* anony)
-{   
+void StructType::MergeAnony(Object* anony) {
   auto anonyType = anony->Type()->ToStruct();
   auto offset = MakeAlign(offset_, anony->Align());
 
@@ -460,7 +429,6 @@ void StructType::MergeAnony(Object* anony)
     if (GetMember(name)) {
       Error(member, "duplicated member '%s'", name.c_str());
     }
-    //members_.push_back(member);
     // Simplify anony struct's member searching
     memberMap_->Insert(name, member);
   }

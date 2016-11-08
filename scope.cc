@@ -6,47 +6,45 @@
 #include <iostream>
 
 
-Identifier* Scope::Find(const Token* tok)
-{
+Identifier* Scope::Find(const Token* tok) {
   auto ret = Find(tok->str_);
   if (ret) ret->SetTok(tok);
   return ret;
 }
 
-Identifier* Scope::FindInCurScope(const Token* tok)
-{
+
+Identifier* Scope::FindInCurScope(const Token* tok) {
   auto ret = FindInCurScope(tok->str_);
   if (ret) ret->SetTok(tok);
   return ret;
 }
 
-Identifier* Scope::FindTag(const Token* tok)
-{
+
+Identifier* Scope::FindTag(const Token* tok) {
   auto ret = FindTag(tok->str_);
   if (ret) ret->SetTok(tok);
   return ret;
 }
 
-Identifier* Scope::FindTagInCurScope(const Token* tok)
-{
+
+Identifier* Scope::FindTagInCurScope(const Token* tok) {
   auto ret = FindTagInCurScope(tok->str_);
   if (ret) ret->SetTok(tok);
   return ret;
 }
 
-void Scope::Insert(Identifier* ident)
-{
+
+void Scope::Insert(Identifier* ident) {
   Insert(ident->Name(), ident);
 }
 
-void Scope::InsertTag(Identifier* ident)
-{
+
+void Scope::InsertTag(Identifier* ident) {
   Insert(TagName(ident->Name()), ident);
 }
 
 
-Identifier* Scope::Find(const std::string& name)
-{
+Identifier* Scope::Find(const std::string& name) {
   auto ident = identMap_.find(name);
   if (ident != identMap_.end())
     return ident->second;
@@ -56,8 +54,7 @@ Identifier* Scope::Find(const std::string& name)
 }
 
 
-Identifier* Scope::FindInCurScope(const std::string& name)
-{
+Identifier* Scope::FindInCurScope(const std::string& name) {
   auto ident = identMap_.find(name);
   if (ident == identMap_.end())
     return nullptr;
@@ -65,8 +62,7 @@ Identifier* Scope::FindInCurScope(const std::string& name)
 }
 
 
-void Scope::Insert(const std::string& name, Identifier* ident)
-{
+void Scope::Insert(const std::string& name, Identifier* ident) {
   assert(FindInCurScope(name) == nullptr);
   identMap_[name] = ident;
 }
@@ -86,8 +82,7 @@ Identifier* Scope::FindTagInCurScope(const std::string& name) {
 }
 
 
-Scope::TagList Scope::AllTagsInCurScope() const
-{
+Scope::TagList Scope::AllTagsInCurScope() const {
   TagList tags;
   for (auto& kv: identMap_) {
     if (IsTagName(kv.first))
@@ -97,8 +92,7 @@ Scope::TagList Scope::AllTagsInCurScope() const
 }
 
 
-void Scope::Print()
-{
+void Scope::Print() {
   std::cout << "scope: " << this << std::endl;
 
   auto iter = identMap_.begin();

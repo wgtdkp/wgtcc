@@ -5,12 +5,10 @@
 #include "scope.h"
 
 #include <cassert>
-
 #include <algorithm>
 #include <list>
 
 
-/********* Type System ***********/
 class Scope;
 class Token;
 class Expr;
@@ -31,7 +29,7 @@ class EnumType;
 
 
 enum {
-  /*****storage-class-specifiers*****/
+  // Storage class specifiers
   S_TYPEDEF = 0x01,
   S_EXTERN = 0x02,
   S_STATIC = 0x04,
@@ -39,7 +37,7 @@ enum {
   S_AUTO = 0x10,
   S_REGISTER = 0x20,
 
-  /*****type-specifier*****/
+  // Type specifier
   T_SIGNED = 0x40,
   T_UNSIGNED = 0x80,
   T_CHAR = 0x100,
@@ -56,7 +54,7 @@ enum {
   T_ENUM = 0x80000,
   T_TYPEDEF_NAME = 0x100000,
 
-  /*****type-qualifier*****/
+  // Type qualifier
   Q_CONST = 0x200000,
   Q_RESTRICT = 0x400000,
   Q_VOLATILE = 0x800000,
@@ -64,7 +62,7 @@ enum {
 
   T_LLONG = 0x2000000,
 
-  /*****function specifier*****/
+  // Function specifier
   F_INLINE = 0x4000000,
   F_NORETURN = 0x8000000,
 };
@@ -72,12 +70,7 @@ enum {
 
 class QualType {
 public:
-  //QualType(Type* ptr): val_(ptr) {}
-  //QualType(Type* ptr, int quals): 
-
-  void AddConst(void) {
-  
-  }
+  void AddConst(void) {}
 
 private:
   struct {
@@ -87,8 +80,7 @@ private:
 };
 
 
-class Type
-{
+class Type {
 public:
   static const int intWidth_ = 4;
   static const int machineWidth_ = 8;
@@ -160,8 +152,7 @@ protected:
 };
 
 
-class VoidType : public Type
-{
+class VoidType : public Type {
 public:
   static VoidType* New();
 
@@ -232,8 +223,7 @@ private:
 };
 
 
-class DerivedType : public Type
-{
+class DerivedType : public Type {
 public:
   Type* Derived() {
     return derived_;
@@ -259,8 +249,7 @@ protected:
 };
 
 
-class PointerType : public DerivedType
-{
+class PointerType : public DerivedType {
 public:
   static PointerType* New(Type* derived);
 
@@ -280,8 +269,7 @@ protected:
 };
 
 
-class ArrayType : public DerivedType
-{
+class ArrayType : public DerivedType {
 public:
   static ArrayType* New(int len, Type* eleType);
   static ArrayType* New(Expr* expr, Type* eleType);
@@ -322,8 +310,7 @@ protected:
 };
 
 
-class FuncType : public DerivedType
-{
+class FuncType : public DerivedType {
 public:
   typedef std::vector<Object*> ParamList;
 
@@ -338,8 +325,6 @@ public:
   virtual bool Compatible(const Type& other) const;
   virtual int Width() const { return 1; }
   virtual std::string Str() const;
-  //bool IsInline() const { inlineNoReturn_ & F_INLINE; }
-  //bool IsNoReturn() const { return inlineNoReturn_ & F_NORETURN; }
   const ParamList& Params() const { return params_; }
   void SetParams(const ParamList& params) { params_ = params; }
   bool Variadic() const { return variadic_; }
@@ -359,8 +344,7 @@ private:
 };
 
 
-class StructType : public Type
-{
+class StructType : public Type {
 public:
   typedef std::list<Object*> MemberList;
   typedef std::list<Object*>::iterator Iterator;
@@ -368,7 +352,7 @@ public:
 public:
   static StructType* New(bool isStruct, bool hasTag, Scope* parent);
   
-  ~StructType() {/*TODO: delete _env ?*/ }
+  ~StructType() {}
   virtual StructType* ToStruct() { return this; }
   virtual const StructType* ToStruct() const { return this; }
   virtual bool Compatible(const Type& other) const;
@@ -396,11 +380,6 @@ protected:
 
 private:
   void CalcWidth();
-
-  //static std::string AnonymousBitField() {
-  //    static int id = 0;
-  //    return std::to_string(id++) + "<anonymous>";
-  //}
 
   bool isStruct_;
   bool hasTag_;
@@ -444,7 +423,7 @@ public:
   virtual std::string Str() const { return "enum:4"; }
 
 protected:
-  explicit EnumType(MemPool* pool, bool complete): Type(pool, complete) {}  
+  explicit EnumType(MemPool* pool, bool complete): Type(pool, complete) {}
 };
 
 #endif

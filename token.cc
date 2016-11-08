@@ -6,7 +6,6 @@
 
 static MemPoolImp<Token> TokenPool;
 
-
 const std::unordered_map<std::string, int> Token::kwTypeMap_ {
   { "auto", Token::AUTO },
   { "break", Token::BREAK },
@@ -163,23 +162,25 @@ Token* Token::New(int tag) {
   return new (TokenPool.Alloc()) Token(tag);
 }
 
+
 Token* Token::New(const Token& other) {
   return New(other.tag_, other.loc_, other.str_, other.ws_);
 }
 
-Token* Token::New(int tag, const SourceLocation& loc,
-                  const std::string& str, bool ws) {
+
+Token* Token::New(int tag,
+                  const SourceLocation& loc,
+                  const std::string& str,
+                  bool ws) {
   return new (TokenPool.Alloc()) Token(tag, loc, str, ws);
 }
 
-bool TokenSequence::Empty()
-{
+bool TokenSequence::Empty() {
   return Peek()->tag_ == Token::END;
 }
 
 
-TokenSequence TokenSequence::GetLine()
-{
+TokenSequence TokenSequence::GetLine() {
   auto begin = begin_;
   while (begin_ != end_ && (*begin_)->tag_ != Token::NEW_LINE)
     ++begin_;
@@ -187,12 +188,12 @@ TokenSequence TokenSequence::GetLine()
   return {tokList_, begin, end};
 }
 
+
 /*
  * If this seq starts from the begin of a line.
  * Called only after we have saw '#' in the token sequence.
  */ 
-bool TokenSequence::IsBeginOfLine() const
-{
+bool TokenSequence::IsBeginOfLine() const {
   if (begin_ == tokList_->begin())
     return true;
 
@@ -206,8 +207,7 @@ bool TokenSequence::IsBeginOfLine() const
        || (*pre)->loc_.fileName_ != (*begin_)->loc_.fileName_);
 }
 
-const Token* TokenSequence::Peek()
-{
+const Token* TokenSequence::Peek() {
   static auto eof = Token::New(Token::END);
   if (begin_ != end_ && (*begin_)->tag_ == Token::NEW_LINE) {
     ++begin_;
@@ -227,8 +227,8 @@ const Token* TokenSequence::Peek()
   return *begin_;
 }
 
-const Token* TokenSequence::Expect(int expect)
-{
+
+const Token* TokenSequence::Expect(int expect) {
   auto tok = Peek();
   if (!Try(expect)) {
     Error(tok, "'%s' expected, but got '%s'",
@@ -238,12 +238,10 @@ const Token* TokenSequence::Expect(int expect)
 }
 
 
-void TokenSequence::Print(FILE* fp) const
-{
+void TokenSequence::Print(FILE* fp) const {
   unsigned lastLine = 0;
   auto ts = *this;
   while (!ts.Empty()) {
-    //bool isBegin = ts.IsBeginOfLine();
     auto tok = ts.Next();
     if (lastLine != tok->loc_.line_) {
       fputs("\n", fp);

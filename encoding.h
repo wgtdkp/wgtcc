@@ -3,6 +3,7 @@
 
 #include <string>
 
+
 enum class Encoding {
   NONE,
   CHAR16,
@@ -10,6 +11,7 @@ enum class Encoding {
   UTF8,
   WCHAR
 };
+
 
 void ConvertToUTF16(std::string& str);
 void ConvertToUTF32(std::string& str);

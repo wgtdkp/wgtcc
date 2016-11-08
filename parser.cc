@@ -10,19 +10,14 @@
 #include <iostream>
 #include <set>
 #include <string>
-
 #include <climits>
 
-
-using namespace std;
 
 FuncType* Parser::vaStartType_ {nullptr};
 FuncType* Parser::vaArgType_ {nullptr};
 
-FuncDef* Parser::EnterFunc(Identifier* ident) {
-  //curParamScope_->SetParent(curScope_);
-  //curScope_ = curParamScope_;
 
+FuncDef* Parser::EnterFunc(Identifier* ident) {
   curFunc_ = FuncDef::New(ident, LabelStmt::New());
   return curFunc_;
 }
@@ -50,8 +45,7 @@ void Parser::ExitFunc() {
 }
 
 
-void Parser::EnterBlock(FuncType* funcType)
-{
+void Parser::EnterBlock(FuncType* funcType) {
   curScope_ = new Scope(curScope_, S_BLOCK);      
   if (funcType) {
     // Merge elements in param scope into current block scope
@@ -61,17 +55,14 @@ void Parser::EnterBlock(FuncType* funcType)
 }
 
 
-void Parser::Parse()
-{
+void Parser::Parse() {
   DefineBuiltins();
   ParseTranslationUnit();
 }
 
 
-void Parser::ParseTranslationUnit()
-{
+void Parser::ParseTranslationUnit() {
   while (!ts_.Peek()->IsEOF()) {            
-    //curParamScope_ = nullptr;
     if (ts_.Try(Token::STATIC_ASSERT)) {
       ParseStaticAssert();
       continue;
@@ -109,13 +100,10 @@ void Parser::ParseTranslationUnit()
       ts_.Expect(';');
     }
   }
-  
-  //externalSymbols_->Print();
 }
 
 
-FuncDef* Parser::ParseFuncDef(Identifier* ident)
-{
+FuncDef* Parser::ParseFuncDef(Identifier* ident) {
   auto funcDef = EnterFunc(ident);
 
   if (funcDef->Type()->Complete()) {
@@ -136,14 +124,12 @@ FuncDef* Parser::ParseFuncDef(Identifier* ident)
 }
 
 
-Expr* Parser::ParseExpr()
-{
+Expr* Parser::ParseExpr() {
   return ParseCommaExpr();
 }
 
 
-Expr* Parser::ParseCommaExpr()
-{
+Expr* Parser::ParseCommaExpr() {
   auto lhs = ParseAssignExpr();
   auto tok = ts_.Peek();
   while (ts_.Try(',')) {
@@ -156,8 +142,7 @@ Expr* Parser::ParseCommaExpr()
 }
 
 
-Expr* Parser::ParsePrimaryExpr()
-{
+Expr* Parser::ParsePrimaryExpr() {
   if (ts_.Empty()) {
     Error(ts_.Peek(), "premature end of input");
   }
@@ -187,8 +172,7 @@ Expr* Parser::ParsePrimaryExpr()
 }
 
 
-static void ConvertLiteral(std::string& val, Encoding enc)
-{
+static void ConvertLiteral(std::string& val, Encoding enc) {
   switch (enc) {
   case Encoding::NONE:
   case Encoding::UTF8: break;
@@ -199,8 +183,7 @@ static void ConvertLiteral(std::string& val, Encoding enc)
 }
 
 
-Constant* Parser::ConcatLiterals(const Token* tok)
-{
+Constant* Parser::ConcatLiterals(const Token* tok) {
   auto val = new std::string;
   auto enc = Scanner(tok).ScanLiteral(*val);
   ConvertLiteral(*val, enc);	
@@ -234,15 +217,12 @@ Constant* Parser::ConcatLiterals(const Token* tok)
 }
 
 
-Encoding Parser::ParseLiteral(std::string& str, const Token* tok)
-{
+Encoding Parser::ParseLiteral(std::string& str, const Token* tok) {
   return Scanner(tok).ScanLiteral(str);
 }
 
 
-// TODO(wgtdkp):
-Constant* Parser::ParseConstant(const Token* tok)
-{
+Constant* Parser::ParseConstant(const Token* tok) {
   assert(tok->IsConstant());
 
   if (tok->tag_ == Token::I_CONSTANT) {
@@ -255,8 +235,7 @@ Constant* Parser::ParseConstant(const Token* tok)
 }
 
 
-Constant* Parser::ParseFloat(const Token* tok)
-{
+Constant* Parser::ParseFloat(const Token* tok) {
   const auto& str = tok->str_;
   size_t end = 0;
   double val = 0.0;
@@ -281,8 +260,7 @@ Constant* Parser::ParseFloat(const Token* tok)
 }
 
 
-Constant* Parser::ParseCharacter(const Token* tok)
-{
+Constant* Parser::ParseCharacter(const Token* tok) {
   int val;
   auto enc = Scanner(tok).ScanCharacter(val);
 
@@ -302,8 +280,7 @@ Constant* Parser::ParseCharacter(const Token* tok)
 }
 
 
-Constant* Parser::ParseInteger(const Token* tok)
-{
+Constant* Parser::ParseInteger(const Token* tok) {
   const auto& str = tok->str_;
   size_t end = 0;
   long val = 0;
@@ -361,9 +338,7 @@ Constant* Parser::ParseInteger(const Token* tok)
 }
 
 
-// TODO(wgtdkp):
-Expr* Parser::ParseGeneric()
-{
+Expr* Parser::ParseGeneric() {
   ts_.Expect('(');
   auto controlExpr = ParseAssignExpr();
   ts_.Expect(',');
@@ -403,8 +378,7 @@ Expr* Parser::ParseGeneric()
 }
 
 
-Type* Parser::TryCompoundLiteral()
-{
+Type* Parser::TryCompoundLiteral() {
   auto mark = ts_.Mark();
   if (ts_.Try('(') && IsTypeName(ts_.Peek())) {
     auto type = ParseTypeName();
@@ -416,10 +390,10 @@ Type* Parser::TryCompoundLiteral()
 }
 
 
-Expr* Parser::ParsePostfixExpr()
-{
-  if (ts_.Peek()->IsEOF())
+Expr* Parser::ParsePostfixExpr() {
+  if (ts_.Peek()->IsEOF()) {
     Error(ts_.Peek(), "premature end of input");
+  }
 
   auto type = TryCompoundLiteral();
   if (type) {
@@ -431,8 +405,8 @@ Expr* Parser::ParsePostfixExpr()
   return ParsePostfixExprTail(primExpr);
 }
 
-Object* Parser::ParseCompoundLiteral(Type* type)
-{
+
+Object* Parser::ParseCompoundLiteral(Type* type) {
   auto linkage = curScope_->Type() == S_FILE ? L_INTERNAL: L_NONE;
   auto anony = Object::NewAnony(ts_.Peek(), type, 0, linkage);
   auto decl = ParseInitDeclaratorSub(anony);
@@ -447,8 +421,7 @@ Object* Parser::ParseCompoundLiteral(Type* type)
 
 
 //return the constructed postfix expression
-Expr* Parser::ParsePostfixExprTail(Expr* lhs)
-{
+Expr* Parser::ParsePostfixExprTail(Expr* lhs) {
   while (true) {
     auto tok = ts_.Next();
     
@@ -466,20 +439,16 @@ Expr* Parser::ParsePostfixExprTail(Expr* lhs)
 }
 
 
-Expr* Parser::ParseSubScripting(Expr* lhs)
-{
-  auto rhs = ParseExpr();
-  
+Expr* Parser::ParseSubScripting(Expr* lhs) {
+  auto rhs = ParseExpr();  
   auto tok = ts_.Peek();
   ts_.Expect(']');
-  //
   auto operand = BinaryOp::New(tok, '+', lhs, rhs);
   return UnaryOp::New(Token::DEREF, operand);
 }
 
 
-BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs)
-{
+BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs) {
   auto memberName = ts_.Peek()->str_;
   ts_.Expect(Token::IDENTIFIER);
 
@@ -498,17 +467,14 @@ BinaryOp* Parser::ParseMemberRef(const Token* tok, int op, Expr* lhs)
 }
 
 
-UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand)
-{
+UnaryOp* Parser::ParsePostfixIncDec(const Token* tok, Expr* operand) {
   auto op = tok->tag_ == Token::INC ?
-      Token::POSTFIX_INC: Token::POSTFIX_DEC;
-
+            Token::POSTFIX_INC: Token::POSTFIX_DEC;
   return UnaryOp::New(op, operand);
 }
 
 
-FuncCall* Parser::ParseFuncCall(Expr* designator)
-{
+FuncCall* Parser::ParseFuncCall(Expr* designator) {
   FuncCall::ArgList args;
   while (!ts_.Try(')')) {
     args.push_back(Expr::MayCast(ParseAssignExpr()));
@@ -520,30 +486,19 @@ FuncCall* Parser::ParseFuncCall(Expr* designator)
 }
 
 
-Expr* Parser::ParseUnaryExpr()
-{
+Expr* Parser::ParseUnaryExpr() {
   auto tok = ts_.Next();
   switch (tok->tag_) {
-  case Token::ALIGNOF:
-    return ParseAlignof();
-  case Token::SIZEOF:
-    return ParseSizeof();
-  case Token::INC:
-    return ParsePrefixIncDec(tok);
-  case Token::DEC:
-    return ParsePrefixIncDec(tok);
-  case '&':
-    return ParseUnaryOp(tok, Token::ADDR);
-  case '*':
-    return ParseUnaryOp(tok, Token::DEREF); 
-  case '+':
-    return ParseUnaryOp(tok, Token::PLUS);
-  case '-':
-    return ParseUnaryOp(tok, Token::MINUS); 
-  case '~':
-    return ParseUnaryOp(tok, '~');
-  case '!':
-    return ParseUnaryOp(tok, '!');
+  case Token::ALIGNOF: return ParseAlignof();
+  case Token::SIZEOF: return ParseSizeof();
+  case Token::INC: return ParsePrefixIncDec(tok);
+  case Token::DEC: return ParsePrefixIncDec(tok);
+  case '&': return ParseUnaryOp(tok, Token::ADDR);
+  case '*': return ParseUnaryOp(tok, Token::DEREF); 
+  case '+': return ParseUnaryOp(tok, Token::PLUS);
+  case '-': return ParseUnaryOp(tok, Token::MINUS); 
+  case '~': return ParseUnaryOp(tok, '~');
+  case '!': return ParseUnaryOp(tok, '!');
   default:
     ts_.PutBack();
     return ParsePostfixExpr();
@@ -551,8 +506,7 @@ Expr* Parser::ParseUnaryExpr()
 }
 
 
-Constant* Parser::ParseSizeof()
-{
+Constant* Parser::ParseSizeof() {
   Type* type;  
   auto tok = ts_.Next();
   if (tok->tag_ == '(' && IsTypeName(ts_.Peek())) {
@@ -572,8 +526,8 @@ Constant* Parser::ParseSizeof()
   return Constant::New(tok, T_UNSIGNED | T_LONG, val);
 }
 
-Constant* Parser::ParseAlignof()
-{
+
+Constant* Parser::ParseAlignof() {
   ts_.Expect('(');
   auto tok = ts_.Peek();
   auto type = ParseTypeName();
@@ -583,28 +537,24 @@ Constant* Parser::ParseAlignof()
   return Constant::New(tok, T_UNSIGNED| T_LONG, val);
 }
 
-UnaryOp* Parser::ParsePrefixIncDec(const Token* tok)
-{
+
+UnaryOp* Parser::ParsePrefixIncDec(const Token* tok) {
   assert(tok->tag_ == Token::INC || tok->tag_ == Token::DEC);
   
   auto op = tok->tag_ == Token::INC ?
-      Token::PREFIX_INC: Token::PREFIX_DEC;
+            Token::PREFIX_INC: Token::PREFIX_DEC;
   auto operand = ParseUnaryExpr();
-  
   return UnaryOp::New(op, operand);
 }
 
 
-UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op)
-{
+UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op) {
   auto operand = ParseCastExpr();
-
   return UnaryOp::New(op, operand);
 }
 
 
-Type* Parser::ParseTypeName()
-{
+Type* Parser::ParseTypeName() {
   auto type = ParseSpecQual();
   if (ts_.Test('*') || ts_.Test('(') || ts_.Test('[')) //abstract-declarator FIRST set
     return ParseAbstractDeclarator(type);
@@ -613,8 +563,7 @@ Type* Parser::ParseTypeName()
 }
 
 
-Expr* Parser::ParseCastExpr()
-{
+Expr* Parser::ParseCastExpr() {
   auto tok = ts_.Next();
   if (tok->tag_ == '(' && IsTypeName(ts_.Peek())) {
     auto type = ParseTypeName();
@@ -632,8 +581,7 @@ Expr* Parser::ParseCastExpr()
 }
 
 
-Expr* Parser::ParseMultiplicativeExpr()
-{
+Expr* Parser::ParseMultiplicativeExpr() {
   auto lhs = ParseCastExpr();
   auto tok = ts_.Next();
   while (tok->tag_ == '*' || tok->tag_ == '/' || tok->tag_ == '%') {
@@ -648,8 +596,7 @@ Expr* Parser::ParseMultiplicativeExpr()
 }
 
 
-Expr* Parser::ParseAdditiveExpr()
-{
+Expr* Parser::ParseAdditiveExpr() {
   auto lhs = ParseMultiplicativeExpr();
   auto tok = ts_.Next();
   while (tok->tag_ == '+' || tok->tag_ == '-') {
@@ -664,8 +611,7 @@ Expr* Parser::ParseAdditiveExpr()
 }
 
 
-Expr* Parser::ParseShiftExpr()
-{
+Expr* Parser::ParseShiftExpr() {
   auto lhs = ParseAdditiveExpr();
   auto tok = ts_.Next();
   while (tok->tag_ == Token::LEFT || tok->tag_ == Token::RIGHT) {
@@ -680,8 +626,7 @@ Expr* Parser::ParseShiftExpr()
 }
 
 
-Expr* Parser::ParseRelationalExpr()
-{
+Expr* Parser::ParseRelationalExpr() {
   auto lhs = ParseShiftExpr();
   auto tok = ts_.Next();
   while (tok->tag_ == Token::LE || tok->tag_ == Token::GE 
@@ -697,8 +642,7 @@ Expr* Parser::ParseRelationalExpr()
 }
 
 
-Expr* Parser::ParseEqualityExpr()
-{
+Expr* Parser::ParseEqualityExpr() {
   auto lhs = ParseRelationalExpr();
   auto tok = ts_.Next();
   while (tok->tag_ == Token::EQ || tok->tag_ == Token::NE) {
@@ -713,8 +657,7 @@ Expr* Parser::ParseEqualityExpr()
 }
 
 
-Expr* Parser::ParseBitiwiseAndExpr()
-{
+Expr* Parser::ParseBitiwiseAndExpr() {
   auto lhs = ParseEqualityExpr();
   auto tok = ts_.Peek();
   while (ts_.Try('&')) {
@@ -728,8 +671,7 @@ Expr* Parser::ParseBitiwiseAndExpr()
 }
 
 
-Expr* Parser::ParseBitwiseXorExpr()
-{
+Expr* Parser::ParseBitwiseXorExpr() {
   auto lhs = ParseBitiwiseAndExpr();
   auto tok = ts_.Peek();
   while (ts_.Try('^')) {
@@ -743,8 +685,7 @@ Expr* Parser::ParseBitwiseXorExpr()
 }
 
 
-Expr* Parser::ParseBitwiseOrExpr()
-{
+Expr* Parser::ParseBitwiseOrExpr() {
   auto lhs = ParseBitwiseXorExpr();
   auto tok = ts_.Peek();
   while (ts_.Try('|')) {
@@ -758,8 +699,7 @@ Expr* Parser::ParseBitwiseOrExpr()
 }
 
 
-Expr* Parser::ParseLogicalAndExpr()
-{
+Expr* Parser::ParseLogicalAndExpr() {
   auto lhs = ParseBitwiseOrExpr();
   auto tok = ts_.Peek();
   while (ts_.Try(Token::LOGICAL_AND)) {
@@ -773,8 +713,7 @@ Expr* Parser::ParseLogicalAndExpr()
 }
 
 
-Expr* Parser::ParseLogicalOrExpr()
-{
+Expr* Parser::ParseLogicalOrExpr() {
   auto lhs = ParseLogicalAndExpr();
   auto tok = ts_.Peek();
   while (ts_.Try(Token::LOGICAL_OR)) {
@@ -788,8 +727,7 @@ Expr* Parser::ParseLogicalOrExpr()
 }
 
 
-Expr* Parser::ParseConditionalExpr()
-{
+Expr* Parser::ParseConditionalExpr() {
   auto cond = ParseLogicalOrExpr();
   auto tok = ts_.Peek();
   if (ts_.Try('?')) {
@@ -806,8 +744,7 @@ Expr* Parser::ParseConditionalExpr()
 }
 
 
-Expr* Parser::ParseAssignExpr()
-{
+Expr* Parser::ParseAssignExpr() {
   // Yes, I know the lhs should be unary expression, 
   // let it handled by type checking
   Expr* lhs = ParseConditionalExpr();
@@ -877,8 +814,8 @@ Expr* Parser::ParseAssignExpr()
   return BinaryOp::New(tok, '=', lhs, rhs);
 }
 
-void Parser::ParseStaticAssert()
-{
+
+void Parser::ParseStaticAssert() {
   ts_.Expect('(');
   auto condExpr = ParseAssignExpr();
   ts_.Expect(',');
@@ -891,9 +828,9 @@ void Parser::ParseStaticAssert()
   }
 }
 
+
 // Return: list of declarations
-CompoundStmt* Parser::ParseDecl()
-{
+CompoundStmt* Parser::ParseDecl() {
   StmtList stmts;
   if (ts_.Try(Token::STATIC_ASSERT)) {
     ParseStaticAssert();
@@ -930,8 +867,7 @@ enum {
 };
 
 
-static inline void TypeLL(int& typeSpec)
-{
+static inline void TypeLL(int& typeSpec) {
   if (typeSpec & T_LONG) {
     typeSpec &= ~T_LONG;
     typeSpec |= T_LLONG;
@@ -941,14 +877,12 @@ static inline void TypeLL(int& typeSpec)
 }
 
 
-Type* Parser::ParseSpecQual()
-{
+Type* Parser::ParseSpecQual() {
   return ParseDeclSpec(nullptr, nullptr, nullptr);
 }
 
 
-static void EnsureAndSetStorageSpec(const Token* tok, int* storage, int spec)
-{
+static void EnsureAndSetStorageSpec(const Token* tok, int* storage, int spec) {
   if (!storage)
     Error(tok, "unexpected storage specifier");
   if (*storage != 0)
@@ -956,11 +890,11 @@ static void EnsureAndSetStorageSpec(const Token* tok, int* storage, int spec)
   *storage |= spec;
 }
 
+
 /*
-param: storage: null, only type specifier and qualifier accepted;
+ * param: storage: null, only type specifier and qualifier accepted;
 */
-Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec)
-{
+Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) {
 #define ERR_FUNC_SPEC ("unexpected function specifier")
 #define ERR_STOR_SPEC ("unexpected storage specifier")
 #define ERR_DECL_SPEC ("two or more data types in declaration specifiers")
@@ -1173,8 +1107,7 @@ end_of_loop:
 }
 
 
-int Parser::ParseAlignas()
-{
+int Parser::ParseAlignas() {
   int align;
   ts_.Expect('(');
   auto tok = ts_.Peek();
@@ -1193,8 +1126,7 @@ int Parser::ParseAlignas()
 }
 
 
-Type* Parser::ParseEnumSpec()
-{
+Type* Parser::ParseEnumSpec() {
   // GNU extension: type attributes
   TryAttributeSpecList();
 
@@ -1207,8 +1139,6 @@ Type* Parser::ParseEnumSpec()
       auto tagIdent = curScope_->FindTagInCurScope(tok);
       if (!tagIdent) {
         auto type = ArithmType::New(T_INT);
-        // TODO(wgtdkp):
-        //type->SetComplete(false);
         auto ident = Identifier::New(tok, type, L_NONE);
         curScope_->InsertTag(ident);
         return ParseEnumerator(type);   //处理反大括号: '}'
@@ -1218,14 +1148,11 @@ Type* Parser::ParseEnumSpec()
         Error(tok, "redefinition of enumeration tag '%s'", tagName.c_str());
       return ParseEnumerator(tagIdent->Type()->ToArithm());
     } else {
-      //Type* type = curScope_->FindTag(tagName);
       auto tagIdent = curScope_->FindTag(tok);
       if (tagIdent) {
         return tagIdent->Type();
       }
       auto type = ArithmType::New(T_INT);
-      // TODO(wgtdkp):
-      //type->SetComplete(false);   //尽管我们把 enum 当成 int 看待，但是还是认为他是不完整的
       auto ident = Identifier::New(tok, type, L_NONE);
       curScope_->InsertTag(ident);
       return type;
@@ -1234,14 +1161,11 @@ Type* Parser::ParseEnumSpec()
   
   ts_.Expect('{');
   auto type = ArithmType::New(T_INT);
-  // TODO(wgtdkp):
-  //type->SetComplete(false);
   return ParseEnumerator(type);   //处理反大括号: '}'
 }
 
 
-Type* Parser::ParseEnumerator(ArithmType* type)
-{
+Type* Parser::ParseEnumerator(ArithmType* type) {
   assert(type && type->IsInteger());
   int val = 0;
   do {
@@ -1276,8 +1200,7 @@ Type* Parser::ParseEnumerator(ArithmType* type)
  * 3.struct/union 的成员
  * 4.其它的普通的变量
  */
-Type* Parser::ParseStructUnionSpec(bool isStruct)
-{
+Type* Parser::ParseStructUnionSpec(bool isStruct) {
   // GNU extension: type attributes
   TryAttributeSpecList();
 
@@ -1297,13 +1220,12 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
         return ParseStructUnionDecl(type); //处理反大括号: '}'
       }
       
-      /*
-       * 在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
-       * 1.如果声明在定义的外层scope,那么即使在内层scope定义了完整的类型，此声明仍然是无效的；
-       *   因为如论如何，编译器都不会在内部scope里面去找定义，所以声明的类型仍然是不完整的；
-       * 2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
-       *   因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
-       */
+      
+      // 在当前scope找到了类型，但可能只是声明；注意声明与定义只能出现在同一个scope；
+      // 1.如果声明在定义的外层scope,那么即使在内层scope定义了完整的类型，此声明仍然是无效的；
+      //   因为如论如何，编译器都不会在内部scope里面去找定义，所以声明的类型仍然是不完整的；
+      // 2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
+      //   因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
       if (!tagIdent->Type()->Complete()) {
         //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
         return ParseStructUnionDecl(tagIdent->Type()->ToStruct());
@@ -1312,14 +1234,12 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
         Error(tok, "redefinition of struct tag '%s'", tagName.c_str());
       }
     } else {
-      /*
-       * 没有大括号，表明不是定义一个struct/union;那么现在只可能是在：
-       * 1.声明；
-       * 2.声明的同时，定义指针(指针允许指向不完整类型) (struct Foo* p; 是合法的) 或者其他合法的类型；
-       *   如果现在索引符号表，那么：
-       *   1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
-       *   2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
-       */
+      // 没有大括号，表明不是定义一个struct/union;那么现在只可能是在：
+      // 1.声明；
+      // 2.声明的同时，定义指针(指针允许指向不完整类型) (struct Foo* p; 是合法的) 或者其他合法的类型；
+      //   如果现在索引符号表，那么：
+      //   1.可能找到name的完整定义，也可能只找得到不完整的声明；不管name指示的是不是完整类型，我们都只能选择name指示的类型；
+      //   2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
       auto tagIdent = curScope_->FindTag(tok);
       
       //如果tag已经定义或声明，那么直接返回此定义或者声明
@@ -1345,8 +1265,7 @@ Type* Parser::ParseStructUnionSpec(bool isStruct)
 }
 
 
-StructType* Parser::ParseStructUnionDecl(StructType* type)
-{
+StructType* Parser::ParseStructUnionDecl(StructType* type) {
 #define ADD_MEMBER() {                        \
   auto member = Object::New(tok, memberType); \
   if (align > 0)                              \
@@ -1356,7 +1275,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type)
 
   //既然是定义，那输入肯定是不完整类型，不然就是重定义了
   assert(type && !type->Complete());
-  
+
   auto scopeBackup = curScope_;
   curScope_ = type->MemberMap(); // Internal symbol lookup rely on curScope_
   while (!ts_.Try('}')) {
@@ -1437,8 +1356,8 @@ finalize:
 
 
 void Parser::ParseBitField(StructType* structType,
-    const Token* tok, Type* type)
-{
+                           const Token* tok,
+                           Type* type) {
   if (!type->IsInteger()) {
     Error(tok ? tok: ts_.Peek(), "expect integer type for bitfield");
   }
@@ -1449,9 +1368,7 @@ void Parser::ParseBitField(StructType* structType,
     Error(expr, "expect non negative value");
   } else if (width == 0 && tok) {
     Error(tok, "no declarator expected for a bitfield with width 0");
-  }/* else if (width == 0) {
-    return false;
-  } */else if (width > type->Width() * 8) {
+  } else if (width > type->Width() * 8) {
     Error(expr, "width exceeds its type");
   }
 
@@ -1471,8 +1388,6 @@ void Parser::ParseBitField(StructType* structType,
     bitFieldOffset = 0;
   } else {
     auto last = structType->Members().back();
-    // FIXME(wgtdkp):
-    //auto totalBits = (last->Offset() - offset) * 8;
     auto totalBits = last->Offset() * 8;
     if (last->BitFieldWidth()) {
       totalBits += last->BitFieldEnd();
@@ -1491,19 +1406,6 @@ void Parser::ParseBitField(StructType* structType,
       begin = 0;
       bitFieldOffset = Type::MakeAlign(structType->Offset(), type->Width());
     }
-    /*
-    auto bitsOffset = Type::MakeAlign(totalBits, 8);
-    if (packed && (width + totalBits <= bitsOffset)) {
-      begin = totalBits % 8;
-      bitFieldOffset = totalBits / 8;
-    } else if (Type::MakeAlign(width, 8) + bitsOffset <= type->Width() * 8) {
-      begin = 0;
-      bitFieldOffset = bitsOffset / 8;
-    } else {
-      begin = 0;
-      bitFieldOffset = Type::MakeAlign(structType->Offset(), type->Width());
-    }
-    */
   }
 
   Object* bitField;
@@ -1516,8 +1418,7 @@ void Parser::ParseBitField(StructType* structType,
 }
 
 
-int Parser::ParseQual()
-{
+int Parser::ParseQual() {
   int qualSpec = 0;
   for (; ;) {
     switch (ts_.Next()->tag_) {
@@ -1545,8 +1446,7 @@ int Parser::ParseQual()
 }
 
 
-Type* Parser::ParsePointer(Type* typePointedTo)
-{
+Type* Parser::ParsePointer(Type* typePointedTo) {
   Type* retType = typePointedTo;
   while (ts_.Try('*')) {
     retType = PointerType::New(typePointedTo);
@@ -1558,8 +1458,7 @@ Type* Parser::ParsePointer(Type* typePointedTo)
 }
 
 
-static Type* ModifyBase(Type* type, Type* base, Type* newBase)
-{
+static Type* ModifyBase(Type* type, Type* base, Type* newBase) {
   if (type == base)
     return newBase;
   
@@ -1575,8 +1474,7 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase)
  *     if token is nullptr, then we are parsing abstract declarator
  *     else, parsing direct declarator.
  */
-TokenTypePair Parser::ParseDeclarator(Type* base)
-{
+TokenTypePair Parser::ParseDeclarator(Type* base) {
   // May be pointer
   auto pointerType = ParsePointer(base);
   
@@ -1607,16 +1505,17 @@ TokenTypePair Parser::ParseDeclarator(Type* base)
 }
 
 
-Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
-    int storageSpec, int funcSpec, int align)
-{
+Identifier* Parser::ProcessDeclarator(const Token* tok,
+                                      Type* type,
+                                      int storageSpec,
+                                      int funcSpec,
+                                      int align) {
   assert(tok);
-  /*
-   * 检查在同一 scope 是否已经定义此变量
-   * 如果 storage 是 typedef，那么应该往符号表里面插入 type
-   * 定义 void 类型变量是非法的，只能是指向void类型的指针
-   * 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
-   */
+  
+  // 检查在同一 scope 是否已经定义此变量
+  // 如果 storage 是 typedef，那么应该往符号表里面插入 type
+  // 定义 void 类型变量是非法的，只能是指向void类型的指针
+  // 如果 funcSpec != 0, 那么现在必须是在定义函数，否则出错
   const auto& name = tok->str_;
   Identifier* ident;
 
@@ -1744,8 +1643,7 @@ Identifier* Parser::ProcessDeclarator(const Token* tok, Type* type,
 }
 
 
-Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base)
-{
+Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base) {
   if (ts_.Try('[')) {
 
     if (nullptr != base->ToFunc()) {
@@ -1753,9 +1651,6 @@ Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base)
     }
 
     auto len = ParseArrayLength();
-    //if (0 == len) {
-    //    Error(ts_.Peek(), "cannot declare an array of length 0");
-    //}
     ts_.Expect(']');
     base = ParseArrayFuncDeclarator(ident, base);
     if (!base->Complete()) {
@@ -1789,27 +1684,13 @@ Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base)
 
 
 /*
- * return: -1, 没有指定长度；其它，长度；
+ * return: -1, length not specified
  */
-int Parser::ParseArrayLength()
-{
+int Parser::ParseArrayLength() {
   auto hasStatic = ts_.Try(Token::STATIC);
   auto qual = ParseQual();
   if (0 != qual)
     hasStatic = ts_.Try(Token::STATIC);
-  /*
-  if (!hasStatic) {
-    if (ts_.Try('*'))
-      return ts_.Expect(']'), -1;
-    if (ts_.Try(']'))
-      return -1;
-    else {
-      auto expr = ParseAssignExpr();
-      auto len = Evaluate(expr);
-      ts_.Expect(']');
-      return len;
-    }
-  }*/
 
   //不支持变长数组
   if (!hasStatic && ts_.Test(']'))
@@ -1828,8 +1709,7 @@ int Parser::ParseArrayLength()
 /*
  * Return: true, variadic;
  */
-bool Parser::ParseParamList(FuncType::ParamList& params)
-{
+bool Parser::ParseParamList(FuncType::ParamList& params) {
   if (ts_.Test(')'))
     return false;
   auto param = ParseParamDecl();
@@ -1849,16 +1729,13 @@ bool Parser::ParseParamList(FuncType::ParamList& params)
 }
 
 
-Object* Parser::ParseParamDecl()
-{
+Object* Parser::ParseParamDecl() {
   int storageSpec, funcSpec;
   // C11 6.7.5 [2]: alignment specifier cannot be specified in params
   auto type = ParseDeclSpec(&storageSpec, &funcSpec, nullptr);
   auto tokTypePair = ParseDeclarator(type);
   auto tok = tokTypePair.first;
   type = Type::MayCast(tokTypePair.second);
-  //if (type->ToStruct())
-  //  Error(tok? tok: ts_.Peek(), "current implementation of x86-64 ABI do not support struct in param");
   if (!tok) { // Abstract declarator
     return Object::NewAnony(ts_.Peek(), type, 0, Linkage::L_NONE);
   }
@@ -1872,8 +1749,7 @@ Object* Parser::ParseParamDecl()
 }
 
 
-Type* Parser::ParseAbstractDeclarator(Type* type)
-{
+Type* Parser::ParseAbstractDeclarator(Type* type) {
   auto tokenTypePair = ParseDeclarator(type);
   auto tok = tokenTypePair.first;
   type = tokenTypePair.second;
@@ -1881,23 +1757,13 @@ Type* Parser::ParseAbstractDeclarator(Type* type)
     Error(tok, "unexpected identifier '%s'", tok->str_.c_str());
   }
   return type;
-  /*
-  auto pointerType = ParsePointer(type);
-  if (nullptr != pointerType->ToPointer() && !ts_.Try('('))
-    return pointerType;
-  
-  auto ret = ParseAbstractDeclarator(pointerType);
-  ts_.Expect(')');
-  auto newBase = ParseArrayFuncDeclarator(pointerType);
-  
-  return ModifyBase(ret, pointerType, newBase);
-  */
 }
 
 
 Identifier* Parser::ParseDirectDeclarator(Type* type,
-    int storageSpec, int funcSpec, int align)
-{
+                                          int storageSpec,
+                                          int funcSpec,
+                                          int align) {
   auto tokenTypePair = ParseDeclarator(type);
   auto tok = tokenTypePair.first;
   type = tokenTypePair.second;
@@ -1909,8 +1775,7 @@ Identifier* Parser::ParseDirectDeclarator(Type* type,
 }
 
 
-Declaration* Parser::ParseInitDeclarator(Identifier* ident)
-{
+Declaration* Parser::ParseInitDeclarator(Identifier* ident) {
   auto obj = ident->ToObject();
   if (!obj) { // Do not record function Declaration
     return nullptr;
@@ -1938,8 +1803,7 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident)
 }
 
 
-Declaration* Parser::ParseInitDeclaratorSub(Object* obj)
-{
+Declaration* Parser::ParseInitDeclaratorSub(Object* obj) {
   const auto& name = obj->Name();
   if ((curScope_->Type() != S_FILE) && obj->Linkage() != L_NONE) {
     Error(obj, "'%s' has both 'extern' and initializer", name.c_str());
@@ -1978,10 +1842,13 @@ Declaration* Parser::ParseInitDeclaratorSub(Object* obj)
 }
 
 
-void Parser::ParseInitializer(Declaration* decl, Type* type, int offset,
-    bool designated, bool forceBrace,
-    unsigned char bitFieldBegin, unsigned char bitFieldWidth)
-{
+void Parser::ParseInitializer(Declaration* decl,
+                              Type* type,
+                              int offset,
+                              bool designated,
+                              bool forceBrace,
+                              unsigned char bitFieldBegin,
+                              unsigned char bitFieldWidth) {
   if (designated && !ts_.Test('.') && !ts_.Test('[')) {
     ts_.Expect('=');
   }
@@ -2029,8 +1896,8 @@ void Parser::ParseInitializer(Declaration* decl, Type* type, int offset,
 
 
 bool Parser::ParseLiteralInitializer(Declaration* decl,
-    ArrayType* type, int offset)
-{
+                                     ArrayType* type,
+                                     int offset) {
   if (!type->Derived()->IsInteger())
     return false;
 
@@ -2051,23 +1918,10 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     type->SetLen(literal->Type()->ToArray()->Len());
     type->SetComplete(true);
   }
-  
-  //if (decl->Obj()->IsStatic()) {
-  //    decl->AddInit({0, type, literal});
-  //    return;
-  //}
 
   auto width = std::min(type->Width(), literal->Type()->Width());
   auto str = literal->SVal()->c_str();
-  /*
-  for (; width > 0; --width) {
-    auto p = str;
-    auto type = ArithmType::New(T_CHAR);
-    auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));
-    decl->AddInit({offset, type, val});
-    offset++;
-    str++;
-  }*/
+
   for (; width >= 8; width -= 8) {
     auto p = reinterpret_cast<const long*>(str);
     auto type = ArithmType::New(T_LONG);
@@ -2109,8 +1963,9 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
 
 
 void Parser::ParseArrayInitializer(Declaration* decl,
-    ArrayType* type, int offset, bool designated)
-{
+                                   ArrayType* type,
+                                   int offset,
+                                   bool designated) {
   assert(type);
 
   if (!type->Complete())
@@ -2168,8 +2023,7 @@ void Parser::ParseArrayInitializer(Declaration* decl,
 
 
 StructType::Iterator Parser::ParseStructDesignator(StructType* type,
-    const std::string& name)
-{
+                                                   const std::string& name) {
   auto iter = type->Members().begin();
   for (; iter != type->Members().end(); ++iter) {
     if ((*iter)->Anonymous()) {
@@ -2186,17 +2040,11 @@ StructType::Iterator Parser::ParseStructDesignator(StructType* type,
   return iter;
 }
 
-/*
-void Parser::ParseDesignatedInitializer(Declaration* decl,
-    Type* type, int offset, bool designated)
-{
-  if ()
-}
-*/
 
 void Parser::ParseStructInitializer(Declaration* decl,
-    StructType* type, int offset, bool designated)
-{
+                                    StructType* type,
+                                    int offset,
+                                    bool designated) {
   assert(type);
 
   auto hasBrace = ts_.Try('{');
@@ -2265,14 +2113,11 @@ void Parser::ParseStructInitializer(Declaration* decl,
 }
 
 
-
-
 /*
  * Statements
  */
 
-Stmt* Parser::ParseStmt()
-{
+Stmt* Parser::ParseStmt() {
   auto tok = ts_.Next();
   if (tok->IsEOF())
     Error(tok, "premature end of input");
@@ -2323,8 +2168,7 @@ Stmt* Parser::ParseStmt()
 }
 
 
-CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
-{
+CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType) {
   EnterBlock(funcType);
 
   std::list<Stmt*> stmts;
@@ -2348,8 +2192,7 @@ CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType)
 }
 
 
-IfStmt* Parser::ParseIfStmt()
-{
+IfStmt* Parser::ParseIfStmt() {
   ts_.Expect('(');
   auto tok = ts_.Peek();
   auto cond = ParseExpr();
@@ -2381,19 +2224,18 @@ IfStmt* Parser::ParseIfStmt()
  */
 
 #define ENTER_LOOP_BODY(breakDest, continueDest)    \
-{											        \
-  LabelStmt* breakDestBackup = breakDest_;	    \
-  LabelStmt* continueDestBackup = continueDest_;  \
-  breakDest_ = breakDest;			                \
+{											                              \
+  LabelStmt* breakDestBackup = breakDest_;	        \
+  LabelStmt* continueDestBackup = continueDest_;    \
+  breakDest_ = breakDest;			                      \
   continueDest_ = continueDest; 
 
-#define EXIT_LOOP_BODY()		        \
+#define EXIT_LOOP_BODY()		          \
   breakDest_ = breakDestBackup;       \
   continueDest_ = continueDestBackup;	\
 }
 
-CompoundStmt* Parser::ParseForStmt()
-{
+CompoundStmt* Parser::ParseForStmt() {
   EnterBlock();
   ts_.Expect('(');
   
@@ -2461,8 +2303,7 @@ CompoundStmt* Parser::ParseForStmt()
  *		goto cond
  * end:
  */
-CompoundStmt* Parser::ParseWhileStmt()
-{
+CompoundStmt* Parser::ParseWhileStmt() {
   std::list<Stmt*> stmts;
   ts_.Expect('(');
   auto tok = ts_.Peek();
@@ -2502,8 +2343,7 @@ CompoundStmt* Parser::ParseWhileStmt()
  *		 else goto end
  * end:
  */
-CompoundStmt* Parser::ParseDoStmt()
-{
+CompoundStmt* Parser::ParseDoStmt() {
   auto beginLabel = LabelStmt::New();
   auto condLabel = LabelStmt::New();
   auto endLabel = LabelStmt::New();
@@ -2534,6 +2374,10 @@ CompoundStmt* Parser::ParseDoStmt()
 }
 
 
+#undef ENTER_LOOP_BODY
+#undef EXIT_LOOP_BODY
+
+
 #define ENTER_SWITCH_BODY(breakDest, caseLabels)  \
 { 												                        \
   CaseLabelList* caseLabelsBackup = caseLabels_;  \
@@ -2557,8 +2401,7 @@ CompoundStmt* Parser::ParseDoStmt()
  *  jump stmts
  *  default jump stmt
  */
-CompoundStmt* Parser::ParseSwitchStmt()
-{
+CompoundStmt* Parser::ParseSwitchStmt() {
   std::list<Stmt*> stmts;
   ts_.Expect('(');
   auto tok = ts_.Peek();
@@ -2601,8 +2444,7 @@ CompoundStmt* Parser::ParseSwitchStmt()
 }
 
 
-CompoundStmt* Parser::ParseCaseStmt()
-{
+CompoundStmt* Parser::ParseCaseStmt() {
   auto tok = ts_.Peek();
 
   // case ranges: Non-standard GNU extension
@@ -2630,8 +2472,7 @@ CompoundStmt* Parser::ParseCaseStmt()
 }
 
 
-CompoundStmt* Parser::ParseDefaultStmt()
-{
+CompoundStmt* Parser::ParseDefaultStmt() {
   auto tok = ts_.Peek();
   ts_.Expect(':');
   if (defaultLabel_) { // There is a 'default' stmt
@@ -2648,8 +2489,7 @@ CompoundStmt* Parser::ParseDefaultStmt()
 }
 
 
-JumpStmt* Parser::ParseContinueStmt()
-{
+JumpStmt* Parser::ParseContinueStmt() {
   auto tok = ts_.Peek();
   ts_.Expect(';');
   if (continueDest_ == nullptr) {
@@ -2660,11 +2500,9 @@ JumpStmt* Parser::ParseContinueStmt()
 }
 
 
-JumpStmt* Parser::ParseBreakStmt()
-{
+JumpStmt* Parser::ParseBreakStmt() {
   auto tok = ts_.Peek();
   ts_.Expect(';');
-  // ERROR(wgtdkp):
   if (breakDest_ == nullptr) {
     Error(tok, "'break' is allowed only in switch/loop");
   }
@@ -2673,8 +2511,7 @@ JumpStmt* Parser::ParseBreakStmt()
 }
 
 
-ReturnStmt* Parser::ParseReturnStmt()
-{
+ReturnStmt* Parser::ParseReturnStmt() {
   Expr* expr;
 
   if (ts_.Try(';')) {
@@ -2691,8 +2528,7 @@ ReturnStmt* Parser::ParseReturnStmt()
 }
 
 
-JumpStmt* Parser::ParseGotoStmt()
-{
+JumpStmt* Parser::ParseGotoStmt() {
   auto label = ts_.Peek();
   ts_.Expect(Token::IDENTIFIER);
   ts_.Expect(';');
@@ -2709,8 +2545,7 @@ JumpStmt* Parser::ParseGotoStmt()
 }
 
 
-CompoundStmt* Parser::ParseLabelStmt(const Token* label)
-{
+CompoundStmt* Parser::ParseLabelStmt(const Token* label) {
   const auto& labelStr = label->str_;
   auto stmt = ParseStmt();
   if (nullptr != FindLabel(labelStr)) {
@@ -2727,22 +2562,20 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label)
 }
 
 
-bool Parser::IsBuiltin(const std::string& name)
-{
-  return name == "__builtin_va_arg"
-      || name == "__builtin_va_start";
+bool Parser::IsBuiltin(const std::string& name) {
+  return name == "__builtin_va_arg" ||
+         name == "__builtin_va_start";
 }
 
 
-bool Parser::IsBuiltin(const FuncType* type)
-{
+bool Parser::IsBuiltin(const FuncType* type) {
   assert(vaStartType_ && vaArgType_);
   return type == vaStartType_ || type == vaArgType_;
 }
 
+
 // Builtin functions will be inlined
-void Parser::DefineBuiltins()
-{
+void Parser::DefineBuiltins() {
   // FIXME: potential bug: using same object for params!!!
   auto voidPtr = PointerType::New(VoidType::New());
   auto param = Object::New(nullptr, voidPtr);
@@ -2754,8 +2587,7 @@ void Parser::DefineBuiltins()
 }
 
 
-Identifier* Parser::GetBuiltin(const Token* tok)
-{
+Identifier* Parser::GetBuiltin(const Token* tok) {
   assert(vaStartType_ && vaArgType_);
   static Identifier* vaStart = nullptr;
   static Identifier* vaArg = nullptr;
@@ -2773,20 +2605,19 @@ Identifier* Parser::GetBuiltin(const Token* tok)
   return nullptr;
 }
 
+
 /*
  * GNU extensions
  */
 
 // Attribute
-void Parser::TryAttributeSpecList()
-{
+void Parser::TryAttributeSpecList() {
   while (ts_.Try(Token::ATTRIBUTE))
     ParseAttributeSpec();
 }
 
 
-void Parser::ParseAttributeSpec()
-{
+void Parser::ParseAttributeSpec() {
   ts_.Expect('(');
   ts_.Expect('(');
 
@@ -2801,19 +2632,16 @@ void Parser::ParseAttributeSpec()
 }
 
 
-void Parser::ParseAttribute()
-{
+void Parser::ParseAttribute() {
   if (!ts_.Test(Token::IDENTIFIER))
     return;
-  //auto name = ts_.Next();
   if (ts_.Try('(')) {
     if (ts_.Try(')'))
       return;
     
-    /*auto param =*/ ts_.Expect(Token::IDENTIFIER);
+    ts_.Expect(Token::IDENTIFIER);
     if (ts_.Test(',')) {
-      while (ts_.Try(','))
-        {} //auto expr = ParseExpr();
+      while (ts_.Try(',')) {}
     }
     ts_.Try(')');
   }

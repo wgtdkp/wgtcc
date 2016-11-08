@@ -17,8 +17,7 @@ typedef std::vector<ROData> RODataList;
 typedef std::vector<StaticInitializer> StaticInitList;
 
 
-enum class ParamClass
-{
+enum class ParamClass {
   INTEGER,
   SSE,
   SSEUP,
@@ -35,8 +34,7 @@ struct ParamLocations {
   size_t xregCnt_;
 };
 
-struct ROData
-{
+struct ROData {
   ROData(long ival, int align): ival_(ival), align_(align) {
     label_ = ".LC" + std::to_string(GenTag());
   }
@@ -44,10 +42,6 @@ struct ROData
   explicit ROData(const std::string& sval): sval_(sval), align_(1) {
     label_ = ".LC" + std::to_string(GenTag());
   }
-
-  //ROData(const ROData& other) = delete;
-  //ROData& operator=(const ROData& other) = delete;
-
 
   ~ROData() {}
 
@@ -65,8 +59,7 @@ private:
 };
 
 
-struct ObjectAddr
-{
+struct ObjectAddr {
   explicit ObjectAddr(int offset)
       : ObjectAddr("", "%rbp", offset) {}
 
@@ -83,8 +76,7 @@ struct ObjectAddr
 };
 
 
-struct StaticInitializer
-{
+struct StaticInitializer {
   int offset_;
   int width_;
   long val_;
@@ -92,8 +84,7 @@ struct StaticInitializer
 };
 
 
-class Generator: public Visitor
-{
+class Generator: public Visitor {
   friend class Evaluator<Addr>;
 public:
   Generator() {}
@@ -254,16 +245,13 @@ protected:
 
 protected:
   static const std::string* last_file;
-
   static Parser* parser_;
   static FILE* outFile_;
-
-  //static std::string _cons;
   static RODataList rodatas_;
   static int offset_;
 
   // The address that store the register %rdi,
-  //     when the return value is a struct/union
+  // when the return value is a struct/union
   static int retAddrOffset_;
   static FuncDef* curFunc_;
 
@@ -271,8 +259,7 @@ protected:
 };
 
 
-class LValGenerator: public Generator
-{
+class LValGenerator: public Generator {
 public:
   LValGenerator() {}
   
@@ -304,6 +291,7 @@ public:
     expr->Accept(this);
     return addr_;
   }
+
 private:
   ObjectAddr addr_ {"", "", 0};
 };

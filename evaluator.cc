@@ -6,8 +6,7 @@
 
 
 template<typename T>
-void Evaluator<T>::VisitBinaryOp(BinaryOp* binary)
-{
+void Evaluator<T>::VisitBinaryOp(BinaryOp* binary) {
 #define L   Evaluator<T>().Eval(binary->lhs_)
 #define R   Evaluator<T>().Eval(binary->rhs_)
 #define LL  Evaluator<long>().Eval(binary->lhs_)
@@ -71,8 +70,7 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary)
 
 
 template<typename T>
-void Evaluator<T>::VisitUnaryOp(UnaryOp* unary)
-{
+void Evaluator<T>::VisitUnaryOp(UnaryOp* unary) {
 #define VAL     Evaluator<T>().Eval(unary->operand_)
 #define LVAL    Evaluator<long>().Eval(unary->operand_)
 
@@ -102,8 +100,7 @@ void Evaluator<T>::VisitUnaryOp(UnaryOp* unary)
 
 
 template<typename T>
-void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp)
-{
+void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp) {
   bool cond;
   auto condType = condOp->cond_->Type();
   if (condType->IsInteger()) {
@@ -127,8 +124,7 @@ void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp)
 }
 
 
-void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
-{
+void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary) {
 #define LR   Evaluator<long>().Eval(binary->rhs_)
 #define R   Evaluator<Addr>().Eval(binary->rhs_)
   
@@ -164,8 +160,7 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary)
 }
 
 
-void Evaluator<Addr>::VisitUnaryOp(UnaryOp* unary)
-{
+void Evaluator<Addr>::VisitUnaryOp(UnaryOp* unary) {
   auto addr = Evaluator<Addr>().Eval(unary->operand_);
 
   switch (unary->op_) {
@@ -178,8 +173,7 @@ void Evaluator<Addr>::VisitUnaryOp(UnaryOp* unary)
 }
 
 
-void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp)
-{
+void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp) {
   bool cond;
   auto condType = condOp->cond_->Type();
   if (condType->IsInteger()) {
@@ -203,8 +197,7 @@ void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp)
 }
 
 
-void Evaluator<Addr>::VisitConstant(Constant* cons) 
-{
+void Evaluator<Addr>::VisitConstant(Constant* cons)  {
   if (cons->Type()->IsInteger()) {
     addr_ = {"", static_cast<int>(cons->IVal())};
   } else if (cons->Type()->ToArray()) {

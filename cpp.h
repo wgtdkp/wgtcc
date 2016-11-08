@@ -22,8 +22,7 @@ typedef std::stack<CondDirective> PPCondStack;
 typedef std::list<std::string> PathList;
 
 
-class Macro
-{
+class Macro {
 public:
   Macro(const TokenSequence& repSeq, bool preDef=false)
       : funcLike_(false), variadic_(false),
@@ -35,12 +34,6 @@ public:
         params_(params), repSeq_(repSeq) {}
   
   ~Macro() {}
-
-  /*
-  std::string Name() {
-    return tok_->Str();
-  }
-  */
 
   bool FuncLike() {
     return funcLike_;
@@ -65,7 +58,6 @@ public:
   TokenSequence RepSeq(const std::string* fileName, unsigned line);
 
 private:
-  //Token* tok_;
   bool funcLike_;
   bool variadic_;
   bool preDef_;
@@ -74,16 +66,14 @@ private:
 };
 
 
-struct CondDirective
-{
+struct CondDirective {
   int tag_;
   bool enabled_;
   bool cond_;
 };
 
 
-class Preprocessor
-{
+class Preprocessor {
 public:
   Preprocessor(const std::string* fileName)
       : curLine_(1), lineLine_(0), curCond_(true) {
@@ -150,19 +140,15 @@ public:
     macroMap_.erase(res);
   }
 
-  std::string* SearchFile(
-      const std::string& name,
-      const bool libHeader,
-      bool next,
-      const std::string& curPath);
+  std::string* SearchFile(const std::string& name,
+                          const bool libHeader,
+                          bool next,
+                          const std::string& curPath);
 
   void AddSearchPath(std::string path);
   void HandleTheFileMacro(TokenSequence& os, const Token* macro);
   void HandleTheLineMacro(TokenSequence& os, const Token* macro);
   void UpdateFirstTokenLine(TokenSequence ts);
-  //bool Hidden(const std::string& name) {
-  //    return hs_.find(name) != hs_.end();
-  //}
 
   bool NeedExpand() const {
     if (ppCondStack_.empty())
@@ -174,7 +160,6 @@ public:
 private:
   void Init();
 
-  //HideSet hs_;
   PPCondStack ppCondStack_;
   unsigned curLine_;
   unsigned lineLine_;

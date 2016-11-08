@@ -5,7 +5,6 @@
 
 #include <cassert>
 #include <cstring>
-
 #include <iostream>
 #include <list>
 #include <set>
@@ -18,7 +17,6 @@ class Parser;
 class Scanner;
 class Token;
 class TokenSequence;
-
 
 typedef std::set<std::string> HideSet;
 typedef std::list<const Token*> TokenList;
@@ -36,12 +34,11 @@ struct SourceLocation {
 };
 
 
-struct Token
-{
+struct Token {
   friend class Scanner;
 public:
   enum {
-    /* punctuators */
+    // Punctuators
     LPAR = '(',
     RPAR = ')',
     LSQB = '[',
@@ -94,17 +91,17 @@ public:
     OR_ASSIGN,
 
     ELLIPSIS,
-    /* punctuators end */
+    // Punctuators end
 
-    /* KEYWORD BEGIN */
-    /* TYPE QUALIFIER BEGIN */
+    // KEYWORD BEGIN
+    // TYPE QUALIFIER BEGIN
     CONST,
     RESTRICT,
     VOLATILE,
     ATOMIC,
-    /* TYPE QUALIFIER END */
+    // TYPE QUALIFIER END
 
-    /* TYPE SPECIFIER BEGIN */
+    // TYPE SPECIFIER BEGIN
     VOID,
     CHAR,
     SHORT,
@@ -119,26 +116,25 @@ public:
     STRUCT,
     UNION,
     ENUM,
-    /* TYPE SPECIFIER END */
+    // TYPE SPECIFIER END
 
     ATTRIBUTE, // GNU extension __attribute__
-    /* FUNCTION SPECIFIER BEGIN */
+    // FUNCTION SPECIFIER BEGIN
     INLINE,
     NORETURN,	//_Noreturn
-    /* FUNCTION SPECIFIER END */
+    // FUNCTION SPECIFIER END
 
     ALIGNAS, //_Alignas
     // For syntactic convenience
     STATIC_ASSERT, //_Static_assert
-    /* STORAGE CLASS SPECIFIER BEGIN */
+    // STORAGE CLASS SPECIFIER BEGIN
     TYPEDEF,
     EXTERN,
     STATIC,
     THREAD,	//_Thread_local
     AUTO,
     REGISTER,
-    /* STORAGE CLASS SPECIFIER END */
-
+    // STORAGE CLASS SPECIFIER END
     BREAK,
     CASE,
     CONTINUE,
@@ -155,7 +151,7 @@ public:
     ALIGNOF, //_Alignof
     GENERIC, //_Generic
     IMAGINARY, //_Imaginary
-    /* KEYWORD END */
+    // KEYWORD END
      
     IDENTIFIER,
     CONSTANT,
@@ -201,18 +197,16 @@ public:
   static Token* New(int tag);
   static Token* New(const Token& other);
   static Token* New(int tag,
-        const SourceLocation& loc,
-        const std::string& str,
-        bool ws=false);
+                    const SourceLocation& loc,
+                    const std::string& str,
+                    bool ws=false);
 
   Token& operator=(const Token& other) {
     tag_ = other.tag_;
     ws_ = other.ws_;
     loc_ = other.loc_;
     str_ = other.str_;
-
     hs_ = other.hs_;
-    
     return *this;
   }
 
@@ -276,8 +270,6 @@ public:
   
   int tag_;
   bool ws_ { false };
-    
-  
 
   // Line index of the begin
   //unsigned line_ { 1 };
@@ -285,16 +277,10 @@ public:
   //const std::string* fileName_ { nullptr };
   //const char* lineBegin_ { nullptr };
   SourceLocation loc_;
-  /*
-  * ws_ standards for weither there is preceding white space
-  * This is to simplify the '#' operator(stringize) in macro expansion
-  */
-
-  //char* begin_ { nullptr };
-
-  //char* end_ { nullptr };
+  
+  // ws_ standards for weither there is preceding white space
+  // This is to simplify the '#' operator(stringize) in macro expansion
   std::string str_;
-
   HideSet* hs_ { nullptr };
 
 private:
@@ -311,13 +297,12 @@ private:
 
   static const std::unordered_map<std::string, int> kwTypeMap_;
   static const std::unordered_map<int, const char*> TagLexemeMap_;
-  //static const char* _tokenTable[TOKEN_NUM - OFFSET - 1];
 };
 
 
-struct TokenSequence
-{
+struct TokenSequence {
   friend class Preprocessor;
+
 public:
   TokenSequence(): tokList_(new TokenList()),
       begin_(tokList_->begin()), end_(tokList_->end()) {}
@@ -327,11 +312,14 @@ public:
     InsertBack(tok);
   }
 
-  explicit TokenSequence(TokenList* tokList): tokList_(tokList),
-      begin_(tokList->begin()), end_(tokList->end()) {}
+  explicit TokenSequence(TokenList* tokList)
+      : tokList_(tokList),
+        begin_(tokList->begin()),
+        end_(tokList->end()) {}
 
   TokenSequence(TokenList* tokList,
-      TokenList::iterator begin, TokenList::iterator end)
+                TokenList::iterator begin,
+                TokenList::iterator end)
       : tokList_(tokList), begin_(begin), end_(end) {}
   
   ~TokenSequence() {}
@@ -344,7 +332,6 @@ public:
     tokList_ = other.tokList_;
     begin_ = other.begin_;
     end_ = other.end_;
-
     return *this;
   }
 
@@ -356,18 +343,10 @@ public:
       *iter = Token::New(**iter);
   }
 
-  // Reset token sequence to the full token list
-  //static TokenSequence Join(TokenSequence& lhs, TokenSequence& rhs) {
-  //  assert(lhs.tokList_ == rhs.tokList_);
-  //  assert(lhs.end_ == rhs.begin_);
-  //  return {lhs.tokList_, lhs.begin_, rhs.end_};
-  //}
-
   void UpdateHeadLocation(const SourceLocation& loc) {
     assert(!Empty());
     auto tok = const_cast<Token*>(Peek());
     tok->loc_ = loc;
-    //tok->loc_.line_ = curLine + tok->loc_.line_ - lineLine - 1;
   }
 
   void FinalizeSubst(bool leadingWS, const HideSet& hs) {
@@ -450,7 +429,6 @@ public:
   bool Empty();
 
   void InsertBack(TokenSequence& ts) {
-    //assert(tokList_ == seq.tokList_);
     auto pos = tokList_->insert(end_, ts.begin_, ts.end_);
     if (begin_ == end_) {
       begin_ = pos;

@@ -23,8 +23,7 @@ class FuncDef;
 class TranslationUnit;
 
 
-class Visitor
-{
+class Visitor {
 public:
   virtual ~Visitor() {}
   virtual void VisitBinaryOp(BinaryOp* binary) = 0;

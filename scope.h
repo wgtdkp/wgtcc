@@ -19,8 +19,7 @@ enum ScopeType {
 };
 
 
-class Scope
-{
+class Scope {
   friend class StructType;
   typedef std::vector<Identifier*> TagList;
   typedef std::map<std::string, Identifier*> IdentMap;

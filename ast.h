@@ -52,8 +52,7 @@ class TranslationUnit;
  * AST Node
  */
 
-class ASTNode
-{
+class ASTNode {
 public:
   virtual ~ASTNode() {}
   
@@ -68,10 +67,11 @@ protected:
 typedef ASTNode ExtDecl;
 
 
-/*********** Statement *************/
+/*
+ * Statement
+ */
 
-class Stmt : public ASTNode
-{
+class Stmt : public ASTNode {
 public:
   virtual ~Stmt() {}
 
@@ -80,8 +80,7 @@ protected:
 };
 
 
-class EmptyStmt : public Stmt
-{
+class EmptyStmt : public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -98,9 +97,7 @@ protected:
 };
 
 
-// 构建此类的目的在于，在目标代码生成的时候，能够生成相应的label
-class LabelStmt : public Stmt
-{
+class LabelStmt : public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -128,8 +125,7 @@ private:
 };
 
 
-class IfStmt : public Stmt
-{
+class IfStmt : public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -151,8 +147,7 @@ private:
 };
 
 
-class JumpStmt : public Stmt
-{
+class JumpStmt : public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -176,8 +171,7 @@ private:
 };
 
 
-class ReturnStmt: public Stmt
-{
+class ReturnStmt: public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -199,8 +193,7 @@ private:
 
 typedef std::list<Stmt*> StmtList;
 
-class CompoundStmt : public Stmt
-{
+class CompoundStmt : public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -230,8 +223,7 @@ private:
 };
 
 
-struct Initializer
-{
+struct Initializer {
   //// It could be the object it self or, it will be the member
   //// that was initialized
   Type* type_;
@@ -251,8 +243,7 @@ struct Initializer
 };
 
 
-class Declaration: public Stmt
-{
+class Declaration: public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -290,10 +281,6 @@ protected:
 
 /*
  * Expr
- */
-
-/*
- * Expr
  *      BinaryOp
  *      UnaryOp
  *      ConditionalOp
@@ -304,8 +291,7 @@ protected:
  *      TempVar
  */
 
-class Expr : public Stmt
-{
+class Expr : public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -335,10 +321,8 @@ public:
   static Expr* MayCast(Expr* expr, ::Type* desType);
 
 protected:
-  /*
-   * You can construct a expression without specifying a type,
-   * then the type should be evaluated in TypeChecking()
-   */
+  // You can construct a expression without specifying a type,
+  // then the type should be evaluated in TypeChecking()
   Expr(const Token* tok, ::Type* type): tok_(tok), type_(type) {}
 
   const Token* tok_;
@@ -346,16 +330,16 @@ protected:
 };
 
 
-/***********************************************************
-'+', '-', '*', '/', '%', '<', '>', '<<', '>>', '|', '&', '^'
-'=',(复合赋值运算符被拆分为两个运算)
-'==', '!=', '<=', '>=',
-'&&', '||'
-'['(下标运算符), '.'(成员运算符)
-','(逗号运算符),
-*************************************************************/
-class BinaryOp : public Expr
-{
+/*
+ * '+', '-', '*', '/', '%', '<', '>', '<<', '>>', '|', '&', '^'
+ * '=',(复合赋值运算符被拆分为两个运算)
+ * '==', '!=', '<=', '>=',
+ * '&&', '||'
+ * '['(下标运算符), '.'(成员运算符)
+ * ','(逗号运算符),
+ */
+
+class BinaryOp : public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -423,8 +407,7 @@ protected:
  * '!'
  * CAST // like (int)3
  */
-class UnaryOp : public Expr
-{
+class UnaryOp : public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -464,8 +447,7 @@ protected:
 
 
 // cond ? true ： false
-class ConditionalOp : public Expr
-{
+class ConditionalOp : public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -498,9 +480,7 @@ private:
 };
 
 
-/************** Function Call ****************/
-class FuncCall : public Expr
-{
+class FuncCall : public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -548,8 +528,7 @@ protected:
 };
 
 
-class Constant: public Expr
-{
+class Constant: public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -606,9 +585,7 @@ protected:
 };
 
 
-//临时变量
-class TempVar : public Expr
-{
+class TempVar : public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -646,8 +623,7 @@ enum Linkage {
 };
 
 
-class Identifier: public Expr
-{
+class Identifier: public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -672,10 +648,9 @@ public:
     return nullptr;
   }
 
-  /*
-   * An identifer can be:
-   *     object, sturct/union/enum tag, typedef name, function, label.
-   */
+  
+   // An identifer can be:
+   //    object, sturct/union/enum tag, typedef name, function, label.
    Identifier* ToTypeName() {
     // A typename has no linkage
     // And a function has external or internal linkage
@@ -708,8 +683,7 @@ protected:
 };
 
 
-class Enumerator: public Identifier
-{
+class Enumerator: public Identifier {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -738,8 +712,7 @@ protected:
 };
 
 
-class Object : public Identifier
-{
+class Object : public Identifier {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -836,10 +809,6 @@ public:
     return anonymous_;
   }
 
-  //void SetAnonymous(bool anonymous) {
-  //  anonymous_ = anonymous;
-  //}
-
   virtual const std::string Name() const {
     return Identifier::Name();
   }
@@ -854,12 +823,19 @@ public:
   }
 
 protected:
-  Object(const Token* tok, ::Type* type,
-         int storage=0, enum Linkage linkage=L_NONE,
-         unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
+  Object(const Token* tok,
+         ::Type* type,
+         int storage=0,
+         enum Linkage linkage=L_NONE,
+         unsigned char bitFieldBegin=0,
+         unsigned char bitFieldWidth=0)
       : Identifier(tok, type, linkage),
-        storage_(storage), offset_(0), align_(type->Align()), decl_(nullptr),
-        bitFieldBegin_(bitFieldBegin), bitFieldWidth_(bitFieldWidth),
+        storage_(storage),
+        offset_(0),
+        align_(type->Align()),
+        decl_(nullptr),
+        bitFieldBegin_(bitFieldBegin),
+        bitFieldWidth_(bitFieldWidth),
         anonymous_(false) {}
   
 private:
@@ -882,8 +858,7 @@ private:
  * Declaration
  */
 
-class FuncDef : public ExtDecl
-{
+class FuncDef : public ExtDecl {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -929,8 +904,7 @@ private:
 };
 
 
-class TranslationUnit : public ASTNode
-{
+class TranslationUnit : public ASTNode {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
@@ -957,6 +931,5 @@ private:
 
   std::list<ExtDecl*> extDecls_;
 };
-
 
 #endif

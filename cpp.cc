@@ -14,7 +14,7 @@ extern std::string outFileName;
 
 typedef std::unordered_map<std::string, int> DirectiveMap;
 
-static const DirectiveMap directiveMap = {
+static const DirectiveMap directiveMap {
   {"if", Token::PP_IF},
   {"ifdef", Token::PP_IFDEF},
   {"ifndef", Token::PP_IFNDEF},
@@ -37,8 +37,7 @@ static const DirectiveMap directiveMap = {
  *     is: input token sequence
  *     os: output token sequence
  */
-void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
-{
+void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
   Macro* macro = nullptr;
   int direcitve;
   while (!is.Empty()) {
@@ -91,7 +90,6 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
       } else {
         os.InsertBack(tok);
       }
-      //hs_.erase(name);
     } else {
       os.InsertBack(is.Next());
     }
@@ -100,8 +98,8 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond)
 
 
 static bool FindActualParam(TokenSequence& ap,
-                            ParamMap& params, const std::string& fp)
-{
+                            ParamMap& params,
+                            const std::string& fp) {
   auto res = params.find(fp);
   if (res == params.end()) {
     return false;
@@ -111,9 +109,11 @@ static bool FindActualParam(TokenSequence& ap,
 }
 
 
-void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
-                         bool leadingWS, const HideSet& hs, ParamMap& params)
-{
+void Preprocessor::Subst(TokenSequence& os,
+                         TokenSequence is,
+                         bool leadingWS,
+                         const HideSet& hs,
+                         ParamMap& params) {
   TokenSequence ap;
 
   while (!is.Empty()) {
@@ -157,16 +157,14 @@ void Preprocessor::Subst(TokenSequence& os, TokenSequence is,
 }
 
 
-void Preprocessor::Glue(TokenSequence& os, const Token* tok)
-{
+void Preprocessor::Glue(TokenSequence& os, const Token* tok) {
   TokenList tokList {tok};
   TokenSequence is(&tokList);
   Glue(os, is);
 }
 
 
-void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
-{
+void Preprocessor::Glue(TokenSequence& os, TokenSequence is) {
   auto lhs = os.Back();
   auto rhs = is.Peek();
 
@@ -200,8 +198,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is)
 /*
  * This is For the '#' operator in func-like macro
  */
-const Token* Preprocessor::Stringize(TokenSequence is)
-{
+const Token* Preprocessor::Stringize(TokenSequence is) {
   std::string str = "\"";
   while (!is.Empty()) {
     auto tok = is.Next();
@@ -227,8 +224,7 @@ const Token* Preprocessor::Stringize(TokenSequence is)
 }
 
 
-void Preprocessor::Finalize(TokenSequence os)
-{
+void Preprocessor::Finalize(TokenSequence os) {
   while (!os.Empty()) {
     auto tok = os.Next();
     if (tok->tag_ == Token::INVALID) {
@@ -249,8 +245,7 @@ void Preprocessor::Finalize(TokenSequence os)
 
 
 // TODO(wgtdkp): add predefined macros
-void Preprocessor::Process(TokenSequence& os)
-{
+void Preprocessor::Process(TokenSequence& os) {
   TokenSequence is;
 
   // Add source file
@@ -268,8 +263,8 @@ void Preprocessor::Process(TokenSequence& os)
 
 
 const Token* Preprocessor::ParseActualParam(TokenSequence& is,
-    Macro* macro, ParamMap& paramMap)
-{
+                                            Macro* macro,
+                                            ParamMap& paramMap) {
   const Token* ret;
   if (macro->Params().size() == 0 && !macro->Variadic()) {
     ret = is.Next();
@@ -318,8 +313,7 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
 }
 
 
-void Preprocessor::ReplaceDefOp(TokenSequence& is)
-{
+void Preprocessor::ReplaceDefOp(TokenSequence& is) {
   TokenSequence os;
   while (!is.Empty()) {
     auto tok = is.Next();
@@ -340,8 +334,7 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is)
 }
 
 
-void Preprocessor::ReplaceIdent(TokenSequence& is)
-{
+void Preprocessor::ReplaceIdent(TokenSequence& is) {
   TokenSequence os;
   while (!is.Empty()) {
     auto tok = is.Next();
@@ -358,8 +351,7 @@ void Preprocessor::ReplaceIdent(TokenSequence& is)
 }
 
 
-int Preprocessor::GetDirective(TokenSequence& is)
-{
+int Preprocessor::GetDirective(TokenSequence& is) {
   if (!is.Test('#') || !is.IsBeginOfLine())
     return Token::INVALID;
 
@@ -379,8 +371,9 @@ int Preprocessor::GetDirective(TokenSequence& is)
 }
 
 
-void Preprocessor::ParseDirective(TokenSequence& os, TokenSequence& is, int directive)
-{
+void Preprocessor::ParseDirective(TokenSequence& os,
+                                  TokenSequence& is,
+                                  int directive) {
   if (directive == Token::PP_EMPTY)
     return;
   auto ls = is.GetLine(); 
@@ -429,15 +422,13 @@ void Preprocessor::ParseDirective(TokenSequence& os, TokenSequence& is, int dire
 }
 
 
-void Preprocessor::ParsePragma(TokenSequence ls)
-{
+void Preprocessor::ParsePragma(TokenSequence ls) {
   // TODO(wgtdkp):  
   ls.Next();
 }
 
 
-void Preprocessor::ParseError(TokenSequence ls)
-{
+void Preprocessor::ParseError(TokenSequence ls) {
   ls.Next();
   const auto& literal = Stringize(ls);
   std::string msg;
@@ -446,8 +437,7 @@ void Preprocessor::ParseError(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseLine(TokenSequence ls)
-{
+void Preprocessor::ParseLine(TokenSequence ls) {
   auto directive = ls.Next(); // Skip directive 'line'
   TokenSequence ts;
   Expand(ts, ls);
@@ -477,8 +467,7 @@ void Preprocessor::ParseLine(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseIf(TokenSequence ls)
-{
+void Preprocessor::ParseIf(TokenSequence ls) {
   if (!NeedExpand()) {
     ppCondStack_.push({Token::PP_IF, false, false});
     return;
@@ -502,8 +491,7 @@ void Preprocessor::ParseIf(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseIfdef(TokenSequence ls)
-{
+void Preprocessor::ParseIfdef(TokenSequence ls) {
   if (!NeedExpand()) {
     ppCondStack_.push({Token::PP_IFDEF, false, false});
     return;
@@ -521,8 +509,7 @@ void Preprocessor::ParseIfdef(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseIfndef(TokenSequence ls)
-{
+void Preprocessor::ParseIfndef(TokenSequence ls) {
   ParseIfdef(ls);
   auto top = ppCondStack_.top();
   ppCondStack_.pop();
@@ -533,8 +520,7 @@ void Preprocessor::ParseIfndef(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseElif(TokenSequence ls)
-{
+void Preprocessor::ParseElif(TokenSequence ls) {
   auto directive = ls.Next(); // Skip the directive
 
   if (ppCondStack_.empty())
@@ -579,8 +565,7 @@ void Preprocessor::ParseElif(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseElse(TokenSequence ls)
-{
+void Preprocessor::ParseElse(TokenSequence ls) {
   auto directive = ls.Next();
   if (!ls.Empty())
     Error(ls.Peek(), "expect new line");
@@ -610,8 +595,7 @@ void Preprocessor::ParseElse(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseEndif(TokenSequence ls)
-{  
+void Preprocessor::ParseEndif(TokenSequence ls) {
   auto directive = ls.Next();
   if (!ls.Empty())
     Error(ls.Peek(), "expect new line");
@@ -633,8 +617,7 @@ void Preprocessor::ParseEndif(TokenSequence ls)
 
 
 // Have Read the '#'
-void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
-{
+void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
   bool next = ls.Next()->str_ == "include_next"; // Skip 'include'
   if (!ls.Test(Token::LITERAL) && !ls.Test('<')) {
     TokenSequence ts;
@@ -683,8 +666,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls)
 }
 
 
-void Preprocessor::ParseUndef(TokenSequence ls)
-{
+void Preprocessor::ParseUndef(TokenSequence ls) {
   ls.Next(); // Skip directive
 
   auto ident = ls.Expect(Token::IDENTIFIER);
@@ -695,8 +677,7 @@ void Preprocessor::ParseUndef(TokenSequence ls)
 }
 
 
-void Preprocessor::ParseDef(TokenSequence ls)
-{
+void Preprocessor::ParseDef(TokenSequence ls) {
   ls.Next();
   auto ident = ls.Expect(Token::IDENTIFIER);
 
@@ -716,8 +697,7 @@ void Preprocessor::ParseDef(TokenSequence ls)
 }
 
 
-bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
-{
+bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is) {
   const Token* tok = is.Peek();
   while (!is.Empty()) {
     tok = is.Next();
@@ -747,8 +727,8 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is)
 }
 
 
-void Preprocessor::IncludeFile(TokenSequence& is, const std::string* fileName)
-{
+void Preprocessor::IncludeFile(TokenSequence& is,
+                               const std::string* fileName) {
   TokenSequence ts {is.tokList_, is.begin_, is.begin_};
   Scanner scanner(ReadFile(*fileName), fileName);
   scanner.Tokenize(ts);
@@ -758,8 +738,7 @@ void Preprocessor::IncludeFile(TokenSequence& is, const std::string* fileName)
 }
 
 
-static std::string GetDir(const std::string& path)
-{
+static std::string GetDir(const std::string& path) {
   auto pos = path.rfind('/');
   if (pos == std::string::npos)
     return "./";
@@ -767,16 +746,15 @@ static std::string GetDir(const std::string& path)
 }
 
 
-std::string* Preprocessor::SearchFile(
-    const std::string& name,
-    const bool libHeader,
-    bool next,
-    const std::string& curPath)
-{
-  if (libHeader && !next)
+std::string* Preprocessor::SearchFile(const std::string& name,
+                                      const bool libHeader,
+                                      bool next,
+                                      const std::string& curPath) {
+  if (libHeader && !next) {
     searchPaths_.push_back(GetDir(curPath));
-  else
+  } else {
     searchPaths_.push_front(GetDir(curPath));
+  }
 
   PathList::iterator begin, end;
   auto iter = searchPaths_.begin();
@@ -814,8 +792,8 @@ std::string* Preprocessor::SearchFile(
 
 
 void Preprocessor::AddMacro(const std::string& name,
-    std::string* text, bool preDef)
-{
+                            std::string* text,
+                            bool preDef) {
   TokenSequence ts;
   Scanner scanner(text);
   scanner.Tokenize(ts);
@@ -825,8 +803,7 @@ void Preprocessor::AddMacro(const std::string& name,
 }
 
 
-static std::string* Date()
-{
+static std::string* Date() {
   time_t t = time(NULL);
   struct tm* tm = localtime(&t);
   auto buf = new char[14];
@@ -837,8 +814,7 @@ static std::string* Date()
 }
 
 
-void Preprocessor::Init()
-{
+void Preprocessor::Init() {
   // Preinclude search paths
   AddSearchPath("/usr/local/include/");
   AddSearchPath("/usr/include/x86_64-linux-gnu/");
@@ -858,8 +834,7 @@ void Preprocessor::Init()
 }
 
 
-void Preprocessor::HandleTheFileMacro(TokenSequence& os, const Token* macro)
-{
+void Preprocessor::HandleTheFileMacro(TokenSequence& os, const Token* macro) {
   auto file = Token::New(*macro);
   file->tag_ = Token::LITERAL;
   file->str_ = "\"" + *macro->loc_.fileName_ + "\"";
@@ -867,8 +842,7 @@ void Preprocessor::HandleTheFileMacro(TokenSequence& os, const Token* macro)
 }
 
 
-void Preprocessor::HandleTheLineMacro(TokenSequence& os, const Token* macro)
-{
+void Preprocessor::HandleTheLineMacro(TokenSequence& os, const Token* macro) {
   auto line = Token::New(*macro);
   line->tag_ = Token::I_CONSTANT;
   line->str_ = std::to_string(macro->loc_.line_);
@@ -876,16 +850,14 @@ void Preprocessor::HandleTheLineMacro(TokenSequence& os, const Token* macro)
 }
 
 
-void Preprocessor::UpdateFirstTokenLine(TokenSequence ts)
-{
+void Preprocessor::UpdateFirstTokenLine(TokenSequence ts) {
   auto loc = ts.Peek()->loc_;
   loc.line_ = curLine_  + loc.line_ - lineLine_ - 1;
   ts.UpdateHeadLocation(loc);
 }
 
 
-TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
-{
+TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line) {
   // Update line
   TokenList tl;
   TokenSequence ret(&tl);
@@ -902,8 +874,7 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line)
 }
 
 
-void Preprocessor::AddSearchPath(std::string path)
-{
+void Preprocessor::AddSearchPath(std::string path) {
   if (path.back() != '/')
     path += "/";
   if (path[0] != '/')

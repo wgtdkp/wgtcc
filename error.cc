@@ -21,9 +21,9 @@
 extern std::string program;
 
 
-void Error(const char* format, ...)
-{
-  fprintf(stderr,  "%s: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
+void Error(const char* format, ...) {
+  fprintf(stderr,
+          "%s: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
           program.c_str());
   
   va_list args;
@@ -37,8 +37,9 @@ void Error(const char* format, ...)
 }
 
 
-static void VError(const SourceLocation& loc, const char* format, va_list args)
-{
+static void VError(const SourceLocation& loc,
+                   const char* format,
+                   va_list args) {
   assert(loc.fileName_);
   fprintf(stderr,
           "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
@@ -67,8 +68,7 @@ static void VError(const SourceLocation& loc, const char* format, va_list args)
 }
 
 
-void Error(const SourceLocation& loc, const char* format, ...)
-{
+void Error(const SourceLocation& loc, const char* format, ...) {
   va_list args;
   va_start(args, format);
   VError(loc, format, args);
@@ -76,8 +76,7 @@ void Error(const SourceLocation& loc, const char* format, ...)
 }
 
 
-void Error(const Token* tok, const char* format, ...)
-{
+void Error(const Token* tok, const char* format, ...) {
   va_list args;
   va_start(args, format);
   VError(tok->loc_, format, args);
@@ -85,8 +84,7 @@ void Error(const Token* tok, const char* format, ...)
 }
 
 
-void Error(const Expr* expr, const char* format, ...)
-{
+void Error(const Expr* expr, const char* format, ...) {
   va_list args;
   va_start(args, format);
   VError(expr->Tok()->loc_, format, args);

@@ -36,8 +36,8 @@
 *.dSYM/
 *.su
 
-# vscode
 .vscode
+.clang-format
 
 # Build
 build
