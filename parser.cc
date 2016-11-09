@@ -412,10 +412,11 @@ Object* Parser::ParseCompoundLiteral(Type* type) {
   auto decl = ParseInitDeclaratorSub(anony);
   
   // Just for generator to find the compound literal
-  if (curScope_->Type() == S_FILE)
+  if (curScope_->Type() == S_FILE) {
     unit_->Add(decl);
-  else
+  } else {
     curScope_->Insert(anony->Repr(), anony);
+  }
   return anony;
 }
 
@@ -558,7 +559,6 @@ Type* Parser::ParseTypeName() {
   auto type = ParseSpecQual();
   if (ts_.Test('*') || ts_.Test('(') || ts_.Test('[')) //abstract-declarator FIRST set
     return ParseAbstractDeclarator(type);
-  
   return type;
 }
 
@@ -851,9 +851,9 @@ CompoundStmt* Parser::ParseDecl() {
 }
 
 
-//for state machine
+// For state machine
 enum {
-  //compatibility for these key words
+  // Compatibility for these key words
   COMP_SIGNED = T_SHORT | T_INT | T_LONG | T_LLONG,
   COMP_UNSIGNED = T_SHORT | T_INT | T_LONG | T_LLONG,
   COMP_CHAR = T_SIGNED | T_UNSIGNED,
@@ -893,7 +893,7 @@ static void EnsureAndSetStorageSpec(const Token* tok, int* storage, int spec) {
 
 /*
  * param: storage: null, only type specifier and qualifier accepted;
-*/
+ */
 Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) {
 #define ERR_FUNC_SPEC ("unexpected function specifier")
 #define ERR_STOR_SPEC ("unexpected storage specifier")

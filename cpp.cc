@@ -33,9 +33,9 @@ static const DirectiveMap directiveMap {
 
 
 /*
- * @params:
- *     is: input token sequence
- *     os: output token sequence
+ * params:
+ *  is: input token sequence
+ *  os: output token sequence
  */
 void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
   Macro* macro = nullptr;

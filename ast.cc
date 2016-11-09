@@ -303,8 +303,8 @@ void BinaryOp::MultiOpTypeChecking() {
  * Additive operator is only allowed between:
  *  1. arithmetic types (bool, interger, floating)
  *  2. pointer can be used:
- *     1. lhs of MINUS operator, and rhs must be integer or pointer;
- *     2. lhs/rhs of ADD operator, and the other operand must be integer;
+ *    1. lhs of MINUS operator, and rhs must be integer or pointer;
+ *    2. lhs/rhs of ADD operator, and the other operand must be integer;
  */
 void BinaryOp::AdditiveOpTypeChecking() {
   auto lhsType = lhs_->Type()->ToPointer();
@@ -422,8 +422,8 @@ UnaryOp* UnaryOp::New(int op, Expr* operand, ::Type* type) {
 
 
 bool UnaryOp::IsLVal() {
-  // only deref('*') could be lvalue;
-  // so it's only deref will override this func
+  // Only deref('*') could be lvalue;
+  // So it's only deref will override this func
   switch (op_) {
   case Token::DEREF: return !Type()->ToArray();
   default: return false;
@@ -681,7 +681,7 @@ Object* Object::New(const Token* tok,
                     unsigned char bitFieldBegin,
                     unsigned char bitFieldWidth) {
   auto ret = new (objectPool.Alloc())
-      Object(tok, type, storage, linkage, bitFieldBegin, bitFieldWidth);
+             Object(tok, type, storage, linkage, bitFieldBegin, bitFieldWidth);
   ret->pool_ = &objectPool;
 
   static long id = 0;
@@ -698,7 +698,7 @@ Object* Object::NewAnony(const Token* tok,
                          unsigned char bitFieldBegin,
                          unsigned char bitFieldWidth) {
   auto ret = new (objectPool.Alloc())
-      Object(tok, type, storage, linkage, bitFieldBegin, bitFieldWidth);
+             Object(tok, type, storage, linkage, bitFieldBegin, bitFieldWidth);
   ret->pool_ = &objectPool;
   ret->anonymous_ = true;
 
@@ -738,7 +738,6 @@ Constant* Constant::New(const Token* tok, int tag, const std::string* val) {
 
   static long id = 0;
   ret->id_ = ++id;
-
   return ret;
 }
 
@@ -775,7 +774,7 @@ EmptyStmt* EmptyStmt::New() {
 }
 
 
-//The else stmt could be null
+// The else stmt could be null
 IfStmt* IfStmt::New(Expr* cond, Stmt* then, Stmt* els) {
   auto ret = new (ifStmtPool.Alloc()) IfStmt(cond, then, els);
   ret->pool_ = &ifStmtPool;

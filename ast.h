@@ -22,7 +22,7 @@ class ASTNode;
 class Token;
 class TokenSequence;
 
-//Expression
+// Expressions
 class Expr;
 class BinaryOp;
 class UnaryOp;
@@ -37,7 +37,7 @@ class Initializer;
 class Declaration;
 class Enumerator;
 
-//statement
+// Statements
 class Stmt;
 class IfStmt;
 class JumpStmt;
@@ -68,7 +68,7 @@ typedef ASTNode ExtDecl;
 
 
 /*
- * Statement
+ * Statements
  */
 
 class Stmt : public ASTNode {
@@ -224,22 +224,27 @@ private:
 
 
 struct Initializer {
-  //// It could be the object it self or, it will be the member
-  //// that was initialized
+  Initializer(Type* type,
+              int offset,
+              Expr* expr,
+              unsigned char bitFieldBegin=0,
+              unsigned char bitFieldWidth=0)
+      : type_(type),
+        offset_(offset),
+        bitFieldBegin_(bitFieldBegin),
+        bitFieldWidth_(bitFieldWidth),
+        expr_(expr) {}       
+
+  bool operator<(const Initializer& rhs) const;
+
+  // It could be the object it self or, it will be the member
+  // that was initialized
   Type* type_;
   int offset_;
   unsigned char bitFieldBegin_;
   unsigned char bitFieldWidth_;
 
-  //Object* obj_;
   Expr* expr_;
-
-  Initializer(Type* type, int offset, Expr* expr,
-      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0)
-      : type_(type), offset_(offset), bitFieldBegin_(bitFieldBegin),
-        bitFieldWidth_(bitFieldWidth), expr_(expr) {}       
-
-  bool operator<(const Initializer& rhs) const;
 };
 
 
@@ -261,10 +266,6 @@ public:
     return inits_;
   }
 
-  //StaticInitList StaticInits() {
-  //    return _staticInits;
-  //}
-
   Object* Obj() {
     return obj_;
   }
@@ -281,14 +282,14 @@ protected:
 
 /*
  * Expr
- *      BinaryOp
- *      UnaryOp
- *      ConditionalOp
- *      FuncCall
- *      Constant
- *      Identifier
- *          Object
- *      TempVar
+ *  BinaryOp
+ *  UnaryOp
+ *  ConditionalOp
+ *  FuncCall
+ *  Constant
+ *  Identifier
+ *  Object
+ *  TempVar
  */
 
 class Expr : public Stmt {
@@ -338,7 +339,6 @@ protected:
  * '['(下标运算符), '.'(成员运算符)
  * ','(逗号运算符),
  */
-
 class BinaryOp : public Expr {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
@@ -355,7 +355,7 @@ public:
   
   virtual void Accept(Visitor* v);
   
-  //like member ref operator is a lvalue
+  // Member ref operator is a lvalue
   virtual bool IsLVal() {
     switch (op_) {
     case '.':
@@ -420,7 +420,6 @@ public:
   
   virtual void Accept(Visitor* v);
 
-  //TODO: like '*p' is lvalue, but '~i' is not lvalue
   virtual bool IsLVal();
 
   ArithmType* Convert();
@@ -495,7 +494,7 @@ public:
   
   virtual void Accept(Visitor* v);
 
-  //a function call is ofcourse not lvalue
+  // A function call is ofcourse not lvalue
   virtual bool IsLVal() {
     return false;
   }
@@ -650,7 +649,7 @@ public:
 
   
    // An identifer can be:
-   //    object, sturct/union/enum tag, typedef name, function, label.
+   //   object, sturct/union/enum tag, typedef name, function, label.
    Identifier* ToTypeName() {
     // A typename has no linkage
     // And a function has external or internal linkage
