@@ -2223,16 +2223,16 @@ IfStmt* Parser::ParseIfStmt() {
  * next:
  */
 
-#define ENTER_LOOP_BODY(breakDest, continueDest)    \
-{											                              \
-  LabelStmt* breakDestBackup = breakDest_;	        \
-  LabelStmt* continueDestBackup = continueDest_;    \
-  breakDest_ = breakDest;			                      \
+#define ENTER_LOOP_BODY(breakDest, continueDest)  \
+{                                                 \
+  LabelStmt* breakDestBackup = breakDest_;        \
+  LabelStmt* continueDestBackup = continueDest_;  \
+  breakDest_ = breakDest;                         \
   continueDest_ = continueDest; 
 
-#define EXIT_LOOP_BODY()		          \
+#define EXIT_LOOP_BODY()              \
   breakDest_ = breakDestBackup;       \
-  continueDest_ = continueDestBackup;	\
+  continueDest_ = continueDestBackup; \
 }
 
 CompoundStmt* Parser::ParseForStmt() {
