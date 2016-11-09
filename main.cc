@@ -1,12 +1,11 @@
 #include "code_gen.h"
 #include "cpp.h"
 #include "error.h"
-#include "scanner.h"
 #include "parser.h"
+#include "scanner.h"
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <iostream>
 #include <list>
 #include <string>

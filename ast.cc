@@ -2,10 +2,10 @@
 
 #include "code_gen.h"
 #include "error.h"
+#include "evaluator.h"
 #include "mem_pool.h"
 #include "parser.h"
 #include "token.h"
-#include "evaluator.h"
 
 
 static MemPoolImp<BinaryOp>         binaryOpPool;

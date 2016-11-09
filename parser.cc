@@ -3,9 +3,9 @@
 #include "cpp.h"
 #include "encoding.h"
 #include "error.h"
+#include "evaluator.h"
 #include "scope.h"
 #include "type.h"
-#include "evaluator.h"
 
 #include <iostream>
 #include <set>

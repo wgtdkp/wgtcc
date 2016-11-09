@@ -4,8 +4,8 @@
 #include "mem_pool.h"
 #include "scope.h"
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 #include <list>
 
 

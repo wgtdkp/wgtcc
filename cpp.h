@@ -1,7 +1,6 @@
 #ifndef _WGTCC_CPP_H_
 #define _WGTCC_CPP_H_
 
-#include "token.h"
 #include "scanner.h"
 
 #include <cstdio>
@@ -11,7 +10,6 @@
 #include <stack>
 #include <string>
 
-class Scanner;
 class Macro;
 struct CondDirective;
 
