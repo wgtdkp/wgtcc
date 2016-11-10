@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <list>
 
 
@@ -58,25 +59,13 @@ enum {
   Q_CONST = 0x200000,
   Q_RESTRICT = 0x400000,
   Q_VOLATILE = 0x800000,
-  Q_ATOMIC = 0x1000000,
+  Q_ATOMIC = 0x1000000, // Currently not supported
 
   T_LLONG = 0x2000000,
 
   // Function specifier
   F_INLINE = 0x4000000,
   F_NORETURN = 0x8000000,
-};
-
-
-class QualType {
-public:
-  void AddConst(void) {}
-
-private:
-  struct {
-    uint64_t qual_: 3;
-    uint64_t ptr_: sizeof(uint64_t) * 8 - 3;
-  } val_;
 };
 
 
@@ -149,6 +138,52 @@ protected:
   mutable int qual_;
   bool complete_;
   MemPool* pool_;
+};
+
+
+class QualType {
+  enum {
+    TQ_CONST = 0x01,
+    TQ_RESTRICT = 0x02,
+    TQ_VOLATILE = 0x04,
+    TQ_MASK = TQ_CONST | TQ_RESTRICT | TQ_VOLATILE
+  };
+
+public:
+  explicit QualType(const Type* ptr, int quals=0x00)
+      : ptr_(reinterpret_cast<intptr_t>(ptr)) {
+    SetQual(quals);
+  } 
+  
+  const Type& operator*() const { return *operator->(); }
+  const Type* operator->() const {
+    return reinterpret_cast<Type*>(ptr_ & ~TQ_MASK);
+  }
+
+  // Indicate whether the specified types are identical(exclude qualifiers).
+  friend bool operator==(const QualType& lhs, const QualType& rhs) {
+    return lhs.operator->() == rhs.operator->();
+  }
+  friend bool operator!=(const QualType& lhs, const QualType& rhs) {
+    return !(lhs == rhs);
+  }
+
+  void SetQual(int quals) {
+    assert((quals & ~TQ_MASK) == 0);
+    if (quals & Q_CONST)
+      ptr_ |= TQ_CONST;
+    if (quals & Q_RESTRICT)
+      ptr_ |= TQ_RESTRICT;
+    if (quals & Q_VOLATILE)
+      ptr_ |= TQ_VOLATILE;
+  }
+
+  bool IsConstQualified() const { return ptr_ & TQ_CONST; }
+  bool IsRestrictQualified() const { return ptr_ & TQ_RESTRICT; }
+  bool IsVolatileQualified() const { return ptr_ & TQ_VOLATILE; }
+
+private:
+  intptr_t ptr_;
 };
 
 
