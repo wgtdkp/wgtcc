@@ -117,8 +117,8 @@ std::string Generator::ConsLabel(Constant* cons) {
     float  valss = valsd;
     // TODO(wgtdkp): Add rodata
     auto width = cons->Type()->Width();
-    long val = width == 4 ? (union {float valss; int val;}){valss}.val:
-        (union {double valsd; long val;}){valsd}.val;
+    long val = (width == 4)? (union {float valss; int val;}){valss}.val:
+                             (union {double valsd; long val;}){valsd}.val;
     const ROData& rodata = ROData(val, width);
     rodatas_.push_back(rodata);
     return rodata.label_;
