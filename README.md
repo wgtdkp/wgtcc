@@ -46,4 +46,4 @@ after finishing parsing and generating code.
 1. support GNU extensions(e.g. keyword \_\_attribute__)
 2. support variable length array
 3. optimization(e.g. register allocation)
-4. support type qualification
+4. ~~support type qualification~~
