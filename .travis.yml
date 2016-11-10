@@ -1,8 +1,13 @@
 sudo: required
 dist: Trusty
 script:
-  - sudo unlink /usr/bin/g++ && sudo ln -s /usr/bin/g++-5 /usr/bin/g++
-  - sudo unlink /usr/bin/gcc && sudo ln -s /usr/bin/gcc-5 /usr/bin/gcc
+  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+  - sudo apt-get update -y
+  - sudo apt-get install gcc-5 g++-5 -y
+  - sudo unlink /usr/bin/gcc
+  - sudo ln -s /usr/bin/gcc-5 /usr/bin/gcc
+  - sudo unlink /usr/bin/g++
+  - sudo ln -s /usr/bin/g++-5 /usr/bin/g++
   - gcc --version
   - g++ --version
   - make && make install && make test
