@@ -205,7 +205,7 @@ int Generator::Push(const std::string& reg) {
 }
 
 
-int Generator::Push(const Type* type) {
+int Generator::Push(Type* type) {
   if (type->IsFloat()) {
     return Push("%xmm0");
   } else if (type->IsScalar()) {
@@ -1065,7 +1065,8 @@ void Generator::GenBuiltin(FuncCall* funcCall) {
     Emit("movq", "%rax", saveAreaAddr);
     
     int gpOffset, fpOffset, overflowOffset;
-    GetParamRegOffsets(gpOffset, fpOffset, overflowOffset, curFunc_->Type());
+    GetParamRegOffsets(gpOffset, fpOffset,
+                       overflowOffset, curFunc_->FuncType());
     Emit("leaq", ObjectAddr(overflowOffset), "%rax");
     Emit("movq", "%rax", overflowAddr);
     Emit("movl", gpOffset, "%eax");
@@ -1078,7 +1079,7 @@ void Generator::GenBuiltin(FuncCall* funcCall) {
     auto endLabel = ".L_va_arg_end" + std::to_string(++cnt[1]);
 
     auto argType = funcCall->args_[1]->Type()->ToPointer()->Derived();
-    auto cls = Classify(argType);
+    auto cls = Classify(argType.GetPtr());
     if (cls == ParamClass::INTEGER) {
       Emit("movq", saveAreaAddr, "%rax");
       Emit("movq", "%rax", "%r11");
@@ -1234,9 +1235,9 @@ void Generator::VisitFuncDef(FuncDef* funcDef) {
 
   offset_ = 0;
 
-  auto& params = funcDef->Type()->Params();
+  auto& params = funcDef->FuncType()->Params();
   // Arrange space to store params passed by registers
-  bool retStruct = funcDef->Type()->Derived()->ToStruct();
+  bool retStruct = funcDef->FuncType()->Derived()->ToStruct();
   TypeList types;
   for (auto param: params)
     types.push_back(param->Type());
@@ -1244,7 +1245,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef) {
   auto locations = GetParamLocations(types, retStruct);
   const auto& locs = locations.locs_;
 
-  if (funcDef->Type()->Variadic()) {
+  if (funcDef->FuncType()->Variadic()) {
     GenSaveArea(); // 'offset' is now the begin of save area
     if (retStruct) {
       retAddrOffset_ = offset_;

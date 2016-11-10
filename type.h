@@ -15,6 +15,7 @@ class Token;
 class Expr;
 
 class Type;
+class QualType;
 class VoidType;
 class Identifier;
 class Object;
@@ -55,17 +56,60 @@ enum {
   T_ENUM = 0x80000,
   T_TYPEDEF_NAME = 0x100000,
 
-  // Type qualifier
-  Q_CONST = 0x200000,
-  Q_RESTRICT = 0x400000,
-  Q_VOLATILE = 0x800000,
-  Q_ATOMIC = 0x1000000, // Currently not supported
-
   T_LLONG = 0x2000000,
 
   // Function specifier
   F_INLINE = 0x4000000,
   F_NORETURN = 0x8000000,
+};
+
+
+struct Qualifier {
+  enum {
+    CONST = 0x01,
+    RESTRICT = 0x02,
+    VOLATILE = 0x04,
+    MASK = CONST | RESTRICT | VOLATILE
+  };
+};
+
+
+class QualType {
+public:
+  QualType(Type* ptr, int quals=0x00)
+      : ptr_(reinterpret_cast<intptr_t>(ptr)) {
+    assert((quals & ~Qualifier::MASK) == 0);
+    ptr_ |= quals;
+  } 
+
+  operator bool() const { return !IsNull(); }
+  bool IsNull() const { return GetPtr() == nullptr; }
+  const Type* GetPtr() const {
+    return reinterpret_cast<const Type*>(ptr_ & ~Qualifier::MASK);
+  }
+  Type* GetPtr() {
+    return reinterpret_cast<Type*>(ptr_ & ~Qualifier::MASK);
+  }
+  Type& operator*() { return *GetPtr(); }
+  const Type& operator*() const { return *GetPtr(); }
+  Type* operator->() { return GetPtr(); }
+  const Type* operator->() const { return GetPtr(); }
+
+  // Indicate whether the specified types are identical(exclude qualifiers).
+  friend bool operator==(QualType lhs, QualType rhs) {
+    return lhs.operator->() == rhs.operator->();
+  }
+  friend bool operator!=(QualType lhs, QualType rhs) {
+    return !(lhs == rhs);
+  }
+
+  int Qual() const { return ptr_ & 0x03; }
+  bool IsConstQualified() const { return ptr_ & Qualifier::CONST; }
+  bool IsRestrictQualified() const { return ptr_ & Qualifier::RESTRICT; }
+  bool IsVolatileQualified() const { return ptr_ & Qualifier::VOLATILE; }
+
+private:
+  intptr_t ptr_;
 };
 
 
@@ -96,11 +140,9 @@ public:
       return offset - align - (offset % align);
   } 
 
-  static Type* MayCast(Type* type);
-  int Qual() const { return qual_; }
-  void SetQual(int qual) { qual_ = qual; }
+  static QualType MayCast(QualType type);
   bool Complete() const { return complete_; }
-  void SetComplete(bool complete) { complete_ = complete; }
+  void SetComplete(bool complete) const { complete_ = complete; }
 
   bool IsReal() const { return IsInteger() || IsFloat(); };  
   virtual bool IsScalar() const { return false; }
@@ -109,101 +151,42 @@ public:
   virtual bool IsBool() const { return false; }
   virtual bool IsVoidPointer() const { return false; }
   virtual bool IsUnsigned() const { return false; }
-   
-  virtual VoidType* ToVoid() { return nullptr; }
-  virtual const VoidType* ToVoid() const { return nullptr; }
-  virtual ArithmType* ToArithm() { return nullptr; }  
-  virtual const ArithmType* ToArithm() const { return nullptr; }  
-  virtual ArrayType* ToArray() { return nullptr; }
-  virtual const ArrayType* ToArray() const { return nullptr; }
-  virtual FuncType* ToFunc() { return nullptr; }
-  virtual const FuncType* ToFunc() const { return nullptr; }
-  virtual PointerType* ToPointer() { return nullptr; }
-  virtual const PointerType* ToPointer() const { return nullptr; }
-  virtual DerivedType* ToDerived() { return nullptr; }
-  virtual const DerivedType* ToDerived() const { return nullptr; }
-  virtual StructType* ToStruct() { return nullptr; }
-  virtual const StructType* ToStruct() const { return nullptr; }
-  virtual EnumType* ToEnum() { return nullptr; }
-  virtual const EnumType* ToEnum() const { return nullptr; }
+
+  virtual VoidType*           ToVoid() { return nullptr; }
+  virtual const VoidType*     ToVoid() const { return nullptr; }  
+  virtual ArithmType*         ToArithm() { return nullptr; }
+  virtual const ArithmType*   ToArithm() const { return nullptr; }
+  virtual ArrayType*          ToArray() { return nullptr; }
+  virtual const ArrayType*    ToArray() const { return nullptr; }
+  virtual FuncType*           ToFunc() { return nullptr; }
+  virtual const FuncType*     ToFunc() const { return nullptr; }
+  virtual PointerType*        ToPointer() { return nullptr; }
+  virtual const PointerType*  ToPointer() const { return nullptr; }
+  virtual DerivedType*        ToDerived() { return nullptr; }
+  virtual const DerivedType*  ToDerived() const { return nullptr; }
+  virtual StructType*         ToStruct() { return nullptr; }
+  virtual const StructType*   ToStruct() const { return nullptr; }
 
 protected:
   Type(MemPool* pool, bool complete)
-      : qual_(0), complete_(complete), pool_(pool) {}
+      : complete_(complete), pool_(pool) {}
 
-  // C11 6.7.3 [4]: The properties associated with qualified types
-  // are meaningful only for expressions that are lvalues.
-  // It is convenient to carry qualification within type
-  // But it's not used to decide the compatibility of two types.
-  mutable int qual_;
-  bool complete_;
+  mutable bool complete_;
   MemPool* pool_;
-};
-
-
-class QualType {
-  enum {
-    TQ_CONST = 0x01,
-    TQ_RESTRICT = 0x02,
-    TQ_VOLATILE = 0x04,
-    TQ_MASK = TQ_CONST | TQ_RESTRICT | TQ_VOLATILE
-  };
-
-public:
-  explicit QualType(const Type* ptr, int quals=0x00)
-      : ptr_(reinterpret_cast<intptr_t>(ptr)) {
-    SetQual(quals);
-  } 
-  
-  const Type& operator*() const { return *operator->(); }
-  const Type* operator->() const {
-    return reinterpret_cast<Type*>(ptr_ & ~TQ_MASK);
-  }
-
-  // Indicate whether the specified types are identical(exclude qualifiers).
-  friend bool operator==(const QualType& lhs, const QualType& rhs) {
-    return lhs.operator->() == rhs.operator->();
-  }
-  friend bool operator!=(const QualType& lhs, const QualType& rhs) {
-    return !(lhs == rhs);
-  }
-
-  void SetQual(int quals) {
-    assert((quals & ~TQ_MASK) == 0);
-    if (quals & Q_CONST)
-      ptr_ |= TQ_CONST;
-    if (quals & Q_RESTRICT)
-      ptr_ |= TQ_RESTRICT;
-    if (quals & Q_VOLATILE)
-      ptr_ |= TQ_VOLATILE;
-  }
-
-  bool IsConstQualified() const { return ptr_ & TQ_CONST; }
-  bool IsRestrictQualified() const { return ptr_ & TQ_RESTRICT; }
-  bool IsVolatileQualified() const { return ptr_ & TQ_VOLATILE; }
-
-private:
-  intptr_t ptr_;
 };
 
 
 class VoidType : public Type {
 public:
   static VoidType* New();
-
   virtual ~VoidType() {}
-
   virtual VoidType* ToVoid() { return this; }
   virtual const VoidType* ToVoid() const { return this; }
-  virtual bool Compatible(const Type& other) const {
-    return other.ToVoid();
-  }
-
+  virtual bool Compatible(QualType other) const { return other->ToVoid(); }
   virtual int Width() const {
     // Non-standard GNU extension
     return 1;
   }
-
   virtual std::string Str() const { return "void:1"; }
 
 protected:
@@ -211,8 +194,7 @@ protected:
 };
 
 
-class ArithmType : public Type
-{
+class ArithmType : public Type {
 public:
   static ArithmType* New(int typeSpec);
 
@@ -245,7 +227,8 @@ public:
       return ArithmType::New(T_INT);
     return type;
   }
-  static ArithmType* MaxType(ArithmType* lhsType, ArithmType* rhsType);
+  static ArithmType* MaxType(ArithmType* lhsType,
+                                   ArithmType* rhsType);
 
 protected:
   explicit ArithmType(MemPool* pool, int spec)
@@ -260,34 +243,22 @@ private:
 
 class DerivedType : public Type {
 public:
-  Type* Derived() {
-    return derived_;
-  }
-  
-  void SetDerived(Type* derived) {
-    derived_ = derived;
-  }
-  
-  virtual DerivedType* ToDerived() {
-    return this;
-  }
-  
-  virtual const DerivedType* ToDerived() const {
-    return this;
-  }
+  QualType Derived() const { return derived_; }  
+  void SetDerived(QualType derived) { derived_ = derived; }
+  virtual DerivedType* ToDerived() { return this; }
+  virtual const DerivedType* ToDerived() const { return this; }
 
 protected:
-  DerivedType(MemPool* pool, Type* derived)
+  DerivedType(MemPool* pool, QualType derived)
       : Type(pool, true), derived_(derived) {}
 
-  Type* derived_;
+  QualType derived_;
 };
 
 
 class PointerType : public DerivedType {
 public:
-  static PointerType* New(Type* derived);
-
+  static PointerType* New(QualType derived);
   ~PointerType() {}
   virtual PointerType* ToPointer() { return this; }
   virtual const PointerType* ToPointer() const { return this; }
@@ -300,14 +271,14 @@ public:
   }
 
 protected:
-  PointerType(MemPool* pool, Type* derived): DerivedType(pool, derived) {}
+  PointerType(MemPool* pool, QualType derived): DerivedType(pool, derived) {}
 };
 
 
 class ArrayType : public DerivedType {
 public:
-  static ArrayType* New(int len, Type* eleType);
-  static ArrayType* New(Expr* expr, Type* eleType);
+  static ArrayType* New(int len, QualType eleType);
+  static ArrayType* New(Expr* expr, QualType eleType);
   virtual ~ArrayType() { /*delete derived_;*/ }
 
   virtual ArrayType* ToArray() { return this; }
@@ -327,18 +298,18 @@ public:
   bool Variadic() const { return lenExpr_ != nullptr; }
 
 protected:
-  ArrayType(MemPool* pool, Expr* lenExpr, Type* derived)
+  ArrayType(MemPool* pool, Expr* lenExpr, QualType derived)
       : DerivedType(pool, derived),
         lenExpr_(lenExpr), len_(0) {
     SetComplete(false);
-    SetQual(Q_CONST);
+    //SetQual(QualType::CONST);
   }
   
-  ArrayType(MemPool* pool, int len, Type* derived)
+  ArrayType(MemPool* pool, int len, QualType derived)
       : DerivedType(pool, derived),
         lenExpr_(nullptr), len_(len) {
     SetComplete(len_ >= 0);
-    SetQual(Q_CONST);
+    //SetQual(QualType::CONST);
   }
   const Expr* lenExpr_;
   int len_;
@@ -350,11 +321,11 @@ public:
   typedef std::vector<Object*> ParamList;
 
 public:
-  static FuncType* New(Type* derived, int funcSpec,
-      bool variadic, const ParamList& params);
-
+  static FuncType* New(QualType derived,
+                       int funcSpec,
+                       bool variadic,
+                       const ParamList& params);
   ~FuncType() {}
-  
   virtual FuncType* ToFunc() { return this; }
   virtual const FuncType* ToFunc() const { return this; }
   virtual bool Compatible(const Type& other) const;
@@ -365,7 +336,7 @@ public:
   bool Variadic() const { return variadic_; }
 
 protected:
-  FuncType(MemPool* pool, Type* derived, int inlineReturn,
+  FuncType(MemPool* pool, QualType derived, int inlineReturn,
            bool variadic, const ParamList& params)
       : DerivedType(pool, derived), inlineNoReturn_(inlineReturn),
         variadic_(variadic), params_(params) {
@@ -385,8 +356,9 @@ public:
   typedef std::list<Object*>::iterator Iterator;
   
 public:
-  static StructType* New(bool isStruct, bool hasTag, Scope* parent);
-  
+  static StructType* New(bool isStruct,
+                         bool hasTag,
+                         Scope* parent);
   ~StructType() {}
   virtual StructType* ToStruct() { return this; }
   virtual const StructType* ToStruct() const { return this; }
@@ -403,7 +375,7 @@ public:
   Scope* MemberMap() { return memberMap_; }
   MemberList& Members() { return members_; }
   int Offset() const { return offset_; }
-  bool HasTag() { return hasTag_; }
+  bool HasTag() const { return hasTag_; }
   void MergeAnony(Object* anony);
   void Finalize();
   
@@ -427,24 +399,21 @@ private:
   int bitFieldAlign_;
 };
 
+/*
 // Not used yet
 class EnumType: public Type {
 public:
-  static EnumType* New(bool complete=false);
+  static EnumTypePtr New(bool complete=false, int quals);
 
   virtual ~EnumType() {}
   virtual bool IsInteger() const { return true; }
+
   virtual ArithmType* ToArithm() {
-    assert(false);
-    return ArithmType::New(T_INT);
-  };
-  virtual const ArithmType* ToArithm() const {
     assert(false);
     return ArithmType::New(T_INT);
   }
 
-  virtual EnumType* ToEnum() { return this; }
-  virtual const EnumType* ToEnum() const { return this; }
+  virtual EnumTypePtr ToEnum() { return this; }
   virtual bool Compatible(const Type& other) const {
     // As enum is always casted to INT, there is no chance for this call    
     assert(false);
@@ -460,5 +429,6 @@ public:
 protected:
   explicit EnumType(MemPool* pool, bool complete): Type(pool, complete) {}
 };
+*/
 
 #endif

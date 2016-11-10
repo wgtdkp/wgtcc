@@ -15,26 +15,24 @@ static MemPoolImp<FuncType>     funcTypePool;
 static MemPoolImp<PointerType>  pointerTypePool;
 static MemPoolImp<StructType>   structUnionTypePool;
 static MemPoolImp<ArithmType>   arithmTypePool;
-static MemPoolImp<EnumType>     enumTypePool;
 
 
-Type* Type::MayCast(Type* type) {
+QualType Type::MayCast(QualType type) {
   auto funcType = type->ToFunc();
   auto arrayType = type->ToArray();
   if (funcType) {
     return PointerType::New(funcType);
   } else if (arrayType) {
     auto ret = PointerType::New(arrayType->Derived());
-    ret->SetQual(Q_CONST);
-    return ret;
+    return QualType(ret, Qualifier::CONST);
   }
   return type;
 }
 
 
 VoidType* VoidType::New() {
-  static auto voidType = new (voidTypePool.Alloc()) VoidType(&voidTypePool);
-  return voidType;
+  static auto ret = new (voidTypePool.Alloc()) VoidType(&voidTypePool);
+  return ret;
 }
 
 
@@ -59,21 +57,21 @@ ArithmType* ArithmType::New(int typeSpec) {
   
   auto tag = ArithmType::Spec2Tag(typeSpec);
   switch (tag) {
-  case T_BOOL: return boolType;
-  case T_CHAR: return charType;
+  case T_BOOL:              return boolType;
+  case T_CHAR:              return charType;
   case T_UNSIGNED | T_CHAR: return ucharType;
-  case T_SHORT: return shortType;
-  case T_UNSIGNED | T_SHORT: return ushortType;
-  case T_INT: return intType;
+  case T_SHORT:             return shortType;
+  case T_UNSIGNED | T_SHORT:return ushortType;
+  case T_INT:               return intType;
   case T_UNSIGNED:
-  case T_UNSIGNED | T_INT: return uintType;
-  case T_LONG: return longType;
+  case T_UNSIGNED | T_INT:  return uintType;
+  case T_LONG:              return longType;
   case T_UNSIGNED | T_LONG: return ulongType;
-  case T_LLONG: return llongType;
-  case T_UNSIGNED | T_LLONG: return ullongType;
-  case T_FLOAT: return floatType;
-  case T_DOUBLE: return doubleType;
-  case T_LONG | T_DOUBLE: return ldoubleType;
+  case T_LLONG:             return llongType;
+  case T_UNSIGNED | T_LLONG:return ullongType;
+  case T_FLOAT:             return floatType;
+  case T_DOUBLE:            return doubleType;
+  case T_LONG | T_DOUBLE:   return ldoubleType;
   default: Error("complex not supported yet");
   }
   return nullptr; // Make compiler happy
@@ -82,19 +80,19 @@ ArithmType* ArithmType::New(int typeSpec) {
 }
 
 
-ArrayType* ArrayType::New(int len, Type* eleType) {
+ArrayType* ArrayType::New(int len, QualType eleType) {
   return new (arrayTypePool.Alloc())
          ArrayType(&arrayTypePool, len, eleType);
 }
 
 
-ArrayType* ArrayType::New(Expr* expr, Type* eleType) {
+ArrayType* ArrayType::New(Expr* expr, QualType eleType) {
   return new (arrayTypePool.Alloc())
          ArrayType(&arrayTypePool, expr, eleType);
 }
 
 
-FuncType* FuncType::New(Type* derived,
+FuncType* FuncType::New(QualType derived,
                         int funcSpec,
                         bool variadic,
                         const ParamList& params) {
@@ -103,20 +101,17 @@ FuncType* FuncType::New(Type* derived,
 }
 
 
-PointerType* PointerType::New(Type* derived) {
+PointerType* PointerType::New(QualType derived) {
   return new (pointerTypePool.Alloc())
          PointerType(&pointerTypePool, derived);
 }
 
 
-StructType* StructType::New(bool isStruct, bool hasTag, Scope* parent) {
+StructType* StructType::New(bool isStruct,
+                              bool hasTag,
+                              Scope* parent) {
   return new (structUnionTypePool.Alloc())
          StructType(&structUnionTypePool, isStruct, hasTag, parent);
-}
-
-
-EnumType* EnumType::New(bool complete) {
-  return new (enumTypePool.Alloc()) EnumType(&enumTypePool, complete);
 }
 
 
@@ -169,7 +164,8 @@ int ArithmType::Rank() const {
 }
 
 
-ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs) {
+ArithmType* ArithmType::MaxType(ArithmType* lhs,
+                                      ArithmType* rhs) {
   if (lhs->IsInteger())
     lhs = ArithmType::IntegerPromote(lhs);
   if (rhs->IsInteger())
@@ -256,10 +252,12 @@ std::string ArithmType::Str() const {
 
 bool PointerType::Compatible(const Type& other) const {
   // C11 6.7.6.1 [2]: pointer compatibility
-  // Constraints loosed: pointer and integer are compatible
   auto otherPointer = other.ToPointer();
-  return other.IsInteger() ||
-         (otherPointer && derived_->Compatible(*otherPointer->derived_));
+  return otherPointer && derived_->Compatible(*otherPointer->derived_);
+
+  // FIXME(wgtdkp): cannot loose compatible constraints
+  //return other.IsInteger() ||
+  //       (otherPointer && derived_->Compatible(*otherPointer->derived_));
 }
 
 

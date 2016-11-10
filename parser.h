@@ -14,7 +14,7 @@
 
 
 class Preprocessor;
-typedef std::pair<const Token*, Type*> TokenTypePair;
+typedef std::pair<const Token*, QualType> TokenTypePair;
 
 class Parser {
   typedef std::vector<Constant*> LiteralList;
@@ -57,8 +57,8 @@ public:
   // Expressions
   Expr* ParseExpr();
   Expr* ParsePrimaryExpr();
-  Type* TryCompoundLiteral();
-  Object* ParseCompoundLiteral(Type* type);
+  QualType TryCompoundLiteral();
+  Object* ParseCompoundLiteral(QualType type);
   Expr* ParsePostfixExpr();
   Expr* ParsePostfixExprTail(Expr* primExpr);
   Expr* ParseSubScripting(Expr* pointer);
@@ -72,7 +72,7 @@ public:
   UnaryOp* ParsePrefixIncDec(const Token* tok);
   UnaryOp* ParseUnaryOp(const Token* tok, int op);
 
-  Type* ParseTypeName();
+  QualType ParseTypeName();
   Expr* ParseCastExpr();
   Expr* ParseMultiplicativeExpr();
   Expr* ParseAdditiveExpr();
@@ -91,30 +91,30 @@ public:
   // Declarations
   CompoundStmt* ParseDecl();
   void ParseStaticAssert();
-  Type* ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec);
-  Type* ParseSpecQual();
+  QualType ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec);
+  QualType ParseSpecQual();
   int ParseAlignas();
   Type* ParseStructUnionSpec(bool isStruct);
-  Type* ParseEnumSpec();
   StructType* ParseStructUnionDecl(StructType* type);
-  void ParseBitField(StructType* structType, const Token* tok, Type* type);
+  void ParseBitField(StructType* structType, const Token* tok, QualType type);
+  Type* ParseEnumSpec();  
   Type* ParseEnumerator(ArithmType* type);
   int ParseQual();
-  Type* ParsePointer(Type* typePointedTo);
-  TokenTypePair ParseDeclarator(Type* type);
-  Type* ParseArrayFuncDeclarator(const Token* ident, Type* base);
+  QualType ParsePointer(QualType typePointedTo);
+  TokenTypePair ParseDeclarator(QualType type);
+  QualType ParseArrayFuncDeclarator(const Token* ident, QualType base);
   int ParseArrayLength();
   bool ParseParamList(FuncType::ParamList& params);
   Object* ParseParamDecl();
 
-  Type* ParseAbstractDeclarator(Type* type);
-  Identifier* ParseDirectDeclarator(Type* type,
+  QualType ParseAbstractDeclarator(QualType type);
+  Identifier* ParseDirectDeclarator(QualType type,
                                     int storageSpec,
                                     int funcSpec,
                                     int align);
   // Initializer
   void ParseInitializer(Declaration* decl,
-                        Type* type,
+                        QualType type,
                         int offset,
                         bool designated=false,
                         bool forceBrace=false,
@@ -152,7 +152,7 @@ public:
   CompoundStmt* ParseCaseStmt();
   CompoundStmt* ParseDefaultStmt();
   Identifier* ProcessDeclarator(const Token* tok,
-                                Type* type,
+                                QualType type,
                                 int storageSpec,
                                 int funcSpec,
                                 int align);
@@ -230,7 +230,7 @@ public:
   }
 
 private:
-  static bool IsBuiltin(const FuncType* type);
+  static bool IsBuiltin(FuncType* type);
   static bool IsBuiltin(const std::string& name);
   static Identifier* GetBuiltin(const Token* tok);
   static void DefineBuiltins();

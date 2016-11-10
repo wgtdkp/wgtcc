@@ -106,7 +106,7 @@ void Parser::ParseTranslationUnit() {
 FuncDef* Parser::ParseFuncDef(Identifier* ident) {
   auto funcDef = EnterFunc(ident);
 
-  if (funcDef->Type()->Complete()) {
+  if (funcDef->FuncType()->Complete()) {
     Error(ident, "redefinition of '%s'", funcDef->Name().c_str());
   }
 
@@ -378,7 +378,7 @@ Expr* Parser::ParseGeneric() {
 }
 
 
-Type* Parser::TryCompoundLiteral() {
+QualType Parser::TryCompoundLiteral() {
   auto mark = ts_.Mark();
   if (ts_.Try('(') && IsTypeName(ts_.Peek())) {
     auto type = ParseTypeName();
@@ -406,7 +406,7 @@ Expr* Parser::ParsePostfixExpr() {
 }
 
 
-Object* Parser::ParseCompoundLiteral(Type* type) {
+Object* Parser::ParseCompoundLiteral(QualType type) {
   auto linkage = curScope_->Type() == S_FILE ? L_INTERNAL: L_NONE;
   auto anony = Object::NewAnony(ts_.Peek(), type, 0, linkage);
   auto decl = ParseInitDeclaratorSub(anony);
@@ -508,7 +508,7 @@ Expr* Parser::ParseUnaryExpr() {
 
 
 Constant* Parser::ParseSizeof() {
-  Type* type;  
+  QualType type(nullptr);  
   auto tok = ts_.Next();
   if (tok->tag_ == '(' && IsTypeName(ts_.Peek())) {
     type = ParseTypeName();
@@ -555,7 +555,7 @@ UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op) {
 }
 
 
-Type* Parser::ParseTypeName() {
+QualType Parser::ParseTypeName() {
   auto type = ParseSpecQual();
   if (ts_.Test('*') || ts_.Test('(') || ts_.Test('[')) //abstract-declarator FIRST set
     return ParseAbstractDeclarator(type);
@@ -877,7 +877,7 @@ static inline void TypeLL(int& typeSpec) {
 }
 
 
-Type* Parser::ParseSpecQual() {
+QualType Parser::ParseSpecQual() {
   return ParseDeclSpec(nullptr, nullptr, nullptr);
 }
 
@@ -894,12 +894,12 @@ static void EnsureAndSetStorageSpec(const Token* tok, int* storage, int spec) {
 /*
  * param: storage: null, only type specifier and qualifier accepted;
  */
-Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) {
+QualType Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) {
 #define ERR_FUNC_SPEC ("unexpected function specifier")
 #define ERR_STOR_SPEC ("unexpected storage specifier")
 #define ERR_DECL_SPEC ("two or more data types in declaration specifiers")
 
-  Type* type = nullptr;
+  QualType type(nullptr);
   int qualSpec = 0;
   int typeSpec = 0;    
 
@@ -968,9 +968,9 @@ Type* Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) {
       break;
     
     //type qualifier
-    case Token::CONST: qualSpec |= Q_CONST; break;
-    case Token::RESTRICT: qualSpec |= Q_RESTRICT; break;
-    case Token::VOLATILE: qualSpec |= Q_VOLATILE; break;
+    case Token::CONST:    qualSpec |= Qualifier::CONST;    break;
+    case Token::RESTRICT: qualSpec |= Qualifier::RESTRICT; break;
+    case Token::VOLATILE: qualSpec |= Qualifier::VOLATILE; break;
 
     //type specifier
     case Token::SIGNED:
@@ -1098,8 +1098,7 @@ end_of_loop:
   //if (storageSpec && (*storageSpec & S_TYPEDEF))
   //  TryAttributeSpecList();
 
-  type->SetQual(qualSpec);
-  return type;
+  return QualType(type.GetPtr(), qualSpec | type.Qual());
 
 #undef ERR_FUNC_SPEC
 #undef ERR_STOR_SPEC
@@ -1357,7 +1356,7 @@ finalize:
 
 void Parser::ParseBitField(StructType* structType,
                            const Token* tok,
-                           Type* type) {
+                           QualType type) {
   if (!type->IsInteger()) {
     Error(tok ? tok: ts_.Peek(), "expect integer type for bitfield");
   }
@@ -1421,44 +1420,28 @@ void Parser::ParseBitField(StructType* structType,
 int Parser::ParseQual() {
   int qualSpec = 0;
   for (; ;) {
-    switch (ts_.Next()->tag_) {
-    case Token::CONST:
-      qualSpec |= Q_CONST;
-      break;
-
-    case Token::RESTRICT:
-      qualSpec |= Q_RESTRICT;
-      break;
-
-    case Token::VOLATILE:
-      qualSpec |= Q_VOLATILE;
-      break;
-
-    case Token::ATOMIC:
-      qualSpec |= Q_ATOMIC;
-      break;
-
-    default:
-      ts_.PutBack();
-      return qualSpec;
+    auto tok = ts_.Next();
+    switch (tok->tag_) {
+    case Token::CONST:    qualSpec |= Qualifier::CONST;    break;
+    case Token::RESTRICT: qualSpec |= Qualifier::RESTRICT; break;
+    case Token::VOLATILE: qualSpec |= Qualifier::VOLATILE; break;
+    case Token::ATOMIC:   Error(tok, "do not support 'atomic'"); break;
+    default: ts_.PutBack(); return qualSpec;
     }
   }
 }
 
 
-Type* Parser::ParsePointer(Type* typePointedTo) {
-  Type* retType = typePointedTo;
+QualType Parser::ParsePointer(QualType typePointedTo) {
   while (ts_.Try('*')) {
-    retType = PointerType::New(typePointedTo);
-    retType->SetQual(ParseQual());
-    typePointedTo = retType;
+    auto t = PointerType::New(typePointedTo);
+    typePointedTo = QualType(t, ParseQual());
   }
-
-  return retType;
+  return typePointedTo;
 }
 
 
-static Type* ModifyBase(Type* type, Type* base, Type* newBase) {
+static QualType ModifyBase(QualType type, QualType base, QualType newBase) {
   if (type == base)
     return newBase;
   
@@ -1474,7 +1457,7 @@ static Type* ModifyBase(Type* type, Type* base, Type* newBase) {
  *     if token is nullptr, then we are parsing abstract declarator
  *     else, parsing direct declarator.
  */
-TokenTypePair Parser::ParseDeclarator(Type* base) {
+TokenTypePair Parser::ParseDeclarator(QualType base) {
   // May be pointer
   auto pointerType = ParsePointer(base);
   
@@ -1506,7 +1489,7 @@ TokenTypePair Parser::ParseDeclarator(Type* base) {
 
 
 Identifier* Parser::ProcessDeclarator(const Token* tok,
-                                      Type* type,
+                                      QualType type,
                                       int storageSpec,
                                       int funcSpec,
                                       int align) {
@@ -1527,10 +1510,11 @@ Identifier* Parser::ProcessDeclarator(const Token* tok,
     ident = curScope_->FindInCurScope(tok);
     if (ident) { // There is prio declaration in the same scope
       // The same declaration, simply return the prio declaration
-      if (type->Compatible(*ident->Type()))
-        return ident;
+      if (!type->Compatible(*ident->Type()))
+        Error(tok, "conflicting types for '%s'", name.c_str());
+
       // TODO(wgtdkp): add previous declaration information
-      Error(tok, "conflicting types for '%s'", name.c_str());
+      return ident;        
     }
     ident = Identifier::New(tok, type, L_NONE);
     curScope_->Insert(ident);
@@ -1643,7 +1627,7 @@ Identifier* Parser::ProcessDeclarator(const Token* tok,
 }
 
 
-Type* Parser::ParseArrayFuncDeclarator(const Token* ident, Type* base) {
+QualType Parser::ParseArrayFuncDeclarator(const Token* ident, QualType base) {
   if (ts_.Try('[')) {
 
     if (nullptr != base->ToFunc()) {
@@ -1749,7 +1733,7 @@ Object* Parser::ParseParamDecl() {
 }
 
 
-Type* Parser::ParseAbstractDeclarator(Type* type) {
+QualType Parser::ParseAbstractDeclarator(QualType type) {
   auto tokenTypePair = ParseDeclarator(type);
   auto tok = tokenTypePair.first;
   type = tokenTypePair.second;
@@ -1760,7 +1744,7 @@ Type* Parser::ParseAbstractDeclarator(Type* type) {
 }
 
 
-Identifier* Parser::ParseDirectDeclarator(Type* type,
+Identifier* Parser::ParseDirectDeclarator(QualType type,
                                           int storageSpec,
                                           int funcSpec,
                                           int align) {
@@ -1843,7 +1827,7 @@ Declaration* Parser::ParseInitDeclaratorSub(Object* obj) {
 
 
 void Parser::ParseInitializer(Declaration* decl,
-                              Type* type,
+                              QualType type,
                               int offset,
                               bool designated,
                               bool forceBrace,
@@ -1891,7 +1875,7 @@ void Parser::ParseInitializer(Declaration* decl,
     ts_.Try(',');
     ts_.Expect('}');
   }
-  decl->AddInit({type, offset, expr, bitFieldBegin, bitFieldWidth});
+  decl->AddInit({type.GetPtr(), offset, expr, bitFieldBegin, bitFieldWidth});
 }
 
 
@@ -2524,7 +2508,7 @@ ReturnStmt* Parser::ParseReturnStmt() {
     expr = ParseExpr();
     ts_.Expect(';');
     
-    auto retType = curFunc_->Type()->ToFunc()->Derived();
+    auto retType = curFunc_->FuncType()->Derived();
     expr = Expr::MayCast(expr, retType);
   }
 
@@ -2572,7 +2556,7 @@ bool Parser::IsBuiltin(const std::string& name) {
 }
 
 
-bool Parser::IsBuiltin(const FuncType* type) {
+bool Parser::IsBuiltin(FuncType* type) {
   assert(vaStartType_ && vaArgType_);
   return type == vaStartType_ || type == vaArgType_;
 }

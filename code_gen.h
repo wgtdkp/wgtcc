@@ -231,7 +231,7 @@ protected:
   void EmitStoreBitField(const ObjectAddr& addr, Type* type);
   void EmitLoc(Expr* expr);
 
-  int Push(const Type* type);
+  int Push(Type* type);
   int Push(const std::string& reg);
   int Pop(const std::string& reg);
 

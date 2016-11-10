@@ -134,7 +134,7 @@ Expr* Expr::MayCast(Expr* expr) {
 }
 
 
-Expr* Expr::MayCast(Expr* expr, ::Type* desType) {
+Expr* Expr::MayCast(Expr* expr, QualType desType) {
   expr = MayCast(expr);
   auto srcType = expr->Type();
   if (desType->ToPointer() && srcType->ToPointer())
@@ -200,7 +200,8 @@ ArithmType* BinaryOp::Convert() {
  * Type checking
  */
 
-void Expr::EnsureCompatibleOrVoidPointer(::Type* lhs, ::Type* rhs) const {
+void Expr::EnsureCompatibleOrVoidPointer(const QualType lhs,
+                                         const QualType rhs) const {
   if (lhs->ToPointer() && rhs->ToPointer() &&
       (lhs->IsVoidPointer() || rhs->IsVoidPointer())) {
     return;
@@ -209,7 +210,7 @@ void Expr::EnsureCompatibleOrVoidPointer(::Type* lhs, ::Type* rhs) const {
 }
 
 
-void Expr::EnsureCompatible(::Type* lhs, ::Type* rhs) const {
+void Expr::EnsureCompatible(const QualType lhs, const QualType rhs) const {
   if (!lhs->Compatible(*rhs))
     Error(this, "incompatible types");
 }
@@ -395,7 +396,9 @@ void BinaryOp::LogicalOpTypeChecking() {
 
 void BinaryOp::AssignOpTypeChecking() {
   if (!lhs_->IsLVal()) {
-    Error(lhs_->Tok(), "lvalue expression expected");
+    Error(lhs_, "lvalue expression expected");
+  } else if (lhs_->IsConstQualified()) {
+    Error(lhs_, "left operand of '=' is const qualified");
   }
 
   if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm()) {
@@ -412,7 +415,7 @@ void BinaryOp::AssignOpTypeChecking() {
  * Unary Operators
  */
 
-UnaryOp* UnaryOp::New(int op, Expr* operand, ::Type* type) {
+UnaryOp* UnaryOp::New(int op, Expr* operand, QualType type) {
   auto ret = new (unaryOpPool.Alloc()) UnaryOp(op, operand, type);
   ret->pool_ = &unaryOpPool;
   
@@ -473,6 +476,8 @@ void UnaryOp::TypeChecking() {
 void UnaryOp::IncDecOpTypeChecking() {
   if (!operand_->IsLVal()) {
     Error(this, "lvalue expression expected");
+  } else if (operand_->IsConstQualified()) {
+    Error(this, "increment/decrement of const qualified expression");
   }
 
   if (!operand_->Type()->IsReal() && !operand_->Type()->ToPointer()) {
@@ -483,7 +488,7 @@ void UnaryOp::IncDecOpTypeChecking() {
 
 
 void UnaryOp::AddrOpTypeChecking() {
-  FuncType* funcType = operand_->Type()->ToFunc();
+  auto funcType = operand_->Type()->ToFunc();
   if (funcType == nullptr && !operand_->IsLVal())
     Error(this, "expression must be an lvalue or function designator");
   type_ = PointerType::New(operand_->Type());
@@ -608,14 +613,12 @@ void FuncCall::TypeChecking() {
     Error(designator_, "called object is not a function or function pointer");
   }
 
-  auto i = 1;
   auto arg = args_.begin();
   for (auto param: funcType->Params()) {
     if (arg == args_.end())
       Error(this, "too few arguments for function call");
     *arg = Expr::MayCast(*arg, param->Type());
     ++arg;
-    ++i;
   }
   if (arg != args_.end() && !funcType->Variadic())
     Error(this, "too many arguments for function call");
@@ -638,7 +641,7 @@ void FuncCall::TypeChecking() {
  */
 
 Identifier* Identifier::New(const Token* tok,
-                            ::Type* type,
+                            QualType type,
                             enum Linkage linkage) {
   auto ret = new (identifierPool.Alloc()) Identifier(tok, type, linkage);
   ret->pool_ = &identifierPool;
@@ -675,7 +678,7 @@ void Declaration::AddInit(Initializer init) {
  */
 
 Object* Object::New(const Token* tok,
-                    ::Type* type,
+                    QualType type,
                     int storage,
                     enum Linkage linkage,
                     unsigned char bitFieldBegin,
@@ -692,7 +695,7 @@ Object* Object::New(const Token* tok,
 
 
 Object* Object::NewAnony(const Token* tok,
-                         ::Type* type,
+                         QualType type,
                          int storage,
                          enum Linkage linkage,
                          unsigned char bitFieldBegin,
@@ -756,7 +759,7 @@ std::string Constant::SValRepr() const {
  * TempVar
  */
 
-TempVar* TempVar::New(::Type* type) {
+TempVar* TempVar::New(QualType type) {
   auto ret = new (tempVarPool.Alloc()) TempVar(type);
   ret->pool_ = &tempVarPool;
   return ret;

@@ -87,7 +87,7 @@ private:
 
   const Scope& operator=(const Scope& other);
   Scope(const Scope& scope);
-  //typedef std::map<std::string, Type*> TagMap;
+  //typedef std::map<std::string, QualType> TagMap;
 
   Scope* parent_;
   enum ScopeType type_;

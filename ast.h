@@ -300,34 +300,29 @@ class Expr : public Stmt {
 
 public:
   virtual ~Expr() {}
-  
-  ::Type* Type() {
-    return type_;
-  }
-
+  ::Type* Type() { return type_.GetPtr(); }
   virtual bool IsLVal() = 0;
-
   virtual void TypeChecking() = 0;
-  void EnsureCompatible(::Type* lhs, ::Type* rhs) const;
-  void EnsureCompatibleOrVoidPointer(::Type* lhs, ::Type* rhs) const;
-  const Token* Tok() const {
-    return tok_;
-  }
-
-  void SetTok(const Token* tok) {
-    tok_ = tok;
-  }
+  void EnsureCompatible(const QualType lhs, const QualType rhs) const;
+  void EnsureCompatibleOrVoidPointer(const QualType lhs,
+                                     const QualType rhs) const;
+  const Token* Tok() const { return tok_; }
+  void SetTok(const Token* tok) { tok_ = tok; }
 
   static Expr* MayCast(Expr* expr);
-  static Expr* MayCast(Expr* expr, ::Type* desType);
+  static Expr* MayCast(Expr* expr, QualType desType);
+
+  bool IsConstQualified() const { return type_.IsConstQualified(); }
+  bool IsRestrictQualified() const { return type_.IsRestrictQualified(); }
+  bool IsVolatileQualified() const { return type_.IsVolatileQualified(); }
 
 protected:
   // You can construct a expression without specifying a type,
   // then the type should be evaluated in TypeChecking()
-  Expr(const Token* tok, ::Type* type): tok_(tok), type_(type) {}
+  Expr(const Token* tok, QualType type): tok_(tok), type_(type) {}
 
   const Token* tok_;
-  ::Type* type_;
+  QualType type_;
 };
 
 
@@ -414,16 +409,11 @@ class UnaryOp : public Expr {
   friend class LValGenerator;
 
 public:
-  static UnaryOp* New(int op, Expr* operand, ::Type* type=nullptr);
-
+  static UnaryOp* New(int op, Expr* operand, QualType type=nullptr);
   virtual ~UnaryOp() {}
-  
   virtual void Accept(Visitor* v);
-
   virtual bool IsLVal();
-
   ArithmType* Convert();
-
   void TypeChecking();
   void IncDecOpTypeChecking();
   void AddrOpTypeChecking();
@@ -432,7 +422,7 @@ public:
   void CastOpTypeChecking();
 
 protected:
-  UnaryOp(int op, Expr* operand, ::Type* type = nullptr)
+  UnaryOp(int op, Expr* operand, QualType type=nullptr)
     : Expr(operand->Tok(), type), op_(op) {
       operand_ = operand;
       if (op_ != Token::CAST && op_ != Token::ADDR) {
@@ -454,17 +444,10 @@ class ConditionalOp : public Expr {
 public:
   static ConditionalOp* New(const Token* tok,
       Expr* cond, Expr* exprTrue, Expr* exprFalse);
-  
   virtual ~ConditionalOp() {}
-  
   virtual void Accept(Visitor* v);
-
-  virtual bool IsLVal() {
-    return false;
-  }
-
+  virtual bool IsLVal() { return false; }
   ArithmType* Convert();
-  
   virtual void TypeChecking();
 
 protected:
@@ -566,11 +549,11 @@ public:
   }
 
 protected:
-  Constant(const Token* tok, ::Type* type, long val)
+  Constant(const Token* tok, QualType type, long val)
       : Expr(tok, type), ival_(val) {}
-  Constant(const Token* tok, ::Type* type, double val)
+  Constant(const Token* tok, QualType type, double val)
       : Expr(tok, type), fval_(val) {}
-  Constant(const Token* tok, ::Type* type, const std::string* val)
+  Constant(const Token* tok, QualType type, const std::string* val)
       : Expr(tok, type), sval_(val) {}
 
   union {
@@ -590,7 +573,7 @@ class TempVar : public Expr {
   friend class Generator;
 
 public:
-  static TempVar* New(::Type* type);
+  static TempVar* New(QualType type);
 
   virtual ~TempVar() {}
   
@@ -603,7 +586,7 @@ public:
   virtual void TypeChecking() {}
 
 protected:
-  TempVar(::Type* type): Expr(nullptr, type), tag_(GenTag()) {}
+  TempVar(QualType type): Expr(nullptr, type), tag_(GenTag()) {}
   
 private:
   static int GenTag() {
@@ -629,7 +612,7 @@ class Identifier: public Expr {
   friend class LValGenerator;
 
 public:
-  static Identifier* New(const Token* tok, ::Type* type, Linkage linkage);
+  static Identifier* New(const Token* tok, QualType type, Linkage linkage);
 
   virtual ~Identifier() {}
 
@@ -674,7 +657,7 @@ public:
   virtual void TypeChecking() {}
 
 protected:
-  Identifier(const Token* tok, ::Type* type, enum Linkage linkage)
+  Identifier(const Token* tok, QualType type, enum Linkage linkage)
       : Expr(tok, type), linkage_(linkage) {}
 
   // An identifier has property linkage
@@ -699,15 +682,15 @@ public:
   }
 
   int Val() const {
-    return _cons->IVal();
+    return cons_->IVal();
   }
 
 protected:
   Enumerator(const Token* tok, int val)
       : Identifier(tok, ArithmType::New(T_INT), L_NONE),
-        _cons(Constant::New(tok, T_INT, (long)val)) {}
+        cons_(Constant::New(tok, T_INT, (long)val)) {}
 
-  Constant* _cons;
+  Constant* cons_;
 };
 
 
@@ -718,12 +701,18 @@ class Object : public Identifier {
   friend class LValGenerator;
 
 public:
-  static Object* New(const Token* tok, ::Type* type,
-      int storage=0, enum Linkage linkage=L_NONE,
-      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
-  static Object* NewAnony(const Token* tok, ::Type* type,
-      int storage=0, enum Linkage linkage=L_NONE,
-      unsigned char bitFieldBegin=0, unsigned char bitFieldWidth=0);
+  static Object* New(const Token* tok,
+                     QualType type,
+                     int storage=0,
+                     enum Linkage linkage=L_NONE,
+                     unsigned char bitFieldBegin=0,
+                     unsigned char bitFieldWidth=0);
+  static Object* NewAnony(const Token* tok,
+                          QualType type,
+                          int storage=0,
+                          enum Linkage linkage=L_NONE,
+                          unsigned char bitFieldBegin=0,
+                          unsigned char bitFieldWidth=0);
 
   ~Object() {}
 
@@ -823,7 +812,7 @@ public:
 
 protected:
   Object(const Token* tok,
-         ::Type* type,
+         QualType type,
          int storage=0,
          enum Linkage linkage=L_NONE,
          unsigned char bitFieldBegin=0,
@@ -869,8 +858,8 @@ public:
   static FuncDef* New(Identifier* ident, LabelStmt* retLabel);
 
   virtual ~FuncDef() {}
-  
-  virtual FuncType* Type() {
+
+  ::FuncType* FuncType() {
     return ident_->Type()->ToFunc();
   }
 
