@@ -124,8 +124,9 @@ enum class Operator {
   // Assignment
   ASSIGN,   // '='
   // x[n]: desginate variable n bytes after x
-  DES_SS_ASSIGN,  // x[n] = y; Des subscripted assignment
-  SRC_SS_ASSIGN,  // x = y[n]; Src subscripted assignment 
+  DES_SS_ASSIGN,  // '[]=' ; x[n] = y; Des subscripted assignment
+  SRC_SS_ASSIGN,  // '=[]' ; x = y[n]; Src subscripted assignment 
+  DEREF_ASSIGN,   // '*='  ; *x = y;
 
   // Unary
   PRE_INC,  // '++' ; t = ++x
