@@ -18,15 +18,21 @@ static MemPoolImp<Enumerator>       enumeratorPool;
 static MemPoolImp<Constant>         constantPool;
 static MemPoolImp<TempVar>          tempVarPool;
 static MemPoolImp<UnaryOp>          unaryOpPool;
-static MemPoolImp<EmptyStmt>        emptyStmtPool;
+
 static MemPoolImp<IfStmt>           ifStmtPool;
 static MemPoolImp<ForStmt>          forStmtPool;
 static MemPoolImp<WhileStmt>        whileStmtPool;
 static MemPoolImp<SwitchStmt>       switchStmtPool;
-static MemPoolImp<JumpStmt>         jumpStmtPool;
+static MemPoolImp<CaseStmt>         caseStmtPool;
+static MemPoolImp<DefaultStmt>      defaultStmtPool;
+static MemPoolImp<BreakStmt>        breakStmtPool;
+static MemPoolImp<ContinueStmt>     continueStmtPool;
 static MemPoolImp<ReturnStmt>       returnStmtPool;
 static MemPoolImp<LabelStmt>        labelStmtPool;
+static MemPoolImp<GotoStmt>         gotoStmtPool;
 static MemPoolImp<CompoundStmt>     compoundStmtPool;
+static MemPoolImp<EmptyStmt>        emptyStmtPool;
+
 static MemPoolImp<FuncDef>          funcDefPool;
 static MemPoolImp<TranslationUnit>  translationUnitPool;
 
@@ -50,6 +56,16 @@ void LabelStmt::Accept(Visitor* v) {
 }
 
 
+void BreakStmt::Accept(Visitor* v) {
+  v->VisitBreakStmt(this);
+}
+
+
+void ContinueStmt::Accept(Visitor* v) {
+  v->VisitContinueStmt(this);
+}
+
+
 void IfStmt::Accept(Visitor* v) {
   v->VisitIfStmt(this);
 }
@@ -70,13 +86,23 @@ void SwitchStmt::Accept(Visitor* v) {
 }
 
 
-void JumpStmt::Accept(Visitor* v) {
-  v->VisitJumpStmt(this);
+void CaseStmt::Accept(Visitor* v) {
+  v->VisitCaseStmt(this);
 }
 
 
 void ReturnStmt::Accept(Visitor* v) {
   v->VisitReturnStmt(this);
+}
+
+
+void GotoStmt::Accept(Visitor* v) {
+  v->VisitGotoStmt(this);
+}
+
+
+void DefaultStmt::Accept(Visitor* v) {
+  v->VisitDefaultStmt(this);
 }
 
 
@@ -788,23 +814,30 @@ SwitchStmt* SwitchStmt::New(Expr* select, Stmt* body) {
   return new (switchStmtPool.Alloc()) SwitchStmt(select, body);
 }
 
-/*
-SwitchStmt* SwitchStmt::New(Expr* select, Stmt* body, Stmt* deft,
-                            const StmtList& caseStmts, const CaseList& cases) {
-  auto ret = new (switchStmtPool.Alloc())
-             SwitchStmt(select, body, deft, caseStmts, cases);
-  ret->pool_ = &switchStmtPool;
-  return ret;
+
+bool SwitchStmt::IsCaseOverlapped(CaseStmt* caseStmt) {
+  auto begin = caseStmt->GetBegin();
+  auto end = caseStmt->GetEnd();
+  for (const auto& c: caseList_) {
+    if ((c->GetBegin() <= begin && begin <= c->GetEnd()) ||
+        (c->GetBegin() <= end && end <= c->GetEnd())) {
+      return true;
+    }
+  }
+  return false;
 }
-*/
+
+
+CaseStmt* CaseStmt::New(int begin, int end, Stmt* body) {
+  return new (caseStmtPool.Alloc()) CaseStmt(begin, end, body);
+}
+
+
+
+
 
 CompoundStmt* CompoundStmt::New(std::list<Stmt*>& stmts, ::Scope* scope) {
   return new (compoundStmtPool.Alloc()) CompoundStmt(stmts, scope);
-}
-
-
-JumpStmt* JumpStmt::New(LabelStmt* label) {
-  return new (jumpStmtPool.Alloc()) JumpStmt(label);
 }
 
 
@@ -813,13 +846,32 @@ ReturnStmt* ReturnStmt::New(Expr* expr) {
 }
 
 
-LabelStmt* LabelStmt::New() {
-  return new (labelStmtPool.Alloc()) LabelStmt();
+GotoStmt* GotoStmt::New(LabelStmt* label) {
+  return new (gotoStmtPool.Alloc()) GotoStmt(label);
 }
 
 
-FuncDef* FuncDef::New(Identifier* ident, LabelStmt* retLabel) {
-  return new (funcDefPool.Alloc()) FuncDef(ident, retLabel);
+DefaultStmt* DefaultStmt::New(Stmt* subStmt) {
+  return new (defaultStmtPool.Alloc()) DefaultStmt(subStmt);
+}
+
+
+LabelStmt* LabelStmt::New(Stmt* subStmt) {
+  return new (labelStmtPool.Alloc()) LabelStmt(subStmt);
+}
+
+
+BreakStmt* BreakStmt::New() {
+  return new (breakStmtPool.Alloc()) BreakStmt();
+}
+
+ContinueStmt* ContinueStmt::New() {
+  return new (continueStmtPool.Alloc()) ContinueStmt();
+}
+
+
+FuncDef* FuncDef::New(Identifier* ident) {
+  return new (funcDefPool.Alloc()) FuncDef(ident);
 }
 
 

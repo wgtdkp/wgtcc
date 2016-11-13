@@ -8,17 +8,11 @@
 class MemPool {
 public:
   MemPool(): allocated_(0) {}
-  
   virtual ~MemPool() {}
-  
   MemPool(const MemPool& other) = delete;
-  
   MemPool& operator=(const MemPool& other) = delete;
-
   virtual void* Alloc() = 0;
-  
   virtual void Free(void* addr) = 0;
-  
   virtual void Clear() = 0;
 
 protected:
@@ -30,17 +24,11 @@ template <class T>
 class MemPoolImp: public MemPool {
 public:
   MemPoolImp() : root_(nullptr) {}
-  
   virtual ~MemPoolImp() {}
-
   MemPoolImp(const MemPool& other) = delete;
-  
   MemPoolImp& operator=(MemPool& other) = delete;
-
   virtual void* Alloc();
-  
   virtual void Free(void* addr);
-  
   virtual void Clear();
 
 private:
@@ -69,13 +57,9 @@ private:
 
 template <class T>
 void* MemPoolImp<T>::Alloc() {
-  if (nullptr == root_) { // 空间不够，需要分配空间
+  if (root_ == nullptr) {
     auto block = new Block();
     root_ = block->chunks_;
-    // 如果blocks实现为std::list, 那么push_back实际的overhead更大
-    // 这也表明，即使我们不需要随机访问功能(那么std::vector的拷贝是一种overhead)，
-    // 仍然倾向于使用std::vector，
-    // 当然std::vector的指数级capacity增长会造成内存浪费。
     blocks_.push_back(block);
   }
   

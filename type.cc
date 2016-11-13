@@ -321,7 +321,7 @@ StructType::StructType(MemPool* pool,
     : Type(pool, false),
       isStruct_(isStruct),
       hasTag_(hasTag),
-      memberMap_(new Scope(parent, S_BLOCK)),
+      memberMap_(Scope::New(parent, ScopeType::BLOCK)),
       offset_(0),
       width_(0),
       // If a struct type has no member, it gets alignment of 1

@@ -42,16 +42,22 @@ class Stmt;
 class IfStmt;
 class ForStmt;
 class SwitchStmt;
+class CaseStmt;
 class WhileStmt;
-class JumpStmt;
 class LabelStmt;
+class BreakStmt;
+class ContinueStmt;
+class ReturnStmt;
+class GotoStmt;
+class DefaultStmt;
 class EmptyStmt;
 class CompoundStmt;
+
 class FuncDef;
 class TranslationUnit;
 
 using StmtList = std::list<Stmt*>;
-using CaseList = std::list<int>;
+using CaseList = std::list<CaseStmt*>;
 
 
 /*
@@ -97,13 +103,16 @@ protected:
 
 class LabelStmt : public Stmt {
 public:
-  static LabelStmt* New();
+  static LabelStmt* New(Stmt* subStmt);
   ~LabelStmt() {}
   virtual void Accept(Visitor* v);
   std::string Repr() const { return ".L" + std::to_string(tag_); }
 
+  Stmt* GetSubStmt() { return subStmt_; }
+  const Stmt* GetSubStmt() const { return subStmt_; }
+
 protected:
-  LabelStmt(): tag_(GenTag()) {}
+  LabelStmt(Stmt* subStmt): subStmt_(subStmt), tag_(GenTag()) {}
 
 private:
   static int GenTag() {
@@ -111,7 +120,47 @@ private:
     return ++tag;
   }
 
+  Stmt* const subStmt_;  
   int tag_; // 使用整型的tag值，而不直接用字符串
+};
+
+
+class BreakStmt: public Stmt {
+public:
+  static BreakStmt* New();
+  virtual ~BreakStmt() {}
+  virtual void Accept(Visitor* v);
+
+protected:
+  BreakStmt() {}
+};
+
+
+class ContinueStmt: public Stmt {
+public:
+  static ContinueStmt* New();
+  virtual ~ContinueStmt() {}
+  virtual void Accept(Visitor* v);
+
+protected:
+  ContinueStmt() {}
+};
+
+
+class ReturnStmt: public Stmt {
+public:
+  static ReturnStmt* New(Expr* expr);
+  virtual ~ReturnStmt() {}
+  virtual void Accept(Visitor* v);
+
+  Expr* GetExpr() { return expr_; }
+  const Expr* GetExpr() const { return expr_; }
+
+protected:
+  ReturnStmt(Expr* expr): expr_(expr) {}
+
+private:
+  Expr* const expr_;
 };
 
 
@@ -121,13 +170,21 @@ public:
   virtual ~IfStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* cond_;
-  Stmt* then_;
-  Stmt* else_;
+  Expr* GetCond() { return cond_; }
+  const Expr* GetCond() const { return cond_; }
+  Stmt* GetThen() { return then_; }
+  const Stmt* GetThen() const { return then_; }
+  Stmt* GetElse() { return else_; }
+  const Stmt* GetElse() const { return else_; }
 
 protected:
   IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
       : cond_(cond), then_(then), else_(els) {}
+
+private:
+  Expr* const cond_;
+  Stmt* const then_;
+  Stmt* const else_;
 };
 
 
@@ -138,17 +195,28 @@ public:
   virtual ~ForStmt() {}
   virtual void Accept(Visitor* v);
 
-  CompoundStmt* decl_;
-  Expr* init_;
-  Expr* cond_;
-  Expr* step_;
-  Stmt* body_;
+  CompoundStmt* GetDecl() { return decl_; }
+  const CompoundStmt* GetDecl() const { return decl_; }
+  Expr* GetInit() { return init_; }
+  const Expr* GetInit() const { return init_; }
+  Expr* GetCond() { return cond_; }
+  const Expr* GetCond() const { return cond_; }
+  Expr* GetStep() { return step_; }
+  const Expr* GetStep() const { return step_; }
+  Stmt* GetBody() { return body_; }
+  const Stmt* GetBody() const { return body_; }
 
 protected:
   ForStmt(CompoundStmt* decl, Expr* init,
           Expr* cond, Expr* step, Stmt* body)
       : decl_(decl), init_(init),
         cond_(cond), step_(step), body_(body) {}
+private:
+  CompoundStmt* const decl_;
+  Expr* const init_;
+  Expr* const cond_;
+  Expr* const step_;
+  Stmt* const body_;
 };
 
 
@@ -158,82 +226,128 @@ public:
   virtual ~WhileStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* cond_;
-  Stmt* body_;
-  bool isDoWhile_;
+  Expr* GetCond() { return cond_; }
+  const Expr* GetCond() const { return cond_; }
+  Stmt* GetBody() { return body_; }
+  const Stmt* GetBody() const { return body_; }
+  bool IsDoWhile() const { return isDoWhile_; }
 
 protected:
   WhileStmt(Expr* cond, Stmt* body, bool isDoWhile)
       : cond_(cond), body_(body), isDoWhile_(isDoWhile) {}
+
+private:
+  Expr* const cond_;
+  Stmt* const body_;
+  const bool isDoWhile_;
 };
 
 
 class SwitchStmt: public Stmt {
 public:
-  static SwitchStmt* New(Expr* select, Stmt* body);
-  //static SwitchStmt* New(Expr* select, Stmt* body, Stmt* deft,
-  //                       const StmtList& caseStmts, const CaseList& cases);
+  static SwitchStmt* New(Expr* select, Stmt* body=nullptr);
   virtual ~SwitchStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* select_;
-  Stmt* body_;
-  //Stmt* default_;
-  //StmtList caseStmts_;
-  //CaseList cases_;
+  Expr* GetSelect() { return select_; }
+  const Expr* GetSelect() const { return select_; }
+  Stmt* GetBody() { return body_; }
+  const Stmt* GetBody() const { return body_; }
+  void SetBody(Stmt* body) { body_ = body; } 
+  DefaultStmt* GetDefault() { return default_; }
+  const DefaultStmt* GetDefault() const { return default_; }
+  void SetDefault(DefaultStmt* deft) {default_ = deft; }
+  CaseList& GetCaseList() { return caseList_; }
+  const CaseList& GetCaseList() const { return caseList_; }
+  void AddCase(CaseStmt* c) { caseList_.push_back(c); }
+  bool IsCaseOverlapped(CaseStmt* caseStmt);
 
 protected:
   SwitchStmt(Expr* select, Stmt* body): select_(select), body_(body) {}
-  //SwitchStmt(Expr* select, Stmt* body, Stmt* deft,
-  //           const StmtList& caseStmts, const CaseList& cases)
-  //    : select_(select), body_(body), default_(deft),
-  //      caseStmts_(caseStmts), cases_(cases) {}
+
+private:
+  Expr* const select_;
+  Stmt* body_;
+  DefaultStmt* default_;
+  CaseList caseList_;  
 };
 
 
-class JumpStmt : public Stmt {
+class CaseStmt: public Stmt {
 public:
-  static JumpStmt* New(LabelStmt* label);
-  virtual ~JumpStmt() {}  
+  static CaseStmt* New(int begin, int end, Stmt* body);
+  virtual ~CaseStmt() {}
   virtual void Accept(Visitor* v);
+
+  int GetBegin() const { return begin_; }
+  int GetEnd() const { return end_; }
+  Stmt* GetBody() { return body_; }
+  const Stmt* GetBody() const { return body_; }
+
+protected:
+  CaseStmt(int begin, int end, Stmt* body)
+      : begin_(begin), end_(end), body_(body) {}
+
+private:
+  const int begin_;
+  const int end_;
+  Stmt* const body_;
+};
+
+
+class GotoStmt: public Stmt {
+public:
+  static GotoStmt* New(LabelStmt* label);
+  virtual ~GotoStmt() {}
+  virtual void Accept(Visitor* v);
+
+  LabelStmt* GetLabel() { return label_; }
+  const LabelStmt* GetLabel() const { return label_; }
   void SetLabel(LabelStmt* label) { label_ = label; }
-  
-  LabelStmt* label_;
-  
+
 protected:
-  JumpStmt(LabelStmt* label): label_(label) {}
+  GotoStmt(LabelStmt* label): label_(label) {}
+
+private:
+  LabelStmt* label_;  
 };
 
 
-class ReturnStmt: public Stmt {
+class DefaultStmt: public Stmt {
 public:
-  static ReturnStmt* New(Expr* expr);
-  virtual ~ReturnStmt() {}
+  static DefaultStmt* New(Stmt* subStmt);
+  virtual ~DefaultStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* expr_;
-  
+  Stmt* GetSubStmt() { return subStmt_; }
+  const Stmt* GetSubStmt() const { return subStmt_; }
+
 protected:
-  ReturnStmt(Expr* expr): expr_(expr) {}
+  DefaultStmt(Stmt* subStmt): subStmt_(subStmt) {}
+
+private:
+  Stmt* const subStmt_;  
 };
 
 
 class CompoundStmt : public Stmt {
 public:
-  static CompoundStmt* New(StmtList& stmts, ::Scope* scope=nullptr);
+  static CompoundStmt* New(StmtList& stmtList, ::Scope* scope=nullptr);
   virtual ~CompoundStmt() {}
   virtual void Accept(Visitor* v);
-  StmtList& Stmts() {
-    return stmts_;
-  }
+
+  StmtList& GetStmts() { return stmtList_; }
+  const StmtList& GetStmtList() const { return stmtList_; }
+  Scope* GetScope() { return scope_; }
+  const Scope* GetScope() const { return scope_; }
 
 protected:
-  CompoundStmt(const StmtList& stmts, ::Scope* scope=nullptr)
-      : stmts_(stmts), scope_(scope) {}
+  CompoundStmt(const StmtList& stmtList, ::Scope* scope=nullptr)
+      : stmtList_(stmtList), scope_(scope) {}
 
 private:
-  StmtList stmts_;
-  ::Scope* scope_;
+  StmtList stmtList_;
+  Scope* const scope_;
 };
 
 
@@ -716,9 +830,9 @@ private:
 
 class FuncDef : public ExtDecl {  
 public:
-  typedef std::vector<Object*> ParamList;
+  using ParamList = std::vector<Object*>;
 
-  static FuncDef* New(Identifier* ident, LabelStmt* retLabel);
+  static FuncDef* New(Identifier* ident);
   virtual ~FuncDef() {}
   ::FuncType* FuncType() { return ident_->Type()->ToFunc(); }
   CompoundStmt* Body() { return body_; }
@@ -728,12 +842,10 @@ public:
   virtual void Accept(Visitor* v);
   
   Identifier* ident_;
-  LabelStmt* retLabel_;
   CompoundStmt* body_;
 
 protected:
-  FuncDef(Identifier* ident, LabelStmt* retLabel)
-      : ident_(ident), retLabel_(retLabel) {}
+  FuncDef(Identifier* ident): ident_(ident) {}
 };
 
 

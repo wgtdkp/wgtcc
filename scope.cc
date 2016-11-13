@@ -1,9 +1,17 @@
 #include "scope.h"
 
 #include "ast.h"
+#include "mem_pool.h"
 
 #include <cassert>
 #include <iostream>
+
+static MemPoolImp<Scope>  scopePool;
+
+
+Scope* Scope::New(Scope* parent, ScopeType type) {
+  return new (scopePool.Alloc()) Scope(parent, type);
+}
 
 
 Identifier* Scope::Find(const Token* tok) {
@@ -48,7 +56,7 @@ Identifier* Scope::Find(const std::string& name) {
   auto ident = identMap_.find(name);
   if (ident != identMap_.end())
     return ident->second;
-  if (type_ == S_FILE || parent_ == nullptr)
+  if (type_ == ScopeType::FILE || parent_ == nullptr)
     return nullptr;
   return parent_->Find(name);
 }

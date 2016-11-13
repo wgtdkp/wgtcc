@@ -1000,7 +1000,7 @@ void Generator::VisitCompoundStmt(CompoundStmt* compStmt) {
     AllocObjects(compStmt->scope_);
   }
 
-  for (auto stmt: compStmt->stmts_) {
+  for (auto stmt: compStmt->stmtList_) {
     Visit(stmt);
   }
 }
@@ -1289,7 +1289,7 @@ void Generator::VisitFuncDef(FuncDef* funcDef) {
 
   AllocObjects(funcDef->Body()->Scope(), params);
 
-  for (auto stmt: funcDef->body_->stmts_) {
+  for (auto stmt: funcDef->body_->stmtList_) {
     Visit(stmt);
   }
 

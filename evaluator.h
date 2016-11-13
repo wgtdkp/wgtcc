@@ -49,20 +49,6 @@ public:
     assert(false);
   }
 
-  // We may should assert here
-  virtual void VisitDeclaration(Declaration* init) {}
-  virtual void VisitIfStmt(IfStmt* ifStmt) {}
-  virtual void VisitForStmt(ForStmt* forStmt) {}
-  virtual void VisitWhileStmt(WhileStmt* whileStmt) {}
-  virtual void VisitSwitchStmt(SwitchStmt* switchStmt) {}
-  virtual void VisitJumpStmt(JumpStmt* jumpStmt) {}
-  virtual void VisitReturnStmt(ReturnStmt* returnStmt) {}
-  virtual void VisitLabelStmt(LabelStmt* labelStmt) {}
-  virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) {}
-  virtual void VisitCompoundStmt(CompoundStmt* compStmt) {}
-  virtual void VisitFuncDef(FuncDef* funcDef) {}
-  virtual void VisitTranslationUnit(TranslationUnit* unit) {}
-
   T Eval(Expr* expr) {
     expr->Accept(this);
     return val_;
@@ -111,24 +97,9 @@ public:
   }
 
   virtual void VisitConstant(Constant* cons);
-
   virtual void VisitTempVar(TempVar* tempVar) {
     assert(false);
   }
-
-  // We may should assert here
-  virtual void VisitDeclaration(Declaration* init) {}
-  virtual void VisitIfStmt(IfStmt* ifStmt) {}
-  virtual void VisitForStmt(ForStmt* forStmt) {}
-  virtual void VisitWhileStmt(WhileStmt* whileStmt) {}
-  virtual void VisitSwitchStmt(SwitchStmt* switchStmt) {}
-  virtual void VisitJumpStmt(JumpStmt* jumpStmt) {}
-  virtual void VisitReturnStmt(ReturnStmt* returnStmt) {}
-  virtual void VisitLabelStmt(LabelStmt* labelStmt) {}
-  virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) {}
-  virtual void VisitCompoundStmt(CompoundStmt* compStmt) {}
-  virtual void VisitFuncDef(FuncDef* funcDef) {}
-  virtual void VisitTranslationUnit(TranslationUnit* unit) {}
 
   Addr Eval(Expr* expr) {
     expr->Accept(this);

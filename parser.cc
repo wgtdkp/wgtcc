@@ -18,7 +18,7 @@ FuncType* Parser::vaArgType_ {nullptr};
 
 
 FuncDef* Parser::EnterFunc(Identifier* ident) {
-  curFunc_ = FuncDef::New(ident, LabelStmt::New());
+  curFunc_ = FuncDef::New(ident);
   return curFunc_;
 }
 
@@ -26,32 +26,19 @@ FuncDef* Parser::EnterFunc(Identifier* ident) {
 void Parser::ExitFunc() {
   // Resolve 那些待定的jump；
   // 如果有jump无法resolve，也就是有未定义的label，报错；
-  for (auto iter = unresolvedJumps_.begin();
-       iter != unresolvedJumps_.end(); ++iter) {
-    auto label = iter->first;
-    auto labelStmt = FindLabel(label->str_);
+  for (const auto& kv: unresolvedGotoList_) {
+    auto label = kv.first;
+    const auto& name = label->str_;
+    auto labelStmt = FindLabel(name);
     if (labelStmt == nullptr) {
-      Error(label, "label '%s' used but not defined",
-          label->str_.c_str());
+      Error(label, "label '%s' used but not defined", name.c_str());
     }
-    
-    iter->second->SetLabel(labelStmt);
+    kv.second->SetLabel(labelStmt);
   }
-  
-  unresolvedJumps_.clear();	//清空未定的 jump 动作
+
+  unresolvedGotoList_.clear();	//清空未定的 jump 动作
   curLabels_.clear();	//清空 label map
-
   curFunc_ = nullptr;
-}
-
-
-void Parser::EnterBlock(FuncType* funcType) {
-  curScope_ = new Scope(curScope_, S_BLOCK);      
-  if (funcType) {
-    // Merge elements in param scope into current block scope
-    for (auto param: funcType->Params())
-      curScope_->Insert(param);
-  }
 }
 
 
@@ -407,12 +394,12 @@ Expr* Parser::ParsePostfixExpr() {
 
 
 Object* Parser::ParseCompoundLiteral(QualType type) {
-  auto linkage = curScope_->Type() == S_FILE ? L_INTERNAL: L_NONE;
+  auto linkage = curScope_->Type() == ScopeType::FILE ? L_INTERNAL: L_NONE;
   auto anony = Object::NewAnony(ts_.Peek(), type, 0, linkage);
   auto decl = ParseInitDeclaratorSub(anony);
   
   // Just for generator to find the compound literal
-  if (curScope_->Type() == S_FILE) {
+  if (curScope_->Type() == ScopeType::FILE) {
     unit_->Add(decl);
   } else {
     curScope_->Insert(anony->Repr(), anony);
@@ -1526,16 +1513,16 @@ Identifier* Parser::ProcessDeclarator(const Token* tok,
         name.c_str());
   }
 
-  if (type->ToFunc() && curScope_->Type() != S_FILE
+  if (type->ToFunc() && curScope_->Type() != ScopeType::FILE
       && (storageSpec & S_STATIC)) {
     Error(tok, "invalid storage class for function '%s'", name.c_str());
   }
 
   Linkage linkage;
   // Identifiers in function prototype have no linkage
-  if (curScope_->Type() == S_PROTO) {
+  if (curScope_->Type() == ScopeType::PROTO) {
     linkage = L_NONE;
-  } else if (curScope_->Type() == S_FILE) {
+  } else if (curScope_->Type() == ScopeType::FILE) {
     linkage = L_EXTERNAL; // Default linkage for file scope identifiers
     if (storageSpec & S_STATIC)
       linkage = L_INTERNAL;
@@ -1789,7 +1776,7 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident) {
 
 Declaration* Parser::ParseInitDeclaratorSub(Object* obj) {
   const auto& name = obj->Name();
-  if ((curScope_->Type() != S_FILE) && obj->Linkage() != L_NONE) {
+  if ((curScope_->Type() != ScopeType::FILE) && obj->Linkage() != L_NONE) {
     Error(obj, "'%s' has both 'extern' and initializer", name.c_str());
   }
 
@@ -2139,11 +2126,16 @@ Stmt* Parser::ParseStmt() {
 }
 
 
-CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType) {
-  EnterBlock(funcType);
+CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType) {  
+  EnterBlock();
+
+  if (funcType) {
+    // Merge elements in param scope into current block scope
+    for (auto param: funcType->Params())
+      curScope_->Insert(param);
+  }
 
   StmtList stmts;
-
   while (!ts_.Try('}')) {
     if (ts_.Peek()->IsEOF()) {
       Error(ts_.Peek(), "premature end of input");
@@ -2158,7 +2150,6 @@ CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType) {
 
   auto scope = curScope_;
   ExitBlock();
-
   return CompoundStmt::New(stmts, scope);
 }
 
@@ -2192,30 +2183,16 @@ IfStmt* Parser::ParseIfStmt() {
  *		   goto cond
  * next:
  */
-
-#define ENTER_LOOP_BODY(breakDest, continueDest)  \
-{                                                 \
-  LabelStmt* breakDestBackup = breakDest_;        \
-  LabelStmt* continueDestBackup = continueDest_;  \
-  breakDest_ = breakDest;                         \
-  continueDest_ = continueDest; 
-
-#define EXIT_LOOP_BODY()              \
-  breakDest_ = breakDestBackup;       \
-  continueDest_ = continueDestBackup; \
-}
-
-
 ForStmt* Parser::ParseForStmt() {
+  EnterLoop();
+ 
   CompoundStmt* decl = nullptr;
   Expr*         init = nullptr;
   Expr*         cond = nullptr;
   Expr*         step = nullptr;
   Stmt*         body = nullptr;
 
-  EnterBlock();
   ts_.Expect('(');
-
   if (IsType(ts_.Peek())) {
     decl = ParseDecl();
   } else if (!ts_.Try(';')) {
@@ -2235,7 +2212,7 @@ ForStmt* Parser::ParseForStmt() {
 
   body = ParseStmt();
 
-  ExitBlock();
+  ExitLoop();
   return ForStmt::New(decl, init, cond, step, body);
 }
 
@@ -2311,6 +2288,8 @@ CompoundStmt* Parser::ParseForStmt() {
 
 
 WhileStmt* Parser::ParseWhileStmt() {
+  EnterLoop();
+  
   Expr* cond;
   Stmt* body;
 
@@ -2324,6 +2303,7 @@ WhileStmt* Parser::ParseWhileStmt() {
   }
 
   body = ParseStmt();
+  ExitLoop();
   return WhileStmt::New(cond, body, false);
 }
 
@@ -2369,17 +2349,19 @@ CompoundStmt* Parser::ParseWhileStmt() {
  * end:
  */
 WhileStmt* Parser::ParseDoWhileStmt() {
+  EnterLoop();
+
   Expr* cond;
   Stmt* body;
 
   body = ParseStmt();
-  
   ts_.Expect(Token::WHILE);
   ts_.Expect('(');
   cond = ParseExpr();
   ts_.Expect(')');
   ts_.Expect(';');
 
+  ExitLoop();
   return WhileStmt::New(cond, body, true);
 }
 
@@ -2415,25 +2397,6 @@ CompoundStmt* Parser::ParseDoWhileStmt() {
 }
 */
 
-#undef ENTER_LOOP_BODY
-#undef EXIT_LOOP_BODY
-
-
-#define ENTER_SWITCH_BODY(breakDest, caseLabels)  \
-{                                                 \
-  CaseLabelList* caseLabelsBackup = caseLabels_;  \
-  LabelStmt* defaultLabelBackup = defaultLabel_;  \
-  LabelStmt* breakDestBackup = breakDest_;        \
-  breakDest_ = breakDest;                         \
-  caseLabels_ = &caseLabels;                      \
-  defaultLabel_ = nullptr;
-
-#define EXIT_SWITCH_BODY()            \
-  caseLabels_ = caseLabelsBackup;     \
-  breakDest_ = breakDestBackup;       \
-  defaultLabel_ = defaultLabelBackup; \
-}
-
 
 /*
  * switch
@@ -2441,6 +2404,11 @@ CompoundStmt* Parser::ParseDoWhileStmt() {
  *  case labels
  *  jump stmts
  *  default jump stmt
+ */
+
+/*
+ * switch:
+ *   SWITCH '(' expression ')' statement
  */
 SwitchStmt* Parser::ParseSwitchStmt() {
   Expr* select;
@@ -2455,8 +2423,12 @@ SwitchStmt* Parser::ParseSwitchStmt() {
     Error(tok, "switch quantity not an integer");
   }
 
+  auto s = SwitchStmt::New(select, nullptr);
+  PushSwitch(s);
   body = ParseStmt();
-  return SwitchStmt::New(select, body);
+  PopSwitch();
+  s->SetBody(body);
+  return s;
 }
 
 /*
@@ -2503,86 +2475,78 @@ CompoundStmt* Parser::ParseSwitchStmt() {
 }
 */
 
-#undef ENTER_SWITCH_BODY
-#undef EXIT_SWITCH_BODY
 
-
-CompoundStmt* Parser::ParseCaseStmt() {
+CaseStmt* Parser::ParseCaseStmt() {
   auto tok = ts_.Peek();
 
   // case ranges: Non-standard GNU extension
   long begin, end;
-  begin = Evaluator<long>().Eval(ParseAssignExpr());
+  begin = end = Evaluator<long>().Eval(ParseAssignExpr());
   if (ts_.Try(Token::ELLIPSIS))
     end = Evaluator<long>().Eval(ParseAssignExpr());
-  else
-    end = begin;
+
   ts_.Expect(':');
-  
-  auto labelStmt = LabelStmt::New();
-  for (auto val = begin; val <= end; ++val) {
-    if (val > INT_MAX)
-      Error(tok, "case range exceed range of int");
-    auto cons = Constant::New(tok, T_INT, val);
-    caseLabels_->push_back(std::make_pair(cons, labelStmt));
+
+  auto switchStmt = CurSwitch();
+  if (switchStmt == nullptr) {
+    Error(tok, "case is allowed only in switch");
   }
-  
-  StmtList stmts;
-  stmts.push_back(labelStmt);
-  stmts.push_back(ParseStmt());
-  
-  return CompoundStmt::New(stmts);
+  if (begin < INT_MIN || end > INT_MAX) {
+    Error(tok, "case range overflow");
+  }
+  auto c = CaseStmt::New(begin, end, ParseStmt());
+  if (switchStmt->IsCaseOverlapped(c)) {
+    Error(tok, "case range overlapped");
+  }
+
+  switchStmt->AddCase(c);
+  return c;
 }
 
 
-CompoundStmt* Parser::ParseDefaultStmt() {
+DefaultStmt* Parser::ParseDefaultStmt() {
   auto tok = ts_.Peek();
   ts_.Expect(':');
-  if (defaultLabel_) { // There is a 'default' stmt
+  
+  auto switchStmt = CurSwitch();
+  if (switchStmt == nullptr) {
+    Error(tok, "default allowed only in switch");
+  }
+  if (switchStmt->GetDefault() != nullptr) {
     Error(tok, "multiple default labels in one switch");
   }
-  auto labelStmt = LabelStmt::New();
-  defaultLabel_ = labelStmt;
-  
-  StmtList stmts;
-  stmts.push_back(labelStmt);
-  stmts.push_back(ParseStmt());
-  
-  return CompoundStmt::New(stmts);
+
+  auto defaultStmt = DefaultStmt::New(ParseStmt());
+  switchStmt->SetDefault(defaultStmt);
+  return defaultStmt;
 }
 
 
-JumpStmt* Parser::ParseContinueStmt() {
+ContinueStmt* Parser::ParseContinueStmt() {
   auto tok = ts_.Peek();
   ts_.Expect(';');
-  if (continueDest_ == nullptr) {
+  if (!InLoop()) {
     Error(tok, "'continue' is allowed only in loop");
   }
-  
-  return JumpStmt::New(continueDest_);
+  return ContinueStmt::New();
 }
 
 
-JumpStmt* Parser::ParseBreakStmt() {
+BreakStmt* Parser::ParseBreakStmt() {
   auto tok = ts_.Peek();
   ts_.Expect(';');
-  if (breakDest_ == nullptr) {
+  if (!InSwitchOrLoop()) {
     Error(tok, "'break' is allowed only in switch/loop");
   }
-  
-  return JumpStmt::New(breakDest_);
+  return BreakStmt::New();
 }
 
 
 ReturnStmt* Parser::ParseReturnStmt() {
-  Expr* expr;
-
-  if (ts_.Try(';')) {
-    expr = nullptr;
-  } else {
+  Expr* expr = nullptr;
+  if (!ts_.Try(';')) {
     expr = ParseExpr();
     ts_.Expect(';');
-    
     auto retType = curFunc_->FuncType()->Derived();
     expr = Expr::MayCast(expr, retType);
   }
@@ -2591,37 +2555,31 @@ ReturnStmt* Parser::ParseReturnStmt() {
 }
 
 
-JumpStmt* Parser::ParseGotoStmt() {
+GotoStmt* Parser::ParseGotoStmt() {
   auto label = ts_.Peek();
   ts_.Expect(Token::IDENTIFIER);
   ts_.Expect(';');
 
   auto labelStmt = FindLabel(label->str_);
   if (labelStmt) {
-    return JumpStmt::New(labelStmt);
+    return GotoStmt::New(labelStmt);
   }
-  
-  auto unresolvedJump = JumpStmt::New(nullptr);
-  unresolvedJumps_.push_back(std::make_pair(label, unresolvedJump));
-  
-  return unresolvedJump;
+
+  auto unresolvedGoto = GotoStmt::New(nullptr);
+  AddUnresolvedGoto(label, unresolvedGoto);
+  return unresolvedGoto;
 }
 
 
-CompoundStmt* Parser::ParseLabelStmt(const Token* label) {
+LabelStmt* Parser::ParseLabelStmt(const Token* label) {
   const auto& labelStr = label->str_;
-  auto stmt = ParseStmt();
-  if (nullptr != FindLabel(labelStr)) {
+  if (FindLabel(labelStr) != nullptr) {
     Error(label, "redefinition of label '%s'", labelStr.c_str());
   }
 
-  auto labelStmt = LabelStmt::New();
+  auto labelStmt = LabelStmt::New(ParseStmt());
   AddLabel(labelStr, labelStmt);
-  StmtList stmts;
-  stmts.push_back(labelStmt);
-  stmts.push_back(stmt);
-
-  return CompoundStmt::New(stmts);
+  return labelStmt;
 }
 
 

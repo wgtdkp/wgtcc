@@ -36,18 +36,23 @@ public:
   virtual void VisitConstant(Constant* cons) = 0;
   virtual void VisitTempVar(TempVar* tempVar) = 0;
 
-  virtual void VisitDeclaration(Declaration* init) = 0;
-  virtual void VisitIfStmt(IfStmt* ifStmt) = 0;
-  virtual void VisitForStmt(ForStmt* forStmt) = 0;
-  virtual void VisitWhileStmt(WhileStmt* whileStmt) = 0;
-  virtual void VisitSwitchStmt(SwitchStmt* switchStmt) = 0;
-  virtual void VisitJumpStmt(JumpStmt* jumpStmt) = 0;
-  virtual void VisitReturnStmt(ReturnStmt* returnStmt) = 0;
-  virtual void VisitLabelStmt(LabelStmt* labelStmt) = 0;
-  virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) = 0;
-  virtual void VisitCompoundStmt(CompoundStmt* compStmt) = 0;
-  virtual void VisitFuncDef(FuncDef* funcDef) = 0;
-  virtual void VisitTranslationUnit(TranslationUnit* unit) = 0;
+  virtual void VisitDeclaration(Declaration* init) {}
+
+  virtual void VisitIfStmt(IfStmt* ifStmt) {}
+  virtual void VisitForStmt(ForStmt* forStmt) {}
+  virtual void VisitWhileStmt(WhileStmt* whileStmt) {}
+  virtual void VisitSwitchStmt(SwitchStmt* switchStmt) {}
+  virtual void VisitReturnStmt(ReturnStmt* returnStmt) {}
+  virtual void VisitLabelStmt(LabelStmt* labelStmt) {}
+  virtual void VisitBreakStmt(BreakStmt* breakStmt) {}
+  virtual void VisitContinueStmt(ContinueStmt* continueStmt) {}
+  virtual void VisitCaseStmt(CaseStmt* caseStmt) {}
+  virtual void VisitGotoStmt(GotoStmt* gotoStmt) {}
+  virtual void VisitDefaultStmt(DefaultStmt* defaultStmt) {}
+  virtual void VisitEmptyStmt(EmptyStmt* emptyStmt) {}
+  virtual void VisitCompoundStmt(CompoundStmt* compStmt) {}
+  virtual void VisitFuncDef(FuncDef* funcDef) {}
+  virtual void VisitTranslationUnit(TranslationUnit* unit) {}
 };
 
 #endif
