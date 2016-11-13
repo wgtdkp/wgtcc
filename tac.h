@@ -175,12 +175,14 @@ public:
   ~TAC() {}
 
 private:
-  TAC(Operator op, Operand* res=nullptr,
+  TAC(Operator op, Operand* des=nullptr,
       Operand* lhs=nullptr, Operand* rhs=nullptr)
-    : op_(op), res_(res), lhs_(lhs), rhs_(rhs) {}
-  TAC(Operator op, Operand* res=nullptr,
-      Operand* lhs=nullptr, ssize_t n)
-    : op_(op), res_(res), lhs_(lhs), n_(n) {}
+    : op_(op), des_(des), lhs_(lhs), rhs_(rhs) {}
+  TAC(Operator op, Operand* des=nullptr,
+      Operand* lhs=nullptr, ssize_t n=0)
+    : op_(op), des_(des), lhs_(lhs), n_(n) {}
+  TAC(Operator op, Operand* lhs=nullptr, TAC* jumpDes=nullptr)
+    : op_(op), des_(nullptr), lhs_(lhs), jumpDes_(jumpDes) {}
 
   Operator op_; 
   Operand* des_; 
@@ -188,7 +190,8 @@ private:
   union {
     Operand* rhs_;
     ssize_t n_;
-  }
+    TAC* jumpDes_;
+  };
 };
 
 }

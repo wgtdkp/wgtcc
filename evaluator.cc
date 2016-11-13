@@ -201,8 +201,9 @@ void Evaluator<Addr>::VisitConstant(Constant* cons)  {
   if (cons->Type()->IsInteger()) {
     addr_ = {"", static_cast<int>(cons->IVal())};
   } else if (cons->Type()->ToArray()) {
-    Generator().ConsLabel(cons); // Add the literal to rodatas_.
-    addr_.label_ = Generator::rodatas_.back().label_;
+    // TODO(wgtdkp):
+    //Generator().ConsLabel(cons); // Add the literal to rodatas_.
+    //addr_.label_ = Generator::rodatas_.back().label_;
     addr_.offset_ = 0;
   } else {
     assert(false);

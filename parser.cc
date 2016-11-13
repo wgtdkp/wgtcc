@@ -2101,6 +2101,7 @@ void Parser::ParseStructInitializer(Declaration* decl,
  * Statements
  */
 
+
 Stmt* Parser::ParseStmt() {
   auto tok = ts_.Next();
   if (tok->IsEOF())
@@ -2108,34 +2109,20 @@ Stmt* Parser::ParseStmt() {
 
   switch (tok->tag_) {
   // GNU extension: statement attributes
-  case Token::ATTRIBUTE:
-    TryAttributeSpecList();
-  case ';':
-    return EmptyStmt::New();
-  case '{':
-    return ParseCompoundStmt();
-  case Token::IF:
-    return ParseIfStmt();
-  case Token::SWITCH:
-    return ParseSwitchStmt();
-  case Token::WHILE:
-    return ParseWhileStmt();
-  case Token::DO:
-    return ParseDoStmt();
-  case Token::FOR:
-    return ParseForStmt();
-  case Token::GOTO:
-    return ParseGotoStmt();
-  case Token::CONTINUE:
-    return ParseContinueStmt();
-  case Token::BREAK:
-    return ParseBreakStmt();
-  case Token::RETURN:
-    return ParseReturnStmt();
-  case Token::CASE:
-    return ParseCaseStmt();
-  case Token::DEFAULT:
-    return ParseDefaultStmt();
+  case Token::ATTRIBUTE: TryAttributeSpecList();
+  case ';':             return EmptyStmt::New();
+  case '{':             return ParseCompoundStmt();
+  case Token::IF:       return ParseIfStmt();
+  case Token::SWITCH:   return ParseSwitchStmt();
+  case Token::WHILE:    return ParseWhileStmt();
+  case Token::DO:       return ParseDoWhileStmt();
+  case Token::FOR:      return ParseForStmt();
+  case Token::GOTO:     return ParseGotoStmt();
+  case Token::CONTINUE: return ParseContinueStmt();
+  case Token::BREAK:    return ParseBreakStmt();
+  case Token::RETURN:   return ParseReturnStmt();
+  case Token::CASE:     return ParseCaseStmt();
+  case Token::DEFAULT:  return ParseDefaultStmt();
   }
 
   if (tok->IsIdentifier() && ts_.Try(':')) {
@@ -2155,7 +2142,7 @@ Stmt* Parser::ParseStmt() {
 CompoundStmt* Parser::ParseCompoundStmt(FuncType* funcType) {
   EnterBlock(funcType);
 
-  std::list<Stmt*> stmts;
+  StmtList stmts;
 
   while (!ts_.Try('}')) {
     if (ts_.Peek()->IsEOF()) {
@@ -2199,11 +2186,10 @@ IfStmt* Parser::ParseIfStmt() {
  *      for (declaration; expression1; expression2) statement
  * 展开后的结构：
  *		declaration
- * cond: if (expression1) then empty
- *		else goto end
- *		statement
+ * cond: ifFalse (expression1) then goto next
+ *		   statement
  * step: expression2
- *		goto cond
+ *		   goto cond
  * next:
  */
 
@@ -2219,11 +2205,46 @@ IfStmt* Parser::ParseIfStmt() {
   continueDest_ = continueDestBackup; \
 }
 
+
+ForStmt* Parser::ParseForStmt() {
+  CompoundStmt* decl = nullptr;
+  Expr*         init = nullptr;
+  Expr*         cond = nullptr;
+  Expr*         step = nullptr;
+  Stmt*         body = nullptr;
+
+  EnterBlock();
+  ts_.Expect('(');
+
+  if (IsType(ts_.Peek())) {
+    decl = ParseDecl();
+  } else if (!ts_.Try(';')) {
+    init = ParseExpr();
+    ts_.Expect(';');
+  }
+
+  if (!ts_.Try(';')) {
+    cond = ParseExpr();
+    ts_.Expect(';');
+  }
+
+  if (!ts_.Try(')')) {
+    step = ParseExpr();
+    ts_.Expect(')');
+  }
+
+  body = ParseStmt();
+
+  ExitBlock();
+  return ForStmt::New(decl, init, cond, step, body);
+}
+
+/*
 CompoundStmt* Parser::ParseForStmt() {
   EnterBlock();
   ts_.Expect('(');
   
-  std::list<Stmt*> stmts;
+  StmtList stmts;
 
   if (IsType(ts_.Peek())) {
     stmts.push_back(ParseDecl());
@@ -2275,7 +2296,7 @@ CompoundStmt* Parser::ParseForStmt() {
   
   return CompoundStmt::New(stmts, scope);
 }
-
+*/
 
 /*
  * while 循环结构：
@@ -2287,8 +2308,28 @@ CompoundStmt* Parser::ParseForStmt() {
  *		goto cond
  * end:
  */
+
+
+WhileStmt* Parser::ParseWhileStmt() {
+  Expr* cond;
+  Stmt* body;
+
+  ts_.Expect('(');
+  auto tok = ts_.Peek();
+  cond = ParseExpr();
+  ts_.Expect(')');
+
+  if (!cond->Type()->IsScalar()) {
+    Error(tok, "scalar expression expected");
+  }
+
+  body = ParseStmt();
+  return WhileStmt::New(cond, body, false);
+}
+
+/*
 CompoundStmt* Parser::ParseWhileStmt() {
-  std::list<Stmt*> stmts;
+  StmtList stmts;
   ts_.Expect('(');
   auto tok = ts_.Peek();
   auto condExpr = ParseExpr();
@@ -2316,7 +2357,7 @@ CompoundStmt* Parser::ParseWhileStmt() {
   
   return CompoundStmt::New(stmts);
 }
-
+*/
 
 /*
  * do-while 循环结构：
@@ -2327,7 +2368,23 @@ CompoundStmt* Parser::ParseWhileStmt() {
  *		 else goto end
  * end:
  */
-CompoundStmt* Parser::ParseDoStmt() {
+WhileStmt* Parser::ParseDoWhileStmt() {
+  Expr* cond;
+  Stmt* body;
+
+  body = ParseStmt();
+  
+  ts_.Expect(Token::WHILE);
+  ts_.Expect('(');
+  cond = ParseExpr();
+  ts_.Expect(')');
+  ts_.Expect(';');
+
+  return WhileStmt::New(cond, body, true);
+}
+
+/*
+CompoundStmt* Parser::ParseDoWhileStmt() {
   auto beginLabel = LabelStmt::New();
   auto condLabel = LabelStmt::New();
   auto endLabel = LabelStmt::New();
@@ -2347,7 +2404,7 @@ CompoundStmt* Parser::ParseDoStmt() {
   auto gotoEndStmt = JumpStmt::New(endLabel);
   auto ifStmt = IfStmt::New(condExpr, gotoBeginStmt, gotoEndStmt);
 
-  std::list<Stmt*> stmts;
+  StmtList stmts;
   stmts.push_back(beginLabel);
   stmts.push_back(bodyStmt);
   stmts.push_back(condLabel);
@@ -2356,7 +2413,7 @@ CompoundStmt* Parser::ParseDoStmt() {
   
   return CompoundStmt::New(stmts);
 }
-
+*/
 
 #undef ENTER_LOOP_BODY
 #undef EXIT_LOOP_BODY
@@ -2385,8 +2442,26 @@ CompoundStmt* Parser::ParseDoStmt() {
  *  jump stmts
  *  default jump stmt
  */
+SwitchStmt* Parser::ParseSwitchStmt() {
+  Expr* select;
+  Stmt* body;
+  
+  ts_.Expect('(');
+  auto tok = ts_.Peek();
+  select = ParseExpr();
+  ts_.Expect(')');
+
+  if (!select->Type()->IsInteger()) {
+    Error(tok, "switch quantity not an integer");
+  }
+
+  body = ParseStmt();
+  return SwitchStmt::New(select, body);
+}
+
+/*
 CompoundStmt* Parser::ParseSwitchStmt() {
-  std::list<Stmt*> stmts;
+  StmtList stmts;
   ts_.Expect('(');
   auto tok = ts_.Peek();
   auto expr = ParseExpr();
@@ -2426,7 +2501,7 @@ CompoundStmt* Parser::ParseSwitchStmt() {
 
   return CompoundStmt::New(stmts);
 }
-
+*/
 
 #undef ENTER_SWITCH_BODY
 #undef EXIT_SWITCH_BODY
@@ -2452,7 +2527,7 @@ CompoundStmt* Parser::ParseCaseStmt() {
     caseLabels_->push_back(std::make_pair(cons, labelStmt));
   }
   
-  std::list<Stmt*> stmts;
+  StmtList stmts;
   stmts.push_back(labelStmt);
   stmts.push_back(ParseStmt());
   
@@ -2469,7 +2544,7 @@ CompoundStmt* Parser::ParseDefaultStmt() {
   auto labelStmt = LabelStmt::New();
   defaultLabel_ = labelStmt;
   
-  std::list<Stmt*> stmts;
+  StmtList stmts;
   stmts.push_back(labelStmt);
   stmts.push_back(ParseStmt());
   
@@ -2542,7 +2617,7 @@ CompoundStmt* Parser::ParseLabelStmt(const Token* label) {
 
   auto labelStmt = LabelStmt::New();
   AddLabel(labelStr, labelStmt);
-  std::list<Stmt*> stmts;
+  StmtList stmts;
   stmts.push_back(labelStmt);
   stmts.push_back(stmt);
 

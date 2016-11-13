@@ -10,59 +10,59 @@ static MemPoolImp<Constant>   constantPool;
 static MemPoolImp<Temporary>  temporaryPool;
 
 
-Constant* Constant::New(uint64_t val) {
-  return new (constantPool.Alloc()) Constant(8, 1, val);
+Constant* Constant::New(size_t width, OperandType ty, uint64_t val) {
+  return new (constantPool.Alloc()) Constant(width, ty, val);
 }
 
 
 Constant* Constant::Zero() {
-  static zero = Constant::New(0);
+  static auto zero = Constant::New(8, OperandType::SIGNED, 0);
   return zero;
 }
 
 
 Constant* Constant::One() {
-  return one = Constant::New(1);
+  static auto one = Constant::New(8, OperandType::SIGNED, 1);
   return one;
 }
 
 
-static TAC* TAC::NewBinary(Operator op, Operand* des,
+TAC* TAC::NewBinary(Operator op, Operand* des,
                            Operand* lhs, Operand* rhs) {
   return new (tacPool.Alloc()) TAC(op, des, lhs, rhs);
 }
 
 
-static TAC* TAC::NewUnary(Operator op, Operand* des, Operand* operand) {
+TAC* TAC::NewUnary(Operator op, Operand* des, Operand* operand) {
   return new (tacPool.Alloc()) TAC(op, des, operand, nullptr);
 }
 
 
-static TAC* TAC::NewAssign(Operand* des, Operand* src) {
+TAC* TAC::NewAssign(Operand* des, Operand* src) {
   return new (tacPool.Alloc()) TAC(Operator::ASSIGN, des, src, nullptr);
 }
 
 
-static TAC* TAC::NewDesSSAssign(Operand* des, Operand* src, ssize_t offset) {
-  return new (tacPool.Alloc()) TAC(Operator::DES_SS_ASSIGN, src, offset);
+TAC* TAC::NewDesSSAssign(Operand* des, Operand* src, ssize_t offset) {
+  return new (tacPool.Alloc()) TAC(Operator::DES_SS_ASSIGN, des, src, offset);
 }
 
 
-static TAC* TAC::NewSrcSSAssign(Operand* res, Operand* src, ssize_t offset) {
-  return new (tacPool.Alloc()) TAC(Operator::SRC_SS_ASSIGN, src, offset); 
+TAC* TAC::NewSrcSSAssign(Operand* des, Operand* src, ssize_t offset) {
+  return new (tacPool.Alloc()) TAC(Operator::SRC_SS_ASSIGN, des, src, offset); 
 }
 
 
-static TAC* TAC::NewJump(TAC* des) {
-  return new (tacPool.Alloc()) TAC(Operator::JUMP, nullptr, nullptr, des);
+TAC* TAC::NewJump(TAC* des) {
+  return new (tacPool.Alloc()) TAC(Operator::JUMP, nullptr, des);
 }
 
 
-static TAC* TAC::NewIf(Operand* cond, TAC* des) {
-  return new (tacPool.Alloc()) TAC(Operator::IF, nullptr, cond, des);
+TAC* TAC::NewIf(Operand* cond, TAC* des) {
+  return new (tacPool.Alloc()) TAC(Operator::IF, cond, des);
 }
 
 
-static TAC* TAC::NewIfFalse(Operand* cond, TAC* des) {
-  return new (tacPool.Alloc()) TAC(Operator::IF_FALSE, null, cond, des);
+TAC* TAC::NewIfFalse(Operand* cond, TAC* des) {
+  return new (tacPool.Alloc()) TAC(Operator::IF_FALSE, cond, des);
 }

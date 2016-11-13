@@ -14,14 +14,16 @@
 
 
 class Preprocessor;
-typedef std::pair<const Token*, QualType> TokenTypePair;
+
+using TokenTypePair = std::pair<const Token*, QualType>;
+using LiteralList = std::vector<Constant*>;
+using StaticObjectList = std::vector<Object*>;
+using CaseLabelList = std::vector<std::pair<Constant*, LabelStmt*>>;
+using LabelJumpList = std::list<std::pair<const Token*, JumpStmt*>>;
+using LabelMap = std::map<std::string, LabelStmt*>;
+
 
 class Parser {
-  typedef std::vector<Constant*> LiteralList;
-  typedef std::vector<Object*> StaticObjectList;
-  typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
-  typedef std::list<std::pair<const Token*, JumpStmt*>> LabelJumpList;
-  typedef std::map<std::string, LabelStmt*> LabelMap;
   friend class Generator;
 
 public:
@@ -108,31 +110,21 @@ public:
   Object* ParseParamDecl();
 
   QualType ParseAbstractDeclarator(QualType type);
-  Identifier* ParseDirectDeclarator(QualType type,
-                                    int storageSpec,
-                                    int funcSpec,
-                                    int align);
+  Identifier* ParseDirectDeclarator(QualType type, int storageSpec,
+                                    int funcSpec, int align);
   // Initializer
-  void ParseInitializer(Declaration* decl,
-                        QualType type,
-                        int offset,
-                        bool designated=false,
-                        bool forceBrace=false,
+  void ParseInitializer(Declaration* decl, QualType type, int offset,
+                        bool designated=false, bool forceBrace=false,
                         unsigned char bitFieldBegin=0,
                         unsigned char bitFieldWidth=0);
-  void ParseArrayInitializer(Declaration* decl,
-                             ArrayType* type,
-                             int offset,
-                             bool designated);
+  void ParseArrayInitializer(Declaration* decl, ArrayType* type,
+                             int offset, bool designated);
   StructType::Iterator ParseStructDesignator(StructType* type,
                                              const std::string& name);
-  void ParseStructInitializer(Declaration* decl,
-                              StructType* type,
-                              int offset,
-                              bool designated);
+  void ParseStructInitializer(Declaration* decl, StructType* type,
+                              int offset, bool designated);
   bool ParseLiteralInitializer(Declaration* init,
-                               ArrayType* type,
-                               int offset);
+                               ArrayType* type, int offset);
   Declaration* ParseInitDeclarator(Identifier* ident);
   Declaration* ParseInitDeclaratorSub(Object* obj);
 
@@ -140,10 +132,10 @@ public:
   Stmt* ParseStmt();
   CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
   IfStmt* ParseIfStmt();
-  CompoundStmt* ParseSwitchStmt();
-  CompoundStmt* ParseWhileStmt();
-  CompoundStmt* ParseDoStmt();
-  CompoundStmt* ParseForStmt();
+  SwitchStmt* ParseSwitchStmt();
+  WhileStmt* ParseWhileStmt();
+  WhileStmt* ParseDoWhileStmt();
+  ForStmt* ParseForStmt();
   JumpStmt* ParseGotoStmt();
   JumpStmt* ParseContinueStmt();
   JumpStmt* ParseBreakStmt();
@@ -151,11 +143,8 @@ public:
   CompoundStmt* ParseLabelStmt(const Token* label);
   CompoundStmt* ParseCaseStmt();
   CompoundStmt* ParseDefaultStmt();
-  Identifier* ProcessDeclarator(const Token* tok,
-                                QualType type,
-                                int storageSpec,
-                                int funcSpec,
-                                int align);
+  Identifier* ProcessDeclarator(const Token* tok, QualType type,
+                                int storageSpec, int funcSpec, int align);
   // GNU extensions
   void TryAttributeSpecList();
   void ParseAttributeSpec();
@@ -192,21 +181,10 @@ public:
   }
 
   void EnterBlock(FuncType* funcType=nullptr);
-  
-  void ExitBlock() {
-    curScope_ = curScope_->Parent();
-  }
-
-  void EnterProto() {
-    curScope_ = new Scope(curScope_, S_PROTO);
-  }
-
-  void ExitProto() {
-    curScope_ = curScope_->Parent();
-  }
-
+  void ExitBlock() { curScope_ = curScope_->Parent(); }
+  void EnterProto() { curScope_ = new Scope(curScope_, S_PROTO); }
+  void ExitProto() { curScope_ = curScope_->Parent(); }
   FuncDef* EnterFunc(Identifier* ident);
-
   void ExitFunc();
 
   LabelStmt* FindLabel(const std::string& label) {
@@ -221,13 +199,8 @@ public:
     curLabels_[label] = labelStmt;
   }
 
-  TranslationUnit* Unit() {
-    return unit_;
-  }
-
-  FuncDef* CurFunc() {
-    return curFunc_;
-  }
+  TranslationUnit* Unit() { return unit_; }
+  FuncDef* CurFunc() { return curFunc_; }
 
 private:
   static bool IsBuiltin(FuncType* type);
@@ -240,7 +213,6 @@ private:
 
   // The root of the AST
   TranslationUnit* unit_;
-  
   TokenSequence ts_;
 
   // It is not the real scope,

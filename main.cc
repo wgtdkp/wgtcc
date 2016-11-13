@@ -1,4 +1,4 @@
-#include "code_gen.h"
+//#include "code_gen.h"
 #include "cpp.h"
 #include "error.h"
 #include "parser.h"
@@ -100,8 +100,8 @@ static int RunWgtcc() {
   
   Parser parser(ts);
   parser.Parse();
-  Generator::SetInOut(&parser, fp);
-  Generator().Gen();
+  //Generator::SetInOut(&parser, fp);
+  //Generator().Gen();
   fclose(fp);
   return 0;
 }

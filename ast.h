@@ -40,12 +40,18 @@ class Enumerator;
 // Statements
 class Stmt;
 class IfStmt;
+class ForStmt;
+class SwitchStmt;
+class WhileStmt;
 class JumpStmt;
 class LabelStmt;
 class EmptyStmt;
 class CompoundStmt;
 class FuncDef;
 class TranslationUnit;
+
+using StmtList = std::list<Stmt*>;
+using CaseList = std::list<int>;
 
 
 /*
@@ -55,13 +61,11 @@ class TranslationUnit;
 class ASTNode {
 public:
   virtual ~ASTNode() {}
-  
   virtual void Accept(Visitor* v) = 0;
 
 protected:
   ASTNode() {}
-
-  MemPool* pool_ {nullptr};
+  //MemPool* pool_ {nullptr};
 };
 
 typedef ASTNode ExtDecl;
@@ -81,15 +85,9 @@ protected:
 
 
 class EmptyStmt : public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
   static EmptyStmt* New();
-
   virtual ~EmptyStmt() {}
-  
   virtual void Accept(Visitor* v);
 
 protected:
@@ -98,19 +96,11 @@ protected:
 
 
 class LabelStmt : public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
 public:
   static LabelStmt* New();
-
   ~LabelStmt() {}
-  
   virtual void Accept(Visitor* v);
-  
-  std::string Repr() const {
-    return ".L" + std::to_string(tag_);
-  }
+  std::string Repr() const { return ".L" + std::to_string(tag_); }
 
 protected:
   LabelStmt(): tag_(GenTag()) {}
@@ -120,97 +110,121 @@ private:
     static int tag = 0;
     return ++tag;
   }
-  
+
   int tag_; // 使用整型的tag值，而不直接用字符串
 };
 
 
 class IfStmt : public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
 public:
   static IfStmt* New(Expr* cond, Stmt* then, Stmt* els=nullptr);
-
   virtual ~IfStmt() {}
-  
   virtual void Accept(Visitor* v);
+
+  Expr* cond_;
+  Stmt* then_;
+  Stmt* else_;
 
 protected:
   IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
       : cond_(cond), then_(then), else_(els) {}
+};
 
-private:
+
+class ForStmt: public Stmt {
+public:
+  static ForStmt* New(CompoundStmt* decl, Expr* init,
+                      Expr* cond, Expr* step, Stmt* body);
+  virtual ~ForStmt() {}
+  virtual void Accept(Visitor* v);
+
+  CompoundStmt* decl_;
+  Expr* init_;
   Expr* cond_;
-  Stmt* then_;
-  Stmt* else_;
+  Expr* step_;
+  Stmt* body_;
+
+protected:
+  ForStmt(CompoundStmt* decl, Expr* init,
+          Expr* cond, Expr* step, Stmt* body)
+      : decl_(decl), init_(init),
+        cond_(cond), step_(step), body_(body) {}
+};
+
+
+class WhileStmt: public Stmt {
+public:
+  static WhileStmt* New(Expr* cond, Stmt* body, bool isDoWhile);
+  virtual ~WhileStmt() {}
+  virtual void Accept(Visitor* v);
+
+  Expr* cond_;
+  Stmt* body_;
+  bool isDoWhile_;
+
+protected:
+  WhileStmt(Expr* cond, Stmt* body, bool isDoWhile)
+      : cond_(cond), body_(body), isDoWhile_(isDoWhile) {}
+};
+
+
+class SwitchStmt: public Stmt {
+public:
+  static SwitchStmt* New(Expr* select, Stmt* body);
+  //static SwitchStmt* New(Expr* select, Stmt* body, Stmt* deft,
+  //                       const StmtList& caseStmts, const CaseList& cases);
+  virtual ~SwitchStmt() {}
+  virtual void Accept(Visitor* v);
+
+  Expr* select_;
+  Stmt* body_;
+  //Stmt* default_;
+  //StmtList caseStmts_;
+  //CaseList cases_;
+
+protected:
+  SwitchStmt(Expr* select, Stmt* body): select_(select), body_(body) {}
+  //SwitchStmt(Expr* select, Stmt* body, Stmt* deft,
+  //           const StmtList& caseStmts, const CaseList& cases)
+  //    : select_(select), body_(body), default_(deft),
+  //      caseStmts_(caseStmts), cases_(cases) {}
 };
 
 
 class JumpStmt : public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
   static JumpStmt* New(LabelStmt* label);
-
-  virtual ~JumpStmt() {}
-  
+  virtual ~JumpStmt() {}  
   virtual void Accept(Visitor* v);
+  void SetLabel(LabelStmt* label) { label_ = label; }
   
-  void SetLabel(LabelStmt* label) {
-    label_ = label;
-  }
-
+  LabelStmt* label_;
+  
 protected:
   JumpStmt(LabelStmt* label): label_(label) {}
-
-private:
-  LabelStmt* label_;
 };
 
 
 class ReturnStmt: public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
   static ReturnStmt* New(Expr* expr);
-
   virtual ~ReturnStmt() {}
-  
   virtual void Accept(Visitor* v);
 
+  Expr* expr_;
+  
 protected:
-  ReturnStmt(::Expr* expr): expr_(expr) {}
-
-private:
-  ::Expr* expr_;
+  ReturnStmt(Expr* expr): expr_(expr) {}
 };
 
 
-typedef std::list<Stmt*> StmtList;
-
 class CompoundStmt : public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
   static CompoundStmt* New(StmtList& stmts, ::Scope* scope=nullptr);
-
   virtual ~CompoundStmt() {}
-  
   virtual void Accept(Visitor* v);
-
   StmtList& Stmts() {
     return stmts_;
-  }
-
-  ::Scope* Scope() {
-    return scope_;
   }
 
 protected:
@@ -224,13 +238,10 @@ private:
 
 
 struct Initializer {
-  Initializer(Type* type,
-              int offset,
-              Expr* expr,
+  Initializer(Type* type, int offset, Expr* expr,
               unsigned char bitFieldBegin=0,
               unsigned char bitFieldWidth=0)
-      : type_(type),
-        offset_(offset),
+      : type_(type), offset_(offset),
         bitFieldBegin_(bitFieldBegin),
         bitFieldWidth_(bitFieldWidth),
         expr_(expr) {}       
@@ -252,24 +263,14 @@ class Declaration: public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
-  
   typedef std::set<Initializer> InitList;
 
 public:
   static Declaration* New(Object* obj);
-
   virtual ~Declaration() {}
-
   virtual void Accept(Visitor* v);
-
-  InitList& Inits() {
-    return inits_;
-  }
-
-  Object* Obj() {
-    return obj_;
-  }
-
+  InitList& Inits() { return inits_; }
+  Object* Obj() { return obj_; }
   void AddInit(Initializer init);
 
 protected:
@@ -343,13 +344,9 @@ class BinaryOp : public Expr {
 
 public:
   static BinaryOp* New(const Token* tok, Expr* lhs, Expr* rhs);
-
   static BinaryOp* New(const Token* tok, int op, Expr* lhs, Expr* rhs);
-
   virtual ~BinaryOp() {}
-  
   virtual void Accept(Visitor* v);
-  
   // Member ref operator is a lvalue
   virtual bool IsLVal() {
     switch (op_) {
@@ -472,32 +469,15 @@ public:
 
 public:
   static FuncCall* New(Expr* designator, const ArgList& args);
-
   ~FuncCall() {}
-  
   virtual void Accept(Visitor* v);
 
   // A function call is ofcourse not lvalue
-  virtual bool IsLVal() {
-    return false;
-  }
-
-  ArgList* Args() {
-    return &args_;
-  }
-
-  Expr* Designator() {
-    return designator_;
-  }
-
-  const std::string& Name() const {
-    return tok_->str_;
-  }
-
-  ::FuncType* FuncType() {
-    return designator_->Type()->ToFunc();
-  }
-
+  virtual bool IsLVal() { return false; }
+  ArgList* Args() { return &args_; }
+  Expr* Designator() { return designator_; }
+  const std::string& Name() const { return tok_->str_; }
+  ::FuncType* FuncType() { return designator_->Type()->ToFunc(); }
   virtual void TypeChecking();
 
 protected:
@@ -519,31 +499,14 @@ public:
   static Constant* New(const Token* tok, int tag, long val);
   static Constant* New(const Token* tok, int tag, double val);
   static Constant* New(const Token* tok, int tag, const std::string* val);
-
   ~Constant() {}
-  
   virtual void Accept(Visitor* v);
-
-  virtual bool IsLVal() {
-    return false;
-  }
-
+  virtual bool IsLVal() { return false; }
   virtual void TypeChecking() {}
-
-  long IVal() const {
-    return ival_;
-  }
-
-  double FVal() const {
-    return fval_;
-  }
-
-  const std::string* SVal() const {
-    return sval_;
-  }
-
+  long IVal() const { return ival_; }
+  double FVal() const { return fval_; }
+  const std::string* SVal() const { return sval_; }
   std::string SValRepr() const;
-
   std::string Repr() const {
     return std::string(".LC") + std::to_string(id_);
   }
@@ -574,15 +537,9 @@ class TempVar : public Expr {
 
 public:
   static TempVar* New(QualType type);
-
   virtual ~TempVar() {}
-  
   virtual void Accept(Visitor* v);
-  
-  virtual bool IsLVal() {
-    return true;
-  }
-
+  virtual bool IsLVal() { return true; }
   virtual void TypeChecking() {}
 
 protected:
@@ -613,24 +570,12 @@ class Identifier: public Expr {
 
 public:
   static Identifier* New(const Token* tok, QualType type, Linkage linkage);
-
   virtual ~Identifier() {}
-
   virtual void Accept(Visitor* v);
+  virtual bool IsLVal() { return false; }
+  virtual Object* ToObject() { return nullptr; }
+  virtual Enumerator* ToEnumerator() { return nullptr; }
 
-  virtual bool IsLVal() {
-    return false;
-  }
-
-  virtual Object* ToObject() {
-    return nullptr;
-  }
-
-  virtual Enumerator* ToEnumerator() {
-    return nullptr;
-  }
-
-  
    // An identifer can be:
    //   object, sturct/union/enum tag, typedef name, function, label.
    Identifier* ToTypeName() {
@@ -640,20 +585,9 @@ public:
       return nullptr;
     return this;
   }
-
-
-  virtual const std::string Name() const {
-    return tok_->str_;
-  }
-
-  enum Linkage Linkage() const {
-    return linkage_;
-  }
-
-  void SetLinkage(enum Linkage linkage) {
-    linkage_ = linkage;
-  }
-
+  virtual const std::string Name() const { return tok_->str_; }
+  enum Linkage Linkage() const { return linkage_; }
+  void SetLinkage(enum Linkage linkage) { linkage_ = linkage; }
   virtual void TypeChecking() {}
 
 protected:
@@ -672,18 +606,10 @@ class Enumerator: public Identifier {
 
 public:
   static Enumerator* New(const Token* tok, int val);
-
   virtual ~Enumerator() {}
-
   virtual void Accept(Visitor* v);
-
-  virtual Enumerator* ToEnumerator() {
-    return this;
-  }
-
-  int Val() const {
-    return cons_->IVal();
-  }
+  virtual Enumerator* ToEnumerator() { return this; }
+  int Val() const { return cons_->IVal(); }
 
 protected:
   Enumerator(const Token* tok, int val)
@@ -701,47 +627,28 @@ class Object : public Identifier {
   friend class LValGenerator;
 
 public:
-  static Object* New(const Token* tok,
-                     QualType type,
-                     int storage=0,
+  static Object* New(const Token* tok, QualType type, int storage=0,
                      enum Linkage linkage=L_NONE,
                      unsigned char bitFieldBegin=0,
                      unsigned char bitFieldWidth=0);
-  static Object* NewAnony(const Token* tok,
-                          QualType type,
-                          int storage=0,
+  static Object* NewAnony(const Token* tok, QualType type, int storage=0,
                           enum Linkage linkage=L_NONE,
                           unsigned char bitFieldBegin=0,
                           unsigned char bitFieldWidth=0);
 
   ~Object() {}
-
   virtual void Accept(Visitor* v);
-  
-  virtual Object* ToObject() {
-    return this;
-  }
-
+  virtual Object* ToObject() { return this; }
   virtual bool IsLVal() {
     // TODO(wgtdkp): not all object is lval?
     return true;
   }
-
   bool IsStatic() const {
     return (Storage() & S_STATIC) || (Linkage() != L_NONE);
   }
-
-  int Storage() const {
-    return storage_;
-  }
-
-  void SetStorage(int storage) {
-    storage_ = storage;
-  }
-
-  int Align() const {
-    return align_;
-  }
+  int Storage() const { return storage_; }
+  void SetStorage(int storage) { storage_ = storage; }
+  int Align() const { return align_; }
 
   void SetAlign(int align) {
     assert(align > 0);
@@ -750,56 +657,23 @@ public:
     //  Error(this, "alignment specifier cannot reduce alignment");
     align_ = align;
   }
-
-  int Offset() const {
-    return offset_;
-  }
-
-  void SetOffset(int offset) {
-    offset_ = offset;
-  }
-
-  Declaration* Decl() {
-    return decl_;
-  }
-
-  void SetDecl(Declaration* decl) {
-    decl_ = decl;
-  }
-
-  unsigned char BitFieldBegin() const {
-    return bitFieldBegin_;
-  }
-
-  unsigned char BitFieldEnd() const {
-    return bitFieldBegin_ + bitFieldWidth_;
-  }
-
-  unsigned char BitFieldWidth() const {
-    return bitFieldWidth_;
-  }
-
+  int Offset() const { return offset_; }
+  void SetOffset(int offset) { offset_ = offset; }
+  Declaration* Decl() { return decl_; }
+  void SetDecl(Declaration* decl) { decl_ = decl; }
+  unsigned char BitFieldBegin() const { return bitFieldBegin_; }
+  unsigned char BitFieldEnd() const { return bitFieldBegin_ + bitFieldWidth_; }
+  unsigned char BitFieldWidth() const { return bitFieldWidth_; }
   static unsigned long BitFieldMask(Object* bitField) {
     return BitFieldMask(bitField->bitFieldBegin_, bitField->bitFieldWidth_);
   }
-
   static unsigned long BitFieldMask(unsigned char begin, unsigned char width) {
     auto end = begin + width;
     return ((0xFFFFFFFFFFFFFFFFUL << (64 - end)) >> (64 - width)) << begin;
   }
-
-
-  bool HasInit() const {
-    return decl_ && decl_->Inits().size();
-  }
-
-  bool Anonymous() const {
-    return anonymous_;
-  }
-
-  virtual const std::string Name() const {
-    return Identifier::Name();
-  }
+  bool HasInit() const { return decl_ && decl_->Inits().size(); }
+  bool Anonymous() const { return anonymous_; }
+  virtual const std::string Name() const { return Identifier::Name(); }
 
   std::string Repr() const {
     assert(IsStatic() || anonymous_);
@@ -811,17 +685,13 @@ public:
   }
 
 protected:
-  Object(const Token* tok,
-         QualType type,
-         int storage=0,
+  Object(const Token* tok, QualType type, int storage=0,
          enum Linkage linkage=L_NONE,
          unsigned char bitFieldBegin=0,
          unsigned char bitFieldWidth=0)
       : Identifier(tok, type, linkage),
-        storage_(storage),
-        offset_(0),
-        align_(type->Align()),
-        decl_(nullptr),
+        storage_(storage), offset_(0),
+        align_(type->Align()), decl_(nullptr),
         bitFieldBegin_(bitFieldBegin),
         bitFieldWidth_(bitFieldWidth),
         anonymous_(false) {}
@@ -830,9 +700,7 @@ private:
   int storage_;
   int offset_;
   int align_;
-
   Declaration* decl_;
-
   unsigned char bitFieldBegin_;
   // 0 means it's not a bitfield
   unsigned char bitFieldWidth_;
@@ -846,78 +714,41 @@ private:
  * Declaration
  */
 
-class FuncDef : public ExtDecl {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
+class FuncDef : public ExtDecl {  
 public:
   typedef std::vector<Object*> ParamList;
-  
-public:
+
   static FuncDef* New(Identifier* ident, LabelStmt* retLabel);
-
   virtual ~FuncDef() {}
-
-  ::FuncType* FuncType() {
-    return ident_->Type()->ToFunc();
-  }
-
-  CompoundStmt* Body() {
-    return body_;
-  }
-
-  void SetBody(CompoundStmt* body) {
-    body_ = body;
-  }
-
-  std::string Name() const {
-    return ident_->Name();
-  }
-
-  enum Linkage Linkage() {
-    return ident_->Linkage();
-  }
-  
+  ::FuncType* FuncType() { return ident_->Type()->ToFunc(); }
+  CompoundStmt* Body() { return body_; }
+  void SetBody(CompoundStmt* body) { body_ = body; }
+  std::string Name() const { return ident_->Name(); }
+  enum Linkage Linkage() { return ident_->Linkage(); }
   virtual void Accept(Visitor* v);
+  
+  Identifier* ident_;
+  LabelStmt* retLabel_;
+  CompoundStmt* body_;
 
 protected:
   FuncDef(Identifier* ident, LabelStmt* retLabel)
       : ident_(ident), retLabel_(retLabel) {}
-
-private:
-  Identifier* ident_;
-  LabelStmt* retLabel_;
-  CompoundStmt* body_;
 };
 
 
 class TranslationUnit : public ASTNode {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
-  static TranslationUnit* New() {
-    return new TranslationUnit();
-  }
-
+  static TranslationUnit* New();
   virtual ~TranslationUnit() {}
-
   virtual void Accept(Visitor* v);
-  
-  void Add(ExtDecl* extDecl) {
-    extDecls_.push_back(extDecl);
-  }
-
-  std::list<ExtDecl*>& ExtDecls() {
-    return extDecls_;
-  }
+  void Add(ExtDecl* extDecl) { extDecls_.push_back(extDecl); }
+  std::list<ExtDecl*>& ExtDecls() { return extDecls_; }
+    
+  std::list<ExtDecl*> extDecls_;
 
 private:
   TranslationUnit() {}
-
-  std::list<ExtDecl*> extDecls_;
 };
 
 #endif

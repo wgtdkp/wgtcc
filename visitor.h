@@ -38,6 +38,9 @@ public:
 
   virtual void VisitDeclaration(Declaration* init) = 0;
   virtual void VisitIfStmt(IfStmt* ifStmt) = 0;
+  virtual void VisitForStmt(ForStmt* forStmt) = 0;
+  virtual void VisitWhileStmt(WhileStmt* whileStmt) = 0;
+  virtual void VisitSwitchStmt(SwitchStmt* switchStmt) = 0;
   virtual void VisitJumpStmt(JumpStmt* jumpStmt) = 0;
   virtual void VisitReturnStmt(ReturnStmt* returnStmt) = 0;
   virtual void VisitLabelStmt(LabelStmt* labelStmt) = 0;
