@@ -1720,7 +1720,7 @@ Object* Parser::ParseParamDecl() {
   auto type = ParseDeclSpec(&storageSpec, &funcSpec, nullptr);
   auto tokTypePair = ParseDeclarator(type);
   auto tok = tokTypePair.first;
-  type = Type::MayCast(tokTypePair.second);
+  type = Type::MayCast(tokTypePair.second, true);
   if (!tok) { // Abstract declarator
     return Object::NewAnony(ts_.Peek(), type, 0, Linkage::L_NONE);
   }

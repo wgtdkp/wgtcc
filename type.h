@@ -140,7 +140,7 @@ public:
       return offset - align - (offset % align);
   } 
 
-  static QualType MayCast(QualType type);
+  static QualType MayCast(QualType type, bool inProtoScope=false);
   bool Complete() const { return complete_; }
   void SetComplete(bool complete) const { complete_ = complete; }
 

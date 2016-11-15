@@ -17,14 +17,16 @@ static MemPoolImp<StructType>   structUnionTypePool;
 static MemPoolImp<ArithmType>   arithmTypePool;
 
 
-QualType Type::MayCast(QualType type) {
+QualType Type::MayCast(QualType type, bool inProtoScope) {
   auto funcType = type->ToFunc();
   auto arrayType = type->ToArray();
   if (funcType) {
     return PointerType::New(funcType);
   } else if (arrayType) {
     auto ret = PointerType::New(arrayType->Derived());
-    return QualType(ret, Qualifier::CONST);
+    // C11 6.7.6.3 [7]: qualifiers are specified in '[]'
+    // As we do not support qualifiers in '[]', the qualifier whould be none
+    return QualType(ret, inProtoScope? 0: Qualifier::CONST);
   }
   return type;
 }
