@@ -529,7 +529,8 @@ void UnaryOp::CastOpTypeChecking() {
   if (type_->ToVoid()) {
     // The expression becomes a void expression
   } else if (!type_->IsScalar() || !operandType->IsScalar()) {
-    Error(this, "the cast type should be arithemetic type or pointer");
+    if (!type_->Compatible(*operandType))
+      Error(this, "the cast type should be arithemetic type or pointer");
   } else if (type_->IsFloat() && operandType->ToPointer()) {
     Error(this, "cannot cast a pointer to floating");
   } else if (type_->ToPointer() && operandType->IsFloat()) {

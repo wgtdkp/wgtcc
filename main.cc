@@ -42,8 +42,13 @@ static void Usage() {
 }
 
 
+static std::string GetExtension(const std::string& fileName) {
+  return fileName.substr(std::max(0UL, fileName.size() - 2));
+}
+
+
 static void ValidateFileName(const std::string& fileName) {
-  auto ext = fileName.substr(std::max(0UL, fileName.size() - 2));
+  auto ext = GetExtension(fileName);
   if (ext != ".c" && ext != ".s" && ext != ".o" && ext != ".a")
     Error("bad file name format:'%s'", fileName.c_str());
 }
@@ -216,13 +221,19 @@ int main(int argc, char* argv[]) {
   if (onlyPreprocess || onlyCompile)
     return 0;
 
-  if (outFileName.size() == 0) {
-    outFileName = GetName(inFileName);
-    outFileName.back() = 's';
+  if (GetExtension(inFileName) == ".c") {
+    if (outFileName.size() == 0) {
+      outFileName = GetName(inFileName);
+      outFileName.back() = 's';
+    }
+    gccInFileName = outFileName;
+    gccInFileName.back() = 's';
+    gccArgs.push_back(gccInFileName);
+  } else {
+    gccArgs.clear();
+    for (int i = 1; i < argc; ++i)
+      gccArgs.push_back(argv[i]);
   }
-  gccInFileName = outFileName;
-  gccInFileName.back() = 's';
-  gccArgs.push_back(gccInFileName);
   auto ret = RunGcc();
   auto cmd = "rm -f " + outFileName;
   if (system(cmd.c_str())) {}

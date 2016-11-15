@@ -71,10 +71,10 @@ void Parser::ParseTranslationUnit() {
     }
 
     int storageSpec, funcSpec, align;
-    auto type = ParseDeclSpec(&storageSpec, &funcSpec, &align);
-    auto tokTypePair = ParseDeclarator(type);
+    auto declType = ParseDeclSpec(&storageSpec, &funcSpec, &align);
+    auto tokTypePair = ParseDeclarator(declType);
     auto tok = tokTypePair.first;
-    type = tokTypePair.second;
+    auto type = tokTypePair.second;
 
     if (tok == nullptr) {
       ts_.Expect(';');
@@ -91,7 +91,8 @@ void Parser::ParseTranslationUnit() {
       if (decl) unit_->Add(decl);
 
       while (ts_.Try(',')) {
-        auto ident = ParseDirectDeclarator(type, storageSpec, funcSpec, align);
+        auto ident = ParseDirectDeclarator(declType, storageSpec,
+                                           funcSpec, align);
         decl = ParseInitDeclarator(ident);
         if (decl) unit_->Add(decl);
       }
@@ -1854,7 +1855,8 @@ void Parser::ParseInitializer(Declaration* decl,
     }
     return;
   } else if (structType) {
-    if (!designated && !ts_.Test('{')) {
+    //if (!designated && !ts_.Test('{')) {
+    if (!ts_.Test('.') && !ts_.Test('{')) {
       auto mark = ts_.Mark();
       expr = ParseAssignExpr();
       if (structType->Compatible(*expr->Type())) {
@@ -2064,11 +2066,11 @@ void Parser::ParseStructInitializer(Declaration* decl,
       // Because offsets of member of anonymous struct/union are based
       // directly on external struct/union
       ParseInitializer(decl, (*member)->Type(), offset, designated, false,
-          (*member)->BitFieldBegin(), (*member)->BitFieldWidth());
+                       (*member)->BitFieldBegin(), (*member)->BitFieldWidth());
     } else {
       ParseInitializer(decl, (*member)->Type(),
-          offset + (*member)->Offset(), designated, false,
-          (*member)->BitFieldBegin(), (*member)->BitFieldWidth());
+                       offset + (*member)->Offset(), designated, false,
+                       (*member)->BitFieldBegin(), (*member)->BitFieldWidth());
     }
     designated = false;
     ++member;
