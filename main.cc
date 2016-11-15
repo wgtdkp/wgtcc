@@ -44,7 +44,7 @@ static void Usage() {
 
 static void ValidateFileName(const std::string& fileName) {
   auto ext = fileName.substr(std::max(0UL, fileName.size() - 2));
-  if (ext != ".c" && ext != ".s" && ext != ".o")
+  if (ext != ".c" && ext != ".s" && ext != ".o" && ext != ".a")
     Error("bad file name format:'%s'", fileName.c_str());
 }
 
@@ -73,7 +73,7 @@ static std::string GetName(const std::string& path) {
 
 
 static int RunWgtcc() {
-  if (inFileName.back() == 's')
+  if (inFileName.back() != 'c')
     return 0;
 
   Preprocessor cpp(&inFileName);
