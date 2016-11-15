@@ -248,12 +248,12 @@ struct Initializer {
 };
 
 
+typedef std::set<Initializer> InitList;
+
 class Declaration: public Stmt {
   template<typename T> friend class Evaluator;
   friend class AddrEvaluator;
   friend class Generator;
-  
-  typedef std::set<Initializer> InitList;
 
 public:
   static Declaration* New(Object* obj);

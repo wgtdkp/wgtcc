@@ -1512,10 +1512,9 @@ std::string ObjectAddr::Repr() const {
 }
 
 
-StaticInitializer Generator::GetStaticInit(
-    Declaration::InitList::iterator& iter,
-    Declaration::InitList::iterator end,
-    int offset) {
+StaticInitializer Generator::GetStaticInit(InitList::iterator& iter,
+                                           InitList::iterator end,
+                                           int offset) {
   auto init = iter++;
   auto width = init->type_->Width();
   if (init->type_->IsInteger()) {

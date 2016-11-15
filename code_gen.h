@@ -154,10 +154,8 @@ protected:
   // Unary
   void GenIncDec(Expr* operand, bool postfix, const std::string& inst);
 
-  StaticInitializer GetStaticInit(
-      Declaration::InitList::iterator& iter,
-      Declaration::InitList::iterator end,
-      int offset);
+  StaticInitializer GetStaticInit(InitList::iterator& iter,
+                                  InitList::iterator end, int offset);
 
   void GenStaticDecl(Declaration* decl);
   
