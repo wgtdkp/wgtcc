@@ -1,13 +1,6 @@
-#include <stdio.h>
-
-static void test() {
-    int c = 11;
-    int arr[c];
-    arr[3] = 5;
-    return;
-}
 
 int main() {
-    test();
+    const int c = 0;
+    int* p = c;
     return 0;
 }

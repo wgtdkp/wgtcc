@@ -80,7 +80,7 @@ public:
       : ptr_(reinterpret_cast<intptr_t>(ptr)) {
     assert((quals & ~Qualifier::MASK) == 0);
     ptr_ |= quals;
-  } 
+  }
 
   operator bool() const { return !IsNull(); }
   bool IsNull() const { return GetPtr() == nullptr; }

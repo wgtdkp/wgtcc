@@ -32,27 +32,11 @@ public:
         params_(params), repSeq_(repSeq) {}
   
   ~Macro() {}
-
-  bool FuncLike() {
-    return funcLike_;
-  }
-
-  bool ObjLike() {
-    return !FuncLike();
-  }
-
-  bool Variadic() {
-    return variadic_;
-  }
-
-  bool PreDef() {
-    return preDef_;
-  }
-
-  ParamList& Params() {
-    return params_;
-  }
-
+  bool FuncLike() { return funcLike_; }
+  bool ObjLike() { return !FuncLike(); }
+  bool Variadic() { return variadic_; }
+  bool PreDef() { return preDef_; }
+  ParamList& Params() { return params_; }
   TokenSequence RepSeq(const std::string* fileName, unsigned line);
 
 private:

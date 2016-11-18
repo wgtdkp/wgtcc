@@ -13,10 +13,8 @@ class Scanner {
 public:
   explicit Scanner(const Token* tok)
       : Scanner(&tok->str_, tok->loc_) {}
-  
   Scanner(const std::string* text, const SourceLocation& loc)
       : Scanner(text, loc.fileName_, loc.line_, loc.column_) {}
-
   explicit Scanner(const std::string* text,
                    const std::string* fileName=nullptr,
                    unsigned line=1, unsigned column=1)
@@ -44,7 +42,6 @@ public:
   std::string ScanIdentifier();
 
 private:
-
   Token* SkipIdentifier();
   Token* SkipNumber();
   Token* SkipLiteral();
@@ -58,23 +55,14 @@ private:
   int ScanUCN(int len);
   void SkipWhiteSpace();
   void SkipComment();
-  bool IsUCN(int c) {
-    return c == '\\' && (Test('u') || Test('U')); 
-  }
-
+  bool IsUCN(int c) { return c == '\\' && (Test('u') || Test('U')); }
+  bool IsOctal(int c) { return '0' <= c && c <= '7'; }
   int XDigit(int c);
-  bool IsOctal(int c) {
-    return '0' <= c && c <= '7';
-  }
-
   bool Empty() const { return *p_ == 0; }
   int Peek();
-
   bool Test(int c) { return Peek() == c; };
   int Next();
-  
   void PutBack();
-
   bool Try(int c) {
     if (Peek() == c) {
       Next();
@@ -82,10 +70,7 @@ private:
     }
     return false;
   };
-
-  void Mark() {
-    tok_.loc_ = loc_;
-  };
+  void Mark() { tok_.loc_ = loc_; };
 
   const std::string* text_;
   SourceLocation loc_;

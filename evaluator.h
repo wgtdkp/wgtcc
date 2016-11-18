@@ -22,19 +22,15 @@ public:
   virtual void VisitFuncCall(FuncCall* funcCall) {
     Error(funcCall, "expect constant expression");
   }
-
   virtual void VisitEnumerator(Enumerator* enumer) {
     val_ = static_cast<T>(enumer->Val());
   }
-
   virtual void VisitIdentifier(Identifier* ident) {
     Error(ident, "expect constant expression");
   }
-
   virtual void VisitObject(Object* obj) {
     Error(obj, "expect constant expression");
   }
-
   virtual void VisitConstant(Constant* cons) {
     if (cons->Type()->IsFloat()) {
       val_ = static_cast<T>(cons->FVal());
@@ -44,10 +40,7 @@ public:
       assert(false);
     }
   }
-
-  virtual void VisitTempVar(TempVar* tempVar) {
-    assert(false);
-  }
+  virtual void VisitTempVar(TempVar* tempVar) { assert(false); }
 
   // We may should assert here
   virtual void VisitDeclaration(Declaration* init) {}
@@ -79,9 +72,7 @@ template<>
 class Evaluator<Addr>: public Visitor {
 public:
   Evaluator<Addr>() {}
-  
   virtual ~Evaluator<Addr>() {}
-
   virtual void VisitBinaryOp(BinaryOp* binary);
   virtual void VisitUnaryOp(UnaryOp* unary);
   virtual void VisitConditionalOp(ConditionalOp* cond);
@@ -89,16 +80,13 @@ public:
   virtual void VisitFuncCall(FuncCall* funcCall) {
     Error(funcCall, "expect constant expression");
   }
-
   virtual void VisitEnumerator(Enumerator* enumer) {
     addr_.offset_ = enumer->Val();
   }
-
   virtual void VisitIdentifier(Identifier* ident) {
     addr_.label_ = ident->Name();
     addr_.offset_ = 0;
   }
-
   virtual void VisitObject(Object* obj) {
     if (!obj->IsStatic()) {
       Error(obj, "expect static object");
@@ -106,12 +94,8 @@ public:
     addr_.label_ = obj->Repr();
     addr_.offset_ = 0;
   }
-
   virtual void VisitConstant(Constant* cons);
-
-  virtual void VisitTempVar(TempVar* tempVar) {
-    assert(false);
-  }
+  virtual void VisitTempVar(TempVar* tempVar) { assert(false); }
 
   // We may should assert here
   virtual void VisitDeclaration(Declaration* init) {}

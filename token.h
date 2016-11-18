@@ -200,7 +200,6 @@ public:
                     const SourceLocation& loc,
                     const std::string& str,
                     bool ws=false);
-
   Token& operator=(const Token& other) {
     tag_ = other.tag_;
     ws_ = other.ws_;
@@ -209,57 +208,25 @@ public:
     hs_ = other.hs_ ? new HideSet(*other.hs_): nullptr;
     return *this;
   }
-
   virtual ~Token() {}
   
   //Token::NOTOK represents not a kw.
   static int KeyWordTag(const std::string& key) {
-    auto kwIter = kwTypeMap_.find(key);
-    
+    auto kwIter = kwTypeMap_.find(key); 
     if (kwTypeMap_.end() == kwIter)
       return Token::NOTOK;	//not a key word type
-    
     return kwIter->second;
   }
-
   static bool IsKeyWord(const std::string& name);
-
-  static bool IsKeyWord(int tag) {
-    return CONST <= tag && tag < IDENTIFIER;
-  }
-
-  bool IsKeyWord() const {
-    return IsKeyWord(tag_);
-  }
-
-  bool IsPunctuator() const {
-    return 0 <= tag_ && tag_ <= ELLIPSIS;
-  }
-
-  bool IsLiteral() const {
-    return tag_ == LITERAL;
-  }
-
-  bool IsConstant() const {
-    return CONSTANT <= tag_ && tag_ <= F_CONSTANT;
-  }
-
-  bool IsIdentifier() const {
-    return IDENTIFIER == tag_;
-  }
-
-  bool IsEOF() const {
-    return tag_ == Token::END;
-  }
-
-  bool IsTypeSpecQual() const { 
-    return CONST <= tag_ && tag_ <= ENUM;
-  }
-  
-  bool IsDecl() const {
-    return CONST <= tag_ && tag_ <= REGISTER;
-  }
-
+  static bool IsKeyWord(int tag) { return CONST <= tag && tag < IDENTIFIER; }
+  bool IsKeyWord() const { return IsKeyWord(tag_); }
+  bool IsPunctuator() const { return 0 <= tag_ && tag_ <= ELLIPSIS; }
+  bool IsLiteral() const { return tag_ == LITERAL; }
+  bool IsConstant() const { return CONSTANT <= tag_ && tag_ <= F_CONSTANT; }
+  bool IsIdentifier() const { return IDENTIFIER == tag_; }
+  bool IsEOF() const { return tag_ == Token::END; }
+  bool IsTypeSpecQual() const { return CONST <= tag_ && tag_ <= ENUM; }
+  bool IsDecl() const { return CONST <= tag_ && tag_ <= REGISTER; }
   static const char* Lexeme(int tag) {
     auto iter = TagLexemeMap_.find(tag);
     if (iter == TagLexemeMap_.end())
@@ -305,36 +272,27 @@ struct TokenSequence {
 
 public:
   TokenSequence(): tokList_(new TokenList()),
-      begin_(tokList_->begin()), end_(tokList_->end()) {}
-
+                   begin_(tokList_->begin()), end_(tokList_->end()) {}
   explicit TokenSequence(Token* tok) {
     TokenSequence();
     InsertBack(tok);
   }
-
   explicit TokenSequence(TokenList* tokList)
       : tokList_(tokList),
         begin_(tokList->begin()),
         end_(tokList->end()) {}
-
   TokenSequence(TokenList* tokList,
                 TokenList::iterator begin,
                 TokenList::iterator end)
       : tokList_(tokList), begin_(begin), end_(end) {}
-  
   ~TokenSequence() {}
-
-  TokenSequence(const TokenSequence& other) {
-    *this = other;
-  }
-
+  TokenSequence(const TokenSequence& other) { *this = other; }
   const TokenSequence& operator=(const TokenSequence& other) {
     tokList_ = other.tokList_;
     begin_ = other.begin_;
     end_ = other.end_;
     return *this;
   }
-
   void Copy(const TokenSequence& other) {
     tokList_ = new TokenList(other.begin_, other.end_);
     begin_ = tokList_->begin();
@@ -342,13 +300,11 @@ public:
     for (auto iter = begin_; iter != end_; ++iter)
       *iter = Token::New(**iter);
   }
-
   void UpdateHeadLocation(const SourceLocation& loc) {
     assert(!Empty());
     auto tok = const_cast<Token*>(Peek());
     tok->loc_ = loc;
   }
-
   void FinalizeSubst(bool leadingWS, const HideSet& hs) {
     auto ts = *this;
     while (!ts.Empty()) {
@@ -363,7 +319,6 @@ public:
   }
 
   const Token* Expect(int expect);
-
   bool Try(int tag) {
     if (Peek()->tag_ == tag) {
       Next();
@@ -371,11 +326,7 @@ public:
     }
     return false;
   }
-
-  bool Test(int tag) {
-    return Peek()->tag_ == tag;
-  }
-
+  bool Test(int tag) { return Peek()->tag_ == tag; }
   const Token* Next() {
     auto ret = Peek();
     if (!ret->IsEOF()) {
@@ -384,16 +335,13 @@ public:
     }
     return ret;
   }
-
   void PutBack() {
     assert(begin_ != tokList_->begin());
     --begin_;
     if ((*begin_)->tag_ == Token::NEW_LINE)
       PutBack();
   }
-
   const Token* Peek();
-
   const Token* Peek2() {
     if (Empty())
       return Peek(); // Return the Token::END
@@ -402,12 +350,10 @@ public:
     PutBack();
     return ret;
   }
-
   const Token* Back() {
     auto back = end_;
     return *--back;
   }
-
   void PopBack() {
     assert(!Empty());
     assert(end_ == tokList_->end());
@@ -417,24 +363,15 @@ public:
     if (size_eq1)
       begin_ = end_;
   }
-
-  TokenList::iterator Mark() {
-    return begin_;
-  }
-
-  void ResetTo(TokenList::iterator mark) {
-    begin_ = mark;
-  }
-
+  TokenList::iterator Mark() { return begin_; }
+  void ResetTo(TokenList::iterator mark) { begin_ = mark; }
   bool Empty();
-
   void InsertBack(TokenSequence& ts) {
     auto pos = tokList_->insert(end_, ts.begin_, ts.end_);
     if (begin_ == end_) {
       begin_ = pos;
     }
   }
-
   void InsertBack(const Token* tok) {
     auto pos = tokList_->insert(end_, tok);
     if (begin_ == end_) {
@@ -447,20 +384,13 @@ public:
     auto pos = GetInsertFrontPos();
     begin_ = tokList_->insert(pos, ts.begin_, ts.end_);
   }
-
   void InsertFront(const Token* tok) {
     auto pos = GetInsertFrontPos();
     begin_ = tokList_->insert(pos, tok);
   }
-
   bool IsBeginOfLine() const;
   TokenSequence GetLine();
-
-
-  void SetParser(Parser* parser) {
-    parser_ = parser;
-  }
-
+  void SetParser(Parser* parser) { parser_ = parser; }
   void Print(FILE* fp=stdout) const;
 
 private:
@@ -478,7 +408,6 @@ private:
   TokenList* tokList_;
   TokenList::iterator begin_;
   TokenList::iterator end_;
-  
   Parser* parser_ {nullptr};
 };
 

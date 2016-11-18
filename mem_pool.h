@@ -8,17 +8,11 @@
 class MemPool {
 public:
   MemPool(): allocated_(0) {}
-  
   virtual ~MemPool() {}
-  
   MemPool(const MemPool& other) = delete;
-  
   MemPool& operator=(const MemPool& other) = delete;
-
   virtual void* Alloc() = 0;
-  
   virtual void Free(void* addr) = 0;
-  
   virtual void Clear() = 0;
 
 protected:
@@ -30,17 +24,11 @@ template <class T>
 class MemPoolImp: public MemPool {
 public:
   MemPoolImp() : root_(nullptr) {}
-  
   virtual ~MemPoolImp() {}
-
   MemPoolImp(const MemPool& other) = delete;
-  
   MemPoolImp& operator=(MemPool& other) = delete;
-
   virtual void* Alloc();
-  
   virtual void Free(void* addr);
-  
   virtual void Clear();
 
 private:

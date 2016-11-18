@@ -27,20 +27,10 @@ class Scope {
 public:
   explicit Scope(Scope* parent, enum ScopeType type)
       : parent_(parent), type_(type) {}
-  
   ~Scope() {}
-
-  Scope* Parent() {
-    return parent_;
-  }
-
-  void SetParent(Scope* parent) {
-    parent_ = parent;
-  }
-
-  enum ScopeType Type() const {
-    return type_;
-  }
+  Scope* Parent() { return parent_; }
+  void SetParent(Scope* parent) { parent_ = parent; }
+  enum ScopeType Type() const { return type_; }
 
   Identifier* Find(const Token* tok);
   Identifier* FindInCurScope(const Token* tok);
@@ -49,28 +39,13 @@ public:
   TagList AllTagsInCurScope() const;
 
   void Insert(Identifier* ident);
-
+  void Insert(const std::string& name, Identifier* ident);  
   void InsertTag(Identifier* ident);
-
   void Print();
-
-  bool operator==(const Scope& other) const {
-    return type_ == other.type_;
-  }
-
-  IdentMap::iterator begin() {
-    return identMap_.begin();
-  }
-
-  IdentMap::iterator end() {
-    return identMap_.end();
-  }
-
-  size_t size() const {
-    return identMap_.size();
-  }
-
-  void Insert(const std::string& name, Identifier* ident);
+  bool operator==(const Scope& other) const { return type_ == other.type_; }
+  IdentMap::iterator begin() { return identMap_.begin(); }
+  IdentMap::iterator end() { return identMap_.end(); }
+  size_t size() const { return identMap_.size(); }
 
 private:
   Identifier* Find(const std::string& name);
@@ -83,11 +58,8 @@ private:
   static bool IsTagName(const std::string& name) {
     return name.size() > 5 && name[name.size() - 5] == '@';
   }
-  //void Insert(const std::string& name, Identifier* ident);
-
   const Scope& operator=(const Scope& other);
   Scope(const Scope& scope);
-  //typedef std::map<std::string, QualType> TagMap;
 
   Scope* parent_;
   enum ScopeType type_;

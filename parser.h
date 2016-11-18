@@ -160,7 +160,6 @@ public:
   void TryAttributeSpecList();
   void ParseAttributeSpec();
   void ParseAttribute();
-
   bool IsTypeName(const Token* tok) const{
     if (tok->IsTypeSpecQual())
       return true;
@@ -172,7 +171,6 @@ public:
     }
     return false;
   }
-
   bool IsType(const Token* tok) const{
     if (tok->IsDecl())
       return true;
@@ -184,29 +182,17 @@ public:
 
     return false;
   }
-
   void EnsureInteger(Expr* expr) {
     if (!expr->Type()->IsInteger()) {
       Error(expr, "expect integer expression");
     }
   }
-
-  void EnterBlock(FuncType* funcType=nullptr);
   
-  void ExitBlock() {
-    curScope_ = curScope_->Parent();
-  }
-
-  void EnterProto() {
-    curScope_ = new Scope(curScope_, S_PROTO);
-  }
-
-  void ExitProto() {
-    curScope_ = curScope_->Parent();
-  }
-
+  void EnterBlock(FuncType* funcType=nullptr);
+  void ExitBlock() { curScope_ = curScope_->Parent(); }
+  void EnterProto() { curScope_ = new Scope(curScope_, S_PROTO); }
+  void ExitProto() { curScope_ = curScope_->Parent(); }
   FuncDef* EnterFunc(Identifier* ident);
-
   void ExitFunc();
 
   LabelStmt* FindLabel(const std::string& label) {
@@ -215,19 +201,12 @@ public:
       return nullptr;
     return ret->second;
   }
-
   void AddLabel(const std::string& label, LabelStmt* labelStmt) {
     assert(nullptr == FindLabel(label));
     curLabels_[label] = labelStmt;
   }
-
-  TranslationUnit* Unit() {
-    return unit_;
-  }
-
-  FuncDef* CurFunc() {
-    return curFunc_;
-  }
+  TranslationUnit* Unit() { return unit_; }
+  FuncDef* CurFunc() { return curFunc_; }
 
 private:
   static bool IsBuiltin(FuncType* type);

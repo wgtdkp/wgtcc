@@ -47,7 +47,6 @@ struct ROData {
 
   std::string sval_;
   long ival_;
-
   int align_;
   std::string label_;
 
@@ -89,17 +88,9 @@ class Generator: public Visitor {
 public:
   Generator() {}
 
-  virtual void Visit(ASTNode* node) {
-    node->Accept(this);
-  }
-
-  void VisitExpr(Expr* expr) {
-    expr->Accept(this);
-  }
-
-  void VisitStmt(Stmt* stmt) {
-    stmt->Accept(this);
-  }
+  virtual void Visit(ASTNode* node) { node->Accept(this); }
+  void VisitExpr(Expr* expr) { expr->Accept(this); }
+  void VisitStmt(Stmt* stmt) { stmt->Accept(this); }
 
   //Expression
   virtual void VisitBinaryOp(BinaryOp* binaryOp);
@@ -267,24 +258,12 @@ public:
   virtual void VisitObject(Object* obj);
   virtual void VisitIdentifier(Identifier* ident);
 
-  virtual void VisitConditionalOp(ConditionalOp* condOp) {
-    assert(false);
-  }
-  
-  virtual void VisitFuncCall(FuncCall* funcCall) {
-    assert(false);
-  }
-
-  virtual void VisitEnumerator(Enumerator* enumer) {
-    assert(false);
-  }
-
-  virtual void VisitConstant(Constant* cons) {
-    assert(false);
-  }
-
+  virtual void VisitConditionalOp(ConditionalOp* condOp) { assert(false); }
+  virtual void VisitFuncCall(FuncCall* funcCall) { assert(false); }
+  virtual void VisitEnumerator(Enumerator* enumer) { assert(false); }
+  virtual void VisitConstant(Constant* cons) { assert(false); }
   virtual void VisitTempVar(TempVar* tempVar);
-
+  
   ObjectAddr GenExpr(Expr* expr) {
     expr->Accept(this);
     return addr_;
