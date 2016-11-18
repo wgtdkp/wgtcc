@@ -121,8 +121,8 @@ void Preprocessor::Subst(TokenSequence& os,
       is.Next(); is.Next();
       auto tok = Stringize(ap);
       os.InsertBack(tok);
-    } else if (is.Test(Token::DSHARP)
-        && FindActualParam(ap, params, is.Peek2()->str_)) {
+    } else if (is.Test(Token::DSHARP) &&
+               FindActualParam(ap, params, is.Peek2()->str_)) {
       is.Next(); is.Next();
       if (!ap.Empty())
         Glue(os, ap);
@@ -130,8 +130,8 @@ void Preprocessor::Subst(TokenSequence& os,
       is.Next();
       auto tok = is.Next();
       Glue(os, tok);
-    } else if (is.Peek2()->tag_ == Token::DSHARP 
-        && FindActualParam(ap, params, is.Peek()->str_)) {
+    } else if (is.Peek2()->tag_ == Token::DSHARP &&
+               FindActualParam(ap, params, is.Peek()->str_)) {
       is.Next();
 
       if (ap.Empty()) {
@@ -690,7 +690,8 @@ void Preprocessor::ParseDef(TokenSequence ls) {
     ls.Next(); // Skip '('
     ParamList params;
     auto variadic = ParseIdentList(params, ls);
-    AddMacro(ident->str_, Macro(variadic, params, ls));
+    const auto& macro = Macro(variadic, params, ls);
+    AddMacro(ident->str_, macro);
   } else {
     AddMacro(ident->str_, Macro(ls));
   }

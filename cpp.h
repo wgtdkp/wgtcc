@@ -118,7 +118,7 @@ public:
   }
 
   void AddMacro(const std::string& name,
-      std::string* text, bool preDef=false);
+                std::string* text, bool preDef=false);
 
   void AddMacro(const std::string& name, const Macro& macro) {
     auto res = macroMap_.find(name);
