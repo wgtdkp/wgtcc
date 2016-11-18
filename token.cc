@@ -164,7 +164,7 @@ Token* Token::New(int tag) {
 
 
 Token* Token::New(const Token& other) {
-  return New(other.tag_, other.loc_, other.str_, other.ws_);
+  return new (TokenPool.Alloc()) Token(other);
 }
 
 
@@ -217,8 +217,8 @@ const Token* TokenSequence::Peek() {
       *eof = *Back();
     eof->tag_ = Token::END;
     return eof;
-  } else if (parser_ && (*begin_)->tag_ == Token::IDENTIFIER
-      && (*begin_)->str_ == "__func__") {
+  } else if (parser_ && (*begin_)->tag_ == Token::IDENTIFIER &&
+             (*begin_)->str_ == "__func__") {
     auto fileName = Token::New(*(*begin_));
     fileName->tag_ = Token::LITERAL;
     fileName->str_ = "\"" + parser_->CurFunc()->Name() + "\"";

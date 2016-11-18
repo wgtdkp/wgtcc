@@ -206,7 +206,7 @@ public:
     ws_ = other.ws_;
     loc_ = other.loc_;
     str_ = other.str_;
-    hs_ = other.hs_;
+    hs_ = other.hs_ ? new HideSet(*other.hs_): nullptr;
     return *this;
   }
 
@@ -277,7 +277,7 @@ public:
   //const std::string* fileName_ { nullptr };
   //const char* lineBegin_ { nullptr };
   SourceLocation loc_;
-  
+
   // ws_ standards for weither there is preceding white space
   // This is to simplify the '#' operator(stringize) in macro expansion
   std::string str_;
