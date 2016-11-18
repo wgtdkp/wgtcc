@@ -18,11 +18,17 @@ static void simple() {
 #define VAR1 VAR2
 #define VAR2 VAR1
 
+#define ADD(a, b)       (a + b)
+#define FOO             ADD(1, FOO)
+#define STRINGIZE(s)    #s
+#define TO_STRING(a)    STRINGIZE(a)
+
 static void loop() {
     int VAR1 = 1;
     int VAR2 = 2;
     expect(1, VAR1);
     expect(2, VAR2);
+    expect_string("(1 + FOO)", TO_STRING(FOO));
 }
 
 static void undef() {
