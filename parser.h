@@ -13,11 +13,10 @@
 #include <stack>
 #include <utility>
 
-
 class Preprocessor;
 
 using TokenTypePair = std::pair<const Token*, QualType>;
-using LiteralList = std::vector<Constant*>;
+using LiteralList = std::vector<ASTConstant*>;
 using StaticObjectList = std::vector<Object*>;
 using LabelMap = std::map<std::string, LabelStmt*>;
 using SwitchStack = std::stack<SwitchStmt*>;
@@ -25,32 +24,26 @@ using GotoStmtList = std::vector<std::pair<const Token*, GotoStmt*>>;
 
 
 class Parser {
-  friend class Generator;
-
 public:
   explicit Parser(const TokenSequence& ts) 
     : unit_(TranslationUnit::New()),
       ts_(ts),
-      externalSymbols_(Scope::New(nullptr, ScopeType::BLOCK)),
+      external_symbols_(Scope::New(nullptr, ScopeType::BLOCK)),
       errTok_(nullptr),
-      curScope_(Scope::New(nullptr, ScopeType::FILE)),
-      curFunc_(nullptr),
-      loopDepth_(0)
-      //breakDest_(nullptr),
-      //continueDest_(nullptr),
-      //caseLabels_(nullptr),
-      /*defaultLabel_(nullptr)*/ {
+      cur_scope_(Scope::New(nullptr, ScopeType::FILE)),
+      cur_func_(nullptr),
+      loop_depth_(0) {
         ts_.SetParser(this);
       }
 
   ~Parser() {}
 
-  Constant* ParseConstant(const Token* tok);
-  Constant* ParseFloat(const Token* tok);
-  Constant* ParseInteger(const Token* tok);
-  Constant* ParseCharacter(const Token* tok);
+  ASTConstant* ParseConstant(const Token* tok);
+  ASTConstant* ParseFloat(const Token* tok);
+  ASTConstant* ParseInteger(const Token* tok);
+  ASTConstant* ParseCharacter(const Token* tok);
   Encoding ParseLiteral(std::string& str, const Token* tok);
-  Constant* ConcatLiterals(const Token* tok);
+  ASTConstant* ConcatLiterals(const Token* tok);
   Expr* ParseGeneric();
 
   void Parse();
@@ -64,15 +57,15 @@ public:
   QualType  TryCompoundLiteral();
   Object*   ParseCompoundLiteral(QualType type);
   Expr*     ParsePostfixExpr();
-  Expr*     ParsePostfixExprTail(Expr* primExpr);
+  Expr*     ParsePostfixExprTail(Expr* prim_expr);
   Expr*     ParseSubScripting(Expr* pointer);
   BinaryOp* ParseMemberRef(const Token* tok, int op, Expr* lhs);
   UnaryOp*  ParsePostfixIncDec(const Token* tok, Expr* operand);
   FuncCall* ParseFuncCall(Expr* caller);
 
   Expr*     ParseUnaryExpr();
-  Constant* ParseSizeof();
-  Constant* ParseAlignof();
+  ASTConstant* ParseSizeof();
+  ASTConstant* ParseAlignof();
   UnaryOp*  ParsePrefixIncDec(const Token* tok);
   UnaryOp*  ParseUnaryOp(const Token* tok, int op);
 
@@ -95,34 +88,34 @@ public:
   // Declarations
   CompoundStmt* ParseDecl();
   void          ParseStaticAssert();
-  QualType      ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec);
+  QualType      ParseDeclSpec(int* storage_spec, int* func_spec, int* align_spec);
   QualType      ParseSpecQual();
   int           ParseAlignas();
-  Type*         ParseStructUnionSpec(bool isStruct);
+  Type*         ParseStructUnionSpec(bool is_struct);
   StructType*   ParseStructUnionDecl(StructType* type);
-  void          ParseBitField(StructType* structType,
+  void          ParseBitField(StructType* struct_type,
                               const Token* tok, QualType type);
   Type*         ParseEnumSpec();
   Type*         ParseEnumerator(ArithmType* type);
   int           ParseQual();
-  QualType      ParsePointer(QualType typePointedTo);
+  QualType      ParsePointer(QualType type_pointed_to);
   TokenTypePair ParseDeclarator(QualType type);
   QualType      ParseArrayFuncDeclarator(const Token* ident, QualType base);
   int           ParseArrayLength();
-  bool          ParseParamList(FuncType::ParamList& params);
+  bool          ParseParamList(FuncType::ParamList& param_list);
   Object*       ParseParamDecl();
 
   QualType      ParseAbstractDeclarator(QualType type);
-  Identifier*   ParseDirectDeclarator(QualType type, int storageSpec,
-                                      int funcSpec, int align);
+  Identifier*   ParseDirectDeclarator(QualType type, int storage_spec,
+                                      int func_spec, int align);
   Identifier*   ProcessDeclarator(const Token* tok, QualType type,
-                                  int storageSpec, int funcSpec, int align);
+                                  int storage_spec, int func_spec, int align);
 
   // Initializer
   void          ParseInitializer(Declaration* decl, QualType type, int offset,
-                                 bool designated=false, bool forceBrace=false,
-                                 unsigned char bitFieldBegin=0,
-                                 unsigned char bitFieldWidth=0);
+                                 bool designated=false, bool force_brace=false,
+                                 uint8_t bitfield_begin=0,
+                                 uint8_t bitfield_width=0);
   void          ParseArrayInitializer(Declaration* decl, ArrayType* type,
                                       int offset, bool designated);
   void          ParseStructInitializer(Declaration* decl, StructType* type,
@@ -136,7 +129,7 @@ public:
 
   // Statements
   Stmt*         ParseStmt();
-  CompoundStmt* ParseCompoundStmt(FuncType* funcType=nullptr);
+  CompoundStmt* ParseCompoundStmt(FuncType* func_type=nullptr);
   IfStmt*       ParseIfStmt();
   SwitchStmt*   ParseSwitchStmt();
   WhileStmt*    ParseWhileStmt();
@@ -161,7 +154,7 @@ public:
       return true;
 
     if (tok->IsIdentifier()) {
-      auto ident = curScope_->Find(tok);
+      auto ident = cur_scope_->Find(tok);
       if (ident && ident->ToTypeName())
         return true;
     }
@@ -173,59 +166,59 @@ public:
       return true;
 
     if (tok->IsIdentifier()) {
-      auto ident = curScope_->Find(tok);
+      auto ident = cur_scope_->Find(tok);
       return (ident && ident->ToTypeName());
     }
     return false;
   }
 
   void EnsureInteger(Expr* expr) {
-    if (!expr->Type()->IsInteger()) {
+    if (!expr->type()->IsInteger()) {
       Error(expr, "expect integer expression");
     }
   }
 
-  void EnterBlock() { curScope_ = Scope::New(curScope_, ScopeType::BLOCK); }
-  void ExitBlock() { curScope_ = curScope_->Parent(); }
-  void EnterProto() { curScope_ = Scope::New(curScope_, ScopeType::PROTO); }
-  void ExitProto() { curScope_ = curScope_->Parent(); }
+  void EnterBlock() { cur_scope_ = Scope::New(cur_scope_, ScopeType::BLOCK); }
+  void ExitBlock() { cur_scope_ = cur_scope_->parent(); }
+  void EnterProto() { cur_scope_ = Scope::New(cur_scope_, ScopeType::PROTO); }
+  void ExitProto() { cur_scope_ = cur_scope_->parent(); }
   FuncDef* EnterFunc(Identifier* ident);
   void ExitFunc();
   LabelStmt* FindLabel(const std::string& label) {
-    auto ret = curLabels_.find(label);
-    if (curLabels_.end() == ret)
+    auto ret = cur_labels_.find(label);
+    if (cur_labels_.end() == ret)
       return nullptr;
     return ret->second;
   }
-  void AddLabel(const std::string& label, LabelStmt* labelStmt) {
-    assert(nullptr == FindLabel(label));
-    curLabels_[label] = labelStmt;
+  void AddLabel(const std::string& label, LabelStmt* label_stmt) {
+    assert(FindLabel(label) == nullptr);
+    cur_labels_[label] = label_stmt;
   }
   TranslationUnit* Unit() { return unit_; }
-  FuncDef* CurFunc() { return curFunc_; }
+  FuncDef* CurFunc() { return cur_func_; }
   const SwitchStmt* CurSwitch() const {
     return const_cast<const SwitchStmt*>(
         const_cast<Parser*>(this)->CurSwitch());
   }
   SwitchStmt* CurSwitch() {
-    if (switchStack_.empty())
+    if (switch_stack_.empty())
       return nullptr;
-    return switchStack_.top();
+    return switch_stack_.top();
   }
-  void PushSwitch(SwitchStmt* s) { switchStack_.push(s); }
-  void PopSwitch() { switchStack_.pop(); }
+  void PushSwitch(SwitchStmt* s) { switch_stack_.push(s); }
+  void PopSwitch() { switch_stack_.pop(); }
   bool InSwitchOrLoop() const { return CurSwitch() != nullptr || InLoop(); }
-  bool InLoop() const { return loopDepth_ > 0; }
+  bool InLoop() const { return loop_depth_ > 0; }
   void EnterLoop() {
     EnterBlock();
-    ++loopDepth_;
+    ++loop_depth_;
   }
   void ExitLoop() {
     ExitBlock();
-    --loopDepth_;
+    --loop_depth_;
   }
-  void AddUnresolvedGoto(const Token* label, GotoStmt* gotoStmt) {
-    unresolvedGotoList_.push_back(std::make_pair(label, gotoStmt));
+  void AddUnresolvedGoto(const Token* label, GotoStmt* goto_stmt) {
+    unresolved_goto_list_.push_back(std::make_pair(label, goto_stmt));
   }
 
 private:
@@ -234,8 +227,8 @@ private:
   static Identifier* GetBuiltin(const Token* tok);
   static void DefineBuiltins();
 
-  static FuncType* vaStartType_;
-  static FuncType* vaArgType_;
+  static FuncType* va_start_type_;
+  static FuncType* va_arg_type_;
 
   // The root of the AST
   TranslationUnit* unit_;
@@ -243,18 +236,18 @@ private:
 
   // It is not the real scope,
   // It contains all external symbols(resolved and not resolved)
-  Scope* externalSymbols_;
+  Scope* external_symbols_;
   
   const Token* errTok_;
-  Scope* curScope_;
-  FuncDef* curFunc_;
+  Scope* cur_scope_;
+  FuncDef* cur_func_;
   //SwitchStmt* curSwitch_;
-  SwitchStack switchStack_;
-  ssize_t loopDepth_;
+  SwitchStack switch_stack_;
+  ssize_t loop_depth_;
 
 
-  LabelMap curLabels_;
-  GotoStmtList unresolvedGotoList_;
+  LabelMap cur_labels_;
+  GotoStmtList unresolved_goto_list_;
 };
 
 #endif

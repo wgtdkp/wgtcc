@@ -18,23 +18,21 @@ class Scanner;
 class Token;
 class TokenSequence;
 
-typedef std::set<std::string> HideSet;
-typedef std::list<const Token*> TokenList;
+using HideSet   = std::set<std::string>;
+using TokenList = std::list<const Token*>;
 
 
 struct SourceLocation {
-  const std::string* fileName_;
-  const char* lineBegin_;
-  unsigned line_;
-  unsigned column_;
+  const std::string* filename;
+  const char* line_begin;
+  unsigned line;
+  unsigned column;
 
-  const char* Begin() const {
-    return lineBegin_ + column_ - 1; 
-  }
+  const char* Begin() const { return line_begin + column - 1; }
 };
 
 
-struct Token {
+class Token {
   friend class Scanner;
 public:
   enum {
@@ -202,11 +200,11 @@ public:
                     bool ws=false);
 
   Token& operator=(const Token& other) {
-    tag_ = other.tag_;
-    ws_ = other.ws_;
-    loc_ = other.loc_;
-    str_ = other.str_;
-    hs_ = other.hs_;
+    tag_  = other.tag_;
+    ws_   = other.ws_;
+    loc_  = other.loc_;
+    str_  = other.str_;
+    hs_   = other.hs_;
     return *this;
   }
 
@@ -214,12 +212,12 @@ public:
   
   //Token::NOTOK represents not a kw.
   static int KeyWordTag(const std::string& key) {
-    auto kwIter = kwTypeMap_.find(key);
+    auto iter = kw_type_map_.find(key);
     
-    if (kwTypeMap_.end() == kwIter)
+    if (kw_type_map_.end() == iter)
       return Token::NOTOK;	//not a key word type
     
-    return kwIter->second;
+    return iter->second;
   }
 
   static bool IsKeyWord(const std::string& name);
@@ -261,27 +259,26 @@ public:
   }
 
   static const char* Lexeme(int tag) {
-    auto iter = TagLexemeMap_.find(tag);
-    if (iter == TagLexemeMap_.end())
+    auto iter = tag_lexeme_map_.find(tag);
+    if (iter == tag_lexeme_map_.end())
       return nullptr;
       
     return iter->second;
   }
-  
-  int tag_;
-  bool ws_ { false };
 
-  // Line index of the begin
-  //unsigned line_ { 1 };
-  //unsigned column_ { 1 };		 
-  //const std::string* fileName_ { nullptr };
-  //const char* lineBegin_ { nullptr };
-  SourceLocation loc_;
-  
-  // ws_ standards for weither there is preceding white space
-  // This is to simplify the '#' operator(stringize) in macro expansion
-  std::string str_;
-  HideSet* hs_ { nullptr };
+  int tag() const { return tag_; }
+  void set_tag(int tag) { tag_ = tag; }
+  bool ws() const { return ws_; }
+  void set_ws(bool ws) { ws_ = ws; }
+  SourceLocation& loc() { return loc_; }
+  const SourceLocation& loc() const { return loc_; }
+  void set_loc(const SourceLocation& loc) { loc_ = loc; }
+  std::string& str() { return str_; }
+  const std::string& str() const { return str_; }
+  void set_str(const std::string& str) { str_ = str; }
+  HideSet* hs() { return hs_; }
+  const HideSet* hs() const { return hs_; }
+  void set_hs(HideSet* hs) {hs_ = hs; }
 
 private:
   explicit Token(int tag): tag_(tag) {}
@@ -295,8 +292,23 @@ private:
     *this = other;
   }
 
-  static const std::unordered_map<std::string, int> kwTypeMap_;
-  static const std::unordered_map<int, const char*> TagLexemeMap_;
+  static const std::unordered_map<std::string, int> kw_type_map_;
+  static const std::unordered_map<int, const char*> tag_lexeme_map_;
+
+  int tag_;
+  bool ws_ { false };
+
+  // Line index of the begin
+  //unsigned line_ { 1 };
+  //unsigned column_ { 1 };		 
+  //const std::string* filename_ { nullptr };
+  //const char* line_begin_ { nullptr };
+  SourceLocation loc_;
+  
+  // ws_ standards for weither there is preceding white space
+  // This is to simplify the '#' operator(stringize) in macro expansion
+  std::string str_;
+  HideSet* hs_ { nullptr };
 };
 
 
@@ -304,23 +316,23 @@ struct TokenSequence {
   friend class Preprocessor;
 
 public:
-  TokenSequence(): tokList_(new TokenList()),
-      begin_(tokList_->begin()), end_(tokList_->end()) {}
+  TokenSequence(): tok_list_(new TokenList()),
+      begin_(tok_list_->begin()), end_(tok_list_->end()) {}
 
   explicit TokenSequence(Token* tok) {
     TokenSequence();
     InsertBack(tok);
   }
 
-  explicit TokenSequence(TokenList* tokList)
-      : tokList_(tokList),
-        begin_(tokList->begin()),
-        end_(tokList->end()) {}
+  explicit TokenSequence(TokenList* tok_list)
+      : tok_list_(tok_list),
+        begin_(tok_list->begin()),
+        end_(tok_list->end()) {}
 
-  TokenSequence(TokenList* tokList,
+  TokenSequence(TokenList* tok_list,
                 TokenList::iterator begin,
                 TokenList::iterator end)
-      : tokList_(tokList), begin_(begin), end_(end) {}
+      : tok_list_(tok_list), begin_(begin), end_(end) {}
   
   ~TokenSequence() {}
 
@@ -329,16 +341,16 @@ public:
   }
 
   const TokenSequence& operator=(const TokenSequence& other) {
-    tokList_ = other.tokList_;
+    tok_list_ = other.tok_list_;
     begin_ = other.begin_;
     end_ = other.end_;
     return *this;
   }
 
   void Copy(const TokenSequence& other) {
-    tokList_ = new TokenList(other.begin_, other.end_);
-    begin_ = tokList_->begin();
-    end_ = tokList_->end();
+    tok_list_ = new TokenList(other.begin_, other.end_);
+    begin_ = tok_list_->begin();
+    end_ = tok_list_->end();
     for (auto iter = begin_; iter != end_; ++iter)
       *iter = Token::New(**iter);
   }
@@ -346,26 +358,26 @@ public:
   void UpdateHeadLocation(const SourceLocation& loc) {
     assert(!Empty());
     auto tok = const_cast<Token*>(Peek());
-    tok->loc_ = loc;
+    tok->loc() = loc;
   }
 
-  void FinalizeSubst(bool leadingWS, const HideSet& hs) {
+  void FinalizeSubst(bool leading_ws, const HideSet& hs) {
     auto ts = *this;
     while (!ts.Empty()) {
       auto tok = const_cast<Token*>(ts.Next());
-      if (!tok->hs_)
-        tok->hs_ = new HideSet(hs);
+      if (!tok->hs())
+        tok->set_hs(new HideSet(hs));
       else
-        tok->hs_->insert(hs.begin(), hs.end());
+        tok->hs()->insert(hs.begin(), hs.end());
     }
     // Even if the token sequence is empty
-    const_cast<Token*>(Peek())->ws_ = leadingWS;
+    const_cast<Token*>(Peek())->set_ws(leading_ws);
   }
 
   const Token* Expect(int expect);
 
   bool Try(int tag) {
-    if (Peek()->tag_ == tag) {
+    if (Peek()->tag() == tag) {
       Next();
       return true;
     }
@@ -373,7 +385,7 @@ public:
   }
 
   bool Test(int tag) {
-    return Peek()->tag_ == tag;
+    return Peek()->tag() == tag;
   }
 
   const Token* Next() {
@@ -386,9 +398,9 @@ public:
   }
 
   void PutBack() {
-    assert(begin_ != tokList_->begin());
+    assert(begin_ != tok_list_->begin());
     --begin_;
-    if ((*begin_)->tag_ == Token::NEW_LINE)
+    if ((*begin_)->tag() == Token::NEW_LINE)
       PutBack();
   }
 
@@ -410,10 +422,10 @@ public:
 
   void PopBack() {
     assert(!Empty());
-    assert(end_ == tokList_->end());
-    auto size_eq1 = tokList_->back() == *begin_;
-    tokList_->pop_back();
-    end_ = tokList_->end();
+    assert(end_ == tok_list_->end());
+    auto size_eq1 = tok_list_->back() == *begin_;
+    tok_list_->pop_back();
+    end_ = tok_list_->end();
     if (size_eq1)
       begin_ = end_;
   }
@@ -429,14 +441,14 @@ public:
   bool Empty();
 
   void InsertBack(TokenSequence& ts) {
-    auto pos = tokList_->insert(end_, ts.begin_, ts.end_);
+    auto pos = tok_list_->insert(end_, ts.begin_, ts.end_);
     if (begin_ == end_) {
       begin_ = pos;
     }
   }
 
   void InsertBack(const Token* tok) {
-    auto pos = tokList_->insert(end_, tok);
+    auto pos = tok_list_->insert(end_, tok);
     if (begin_ == end_) {
       begin_ = pos;
     }
@@ -445,12 +457,12 @@ public:
   // If there is preceding newline
   void InsertFront(TokenSequence& ts) {
     auto pos = GetInsertFrontPos();
-    begin_ = tokList_->insert(pos, ts.begin_, ts.end_);
+    begin_ = tok_list_->insert(pos, ts.begin_, ts.end_);
   }
 
   void InsertFront(const Token* tok) {
     auto pos = GetInsertFrontPos();
-    begin_ = tokList_->insert(pos, tok);
+    begin_ = tok_list_->insert(pos, tok);
   }
 
   bool IsBeginOfLine() const;
@@ -467,15 +479,15 @@ private:
   // Find a insert position with no preceding newline
   TokenList::iterator GetInsertFrontPos() {
     auto pos = begin_;
-    if (pos == tokList_->begin())
+    if (pos == tok_list_->begin())
       return pos;
     --pos;
-    while (pos != tokList_->begin() && (*pos)->tag_ == Token::NEW_LINE)
+    while (pos != tok_list_->begin() && (*pos)->tag() == Token::NEW_LINE)
       --pos;
     return ++pos;
   }
 
-  TokenList* tokList_;
+  TokenList* tok_list_;
   TokenList::iterator begin_;
   TokenList::iterator end_;
   

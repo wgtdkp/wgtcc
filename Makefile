@@ -2,11 +2,13 @@ OBJS_DIR = build/
 TARGET = wgtcc
 CC = g++
 
-SRCS = main.cc  token.cc ast.cc scope.cc type.cc cpp.cc		\
-	error.cc scanner.cc parser.cc evaluator.cc  tac.cc 		\
-	encoding.cc
+SRCS = main.cc token.cc ast.cc 				\
+			 scope.cc type.cc cpp.cc				\
+			 error.cc scanner.cc parser.cc	\
+			 tac.cc translator.cc						\
+			 evaluator.cc encoding.cc
 	
-CFLAGS = -g -std=c++11 -Wall -Wfatal-errors -DDEBUG
+CFLAGS = -g -std=c++11 -Wall -DDEBUG
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cc=.o))
 
 default: all

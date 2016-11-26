@@ -1,68 +1,104 @@
 #include "tac.h"
 
+#include "ast.h"
 #include "mem_pool.h"
-
-using namespace tac;
-
-static MemPoolImp<TAC>        tacPool;
-static MemPoolImp<Variable>   variablePool;
-static MemPoolImp<Constant>   constantPool;
-static MemPoolImp<Temporary>  temporaryPool;
+#include "type.h"
 
 
-Constant* Constant::New(size_t width, OperandType ty, uint64_t val) {
-  return new (constantPool.Alloc()) Constant(width, ty, val);
+static MemPoolImp<TAC>        tac_pool;
+static MemPoolImp<Variable>   variable_pool;
+static MemPoolImp<Constant>   constant_pool;
+static MemPoolImp<Temporary>  temporary_pool;
+
+
+Variable* Variable::New(const Object* obj) {
+  auto type = obj->type();
+  return new (variable_pool.Alloc()) Variable(type->width(),
+                                              ToTACOperandType(type),
+                                              obj->Name());
+}
+
+
+Constant* Constant::New(const ASTConstant* c) {
+  auto type = c->type();
+  uint64_t val = 0;
+  if (type->IsFloat())
+    val = (union {uint64_t a; double b;}){.b = c->fval()}.a;
+  else
+    val = c->ival();
+  return new (constant_pool.Alloc()) Constant(type->width(),
+                                              ToTACOperandType(type),
+                                              val);
+}
+
+
+Temporary* Temporary::New(const Type* type) {
+  return new (temporary_pool.Alloc()) Temporary(type->width(),
+                                                ToTACOperandType(type));
 }
 
 
 Constant* Constant::Zero() {
-  static auto zero = Constant::New(8, OperandType::SIGNED, 0);
+  static auto zero = new (temporary_pool.Alloc())
+                     Constant(8, OperandType::SIGNED, 0);
   return zero;
 }
 
 
 Constant* Constant::One() {
-  static auto one = Constant::New(8, OperandType::SIGNED, 1);
+  static auto one = new (temporary_pool.Alloc())
+                    Constant(8, OperandType::SIGNED, 1);
   return one;
 }
 
 
 TAC* TAC::NewBinary(Operator op, Operand* des,
                            Operand* lhs, Operand* rhs) {
-  return new (tacPool.Alloc()) TAC(op, des, lhs, rhs);
+  return new (tac_pool.Alloc()) TAC(op, des, lhs, rhs);
 }
 
 
 TAC* TAC::NewUnary(Operator op, Operand* des, Operand* operand) {
-  return new (tacPool.Alloc()) TAC(op, des, operand, nullptr);
+  return new (tac_pool.Alloc()) TAC(op, des, operand, nullptr);
 }
 
 
 TAC* TAC::NewAssign(Operand* des, Operand* src) {
-  return new (tacPool.Alloc()) TAC(Operator::ASSIGN, des, src, nullptr);
+  return new (tac_pool.Alloc()) TAC(Operator::ASSIGN, des, src, nullptr);
 }
 
 
 TAC* TAC::NewDesSSAssign(Operand* des, Operand* src, ssize_t offset) {
-  return new (tacPool.Alloc()) TAC(Operator::DES_SS_ASSIGN, des, src, offset);
+  return new (tac_pool.Alloc()) TAC(Operator::DES_SS_ASSIGN, des, src, offset);
 }
 
 
 TAC* TAC::NewSrcSSAssign(Operand* des, Operand* src, ssize_t offset) {
-  return new (tacPool.Alloc()) TAC(Operator::SRC_SS_ASSIGN, des, src, offset); 
+  return new (tac_pool.Alloc()) TAC(Operator::SRC_SS_ASSIGN, des, src, offset); 
 }
 
 
 TAC* TAC::NewJump(TAC* des) {
-  return new (tacPool.Alloc()) TAC(Operator::JUMP, nullptr, des);
+  return new (tac_pool.Alloc()) TAC(Operator::JUMP, nullptr, des);
 }
 
 
 TAC* TAC::NewIf(Operand* cond, TAC* des) {
-  return new (tacPool.Alloc()) TAC(Operator::IF, cond, des);
+  return new (tac_pool.Alloc()) TAC(Operator::IF, cond, des);
 }
 
 
 TAC* TAC::NewIfFalse(Operand* cond, TAC* des) {
-  return new (tacPool.Alloc()) TAC(Operator::IF_FALSE, cond, des);
+  return new (tac_pool.Alloc()) TAC(Operator::IF_FALSE, cond, des);
+}
+
+
+OperandType ToTACOperandType(const Type* type) {
+  if (type->ToPointer() || type->ToFunc() || type->ToArray())
+    return OperandType::UNSIGNED;
+  if (type->IsInteger())
+    return type->IsUnsigned() ? OperandType::UNSIGNED: OperandType::SIGNED;
+  if (type->IsFloat())
+    return OperandType::FLOAT;
+  return OperandType::AGGREGATE;
 }

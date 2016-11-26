@@ -13,54 +13,37 @@
 class Macro;
 struct CondDirective;
 
-typedef std::map<std::string, Macro> MacroMap; 
-typedef std::list<std::string> ParamList;
-typedef std::map<std::string, TokenSequence> ParamMap;
-typedef std::stack<CondDirective> PPCondStack;
-typedef std::list<std::string> PathList;
+using MacroMap    = std::map<std::string, Macro>; 
+using ParamList   = std::list<std::string>;
+using ParamMap    = std::map<std::string, TokenSequence>;
+using PPCondStack = std::stack<CondDirective>;
+using PathList    = std::list<std::string>;
 
 
 class Macro {
 public:
-  Macro(const TokenSequence& repSeq, bool preDef=false)
-      : funcLike_(false), variadic_(false),
-        preDef_(preDef), repSeq_(repSeq) {}
-
-  Macro(bool variadic, ParamList& params,
-        TokenSequence& repSeq, bool preDef=false)
-      : funcLike_(true), variadic_(variadic), preDef_(preDef),
-        params_(params), repSeq_(repSeq) {}
-  
+  Macro(const TokenSequence& rep_seq, bool pre_def=false)
+      : func_like_(false), variadic_(false),
+        pre_def_(pre_def), rep_seq_(rep_seq) {}
+  Macro(bool variadic, ParamList& param_list,
+        TokenSequence& rep_seq, bool pre_def=false)
+      : func_like_(true), variadic_(variadic), pre_def_(pre_def),
+        param_list_(param_list), rep_seq_(rep_seq) {}
   ~Macro() {}
 
-  bool FuncLike() {
-    return funcLike_;
-  }
-
-  bool ObjLike() {
-    return !FuncLike();
-  }
-
-  bool Variadic() {
-    return variadic_;
-  }
-
-  bool PreDef() {
-    return preDef_;
-  }
-
-  ParamList& Params() {
-    return params_;
-  }
-
-  TokenSequence RepSeq(const std::string* fileName, unsigned line);
+  bool func_like() { return func_like_; }
+  bool obj_like() { return !func_like(); }
+  bool variadic() { return variadic_; }
+  bool pre_def() { return pre_def_; }
+  ParamList& param_list() { return param_list_; }
+  TokenSequence pep_seq(const std::string* filename, unsigned line);
 
 private:
-  bool funcLike_;
+  bool func_like_;
   bool variadic_;
-  bool preDef_;
-  ParamList params_;
-  TokenSequence repSeq_;
+  bool pre_def_;
+  ParamList param_list_;
+  TokenSequence rep_seq_;
 };
 
 
@@ -73,8 +56,8 @@ struct CondDirective {
 
 class Preprocessor {
 public:
-  Preprocessor(const std::string* fileName)
-      : curLine_(1), lineLine_(0), curCond_(true) {
+  Preprocessor(const std::string* filename)
+      : cur_line_(1), line_line_(0), cur_cond_(true) {
     // Add predefined
     Init();
   }
@@ -82,14 +65,14 @@ public:
   ~Preprocessor() {}
   void Finalize(TokenSequence os);
   void Process(TokenSequence& os);
-  void Expand(TokenSequence& os, TokenSequence is, bool inCond=false);
+  void Expand(TokenSequence& os, TokenSequence is, bool in_cond=false);
   void Subst(TokenSequence& os, TokenSequence is,
-             bool leadingWS, const HideSet& hs, ParamMap& params);
+             bool leading_ws, const HideSet& hs, ParamMap& param_list);
   void Glue(TokenSequence& os, TokenSequence is);
   void Glue(TokenSequence& os, const Token* tok);
   const Token* Stringize(TokenSequence is);
   void Stringize(std::string& str, TokenSequence is);
-  const Token* ParseActualParam(TokenSequence& is, Macro* macro, ParamMap& paramMap);
+  const Token* ParseActualParam(TokenSequence& is, Macro* macro, ParamMap& param_map);
   int GetDirective(TokenSequence& is);
   void ReplaceDefOp(TokenSequence& is);
   void ReplaceIdent(TokenSequence& is);
@@ -106,42 +89,42 @@ public:
   void ParseLine(TokenSequence ls);
   void ParseError(TokenSequence ls);
   void ParsePragma(TokenSequence ls);
-  void IncludeFile(TokenSequence& is, const std::string* fileName);
-  bool ParseIdentList(ParamList& params, TokenSequence& is);
+  void IncludeFile(TokenSequence& is, const std::string* filename);
+  bool ParseIdentList(ParamList& param_list, TokenSequence& is);
   
 
   Macro* FindMacro(const std::string& name) {
-    auto res = macroMap_.find(name);
-    if (res == macroMap_.end())
+    auto res = macro_map_.find(name);
+    if (res == macro_map_.end())
       return nullptr;
     return &res->second;
   }
 
   void AddMacro(const std::string& name,
-      std::string* text, bool preDef=false);
+      std::string* text, bool pre_def=false);
 
   void AddMacro(const std::string& name, const Macro& macro) {
-    auto res = macroMap_.find(name);
-    if (res != macroMap_.end()) {
+    auto res = macro_map_.find(name);
+    if (res != macro_map_.end()) {
       // TODO(wgtdkp): give warning
-      macroMap_.erase(res);
+      macro_map_.erase(res);
     }
-    macroMap_.insert(std::make_pair(name, macro));
+    macro_map_.insert(std::make_pair(name, macro));
   }
 
   void RemoveMacro(const std::string& name) {
-    auto res = macroMap_.find(name);
-    if (res == macroMap_.end())
+    auto res = macro_map_.find(name);
+    if (res == macro_map_.end())
       return;
-    if(res->second.PreDef()) // cannot undef predefined macro
+    if(res->second.pre_def()) // cannot undef predefined macro
       return;
-    macroMap_.erase(res);
+    macro_map_.erase(res);
   }
 
   std::string* SearchFile(const std::string& name,
-                          const bool libHeader,
+                          const bool lib_header,
                           bool next,
-                          const std::string& curPath);
+                          const std::string& cur_path);
 
   void AddSearchPath(std::string path);
   void HandleTheFileMacro(TokenSequence& os, const Token* macro);
@@ -149,22 +132,22 @@ public:
   void UpdateFirstTokenLine(TokenSequence ts);
 
   bool NeedExpand() const {
-    if (ppCondStack_.empty())
+    if (pp_cond_stack_.empty())
       return true;
-    auto top = ppCondStack_.top();
+    auto top = pp_cond_stack_.top();
     return top.enabled_ && top.cond_;
   }
   
 private:
   void Init();
 
-  PPCondStack ppCondStack_;
-  unsigned curLine_;
-  unsigned lineLine_;
-  bool curCond_;
+  PPCondStack pp_cond_stack_;
+  unsigned cur_line_;
+  unsigned line_line_;
+  bool cur_cond_;
   
-  MacroMap macroMap_;
-  PathList searchPaths_;  
+  MacroMap macro_map_;
+  PathList path_list_;  
 };
 
 #endif

@@ -1,18 +1,17 @@
 #include "evaluator.h"
 
 #include "ast.h"
-#include "code_gen.h"
 #include "token.h"
 
 
 template<typename T>
 void Evaluator<T>::VisitBinaryOp(BinaryOp* binary) {
-#define L   Evaluator<T>().Eval(binary->lhs_)
-#define R   Evaluator<T>().Eval(binary->rhs_)
-#define LL  Evaluator<long>().Eval(binary->lhs_)
-#define LR  Evaluator<long>().Eval(binary->rhs_)
+#define L   Evaluator<T>().Eval(binary->lhs())
+#define R   Evaluator<T>().Eval(binary->rhs())
+#define LL  Evaluator<long>().Eval(binary->lhs())
+#define LR  Evaluator<long>().Eval(binary->rhs())
 
-  if (binary->Type()->ToPointer()) {
+  if (binary->type()->ToPointer()) {
     auto val = Evaluator<Addr>().Eval(binary);
     if (val.label_.size()) {
       Error(binary, "expect constant integer expression");
@@ -21,7 +20,7 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary) {
     return;
   }
 
-  switch (binary->op_) {
+  switch (binary->op()) {
   case '+': val_ = L + R; break; 
   case '-': val_ = L - R; break;
   case '*': val_ = L * R; break;
@@ -71,22 +70,22 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary) {
 
 template<typename T>
 void Evaluator<T>::VisitUnaryOp(UnaryOp* unary) {
-#define VAL     Evaluator<T>().Eval(unary->operand_)
-#define LVAL    Evaluator<long>().Eval(unary->operand_)
+#define VAL     Evaluator<T>().Eval(unary->operand())
+#define LVAL    Evaluator<long>().Eval(unary->operand())
 
-  switch (unary->op_) {
+  switch (unary->op()) {
   case Token::PLUS: val_ = VAL; break;
   case Token::MINUS: val_ = -VAL; break;
   case '~': val_ = ~LVAL; break;
   case '!': val_ = !VAL; break;
   case Token::CAST:
-    if (unary->Type()->IsInteger())
+    if (unary->type()->IsInteger())
       val_ = static_cast<long>(VAL);
     else
       val_ = VAL;
     break;
   case Token::ADDR: {
-    auto addr = Evaluator<Addr>().Eval(unary->operand_);
+    auto addr = Evaluator<Addr>().Eval(unary->operand());
     if (addr.label_.size())
       Error(unary, "expect constant expression");
     val_ = addr.offset_;
@@ -100,56 +99,56 @@ void Evaluator<T>::VisitUnaryOp(UnaryOp* unary) {
 
 
 template<typename T>
-void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp) {
+void Evaluator<T>::VisitConditionalOp(ConditionalOp* cond_op) {
   bool cond;
-  auto condType = condOp->cond_->Type();
-  if (condType->IsInteger()) {
-    auto val = Evaluator<long>().Eval(condOp->cond_);
+  auto cond_type = cond_op->cond()->type();
+  if (cond_type->IsInteger()) {
+    auto val = Evaluator<long>().Eval(cond_op->cond());
     cond = val != 0;
-  } else if (condType->IsFloat()) {
-    auto val = Evaluator<double>().Eval(condOp->cond_);
+  } else if (cond_type->IsFloat()) {
+    auto val = Evaluator<double>().Eval(cond_op->cond());
     cond  = val != 0.0;
-  } else if (condType->ToPointer()) {
-    auto val = Evaluator<Addr>().Eval(condOp->cond_);
+  } else if (cond_type->ToPointer()) {
+    auto val = Evaluator<Addr>().Eval(cond_op->cond());
     cond = val.label_.size() || val.offset_;
   } else {
     assert(false);
   }
 
   if (cond) {
-    val_ = Evaluator<T>().Eval(condOp->exprTrue_);
+    val_ = Evaluator<T>().Eval(cond_op->expr_true());
   } else {
-    val_ = Evaluator<T>().Eval(condOp->exprFalse_);
+    val_ = Evaluator<T>().Eval(cond_op->expr_false());
   }
 }
 
 
 void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary) {
-#define LR   Evaluator<long>().Eval(binary->rhs_)
-#define R   Evaluator<Addr>().Eval(binary->rhs_)
+#define LR   Evaluator<long>().Eval(binary->rhs())
+#define R   Evaluator<Addr>().Eval(binary->rhs())
   
-  auto l = Evaluator<Addr>().Eval(binary->lhs_);
+  auto l = Evaluator<Addr>().Eval(binary->lhs());
   
   int width = 1;
-  auto pointerType = binary->Type()->ToPointer();
-  if (pointerType)
-    width = pointerType->Derived()->Width();
+  auto pointer_type = binary->type()->ToPointer();
+  if (pointer_type)
+    width = pointer_type->derived()->width();
 
-  switch (binary->op_) {
+  switch (binary->op()) {
   case '+':
-    assert(pointerType);
+    assert(pointer_type);
     addr_.label_ = l.label_;
     addr_.offset_ = l.offset_ + LR * width;
     break;
   case '-':
-    assert(pointerType);
+    assert(pointer_type);
     addr_.label_ = l.label_;
     addr_.offset_ = l.offset_ + LR * width;
     break;
   case '.': {
     addr_.label_ = l.label_;
-    auto type = binary->lhs_->Type()->ToStruct();
-    auto offset = type->GetMember(binary->rhs_->tok_->str_)->Offset();
+    auto type = binary->lhs()->type()->ToStruct();
+    auto offset = type->GetMember(binary->rhs()->tok()->str())->offset();
     addr_.offset_ = l.offset_ + offset;
     break;
   }
@@ -161,9 +160,9 @@ void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary) {
 
 
 void Evaluator<Addr>::VisitUnaryOp(UnaryOp* unary) {
-  auto addr = Evaluator<Addr>().Eval(unary->operand_);
+  auto addr = Evaluator<Addr>().Eval(unary->operand());
 
-  switch (unary->op_) {
+  switch (unary->op()) {
   case Token::CAST:
   case Token::ADDR:
   case Token::DEREF:
@@ -173,34 +172,34 @@ void Evaluator<Addr>::VisitUnaryOp(UnaryOp* unary) {
 }
 
 
-void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* condOp) {
+void Evaluator<Addr>::VisitConditionalOp(ConditionalOp* cond_op) {
   bool cond;
-  auto condType = condOp->cond_->Type();
-  if (condType->IsInteger()) {
-    auto val = Evaluator<long>().Eval(condOp->cond_);
+  auto cond_type = cond_op->cond()->type();
+  if (cond_type->IsInteger()) {
+    auto val = Evaluator<long>().Eval(cond_op->cond());
     cond = val != 0;
-  } else if (condType->IsFloat()) {
-    auto val = Evaluator<double>().Eval(condOp->cond_);
+  } else if (cond_type->IsFloat()) {
+    auto val = Evaluator<double>().Eval(cond_op->cond());
     cond  = val != 0.0;
-  } else if (condType->ToPointer()) {
-    auto val = Evaluator<Addr>().Eval(condOp->cond_);
+  } else if (cond_type->ToPointer()) {
+    auto val = Evaluator<Addr>().Eval(cond_op->cond());
     cond = val.label_.size() || val.offset_;
   } else {
     assert(false);
   }
 
   if (cond) {
-    addr_ = Evaluator<Addr>().Eval(condOp->exprTrue_);
+    addr_ = Evaluator<Addr>().Eval(cond_op->expr_true());
   } else {
-    addr_ = Evaluator<Addr>().Eval(condOp->exprFalse_);
+    addr_ = Evaluator<Addr>().Eval(cond_op->expr_false());
   }
 }
 
 
-void Evaluator<Addr>::VisitConstant(Constant* cons)  {
-  if (cons->Type()->IsInteger()) {
-    addr_ = {"", static_cast<int>(cons->IVal())};
-  } else if (cons->Type()->ToArray()) {
+void Evaluator<Addr>::VisitASTConstant(ASTConstant* cons)  {
+  if (cons->type()->IsInteger()) {
+    addr_ = {"", static_cast<int>(cons->ival())};
+  } else if (cons->type()->ToArray()) {
     // TODO(wgtdkp):
     //Generator().ConsLabel(cons); // Add the literal to rodatas_.
     //addr_.label_ = Generator::rodatas_.back().label_;

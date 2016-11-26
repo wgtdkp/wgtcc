@@ -8,13 +8,13 @@
 #include <list>
 #include <vector>
 
-using TACList = std::vector<tac::TAC*>;
+using TACList = std::vector<TAC*>;
 
-class TACTranslator: public Visitor {
+class Translator: public Visitor {
 public:
-
-  virtual ~TACTranslator() {}
-  tac::Operand* Visit(ASTNode* node) {
+  Translator(): operand_(nullptr) {}
+  virtual ~Translator() {}
+  Operand* Visit(ASTNode* node) {
     node->Accept(this);
     return operand_;
   }
@@ -27,29 +27,29 @@ public:
   virtual void VisitObject(Object* obj);
   virtual void VisitEnumerator(Enumerator* enumer);
   virtual void VisitIdentifier(Identifier* ident);
-  virtual void VisitConstant(Constant* cons);
+  virtual void VisitASTConstant(ASTConstant* cons);
   virtual void VisitTempVar(TempVar* tempVar);
   
   //statement
   virtual void VisitDeclaration(Declaration* init);
   virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
   virtual void VisitIfStmt(IfStmt* ifStmt);
-  virtual void VisitJumpStmt(JumpStmt* jumpStmt);
+  virtual void VisitJumpStmt(GotoStmt* goto_stmt);
   virtual void VisitReturnStmt(ReturnStmt* returnStmt);
-  virtual void VisitLabelStmt(LabelStmt* labelStmt);
+  virtual void VisitLabelStmt(LabelStmt* label_stmt);
   virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
 
-  virtual void VisitFuncDef(FuncDef* funcDef);
+  virtual void VisitFuncDef(FuncDef* func_def);
   virtual void VisitTranslationUnit(TranslationUnit* unit);
 
-  static void Gen(tac::TAC* tac) { tacList_.push_back(tac); }
+  static void Gen(TAC* tac) { tac_list_.push_back(tac); }
 
 protected:
   // Binary
   void GenCommaOp(BinaryOp* comma);
   void GenMemberRefOp(BinaryOp* binaryOp);
-  void GenAndOp(BinaryOp* andOp);
-  void GenOrOp(BinaryOp* orOp);
+  void GenAndOp(BinaryOp* and_op);
+  void GenOrOp(BinaryOp* or_op);
   void GenAddOp(BinaryOp* add);
   void GenSubOp(BinaryOp* sub);
   void GenAssignOp(BinaryOp* assign);
@@ -66,18 +66,33 @@ protected:
   void GenIncDec(Expr* operand, bool postfix, const std::string& inst);
 
 private:
-  tac::Operand* operand_;
-  static TACList tacList_;
+  Operand* operand_;
+  static TACList tac_list_;
 };
 
 
+/*
+ * LValue expression:
+ *  a[b]  (*(a + b))
+ *  a.b   (a->b)
+ *  *a
+ *  a
+ */
 class LValTranslator: public Translator {
 public:
-  LValTranslator() {}
+  LValTranslator(): code_(nullptr) {}
+  virtual ~LValTranslator() {}
+  TAC* Visit(ASTNode* node) {
+    node->Accept(this);
+    return code_;
+  }
   virtual void VisitBinaryOp(BinaryOp* binaryOp);
   virtual void VisitUnaryOp(UnaryOp* unaryOp);
   virtual void VisitObject(Object* obj);
   virtual void VisitIdentifier(Identifier* ident);
+
+private:
+  TAC* code_;
 };
 
 #endif

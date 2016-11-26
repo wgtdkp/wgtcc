@@ -9,18 +9,15 @@
 #include <cstdint>
 #include <list>
 
-
 class Scope;
 class Token;
+
 class Expr;
+class Object;
 
 class Type;
 class QualType;
 class VoidType;
-class Identifier;
-class Object;
-class Constant;
-
 class ArithmType;
 class DerivedType;
 class ArrayType;
@@ -28,7 +25,6 @@ class FuncType;
 class PointerType;
 class StructType;
 class EnumType;
-
 
 enum {
   // Storage class specifiers
@@ -83,17 +79,17 @@ public:
   } 
 
   operator bool() const { return !IsNull(); }
-  bool IsNull() const { return GetPtr() == nullptr; }
-  const Type* GetPtr() const {
+  bool IsNull() const { return ptr() == nullptr; }
+  const Type* ptr() const {
     return reinterpret_cast<const Type*>(ptr_ & ~Qualifier::MASK);
   }
-  Type* GetPtr() {
+  Type* ptr() {
     return reinterpret_cast<Type*>(ptr_ & ~Qualifier::MASK);
   }
-  Type& operator*() { return *GetPtr(); }
-  const Type& operator*() const { return *GetPtr(); }
-  Type* operator->() { return GetPtr(); }
-  const Type* operator->() const { return GetPtr(); }
+  Type& operator*() { return *ptr(); }
+  const Type& operator*() const { return *ptr(); }
+  Type* operator->() { return ptr(); }
+  const Type* operator->() const { return ptr(); }
 
   // Indicate whether the specified types are identical(exclude qualifiers).
   friend bool operator==(QualType lhs, QualType rhs) {
@@ -115,7 +111,7 @@ private:
 
 class Type {
 public:
-  static const int intWidth_ = 4;
+  static const int int_width_ = 4;
   static const int machineWidth_ = 8;
 
   bool operator!=(const Type& other) const = delete;
@@ -129,8 +125,8 @@ public:
 
   // For Debugging
   virtual std::string Str() const = 0; 
-  virtual int Width() const = 0;
-  virtual int Align() const { return Width(); }
+  virtual int width() const = 0;
+  virtual int align() const { return width(); }
   static int MakeAlign(int offset, int align) {
     if ((offset % align) == 0)
       return offset;
@@ -141,8 +137,8 @@ public:
   } 
 
   static QualType MayCast(QualType type);
-  bool Complete() const { return complete_; }
-  void SetComplete(bool complete) const { complete_ = complete; }
+  bool complete() const { return complete_; }
+  void set_complete(bool complete) const { complete_ = complete; }
 
   bool IsReal() const { return IsInteger() || IsFloat(); };  
   virtual bool IsScalar() const { return false; }
@@ -183,7 +179,7 @@ public:
   virtual VoidType* ToVoid() { return this; }
   virtual const VoidType* ToVoid() const { return this; }
   virtual bool Compatible(QualType other) const { return other->ToVoid(); }
-  virtual int Width() const {
+  virtual int width() const {
     // Non-standard GNU extension
     return 1;
   }
@@ -196,7 +192,7 @@ protected:
 
 class ArithmType : public Type {
 public:
-  static ArithmType* New(int typeSpec);
+  static ArithmType* New(int type_spec);
 
   virtual ~ArithmType() {}
   virtual ArithmType* ToArithm() { return this; }
@@ -209,7 +205,7 @@ public:
     return this == &other;
   }
 
-  virtual int Width() const;
+  virtual int width() const;
   virtual std::string Str() const;
   virtual bool IsScalar() const { return true; }
   virtual bool IsInteger() const { return !IsFloat() && !IsComplex(); }
@@ -219,7 +215,7 @@ public:
   }
   virtual bool IsBool() const { return tag_ & T_BOOL; }
   bool IsComplex() const { return tag_ & T_COMPLEX; }
-  int Tag() const { return tag_; }
+  int tag() const { return tag_; }
   int Rank() const;
   static ArithmType* IntegerPromote(ArithmType* type) {
     assert(type->IsInteger());
@@ -227,8 +223,8 @@ public:
       return ArithmType::New(T_INT);
     return type;
   }
-  static ArithmType* MaxType(ArithmType* lhsType,
-                                   ArithmType* rhsType);
+  static ArithmType* MaxType(ArithmType* lhs_type,
+                                   ArithmType* rhs_type);
 
 protected:
   explicit ArithmType(MemPool* pool, int spec)
@@ -243,8 +239,8 @@ private:
 
 class DerivedType : public Type {
 public:
-  QualType Derived() const { return derived_; }  
-  void SetDerived(QualType derived) { derived_ = derived; }
+  QualType derived() const { return derived_; }  
+  void set_derived(QualType derived) { derived_ = derived; }
   virtual DerivedType* ToDerived() { return this; }
   virtual const DerivedType* ToDerived() const { return this; }
 
@@ -263,11 +259,11 @@ public:
   virtual PointerType* ToPointer() { return this; }
   virtual const PointerType* ToPointer() const { return this; }
   virtual bool Compatible(const Type& other) const;
-  virtual int Width() const { return 8; }
+  virtual int width() const { return 8; }
   virtual bool IsScalar() const { return true; }
   virtual bool IsVoidPointer() const { return derived_->ToVoid(); }
   virtual std::string Str() const {
-    return derived_->Str() + "*:" + std::to_string(Width());
+    return derived_->Str() + "*:" + std::to_string(width());
   }
 
 protected:
@@ -277,41 +273,41 @@ protected:
 
 class ArrayType : public DerivedType {
 public:
-  static ArrayType* New(int len, QualType eleType);
-  static ArrayType* New(Expr* expr, QualType eleType);
+  static ArrayType* New(int len, QualType ele_type);
+  static ArrayType* New(Expr* expr, QualType ele_type);
   virtual ~ArrayType() { /*delete derived_;*/ }
 
   virtual ArrayType* ToArray() { return this; }
   virtual const ArrayType* ToArray() const { return this; }
   virtual bool Compatible(const Type& other) const;
-  virtual int Width() const {
-    return Complete() ? (derived_->Width() * len_): 0;
+  virtual int width() const {
+    return complete() ? (derived_->width() * len_): 0;
   }
-  virtual int Align() const { return derived_->Align(); }
+  virtual int align() const { return derived_->align(); }
   virtual std::string Str() const {
-    return derived_->Str() + "[]:" + std::to_string(Width());
+    return derived_->Str() + "[]:" + std::to_string(width());
   }
 
-  int GetElementOffset(int idx) const { return derived_->Width() * idx; }
-  int Len() const { return len_; }
-  void SetLen(int len) { len_ = len; }
-  bool Variadic() const { return lenExpr_ != nullptr; }
+  int GetElementOffset(int idx) const { return derived_->width() * idx; }
+  int len() const { return len_; }
+  void set_len(int len) { len_ = len; }
+  bool Variadic() const { return len_expr_ != nullptr; }
 
 protected:
-  ArrayType(MemPool* pool, Expr* lenExpr, QualType derived)
+  ArrayType(MemPool* pool, Expr* len_expr, QualType derived)
       : DerivedType(pool, derived),
-        lenExpr_(lenExpr), len_(0) {
-    SetComplete(false);
+        len_expr_(len_expr), len_(0) {
+    set_complete(false);
     //SetQual(QualType::CONST);
   }
   
   ArrayType(MemPool* pool, int len, QualType derived)
       : DerivedType(pool, derived),
-        lenExpr_(nullptr), len_(len) {
-    SetComplete(len_ >= 0);
+        len_expr_(nullptr), len_(len) {
+    set_complete(len_ >= 0);
     //SetQual(QualType::CONST);
   }
-  const Expr* lenExpr_;
+  const Expr* len_expr_;
   int len_;
 };
 
@@ -322,81 +318,85 @@ public:
 
 public:
   static FuncType* New(QualType derived,
-                       int funcSpec,
+                       int func_spec,
                        bool variadic,
-                       const ParamList& params);
+                       const ParamList& param_list);
   ~FuncType() {}
   virtual FuncType* ToFunc() { return this; }
   virtual const FuncType* ToFunc() const { return this; }
   virtual bool Compatible(const Type& other) const;
-  virtual int Width() const { return 1; }
+  virtual int width() const { return 1; }
   virtual std::string Str() const;
-  const ParamList& Params() const { return params_; }
-  void SetParams(const ParamList& params) { params_ = params; }
+  const ParamList& param_list() const { return param_list_; }
+  void set_param_list(const ParamList& param_list) {
+    param_list_ = param_list;
+  }
   bool Variadic() const { return variadic_; }
 
 protected:
-  FuncType(MemPool* pool, QualType derived, int inlineReturn,
-           bool variadic, const ParamList& params)
-      : DerivedType(pool, derived), inlineNoReturn_(inlineReturn),
-        variadic_(variadic), params_(params) {
-    SetComplete(false);
+  FuncType(MemPool* pool, QualType derived, int inline_noreturn,
+           bool variadic, const ParamList& param_list)
+      : DerivedType(pool, derived), inline_noreturn_(inline_noreturn),
+        variadic_(variadic), param_list_(param_list) {
+    set_complete(false);
   }
 
 private:
-  int inlineNoReturn_;
+  int inline_noreturn_;
   bool variadic_;
-  ParamList params_;
+  ParamList param_list_;
 };
 
 
 class StructType : public Type {
 public:
-  typedef std::list<Object*> MemberList;
-  typedef std::list<Object*>::iterator Iterator;
+  using MemberList = std::list<Object*>;
+  using Iterator   = std::list<Object*>::iterator;
   
 public:
-  static StructType* New(bool isStruct,
-                         bool hasTag,
+  static StructType* New(bool is_struct,
+                         bool has_tag,
                          Scope* parent);
   ~StructType() {}
   virtual StructType* ToStruct() { return this; }
   virtual const StructType* ToStruct() const { return this; }
   virtual bool Compatible(const Type& other) const;
-  virtual int Width() const { return width_; }
-  virtual int Align() const { return align_; }
+  virtual int width() const { return width_; }
+  virtual int align() const { return align_; }
   virtual std::string Str() const;
 
   // struct/union
   void AddMember(Object* member);
   void AddBitField(Object* member, int offset);
-  bool IsStruct() const { return isStruct_; }
+  bool IsStruct() const { return is_struct_; }
   Object* GetMember(const std::string& member);
-  Scope* MemberMap() { return memberMap_; }
-  MemberList& Members() { return members_; }
-  int Offset() const { return offset_; }
-  bool HasTag() const { return hasTag_; }
+  Scope* member_map() { return member_map_; }
+  const Scope* member_map() const { return member_map_; }
+  MemberList& member_list() { return member_list_; }
+  const MemberList& member_list() const { return member_list_; }
+  int offset() const { return offset_; }
+  bool HasTag() const { return has_tag_; }
   void MergeAnony(Object* anony);
   void Finalize();
   
 protected:
   // default is incomplete
-  StructType(MemPool* pool, bool isStruct, bool hasTag, Scope* parent);
+  StructType(MemPool* pool, bool is_struct, bool has_tag, Scope* parent);
   
   StructType(const StructType& other);
 
 private:
   void CalcWidth();
 
-  bool isStruct_;
-  bool hasTag_;
-  Scope* memberMap_;
+  bool is_struct_;
+  bool has_tag_;
+  Scope* member_map_;
 
-  MemberList members_;
+  MemberList member_list_;
   int offset_;
   int width_;
   int align_;
-  int bitFieldAlign_;
+  int bitfiled_align_;
 };
 
 /*
@@ -420,8 +420,8 @@ public:
     return (other.ToEnum() || other.IsInteger()) && Type::Compatible(other);    
   }
 
-  virtual int Width() const {
-    return ArithmType::New(T_INT)->Width();
+  virtual int width() const {
+    return ArithmType::New(T_INT)->width();
   }
 
   virtual std::string Str() const { return "enum:4"; }

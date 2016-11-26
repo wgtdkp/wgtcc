@@ -1,11 +1,9 @@
 #ifndef _WGTCC_ERROR_H_
 #define _WGTCC_ERROR_H_
 
-
 class SourceLocation;
 class Token;
 class Expr;
-
 
 void Error(const char* format, ...);
 void Error(const SourceLocation& loc, const char* format, ...);

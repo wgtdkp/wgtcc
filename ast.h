@@ -6,21 +6,15 @@
 #include "type.h"
 
 #include <cassert>
+#include <cctype>
 #include <list>
 #include <memory>
 #include <string>
 
-
-class Visitor;
-template<typename T> class Evaluator;
-class AddrEvaluator;
-class Generator;
-
 class Scope;
-class Parser;
+class Visitor;
+
 class ASTNode;
-class Token;
-class TokenSequence;
 
 // Expressions
 class Expr;
@@ -29,7 +23,7 @@ class UnaryOp;
 class ConditionalOp;
 class FuncCall;
 class TempVar;
-class Constant;
+class ASTConstant;
 
 class Identifier;
 class Object;
@@ -56,12 +50,15 @@ class CompoundStmt;
 class FuncDef;
 class TranslationUnit;
 
-using StmtList = std::list<Stmt*>;
-using CaseList = std::list<CaseStmt*>;
-
+using ExtDecl     = ASTNode;
+using StmtList    = std::list<Stmt*>;
+using CaseList    = std::list<CaseStmt*>;
+using InitList    = std::set<Initializer>;
+using ArgList     = std::vector<Expr*>;
+using ExtDeclList = std::list<ExtDecl*>;
 
 /*
- * AST Node
+ * AST Nodes
  */
 
 class ASTNode {
@@ -73,8 +70,6 @@ protected:
   ASTNode() {}
   //MemPool* pool_ {nullptr};
 };
-
-typedef ASTNode ExtDecl;
 
 
 /*
@@ -103,16 +98,16 @@ protected:
 
 class LabelStmt : public Stmt {
 public:
-  static LabelStmt* New(Stmt* subStmt);
+  static LabelStmt* New(Stmt* sub_stmt);
   ~LabelStmt() {}
   virtual void Accept(Visitor* v);
   std::string Repr() const { return ".L" + std::to_string(tag_); }
 
-  Stmt* GetSubStmt() { return subStmt_; }
-  const Stmt* GetSubStmt() const { return subStmt_; }
+  Stmt* sub_stmt() { return sub_stmt_; }
+  const Stmt* sub_stmt() const { return sub_stmt_; }
 
 protected:
-  LabelStmt(Stmt* subStmt): subStmt_(subStmt), tag_(GenTag()) {}
+  LabelStmt(Stmt* sub_stmt): sub_stmt_(sub_stmt), tag_(GenTag()) {}
 
 private:
   static int GenTag() {
@@ -120,7 +115,7 @@ private:
     return ++tag;
   }
 
-  Stmt* const subStmt_;  
+  Stmt* const sub_stmt_;  
   int tag_; // 使用整型的tag值，而不直接用字符串
 };
 
@@ -153,8 +148,8 @@ public:
   virtual ~ReturnStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* GetExpr() { return expr_; }
-  const Expr* GetExpr() const { return expr_; }
+  Expr* expr() { return expr_; }
+  const Expr* expr() const { return expr_; }
 
 protected:
   ReturnStmt(Expr* expr): expr_(expr) {}
@@ -170,21 +165,21 @@ public:
   virtual ~IfStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* GetCond() { return cond_; }
-  const Expr* GetCond() const { return cond_; }
-  Stmt* GetThen() { return then_; }
-  const Stmt* GetThen() const { return then_; }
-  Stmt* GetElse() { return else_; }
-  const Stmt* GetElse() const { return else_; }
+  Expr* cond() { return cond_; }
+  const Expr* cond() const { return cond_; }
+  Stmt* then() { return then_; }
+  const Stmt* then() const { return then_; }
+  Stmt* els() { return els_; }
+  const Stmt* els() const { return els_; }
 
 protected:
   IfStmt(Expr* cond, Stmt* then, Stmt* els = nullptr)
-      : cond_(cond), then_(then), else_(els) {}
+      : cond_(cond), then_(then), els_(els) {}
 
 private:
   Expr* const cond_;
   Stmt* const then_;
-  Stmt* const else_;
+  Stmt* const els_;
 };
 
 
@@ -195,16 +190,16 @@ public:
   virtual ~ForStmt() {}
   virtual void Accept(Visitor* v);
 
-  CompoundStmt* GetDecl() { return decl_; }
-  const CompoundStmt* GetDecl() const { return decl_; }
-  Expr* GetInit() { return init_; }
-  const Expr* GetInit() const { return init_; }
-  Expr* GetCond() { return cond_; }
-  const Expr* GetCond() const { return cond_; }
-  Expr* GetStep() { return step_; }
-  const Expr* GetStep() const { return step_; }
-  Stmt* GetBody() { return body_; }
-  const Stmt* GetBody() const { return body_; }
+  CompoundStmt* Decl() { return decl_; }
+  const CompoundStmt* Decl() const { return decl_; }
+  Expr* init() { return init_; }
+  const Expr* init() const { return init_; }
+  Expr* cond() { return cond_; }
+  const Expr* cond() const { return cond_; }
+  Expr* step() { return step_; }
+  const Expr* step() const { return step_; }
+  Stmt* body() { return body_; }
+  const Stmt* body() const { return body_; }
 
 protected:
   ForStmt(CompoundStmt* decl, Expr* init,
@@ -222,24 +217,24 @@ private:
 
 class WhileStmt: public Stmt {
 public:
-  static WhileStmt* New(Expr* cond, Stmt* body, bool isDoWhile);
+  static WhileStmt* New(Expr* cond, Stmt* body, bool do_while);
   virtual ~WhileStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* GetCond() { return cond_; }
-  const Expr* GetCond() const { return cond_; }
-  Stmt* GetBody() { return body_; }
-  const Stmt* GetBody() const { return body_; }
-  bool IsDoWhile() const { return isDoWhile_; }
+  Expr* cond() { return cond_; }
+  const Expr* cond() const { return cond_; }
+  Stmt* body() { return body_; }
+  const Stmt* body() const { return body_; }
+  bool IsDoWhile() const { return do_while_; }
 
 protected:
-  WhileStmt(Expr* cond, Stmt* body, bool isDoWhile)
-      : cond_(cond), body_(body), isDoWhile_(isDoWhile) {}
+  WhileStmt(Expr* cond, Stmt* body, bool do_while)
+      : cond_(cond), body_(body), do_while_(do_while) {}
 
 private:
   Expr* const cond_;
   Stmt* const body_;
-  const bool isDoWhile_;
+  const bool do_while_;
 };
 
 
@@ -249,18 +244,18 @@ public:
   virtual ~SwitchStmt() {}
   virtual void Accept(Visitor* v);
 
-  Expr* GetSelect() { return select_; }
-  const Expr* GetSelect() const { return select_; }
-  Stmt* GetBody() { return body_; }
-  const Stmt* GetBody() const { return body_; }
-  void SetBody(Stmt* body) { body_ = body; } 
-  DefaultStmt* GetDefault() { return default_; }
-  const DefaultStmt* GetDefault() const { return default_; }
-  void SetDefault(DefaultStmt* deft) {default_ = deft; }
-  CaseList& GetCaseList() { return caseList_; }
-  const CaseList& GetCaseList() const { return caseList_; }
-  void AddCase(CaseStmt* c) { caseList_.push_back(c); }
-  bool IsCaseOverlapped(CaseStmt* caseStmt);
+  Expr* select() { return select_; }
+  const Expr* select() const { return select_; }
+  Stmt* body() { return body_; }
+  const Stmt* body() const { return body_; }
+  void set_body(Stmt* body) { body_ = body; } 
+  DefaultStmt* deft() { return deft_; }
+  const DefaultStmt* deft() const { return deft_; }
+  void set_deft(DefaultStmt* deft) {deft_ = deft; }
+  CaseList& case_list() { return case_list_; }
+  const CaseList& case_list() const { return case_list_; }
+  void AddCase(CaseStmt* c) { case_list_.push_back(c); }
+  bool IsCaseOverlapped(CaseStmt* case_stmt);
 
 protected:
   SwitchStmt(Expr* select, Stmt* body): select_(select), body_(body) {}
@@ -268,8 +263,8 @@ protected:
 private:
   Expr* const select_;
   Stmt* body_;
-  DefaultStmt* default_;
-  CaseList caseList_;  
+  DefaultStmt* deft_;
+  CaseList case_list_;  
 };
 
 
@@ -279,10 +274,10 @@ public:
   virtual ~CaseStmt() {}
   virtual void Accept(Visitor* v);
 
-  int GetBegin() const { return begin_; }
-  int GetEnd() const { return end_; }
-  Stmt* GetBody() { return body_; }
-  const Stmt* GetBody() const { return body_; }
+  int begin() const { return begin_; }
+  int end() const { return end_; }
+  Stmt* body() { return body_; }
+  const Stmt* body() const { return body_; }
 
 protected:
   CaseStmt(int begin, int end, Stmt* body)
@@ -301,9 +296,9 @@ public:
   virtual ~GotoStmt() {}
   virtual void Accept(Visitor* v);
 
-  LabelStmt* GetLabel() { return label_; }
-  const LabelStmt* GetLabel() const { return label_; }
-  void SetLabel(LabelStmt* label) { label_ = label; }
+  LabelStmt* label() { return label_; }
+  const LabelStmt* label() const { return label_; }
+  void set_label(LabelStmt* label) { label_ = label; }
 
 protected:
   GotoStmt(LabelStmt* label): label_(label) {}
@@ -315,83 +310,80 @@ private:
 
 class DefaultStmt: public Stmt {
 public:
-  static DefaultStmt* New(Stmt* subStmt);
+  static DefaultStmt* New(Stmt* sub_stmt);
   virtual ~DefaultStmt() {}
   virtual void Accept(Visitor* v);
 
-  Stmt* GetSubStmt() { return subStmt_; }
-  const Stmt* GetSubStmt() const { return subStmt_; }
+  Stmt* sub_stmt() { return sub_stmt_; }
+  const Stmt* sub_stmt() const { return sub_stmt_; }
 
 protected:
-  DefaultStmt(Stmt* subStmt): subStmt_(subStmt) {}
+  DefaultStmt(Stmt* sub_stmt): sub_stmt_(sub_stmt) {}
 
 private:
-  Stmt* const subStmt_;  
+  Stmt* const sub_stmt_;  
 };
 
 
 class CompoundStmt : public Stmt {
 public:
-  static CompoundStmt* New(StmtList& stmtList, ::Scope* scope=nullptr);
+  static CompoundStmt* New(const StmtList& stmt_list, Scope* scope=nullptr);
   virtual ~CompoundStmt() {}
   virtual void Accept(Visitor* v);
 
-  StmtList& GetStmts() { return stmtList_; }
-  const StmtList& GetStmtList() const { return stmtList_; }
-  Scope* GetScope() { return scope_; }
-  const Scope* GetScope() const { return scope_; }
+  StmtList& stmt_list() { return stmt_list_; }
+  const StmtList& stmt_list() const { return stmt_list_; }
+  Scope* scope() { return scope_; }
+  const Scope* scope() const { return scope_; }
 
 protected:
-  CompoundStmt(const StmtList& stmtList, ::Scope* scope=nullptr)
-      : stmtList_(stmtList), scope_(scope) {}
+  CompoundStmt(const StmtList& stmt_list, Scope* scope=nullptr)
+      : stmt_list_(stmt_list), scope_(scope) {}
 
 private:
-  StmtList stmtList_;
+  StmtList stmt_list_;
   Scope* const scope_;
 };
 
 
 struct Initializer {
-  Initializer(Type* type, int offset, Expr* expr,
-              unsigned char bitFieldBegin=0,
-              unsigned char bitFieldWidth=0)
-      : type_(type), offset_(offset),
-        bitFieldBegin_(bitFieldBegin),
-        bitFieldWidth_(bitFieldWidth),
-        expr_(expr) {}       
+  Initializer(Type* t, int off, Expr* e,
+              uint8_t bf_begin=0, uint8_t bf_width=0)
+      : type(t), offset(off),
+        bitfield_begin(bf_begin),
+        bitfield_width(bf_width),
+        expr(e) {}
 
   bool operator<(const Initializer& rhs) const;
 
   // It could be the object it self or, it will be the member
   // that was initialized
-  Type* type_;
-  int offset_;
-  unsigned char bitFieldBegin_;
-  unsigned char bitFieldWidth_;
-
-  Expr* expr_;
+  Type* type;
+  int offset;
+  uint8_t bitfield_begin;
+  uint8_t bitfield_width;
+  Expr* expr;
 };
 
 
 class Declaration: public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-  typedef std::set<Initializer> InitList;
-
 public:
   static Declaration* New(Object* obj);
   virtual ~Declaration() {}
   virtual void Accept(Visitor* v);
-  InitList& Inits() { return inits_; }
-  Object* Obj() { return obj_; }
+  
+  InitList& init_list() { return init_list_; }
+  const InitList& init_list() const { return init_list_; }
+  Object* obj() { return obj_; }
+  const Object* obj() const { return obj_; }
+  
   void AddInit(Initializer init);
 
 protected:
   Declaration(Object* obj): obj_(obj) {}
 
   Object* obj_;
-  InitList inits_;
+  InitList init_list_;
 };
 
 
@@ -401,31 +393,28 @@ protected:
  *  UnaryOp
  *  ConditionalOp
  *  FuncCall
- *  Constant
+ *   ASTConstant
  *  Identifier
  *  Object
  *  TempVar
  */
 
 class Expr : public Stmt {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-  friend class LValGenerator;
-
 public:
   virtual ~Expr() {}
-  ::Type* Type() { return type_.GetPtr(); }
   virtual bool IsLVal() = 0;
   virtual void TypeChecking() = 0;
   void EnsureCompatible(const QualType lhs, const QualType rhs) const;
   void EnsureCompatibleOrVoidPointer(const QualType lhs,
                                      const QualType rhs) const;
-  const Token* Tok() const { return tok_; }
-  void SetTok(const Token* tok) { tok_ = tok; }
+
+  const Token* tok() const { return tok_; }
+  void set_tok(const Token* tok) { tok_ = tok; }
+  Type* type() { return type_.ptr(); }
+  const Type* type() const { return type_.ptr(); }
 
   static Expr* MayCast(Expr* expr);
-  static Expr* MayCast(Expr* expr, QualType desType);
+  static Expr* MayCast(Expr* expr, QualType des_type);
 
   bool IsConstQualified() const { return type_.IsConstQualified(); }
   bool IsRestrictQualified() const { return type_.IsRestrictQualified(); }
@@ -450,10 +439,6 @@ protected:
  * ','(逗号运算符),
  */
 class BinaryOp : public Expr {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-  friend class LValGenerator;
   friend class Declaration;
 
 public:
@@ -465,7 +450,7 @@ public:
   virtual bool IsLVal() {
     switch (op_) {
     case '.':
-    case ']': return !Type()->ToArray();
+    case ']': return !type()->ToArray();
     default: return false;
     }
   }
@@ -485,7 +470,13 @@ public:
   void AssignOpTypeChecking();
   void CommaOpTypeChecking();
   
-protected:
+  int op() const { return op_; }
+  Expr* lhs() { return lhs_; }
+  const Expr* lhs() const { return lhs_; }
+  Expr* rhs() { return rhs_; }
+  const Expr* rhs() const { return rhs_; }
+
+private:
   BinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs)
       : Expr(tok, nullptr), op_(op) {
         lhs_ = lhs, rhs_ = rhs;
@@ -514,11 +505,6 @@ protected:
  * CAST // like (int)3
  */
 class UnaryOp : public Expr {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-  friend class LValGenerator;
-
 public:
   static UnaryOp* New(int op, Expr* operand, QualType type=nullptr);
   virtual ~UnaryOp() {}
@@ -532,9 +518,13 @@ public:
   void UnaryArithmOpTypeChecking();
   void CastOpTypeChecking();
 
+  int op() const { return op_; }
+  Expr* operand() { return operand_; }
+  const Expr* operand() const { return operand_; }
+
 protected:
   UnaryOp(int op, Expr* operand, QualType type=nullptr)
-    : Expr(operand->Tok(), type), op_(op) {
+    : Expr(operand->tok(), type), op_(op) {
       operand_ = operand;
       if (op_ != Token::CAST && op_ != Token::ADDR) {
         operand_ = MayCast(operand);
@@ -548,39 +538,35 @@ protected:
 
 // cond ? true ： false
 class ConditionalOp : public Expr {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
   static ConditionalOp* New(const Token* tok,
-      Expr* cond, Expr* exprTrue, Expr* exprFalse);
+      Expr* cond, Expr* expr_true, Expr* expr_false);
   virtual ~ConditionalOp() {}
   virtual void Accept(Visitor* v);
   virtual bool IsLVal() { return false; }
   ArithmType* Convert();
   virtual void TypeChecking();
 
+  Expr* cond() { return cond_; }
+  const Expr* cond() const { return cond_; }
+  Expr* expr_true() { return expr_true_; }
+  const Expr* expr_true() const { return expr_true_; }
+  Expr* expr_false() { return expr_false_; }
+  const Expr* expr_false() const { return expr_false_; }
+
 protected:
-  ConditionalOp(Expr* cond, Expr* exprTrue, Expr* exprFalse)
-      : Expr(cond->Tok(), nullptr), cond_(MayCast(cond)),
-        exprTrue_(MayCast(exprTrue)), exprFalse_(MayCast(exprFalse)) {}
+  ConditionalOp(Expr* cond, Expr* expr_true, Expr* expr_false)
+      : Expr(cond->tok(), nullptr), cond_(MayCast(cond)),
+        expr_true_(MayCast(expr_true)), expr_false_(MayCast(expr_false)) {}
 
 private:
   Expr* cond_;
-  Expr* exprTrue_;
-  Expr* exprFalse_;
+  Expr* expr_true_;
+  Expr* expr_false_;
 };
 
 
 class FuncCall : public Expr {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
-public:        
-  typedef std::vector<Expr*> ArgList;
-
 public:
   static FuncCall* New(Expr* designator, const ArgList& args);
   ~FuncCall() {}
@@ -588,15 +574,19 @@ public:
 
   // A function call is ofcourse not lvalue
   virtual bool IsLVal() { return false; }
-  ArgList* Args() { return &args_; }
-  Expr* Designator() { return designator_; }
-  const std::string& Name() const { return tok_->str_; }
-  ::FuncType* FuncType() { return designator_->Type()->ToFunc(); }
   virtual void TypeChecking();
+
+  const std::string& Name() const { return tok_->str(); }
+  ::FuncType* FuncType() { return designator_->type()->ToFunc(); }
+
+  Expr* designator() { return designator_; }
+  const Expr* designator() const { return designator_; }
+  ArgList& args() { return args_; }
+  const ArgList& args() const { return args_; }
 
 protected:
   FuncCall(Expr* designator, const ArgList& args)
-    : Expr(designator->Tok(), nullptr),
+    : Expr(designator->tok(), nullptr),
       designator_(designator), args_(args) {}
 
   Expr* designator_;
@@ -604,33 +594,31 @@ protected:
 };
 
 
-class Constant: public Expr {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
+class  ASTConstant: public Expr {
 public:
-  static Constant* New(const Token* tok, int tag, long val);
-  static Constant* New(const Token* tok, int tag, double val);
-  static Constant* New(const Token* tok, int tag, const std::string* val);
-  ~Constant() {}
+  static  ASTConstant* New(const Token* tok, int tag, long val);
+  static  ASTConstant* New(const Token* tok, int tag, double val);
+  static  ASTConstant* New(const Token* tok, int tag, const std::string* val);
+  ~ ASTConstant() {}
   virtual void Accept(Visitor* v);
   virtual bool IsLVal() { return false; }
   virtual void TypeChecking() {}
-  long IVal() const { return ival_; }
-  double FVal() const { return fval_; }
-  const std::string* SVal() const { return sval_; }
+
+  long ival() const { return ival_; }
+  double fval() const { return fval_; }
+  const std::string* sval() const { return sval_; }
+  
   std::string SValRepr() const;
   std::string Repr() const {
     return std::string(".LC") + std::to_string(id_);
   }
 
 protected:
-  Constant(const Token* tok, QualType type, long val)
+   ASTConstant(const Token* tok, QualType type, long val)
       : Expr(tok, type), ival_(val) {}
-  Constant(const Token* tok, QualType type, double val)
+   ASTConstant(const Token* tok, QualType type, double val)
       : Expr(tok, type), fval_(val) {}
-  Constant(const Token* tok, QualType type, const std::string* val)
+   ASTConstant(const Token* tok, QualType type, const std::string* val)
       : Expr(tok, type), sval_(val) {}
 
   union {
@@ -645,10 +633,6 @@ protected:
 
 
 class TempVar : public Expr {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
   static TempVar* New(QualType type);
   virtual ~TempVar() {}
@@ -669,19 +653,14 @@ private:
 };
 
 
-enum Linkage {
-  L_NONE,
-  L_EXTERNAL,
-  L_INTERNAL,
+enum class Linkage {
+  NONE,
+  EXTERNAL,
+  INTERNAL,
 };
 
 
 class Identifier: public Expr {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-  friend class LValGenerator;
-
 public:
   static Identifier* New(const Token* tok, QualType type, Linkage linkage);
   virtual ~Identifier() {}
@@ -695,13 +674,15 @@ public:
    Identifier* ToTypeName() {
     // A typename has no linkage
     // And a function has external or internal linkage
-    if (ToObject() || ToEnumerator() || linkage_ != L_NONE)
+    if (ToObject() || ToEnumerator() || linkage_ != Linkage::NONE)
       return nullptr;
     return this;
   }
-  virtual const std::string Name() const { return tok_->str_; }
-  enum Linkage Linkage() const { return linkage_; }
-  void SetLinkage(enum Linkage linkage) { linkage_ = linkage; }
+  
+  virtual const std::string Name() const { return tok_->str(); }
+  
+  Linkage linkage() const { return linkage_; }
+  void SetLinkage(Linkage linkage) { linkage_ = linkage; }
   virtual void TypeChecking() {}
 
 protected:
@@ -714,41 +695,32 @@ protected:
 
 
 class Enumerator: public Identifier {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-
 public:
   static Enumerator* New(const Token* tok, int val);
   virtual ~Enumerator() {}
   virtual void Accept(Visitor* v);
   virtual Enumerator* ToEnumerator() { return this; }
-  int Val() const { return cons_->IVal(); }
+  int Val() const { return cons_->ival(); }
 
 protected:
   Enumerator(const Token* tok, int val)
-      : Identifier(tok, ArithmType::New(T_INT), L_NONE),
-        cons_(Constant::New(tok, T_INT, (long)val)) {}
+      : Identifier(tok, ArithmType::New(T_INT), Linkage::NONE),
+        cons_( ASTConstant::New(tok, T_INT, (long)val)) {}
 
-  Constant* cons_;
+   ASTConstant* cons_;
 };
 
 
 class Object : public Identifier {
-  template<typename T> friend class Evaluator;
-  friend class AddrEvaluator;
-  friend class Generator;
-  friend class LValGenerator;
-
 public:
-  static Object* New(const Token* tok, QualType type, int storage=0,
-                     enum Linkage linkage=L_NONE,
-                     unsigned char bitFieldBegin=0,
-                     unsigned char bitFieldWidth=0);
-  static Object* NewAnony(const Token* tok, QualType type, int storage=0,
-                          enum Linkage linkage=L_NONE,
-                          unsigned char bitFieldBegin=0,
-                          unsigned char bitFieldWidth=0);
+  static Object* New(const Token* tok, QualType type,
+                     int storage=0, Linkage linkage=Linkage::NONE,
+                     uint8_t bitfield_begin=0,
+                     uint8_t bitfield_width=0);
+  static Object* NewAnony(const Token* tok, QualType type,
+                          int storage=0, Linkage linkage=Linkage::NONE,
+                          uint8_t bitfield_begin=0,
+                          uint8_t bitfield_width=0);
 
   ~Object() {}
   virtual void Accept(Visitor* v);
@@ -758,56 +730,57 @@ public:
     return true;
   }
   bool IsStatic() const {
-    return (Storage() & S_STATIC) || (Linkage() != L_NONE);
+    return (storage() & S_STATIC) || (linkage() != Linkage::NONE);
   }
-  int Storage() const { return storage_; }
-  void SetStorage(int storage) { storage_ = storage; }
-  int Align() const { return align_; }
+  int storage() const { return storage_; }
+  void set_storage(int storage) { storage_ = storage; }
+  int align() const { return align_; }
 
-  void SetAlign(int align) {
+  void set_align(int align) {
     assert(align > 0);
     // Allowing reduce alignment to implement __attribute__((packed))
     //if (align < align_)
     //  Error(this, "alignment specifier cannot reduce alignment");
     align_ = align;
   }
-  int Offset() const { return offset_; }
-  void SetOffset(int offset) { offset_ = offset; }
-  Declaration* Decl() { return decl_; }
-  void SetDecl(Declaration* decl) { decl_ = decl; }
-  unsigned char BitFieldBegin() const { return bitFieldBegin_; }
-  unsigned char BitFieldEnd() const { return bitFieldBegin_ + bitFieldWidth_; }
-  unsigned char BitFieldWidth() const { return bitFieldWidth_; }
-  static unsigned long BitFieldMask(Object* bitField) {
-    return BitFieldMask(bitField->bitFieldBegin_, bitField->bitFieldWidth_);
+  int offset() const { return offset_; }
+  void set_offset(int offset) { offset_ = offset; }
+  Declaration* decl() { return decl_; }
+  const Declaration* decl() const { return decl_; }
+  void set_decl(Declaration* decl) { decl_ = decl; }
+  uint8_t bitfield_begin() const { return bitfield_begin_; }
+  uint8_t bitfield_end() const { return bitfield_begin_ + bitfield_width_; }
+  uint8_t bitfield_width() const { return bitfield_width_; }
+  static uint64_t bitfield_mask(Object* bitfield) {
+    return bitfield_mask(bitfield->bitfield_begin_, bitfield->bitfield_width_);
   }
-  static unsigned long BitFieldMask(unsigned char begin, unsigned char width) {
+  static uint64_t bitfield_mask(uint8_t begin, uint8_t width) {
     auto end = begin + width;
-    return ((0xFFFFFFFFFFFFFFFFUL << (64 - end)) >> (64 - width)) << begin;
+    return ((~0UL << (64 - end)) >> (64 - width)) << begin;
   }
-  bool HasInit() const { return decl_ && decl_->Inits().size(); }
-  bool Anonymous() const { return anonymous_; }
+  bool anonymous() const { return anonymous_; }  
+  bool HasInit() const { return decl_ && decl_->init_list().size(); }
   virtual const std::string Name() const { return Identifier::Name(); }
 
   std::string Repr() const {
     assert(IsStatic() || anonymous_);
     if (anonymous_)
       return "anonymous." + std::to_string(id_);
-    if (linkage_ == L_NONE)
+    if (linkage_ == Linkage::NONE)
       return Name() + "." + std::to_string(id_);
     return Name();
   }
 
 protected:
   Object(const Token* tok, QualType type, int storage=0,
-         enum Linkage linkage=L_NONE,
-         unsigned char bitFieldBegin=0,
-         unsigned char bitFieldWidth=0)
+         enum Linkage linkage=Linkage::NONE,
+         uint8_t bitfield_begin=0,
+         uint8_t bitfield_width=0)
       : Identifier(tok, type, linkage),
         storage_(storage), offset_(0),
-        align_(type->Align()), decl_(nullptr),
-        bitFieldBegin_(bitFieldBegin),
-        bitFieldWidth_(bitFieldWidth),
+        align_(type->align()), decl_(nullptr),
+        bitfield_begin_(bitfield_begin),
+        bitfield_width_(bitfield_width),
         anonymous_(false) {}
   
 private:
@@ -815,9 +788,9 @@ private:
   int offset_;
   int align_;
   Declaration* decl_;
-  unsigned char bitFieldBegin_;
+  uint8_t bitfield_begin_;
   // 0 means it's not a bitfield
-  unsigned char bitFieldWidth_;
+  uint8_t bitfield_width_;
 
   bool anonymous_;
   long id_ {0};
@@ -834,18 +807,18 @@ public:
 
   static FuncDef* New(Identifier* ident);
   virtual ~FuncDef() {}
-  ::FuncType* FuncType() { return ident_->Type()->ToFunc(); }
-  CompoundStmt* Body() { return body_; }
-  void SetBody(CompoundStmt* body) { body_ = body; }
+  ::FuncType* FuncType() { return ident_->type()->ToFunc(); }
+  CompoundStmt* body() { return body_; }
+  void set_body(CompoundStmt* body) { body_ = body; }
   std::string Name() const { return ident_->Name(); }
-  enum Linkage Linkage() { return ident_->Linkage(); }
+  enum Linkage linkage() { return ident_->linkage(); }
   virtual void Accept(Visitor* v);
-  
+
+private:
+  FuncDef(Identifier* ident): ident_(ident) {}
+
   Identifier* ident_;
   CompoundStmt* body_;
-
-protected:
-  FuncDef(Identifier* ident): ident_(ident) {}
 };
 
 
@@ -854,13 +827,13 @@ public:
   static TranslationUnit* New();
   virtual ~TranslationUnit() {}
   virtual void Accept(Visitor* v);
-  void Add(ExtDecl* extDecl) { extDecls_.push_back(extDecl); }
-  std::list<ExtDecl*>& ExtDecls() { return extDecls_; }
-    
-  std::list<ExtDecl*> extDecls_;
+  void Add(ExtDecl* ext_decl) { ext_decl_list_.push_back(ext_decl); }
+  ExtDeclList& ext_decl_list() { return ext_decl_list_; }
+  const ExtDeclList& ext_decl_list() const { return ext_decl_list_; }
 
 private:
   TranslationUnit() {}
+  ExtDeclList ext_decl_list_;
 };
 
 #endif

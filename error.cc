@@ -40,28 +40,28 @@ void Error(const char* format, ...) {
 static void VError(const SourceLocation& loc,
                    const char* format,
                    va_list args) {
-  assert(loc.fileName_);
+  assert(loc.filename);
   fprintf(stderr,
           "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-          loc.fileName_->c_str(),
-          loc.line_,
-          loc.column_);
+          loc.filename->c_str(),
+          loc.line,
+          loc.column);
   vfprintf(stderr, format, args);
   fprintf(stderr, "\n    ");
 
-  bool sawNoSpace = false;
+  bool saw_no_space = false;
   int nspaces = 0;
-  for (auto p = loc.lineBegin_; *p != '\n' && *p != 0; p++) {
-    if (!sawNoSpace && (*p == ' ' || *p == '\t')) {
+  for (auto p = loc.line_begin; *p != '\n' && *p != 0; ++p) {
+    if (!saw_no_space && (*p == ' ' || *p == '\t')) {
       ++nspaces;
     } else {
-      sawNoSpace = true;
+      saw_no_space = true;
       fputc(*p, stderr);
     }
   }
   
   fprintf(stderr, "\n    ");
-  for (unsigned i = 1; i + nspaces < loc.column_; ++i)
+  for (unsigned i = 1; i + nspaces < loc.column; ++i)
     fputc(' ', stderr);
   fprintf(stderr, ANSI_COLOR_GREEN "^\n");
   exit(-1);	
@@ -79,7 +79,7 @@ void Error(const SourceLocation& loc, const char* format, ...) {
 void Error(const Token* tok, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  VError(tok->loc_, format, args);
+  VError(tok->loc(), format, args);
   va_end(args);
 }
 
@@ -87,6 +87,6 @@ void Error(const Token* tok, const char* format, ...) {
 void Error(const Expr* expr, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  VError(expr->Tok()->loc_, format, args);
+  VError(expr->tok()->loc(), format, args);
   va_end(args);
 }

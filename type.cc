@@ -8,22 +8,21 @@
 #include <algorithm>
 #include <iostream>
 
-
-static MemPoolImp<VoidType>     voidTypePool;
-static MemPoolImp<ArrayType>    arrayTypePool;
-static MemPoolImp<FuncType>     funcTypePool;
-static MemPoolImp<PointerType>  pointerTypePool;
-static MemPoolImp<StructType>   structUnionTypePool;
-static MemPoolImp<ArithmType>   arithmTypePool;
+static MemPoolImp<VoidType>     void_pool;
+static MemPoolImp<ArrayType>    array_pool;
+static MemPoolImp<FuncType>     func_pool;
+static MemPoolImp<PointerType>  pointer_pool;
+static MemPoolImp<StructType>   struct_pool;
+static MemPoolImp<ArithmType>   arithm_pool;
 
 
 QualType Type::MayCast(QualType type) {
-  auto funcType = type->ToFunc();
-  auto arrayType = type->ToArray();
-  if (funcType) {
-    return PointerType::New(funcType);
-  } else if (arrayType) {
-    auto ret = PointerType::New(arrayType->Derived());
+  auto func_type = type->ToFunc();
+  auto array_type = type->ToArray();
+  if (func_type) {
+    return PointerType::New(func_type);
+  } else if (array_type) {
+    auto ret = PointerType::New(array_type->derived());
     return QualType(ret, Qualifier::CONST);
   }
   return type;
@@ -31,47 +30,47 @@ QualType Type::MayCast(QualType type) {
 
 
 VoidType* VoidType::New() {
-  static auto ret = new (voidTypePool.Alloc()) VoidType(&voidTypePool);
+  static auto ret = new (void_pool.Alloc()) VoidType(&void_pool);
   return ret;
 }
 
 
-ArithmType* ArithmType::New(int typeSpec) {
+ArithmType* ArithmType::New(int type_spec) {
 #define NEW_TYPE(tag)                                           \
-  new (arithmTypePool.Alloc()) ArithmType(&arithmTypePool, tag);
+  new (arithm_pool.Alloc()) ArithmType(&arithm_pool, tag);
 
-  static auto boolType    = NEW_TYPE(T_BOOL);
-  static auto charType    = NEW_TYPE(T_CHAR);
-  static auto ucharType   = NEW_TYPE(T_UNSIGNED | T_CHAR);
-  static auto shortType   = NEW_TYPE(T_SHORT);
-  static auto ushortType  = NEW_TYPE(T_UNSIGNED | T_SHORT);
-  static auto intType     = NEW_TYPE(T_INT);
-  static auto uintType    = NEW_TYPE(T_UNSIGNED | T_INT);
-  static auto longType    = NEW_TYPE(T_LONG);
-  static auto ulongType   = NEW_TYPE(T_UNSIGNED | T_LONG);
-  static auto llongType   = NEW_TYPE(T_LLONG)
-  static auto ullongType  = NEW_TYPE(T_UNSIGNED | T_LLONG);
-  static auto floatType   = NEW_TYPE(T_FLOAT);
-  static auto doubleType  = NEW_TYPE(T_DOUBLE);
-  static auto ldoubleType = NEW_TYPE(T_LONG | T_DOUBLE);
+  static auto bool_type    = NEW_TYPE(T_BOOL);
+  static auto char_type    = NEW_TYPE(T_CHAR);
+  static auto uchar_type   = NEW_TYPE(T_UNSIGNED | T_CHAR);
+  static auto short_type   = NEW_TYPE(T_SHORT);
+  static auto ushort_type  = NEW_TYPE(T_UNSIGNED | T_SHORT);
+  static auto int_type     = NEW_TYPE(T_INT);
+  static auto uint_type    = NEW_TYPE(T_UNSIGNED | T_INT);
+  static auto long_type    = NEW_TYPE(T_LONG);
+  static auto ulong_type   = NEW_TYPE(T_UNSIGNED | T_LONG);
+  static auto llong_type   = NEW_TYPE(T_LLONG)
+  static auto ullong_type  = NEW_TYPE(T_UNSIGNED | T_LLONG);
+  static auto float_type   = NEW_TYPE(T_FLOAT);
+  static auto double_type  = NEW_TYPE(T_DOUBLE);
+  static auto ldouble_type = NEW_TYPE(T_LONG | T_DOUBLE);
   
-  auto tag = ArithmType::Spec2Tag(typeSpec);
+  auto tag = ArithmType::Spec2Tag(type_spec);
   switch (tag) {
-  case T_BOOL:              return boolType;
-  case T_CHAR:              return charType;
-  case T_UNSIGNED | T_CHAR: return ucharType;
-  case T_SHORT:             return shortType;
-  case T_UNSIGNED | T_SHORT:return ushortType;
-  case T_INT:               return intType;
+  case T_BOOL:              return bool_type;
+  case T_CHAR:              return char_type;
+  case T_UNSIGNED | T_CHAR: return uchar_type;
+  case T_SHORT:             return short_type;
+  case T_UNSIGNED | T_SHORT:return ushort_type;
+  case T_INT:               return int_type;
   case T_UNSIGNED:
-  case T_UNSIGNED | T_INT:  return uintType;
-  case T_LONG:              return longType;
-  case T_UNSIGNED | T_LONG: return ulongType;
-  case T_LLONG:             return llongType;
-  case T_UNSIGNED | T_LLONG:return ullongType;
-  case T_FLOAT:             return floatType;
-  case T_DOUBLE:            return doubleType;
-  case T_LONG | T_DOUBLE:   return ldoubleType;
+  case T_UNSIGNED | T_INT:  return uint_type;
+  case T_LONG:              return long_type;
+  case T_UNSIGNED | T_LONG: return ulong_type;
+  case T_LLONG:             return llong_type;
+  case T_UNSIGNED | T_LLONG:return ullong_type;
+  case T_FLOAT:             return float_type;
+  case T_DOUBLE:            return double_type;
+  case T_LONG | T_DOUBLE:   return ldouble_type;
   default: Error("complex not supported yet");
   }
   return nullptr; // Make compiler happy
@@ -80,70 +79,70 @@ ArithmType* ArithmType::New(int typeSpec) {
 }
 
 
-ArrayType* ArrayType::New(int len, QualType eleType) {
-  return new (arrayTypePool.Alloc())
-         ArrayType(&arrayTypePool, len, eleType);
+ArrayType* ArrayType::New(int len, QualType ele_type) {
+  return new (array_pool.Alloc())
+         ArrayType(&array_pool, len, ele_type);
 }
 
 
-ArrayType* ArrayType::New(Expr* expr, QualType eleType) {
-  return new (arrayTypePool.Alloc())
-         ArrayType(&arrayTypePool, expr, eleType);
+ArrayType* ArrayType::New(Expr* expr, QualType ele_type) {
+  return new (array_pool.Alloc())
+         ArrayType(&array_pool, expr, ele_type);
 }
 
 
 FuncType* FuncType::New(QualType derived,
-                        int funcSpec,
+                        int func_spec,
                         bool variadic,
-                        const ParamList& params) {
-  return new (funcTypePool.Alloc())
-         FuncType(&funcTypePool, derived, funcSpec, variadic, params);
+                        const ParamList& param_list) {
+  return new (func_pool.Alloc())
+         FuncType(&func_pool, derived, func_spec, variadic, param_list);
 }
 
 
 PointerType* PointerType::New(QualType derived) {
-  return new (pointerTypePool.Alloc())
-         PointerType(&pointerTypePool, derived);
+  return new (pointer_pool.Alloc())
+         PointerType(&pointer_pool, derived);
 }
 
 
-StructType* StructType::New(bool isStruct,
-                              bool hasTag,
+StructType* StructType::New(bool is_struct,
+                              bool has_tag,
                               Scope* parent) {
-  return new (structUnionTypePool.Alloc())
-         StructType(&structUnionTypePool, isStruct, hasTag, parent);
+  return new (struct_pool.Alloc())
+         StructType(&struct_pool, is_struct, has_tag, parent);
 }
 
 
-int ArithmType::Width() const {
+int ArithmType::width() const {
   switch (tag_) {
   case T_BOOL: case T_CHAR: case T_UNSIGNED | T_CHAR:
     return 1;
   case T_SHORT: case T_UNSIGNED | T_SHORT:
-    return intWidth_ >> 1;
+    return int_width_ >> 1;
   case T_INT: case T_UNSIGNED: case T_UNSIGNED | T_INT:
-    return intWidth_;
+    return int_width_;
   case T_LONG: case T_UNSIGNED | T_LONG:
-    return intWidth_ << 1;
+    return int_width_ << 1;
   case T_LLONG: case T_UNSIGNED | T_LLONG:
-    return intWidth_ << 1;
+    return int_width_ << 1;
   case T_FLOAT:
-    return intWidth_;
+    return int_width_;
   case T_DOUBLE:
-    return intWidth_ << 1;
+    return int_width_ << 1;
   case T_LONG | T_DOUBLE:
-    return intWidth_ << 1;
+    return int_width_ << 1;
   case T_FLOAT | T_COMPLEX:
-    return intWidth_ << 1;
+    return int_width_ << 1;
   case T_DOUBLE | T_COMPLEX:
-    return intWidth_ << 2;
+    return int_width_ << 2;
   case T_LONG | T_DOUBLE | T_COMPLEX:
-    return intWidth_ << 2;
+    return int_width_ << 2;
   default:
     assert(false);
   }
 
-  return intWidth_; // Make compiler happy
+  return int_width_; // Make compiler happy
 }
 
 
@@ -164,15 +163,14 @@ int ArithmType::Rank() const {
 }
 
 
-ArithmType* ArithmType::MaxType(ArithmType* lhs,
-                                      ArithmType* rhs) {
+ArithmType* ArithmType::MaxType(ArithmType* lhs, ArithmType* rhs) {
   if (lhs->IsInteger())
     lhs = ArithmType::IntegerPromote(lhs);
   if (rhs->IsInteger())
     rhs = ArithmType::IntegerPromote(rhs);
   auto ret = lhs->Rank() > rhs->Rank() ? lhs: rhs;
-  if (lhs->Width() == rhs->Width() && (lhs->IsUnsigned() || rhs->IsUnsigned()))
-    return ArithmType::New(T_UNSIGNED | ret->Tag());
+  if (lhs->width() == rhs->width() && (lhs->IsUnsigned() || rhs->IsUnsigned()))
+    return ArithmType::New(T_UNSIGNED | ret->tag());
   return ret;
 }
 
@@ -188,7 +186,7 @@ int ArithmType::Spec2Tag(int spec) {
 
 
 std::string ArithmType::Str() const {
-  std::string width = ":" + std::to_string(Width());
+  std::string width = ":";// + std::to_string(width());
 
   switch (tag_) {
   case T_BOOL:
@@ -198,7 +196,7 @@ std::string ArithmType::Str() const {
     return "char" + width;
 
   case T_UNSIGNED | T_CHAR:
-    return "unsigned char" + width;
+    return "uint8_t" + width;
 
   case T_SHORT:
     return "short" + width;
@@ -216,13 +214,13 @@ std::string ArithmType::Str() const {
     return "long" + width;
 
   case T_UNSIGNED | T_LONG:
-    return "unsigned long" + width;
+    return "uint64_t" + width;
 
   case T_LLONG:
     return "long long" + width;
 
   case T_UNSIGNED | T_LLONG:
-    return "unsigned long long" + width;
+    return "uint64_t long" + width;
 
   case T_FLOAT:
     return "float" + width;
@@ -276,23 +274,23 @@ bool ArrayType::Compatible(const Type& other) const {
 
 
 bool FuncType::Compatible(const Type& other) const {
-  auto otherFunc = other.ToFunc();
+  auto other_func = other.ToFunc();
   //the other type is not an function type
-  if (!otherFunc) return false;
+  if (!other_func) return false;
   //TODO: do we need to check the type of return value when deciding 
   //compatibility of two function types ??
-  if (!derived_->Compatible(*otherFunc->derived_))
+  if (!derived_->Compatible(*other_func->derived_))
     return false;
-  if (params_.size() != otherFunc->params_.size())
+  if (param_list_.size() != other_func->param_list_.size())
     return false;
 
-  auto thisIter = params_.begin();
-  auto otherIter = otherFunc->params_.begin();
-  while (thisIter != params_.end()) {
-    if (!(*thisIter)->Type()->Compatible(*(*otherIter)->Type()))
+  auto this_iter = param_list_.begin();
+  auto other_iter = other_func->param_list_.begin();
+  while (this_iter != param_list_.end()) {
+    if (!(*this_iter)->type()->Compatible(*(*other_iter)->type()))
       return false;
-    ++thisIter;
-    ++otherIter;
+    ++this_iter;
+    ++other_iter;
   }
 
   return true;
@@ -301,36 +299,34 @@ bool FuncType::Compatible(const Type& other) const {
 
 std::string FuncType::Str() const {
   auto str = derived_->Str() + "(";
-  auto iter = params_.begin();
-  for (; iter != params_.end(); ++iter) {
-    str += (*iter)->Type()->Str() + ", ";
+  auto iter = param_list_.begin();
+  for (; iter != param_list_.end(); ++iter) {
+    str += (*iter)->type()->Str() + ", ";
   }
   if (variadic_)
     str += "...";
-  else if (params_.size())
+  else if (param_list_.size())
     str.resize(str.size() - 2);
 
   return str + ")";
 }
 
 
-StructType::StructType(MemPool* pool,
-                       bool isStruct,
-                       bool hasTag,
-                       Scope* parent)
+StructType::StructType(MemPool* pool, bool is_struct,
+                       bool has_tag, Scope* parent)
     : Type(pool, false),
-      isStruct_(isStruct),
-      hasTag_(hasTag),
-      memberMap_(Scope::New(parent, ScopeType::BLOCK)),
+      is_struct_(is_struct),
+      has_tag_(has_tag),
+      member_map_(Scope::New(parent, ScopeType::BLOCK)),
       offset_(0),
       width_(0),
       // If a struct type has no member, it gets alignment of 1
       align_(1),
-      bitFieldAlign_(1) {}
+      bitfiled_align_(1) {}
 
 
 Object* StructType::GetMember(const std::string& member) {
-  auto ident = memberMap_->FindInCurScope(member);
+  auto ident = member_map_->FindInCurScope(member);
   if (ident == nullptr)
     return nullptr;
   return ident->ToObject();
@@ -339,9 +335,8 @@ Object* StructType::GetMember(const std::string& member) {
 
 void StructType::CalcWidth() {
   width_ = 0;
-  auto iter = memberMap_->identMap_.begin();
-  for (; iter != memberMap_->identMap_.end(); ++iter) {
-    width_ += iter->second->Type()->Width();
+  for (auto iter = member_map_->begin(); iter != member_map_->end(); ++iter) {
+    width_ += iter->second->type()->width();
   }
 }
 
@@ -353,7 +348,7 @@ bool StructType::Compatible(const Type& other) const {
 
 // TODO(wgtdkp): more detailed representation
 std::string StructType::Str() const {
-  std::string str = isStruct_ ? "struct": "union";
+  std::string str = is_struct_ ? "struct": "union";
   return str + ":" + std::to_string(width_);
 }
 
@@ -361,9 +356,9 @@ std::string StructType::Str() const {
 // Remove useless unnamed bitfield members
 // They are just for parsing
 void StructType::Finalize() {
-  for (auto iter = members_.begin(); iter != members_.end();) {
-    if ((*iter)->BitFieldWidth() && (*iter)->Anonymous()) {
-      members_.erase(iter++);
+  for (auto iter = member_list_.begin(); iter != member_list_.end();) {
+    if ((*iter)->bitfield_width() && (*iter)->anonymous()) {
+      member_list_.erase(iter++);
     } else {
       ++iter;
     }
@@ -372,73 +367,73 @@ void StructType::Finalize() {
 
 
 void StructType::AddMember(Object* member) {
-  auto offset = MakeAlign(offset_, member->Align());
-  member->SetOffset(offset);
+  auto offset = MakeAlign(offset_, member->align());
+  member->set_offset(offset);
   
-  members_.push_back(member);
-  memberMap_->Insert(member->Name(), member);
+  member_list_.push_back(member);
+  member_map_->Insert(member->Name(), member);
 
-  align_ = std::max(align_, member->Align());
-  bitFieldAlign_ = std::max(bitFieldAlign_, align_);
+  align_ = std::max(align_, member->align());
+  bitfiled_align_ = std::max(bitfiled_align_, align_);
   
-  if (isStruct_) {
-    offset_ = offset + member->Type()->Width();
+  if (is_struct_) {
+    offset_ = offset + member->type()->width();
     width_ = MakeAlign(offset_, align_);
   } else {
     assert(offset_ == 0);
-    width_ = std::max(width_, member->Type()->Width());
+    width_ = std::max(width_, member->type()->width());
     width_ = MakeAlign(width_, align_);
   }
 }
 
 
-void StructType::AddBitField(Object* bitField, int offset) {
-  bitField->SetOffset(offset);
-  members_.push_back(bitField);
-  if (!bitField->Anonymous())
-    memberMap_->Insert(bitField->Name(), bitField);
+void StructType::AddBitField(Object* bitfield, int offset) {
+  bitfield->set_offset(offset);
+  member_list_.push_back(bitfield);
+  if (!bitfield->anonymous())
+    member_map_->Insert(bitfield->Name(), bitfield);
 
-  auto bytes = MakeAlign(bitField->BitFieldEnd(), 8) / 8;
-  bitFieldAlign_ = std::max(bitFieldAlign_, bitField->Align());
+  auto bytes = MakeAlign(bitfield->bitfield_end(), 8) / 8;
+  bitfiled_align_ = std::max(bitfiled_align_, bitfield->align());
   // Does not aligned, default is 1
-  if (isStruct_) {
+  if (is_struct_) {
     offset_ = offset + bytes;
-    width_ = MakeAlign(offset_, std::max(bitFieldAlign_, bitField->Align()));
+    width_ = MakeAlign(offset_, std::max(bitfiled_align_, bitfield->align()));
   } else {
     assert(offset_ == 0);
-    width_ = std::max(width_, bitField->Type()->Width());
+    width_ = std::max(width_, bitfield->type()->width());
   }
 }
 
 
-// Move members of Anonymous struct/union to external struct/union
+// Move members of anonymous struct/union to external struct/union
 void StructType::MergeAnony(Object* anony) {
-  auto anonyType = anony->Type()->ToStruct();
-  auto offset = MakeAlign(offset_, anony->Align());
+  auto anony_type = anony->type()->ToStruct();
+  auto offset = MakeAlign(offset_, anony->align());
 
-  // Members in map are never anonymous
-  for (auto& kv: *anonyType->memberMap_) {
+  // member_list in map are never anonymous
+  for (auto& kv: *anony_type->member_map_) {
     auto& name = kv.first;
     auto member = kv.second->ToObject();
     // Every member of anonymous struct/union
     // are offseted by external struct/union
-    member->SetOffset(offset + member->Offset());
+    member->set_offset(offset + member->offset());
 
     if (GetMember(name)) {
       Error(member, "duplicated member '%s'", name.c_str());
     }
     // Simplify anony struct's member searching
-    memberMap_->Insert(name, member);
+    member_map_->Insert(name, member);
   }
-  anony->SetOffset(offset);
-  members_.push_back(anony);
+  anony->set_offset(offset);
+  member_list_.push_back(anony);
 
-  align_ = std::max(align_, anony->Align());
-  if (isStruct_) {
-    offset_ = offset + anonyType->Width();
+  align_ = std::max(align_, anony->align());
+  if (is_struct_) {
+    offset_ = offset + anony_type->width();
     width_ = MakeAlign(offset_, align_);
   } else {
     assert(offset_ == 0);
-    width_ = std::max(width_, anonyType->Width());
+    width_ = std::max(width_, anony_type->width());
   }
 }

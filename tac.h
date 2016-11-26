@@ -4,12 +4,25 @@
 #include <cinttypes>
 #include <string>
 
-namespace tac {
+class Type;
+class Object;
+class ASTConstant;
+
 /*
  * We donot explicitly generate AST.
  * Instead, TAC is chosen to replace it.
  * The design of TAC here is based on the 'Dragon Book'.
  */
+
+class Operand;
+class Variable;
+class Constant;
+class Temporary;
+class Translator;
+class LValTranslator;
+enum class OperandType;
+
+OperandType ToTACOperandType(const Type* type);
 
 enum class OperandType {
   SIGNED,
@@ -27,52 +40,55 @@ public:
   virtual const std::string Repr() const = 0;
 
   bool IsInteger() const {
-    return ty_ == OperandType::SIGNED ||
-           ty_ == OperandType::UNSIGNED;
+    return type_ == OperandType::SIGNED ||
+           type_ == OperandType::UNSIGNED;
   }
-  bool IsUnsigned()   const { return ty_ == OperandType::UNSIGNED; }
-  bool IsSigned()     const { return ty_ == OperandType::SIGNED; }
-  bool IsFloat()      const { return ty_ == OperandType::FLOAT; }
-  bool IsAggregate()  const { return ty_ == OperandType::AGGREGATE; }
-
+  bool IsUnsigned()   const { return type_ == OperandType::UNSIGNED; }
+  bool IsSigned()     const { return type_ == OperandType::SIGNED; }
+  bool IsFloat()      const { return type_ == OperandType::FLOAT; }
+  bool IsAggregate()  const { return type_ == OperandType::AGGREGATE; }
+  size_t width()      const { return width_; }
+  OperandType type()  const { return type_; }
 protected:
-  Operand(size_t width, OperandType ty): width_(width), ty_(ty) {}
+  Operand(size_t width, OperandType type): width_(width), type_(type) {}
 
   size_t width_;
-  OperandType ty_;
+  OperandType type_;
 };
 
 
-class Variable: Operand {
+class Variable: public Operand {
 public:
-  static Variable* New(size_t width, OperandType ty, const std::string* name);
+  static Variable* New(const Object* obj);
   virtual ~Variable() {}
-  virtual const std::string Repr() const { return *name_; }
+  virtual const std::string Repr() const { return name_; }
+  ssize_t offset() const { return offset_; }
 
 private:
-  Variable(size_t width, OperandType ty, const std::string* name)
-      : Operand(width, ty), name_(name) {}
-  Variable(size_t width, OperandType ty, const ssize_t offset)
-      : Operand(width, ty), offset_(offset) {}
+  Variable(size_t width, OperandType type, const std::string& name)
+      : Operand(width, type), name_(name) {}
+  Variable(size_t width, OperandType type, const ssize_t offset)
+      : Operand(width, type), offset_(offset) {}
 
   // For code gen
   
-  const std::string* name_;
+  const std::string name_;
   ssize_t offset_;
 };
 
 
-class Constant: Operand {
+class Constant: public Operand {
 public:
-  static Constant* New(size_t width, OperandType ty, uint64_t val);
+  static Constant* New(const ASTConstant* c);
   static Constant* Zero();
   static Constant* One();
   virtual ~Constant() {}
   virtual const std::string Repr() const { return std::to_string(val_); }
+  uint64_t val() const { return val_; }
 
 private:
-  Constant(size_t width, OperandType ty, uint64_t val)
-      : Operand(width, ty), val_(val) {}
+  Constant(size_t width, OperandType type, uint64_t val)
+      : Operand(width, type), val_(val) {}
 
   // For a floating pointer number,
   // the value has been converted
@@ -81,15 +97,15 @@ private:
 
 
 // Mapping to infinite register
-class Temporary: Operand {
+class Temporary: public Operand {
 public:
-  static Temporary* New(size_t width, OperandType ty);
+  static Temporary* New(const Type* type);
   virtual ~Temporary() {}
   virtual const std::string Repr() const { return "t" + std::to_string(id_); }
 
 private:
-  Temporary(size_t width, OperandType ty)
-      : Operand(width, ty), id_(GenId()) {}
+  Temporary(size_t width, OperandType type)
+      : Operand(width, type), id_(GenId()) {}
   static size_t GenId() {
     static size_t id = 0;
     return ++id;
@@ -156,7 +172,7 @@ enum class Operator {
   //IF_EQ,      // if (lhs == rhs) goto des
   //IF_NE,      // if (lhs != rhs) goto des
 
-  //LABEL,  // temporary jump dest
+  LABEL,  // temporary jump dest
 };
 
 
@@ -168,10 +184,15 @@ public:
   static TAC* NewAssign(Operand* des, Operand* src);
   static TAC* NewDesSSAssign(Operand* des, Operand* src, ssize_t offset);
   static TAC* NewSrcSSAssign(Operand* des, Operand* src, ssize_t offset);
+  static TAC* NewDerefAssign(Operand* des, Operand* src) {
+    return NewUnary(Operator::DEREF_ASSIGN, des, src);
+  }
   static TAC* NewJump(TAC* des);
   static TAC* NewIf(Operand* cond, TAC* des);
   static TAC* NewIfFalse(Operand* cond, TAC* des);
-  //static TAC* NewLabel();
+  static TAC* NewLabel() {
+    return NewBinary(Operator::LABEL, nullptr, nullptr, nullptr);
+  }
   ~TAC() {}
 
 private:
@@ -181,8 +202,8 @@ private:
   TAC(Operator op, Operand* des=nullptr,
       Operand* lhs=nullptr, ssize_t n=0)
     : op_(op), des_(des), lhs_(lhs), n_(n) {}
-  TAC(Operator op, Operand* lhs=nullptr, TAC* jumpDes=nullptr)
-    : op_(op), des_(nullptr), lhs_(lhs), jumpDes_(jumpDes) {}
+  TAC(Operator op, Operand* lhs=nullptr, TAC* jump_des=nullptr)
+    : op_(op), des_(nullptr), lhs_(lhs), jump_des_(jump_des) {}
 
   Operator op_; 
   Operand* des_; 
@@ -190,10 +211,8 @@ private:
   union {
     Operand* rhs_;
     ssize_t n_;
-    TAC* jumpDes_;
+    TAC* jump_des_;
   };
 };
-
-}
 
 #endif

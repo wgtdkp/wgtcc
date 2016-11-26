@@ -11,11 +11,11 @@ class ROData;
 class Evaluator<Addr>;
 struct StaticInitializer;
 
-typedef std::vector<Type*> TypeList;
-typedef std::vector<std::string> LocationList;
-typedef std::vector<ROData> RODataList;
-typedef std::vector<StaticInitializer> StaticInitList;
-
+using TypeList = std::vector<Type*>;
+using LocationList = std::vector<std::string>;
+using RODataList = std::vector<ROData>;
+using StaticInitList = std::vector<StaticInitializer>;
+using StaticDeclList = std::vector<Declaration*>;
 
 enum class ParamClass {
   INTEGER,
@@ -71,8 +71,8 @@ struct ObjectAddr {
   std::string label_;
   std::string base_;
   int offset_;
-  unsigned char bitFieldBegin_ {0};
-  unsigned char bitFieldWidth_ {0};
+  uint8_t bitfield_begin_ {0};
+  uint8_t bitfield_width_ {0};
 };
 
 
@@ -104,30 +104,30 @@ public:
   //Expression
   virtual void VisitBinaryOp(BinaryOp* binaryOp);
   virtual void VisitUnaryOp(UnaryOp* unaryOp);
-  virtual void VisitConditionalOp(ConditionalOp* condOp);
+  virtual void VisitConditionalOp(ConditionalOp* cond_op);
   virtual void VisitFuncCall(FuncCall* funcCall);
   virtual void VisitObject(Object* obj);
   virtual void VisitEnumerator(Enumerator* enumer);
   virtual void VisitIdentifier(Identifier* ident);
-  virtual void VisitConstant(Constant* cons);
+  virtual void VisitASTConstant(ASTConstant* cons);
   virtual void VisitTempVar(TempVar* tempVar);
 
   //statement
   virtual void VisitDeclaration(Declaration* init);
   virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
   virtual void VisitIfStmt(IfStmt* ifStmt);
-  virtual void VisitJumpStmt(JumpStmt* jumpStmt);
+  virtual void VisitJumpStmt(GotoStmt* goto_stmt);
   virtual void VisitReturnStmt(ReturnStmt* returnStmt);
-  virtual void VisitLabelStmt(LabelStmt* labelStmt);
+  virtual void VisitLabelStmt(LabelStmt* label_stmt);
   virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
 
-  virtual void VisitFuncDef(FuncDef* funcDef);
+  virtual void VisitFuncDef(FuncDef* func_def);
   virtual void VisitTranslationUnit(TranslationUnit* unit);
 
 
-  static void SetInOut(Parser* parser, FILE* outFile) {
+  static void SetInOut(Parser* parser, FILE* out_file) {
     parser_ = parser;
-    outFile_ = outFile;
+    out_file_ = out_file;
   }
 
   void Gen();
@@ -165,19 +165,19 @@ protected:
   void GenBuiltin(FuncCall* funcCall);
 
   void AllocObjects(Scope* scope,
-      const FuncDef::ParamList& params=FuncDef::ParamList());
+      const FuncDef::ParamList& param_list=FuncDef::ParamList());
 
   void CopyStruct(ObjectAddr desAddr, int width);
   
-  std::string ConsLabel(Constant* cons);
+  std::string ConsLabel(ASTConstant* cons);
 
   ParamLocations GetParamLocations(const TypeList& types, bool retStruct);
   void GetParamRegOffsets(int& gpOffset, int& fpOffset,
-      int& overflow, FuncType* funcType);
+      int& overflow, FuncType* func_type);
 
   //void Emit(const char* format, ...);
   void Emit(const std::string& str) {
-    fprintf(outFile_, "\t%s\n", str.c_str());
+    fprintf(out_file_, "\t%s\n", str.c_str());
   }
 
   void Emit(const std::string& inst,
@@ -227,7 +227,7 @@ protected:
   void EmitStore(const ObjectAddr& addr, Type* type);
   void EmitStore(const std::string& addr, Type* type);
   void EmitStore(const std::string& addr, int width, bool flt);
-  void EmitLoadBitField(const std::string& addr, Object* bitField);
+  void EmitLoadBitField(const std::string& addr, Object* bitfield);
   void EmitStoreBitField(const ObjectAddr& addr, Type* type);
   void EmitLoc(Expr* expr);
 
@@ -244,18 +244,18 @@ protected:
   void Exchange(bool flt);
 
 protected:
-  static const std::string* last_file;
+  static const std::string* last_file_;
   static Parser* parser_;
-  static FILE* outFile_;
+  static FILE* out_file_;
   static RODataList rodatas_;
   static int offset_;
 
   // The address that store the register %rdi,
   // when the return value is a struct/union
-  static int retAddrOffset_;
-  static FuncDef* curFunc_;
+  static int ret_addr_offset_;
+  static FuncDef* cur_func_;
 
-  static std::vector<Declaration*> staticDecls_;
+  static StaticDeclList static_decl_list_;
 };
 
 
@@ -269,7 +269,7 @@ public:
   virtual void VisitObject(Object* obj);
   virtual void VisitIdentifier(Identifier* ident);
 
-  virtual void VisitConditionalOp(ConditionalOp* condOp) {
+  virtual void VisitConditionalOp(ConditionalOp* cond_op) {
     assert(false);
   }
   
@@ -281,7 +281,7 @@ public:
     assert(false);
   }
 
-  virtual void VisitConstant(Constant* cons) {
+  virtual void VisitASTConstant(ASTConstant* cons) {
     assert(false);
   }
 

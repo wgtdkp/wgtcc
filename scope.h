@@ -6,10 +6,8 @@
 #include <string>
 #include <vector>
 
-
 class Identifier;
 class Token;
-
 
 enum class ScopeType {
   FILE,
@@ -21,15 +19,15 @@ enum class ScopeType {
 
 class Scope {
   friend class StructType;
-  typedef std::vector<Identifier*> TagList;
-  typedef std::map<std::string, Identifier*> IdentMap;
+  using TagList  = std::vector<Identifier*>;
+  using IdentMap = std::map<std::string, Identifier*>;
 
 public:
   static Scope* New(Scope* parent, ScopeType type);
   ~Scope() {}
-  Scope* Parent() { return parent_; }
-  void SetParent(Scope* parent) { parent_ = parent; }
-  ScopeType Type() const { return type_; }
+  Scope* parent() { return parent_; }
+  void set_parent(Scope* parent) { parent_ = parent; }
+  ScopeType type() const { return type_; }
 
   Identifier* Find(const Token* tok);
   Identifier* FindInCurScope(const Token* tok);
@@ -41,9 +39,9 @@ public:
   void Print();
 
   bool operator==(const Scope& other) const { return type_ == other.type_; }
-  IdentMap::iterator begin() { return identMap_.begin(); }
-  IdentMap::iterator end() { return identMap_.end(); }
-  size_t size() const { return identMap_.size(); }
+  IdentMap::iterator begin() { return ident_map_.begin(); }
+  IdentMap::iterator end() { return ident_map_.end(); }
+  size_t size() const { return ident_map_.size(); }
   void Insert(const std::string& name, Identifier* ident);
 
 private:
@@ -54,7 +52,9 @@ private:
   Identifier* FindInCurScope(const std::string& name);
   Identifier* FindTag(const std::string& name);
   Identifier* FindTagInCurScope(const std::string& name);
-  std::string TagName(const std::string& name) { return name + "@:tag"; }
+  static std::string TagName(const std::string& name) {
+    return name + "@:tag";
+  }
   static bool IsTagName(const std::string& name) {
     return name.size() > 5 && name[name.size() - 5] == '@';
   }
@@ -63,7 +63,7 @@ private:
 
   Scope* parent_;
   ScopeType type_;
-  IdentMap identMap_;
+  IdentMap ident_map_;
 };
 
 #endif

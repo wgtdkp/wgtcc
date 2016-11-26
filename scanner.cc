@@ -7,17 +7,17 @@
 void Scanner::Tokenize(TokenSequence& ts) {
   while (true) {
     auto tok = Scan();
-    if (tok->tag_ == Token::END) {
-      if (ts.Empty() || (ts.Back()->tag_ != Token::NEW_LINE)) {
+    if (tok->tag() == Token::END) {
+      if (ts.Empty() || (ts.Back()->tag() != Token::NEW_LINE)) {
         auto t = Token::New(*tok);
-        t->tag_ = Token::NEW_LINE;
-        t->str_ = "\n";
+        t->set_tag(Token::NEW_LINE);
+        t->set_str("\n");
         ts.InsertBack(t);
       }
       break;
     } else {
-      if (!ts.Empty() && ts.Back()->tag_ == Token::NEW_LINE)
-        tok->ws_ = true;
+      if (!ts.Empty() && ts.Back()->tag() == Token::NEW_LINE)
+        tok->set_ws(true);
       ts.InsertBack(tok);
     }
   }
@@ -26,8 +26,8 @@ void Scanner::Tokenize(TokenSequence& ts) {
 
 std::string Scanner::ScanHeadName(const Token* lhs, const Token* rhs) {
   std::string str;
-  const char* begin = lhs->loc_.Begin() + 1;
-  const char* end = rhs->loc_.Begin();
+  const char* begin = lhs->loc().Begin() + 1;
+  const char* end = rhs->loc().Begin();
   for (; begin != end; ++begin) {
     if (*begin == '\n' && str.back() == '\\')
       str.pop_back();
@@ -203,20 +203,20 @@ Token* Scanner::SkipIdentifier() {
 // Scan PP-Number 
 Token* Scanner::SkipNumber() {
   PutBack();
-  bool sawHexPrefix = false;
+  bool saw_hex_prefix = false;
   int tag = Token::I_CONSTANT;	
   auto c = Next();
   while (c == '.' || isdigit(c) || isalpha(c) || c == '_' || IsUCN(c)) {
     if (c == 'e' || c =='E' || c == 'p' || c == 'P') {
       if (!Try('-')) Try('+');
-      if (!((c == 'e' || c == 'E') && sawHexPrefix))
+      if (!((c == 'e' || c == 'E') && saw_hex_prefix))
         tag = Token::F_CONSTANT;
     }  else if (IsUCN(c)) {
       ScanEscaped();
     } else if (c == '.') {
       tag = Token::F_CONSTANT;
     } else if (c == 'x' || c == 'X') {
-      sawHexPrefix = true;
+      saw_hex_prefix = true;
     }
     c = Next();
   }
@@ -371,9 +371,9 @@ Encoding Scanner::ScanEncoding(int c) {
 }
 
 
-std::string* ReadFile(const std::string& fileName) {
-  FILE* f = fopen(fileName.c_str(), "r");
-  if (!f) Error("%s: No such file or directory", fileName.c_str());
+std::string* ReadFile(const std::string& filename) {
+  FILE* f = fopen(filename.c_str(), "r");
+  if (!f) Error("%s: No such file or directory", filename.c_str());
   auto text = new std::string;
   int c;
   while (EOF != (c = fgetc(f)))
@@ -387,11 +387,11 @@ int Scanner::Next() {
   int c = Peek();
   ++p_;
   if (c == '\n') {
-    ++loc_.line_;
-    loc_.column_ = 1;
-    loc_.lineBegin_ = p_;
+    ++loc_.line;
+    loc_.column = 1;
+    loc_.line_begin = p_;
   } else {
-    ++loc_.column_;
+    ++loc_.column;
   }
   return c;
 }
@@ -401,9 +401,9 @@ int Scanner::Peek() {
   int c = (uint8_t)(*p_);
   if (c == '\\' && p_[1] == '\n') {
     p_ += 2;
-    ++loc_.line_;
-    loc_.column_ = 1;
-    loc_.lineBegin_ = p_;
+    ++loc_.line;
+    loc_.column = 1;
+    loc_.line_begin = p_;
     return Peek();
   }
   return c;
@@ -416,23 +416,23 @@ int Scanner::Peek() {
 void Scanner::PutBack() {
   int c = *--p_;
   if (c == '\n' && p_[-1] == '\\') {
-    --loc_.line_;
+    --loc_.line;
     // lineBegin
     --p_;
     return PutBack();
   } else if (c == '\n') {
-    --loc_.line_;
+    --loc_.line;
   } else {
-    --loc_.column_;
+    --loc_.column;
   }
 }
 
 
 Token* Scanner::MakeToken(int tag) {
-  tok_.tag_ = tag;
-  auto& str = tok_.str_;
+  tok_.set_tag(tag);
+  auto& str = tok_.str();
   str.resize(0);
-  const char* p = tok_.loc_.lineBegin_ + tok_.loc_.column_ - 1;
+  const char* p = tok_.loc().line_begin + tok_.loc().column - 1;
   for (; p < p_; ++p) {
     if (p[0] == '\n' && p[-1] == '\\')
       str.pop_back();

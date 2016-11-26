@@ -9,12 +9,12 @@
 #include <unordered_map>
 
 
-extern std::string inFileName;
-extern std::string outFileName;
+extern std::string in_filename;
+extern std::string out_filename;
 
-typedef std::unordered_map<std::string, int> DirectiveMap;
+using DirectiveMap = std::unordered_map<std::string, int>;
 
-static const DirectiveMap directiveMap {
+static const DirectiveMap directive_map {
   {"if", Token::PP_IF},
   {"ifdef", Token::PP_IFDEF},
   {"ifndef", Token::PP_IFNDEF},
@@ -33,24 +33,24 @@ static const DirectiveMap directiveMap {
 
 
 /*
- * params:
+ * param_list:
  *  is: input token sequence
  *  os: output token sequence
  */
-void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
+void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool in_cond) {
   Macro* macro = nullptr;
   int direcitve;
   while (!is.Empty()) {
     UpdateFirstTokenLine(is);
     auto tok = is.Peek();
-    const auto& name = tok->str_;
+    const auto& name = tok->str();
 
     if ((direcitve = GetDirective(is)) != Token::INVALID) {
       ParseDirective(os, is, direcitve);
-    } else if (!inCond && !NeedExpand()) {
+    } else if (!in_cond && !NeedExpand()) {
       // Discards the token
       is.Next();
-    } else if (tok->hs_ && tok->hs_->find(name) != tok->hs_->end()) {
+    } else if (tok->hs() && tok->hs()->find(name) != tok->hs()->end()) {
       os.InsertBack(is.Next());
     } else if ((macro = FindMacro(name))) {
       is.Next();
@@ -59,34 +59,34 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
         HandleTheFileMacro(os, tok);
       } else if (name == "__LINE__") {
         HandleTheLineMacro(os, tok);
-      } else if (macro->ObjLike()) {
-        // Make a copy, as subst will change repSeq
-        auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
+      } else if (macro->obj_like()) {
+        // Make a copy, as subst will change rep_seq
+        auto rep_seq = macro->pep_seq(tok->loc().filename, tok->loc().line);
 
-        TokenList tokList;
-        TokenSequence repSeqSubsted(&tokList);
-        ParamMap paramMap;
+        TokenList tok_list;
+        TokenSequence rep_seq_substed(&tok_list);
+        ParamMap param_map;
         // TODO(wgtdkp): hideset is not right
         // Make a copy of hideset
         // HS U {name}
-        auto hs = tok->hs_ ? *tok->hs_: HideSet();
+        auto hs = tok->hs() ? *tok->hs(): HideSet();
         hs.insert(name);
-        Subst(repSeqSubsted, repSeq, tok->ws_, hs, paramMap);
-        is.InsertFront(repSeqSubsted);
+        Subst(rep_seq_substed, rep_seq, tok->ws(), hs, param_map);
+        is.InsertFront(rep_seq_substed);
       } else if (is.Try('(')) {
-        ParamMap paramMap;
-        auto rpar = ParseActualParam(is, macro, paramMap);
-        auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
-        //const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
-        TokenList tokList;
-        TokenSequence repSeqSubsted(&tokList);
+        ParamMap param_map;
+        auto rpar = ParseActualParam(is, macro, param_map);
+        auto rep_seq = macro->pep_seq(tok->loc().filename, tok->loc().line);
+        //const_cast<Token*>(rep_seq.Peek())->ws() = tok->ws();
+        TokenList tok_list;
+        TokenSequence rep_seq_substed(&tok_list);
 
         // (HS ^ HS') U {name}
         // Use HS' U {name} directly                
-        auto hs = rpar->hs_ ? *rpar->hs_: HideSet();
+        auto hs = rpar->hs() ? *rpar->hs(): HideSet();
         hs.insert(name);
-        Subst(repSeqSubsted, repSeq, tok->ws_, hs, paramMap);
-        is.InsertFront(repSeqSubsted);
+        Subst(rep_seq_substed, rep_seq, tok->ws(), hs, param_map);
+        is.InsertFront(rep_seq_substed);
       } else {
         os.InsertBack(tok);
       }
@@ -98,10 +98,10 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
 
 
 static bool FindActualParam(TokenSequence& ap,
-                            ParamMap& params,
+                            ParamMap& param_list,
                             const std::string& fp) {
-  auto res = params.find(fp);
-  if (res == params.end()) {
+  auto res = param_list.find(fp);
+  if (res == param_list.end()) {
     return false;
   }
   ap.Copy(res->second);
@@ -111,18 +111,18 @@ static bool FindActualParam(TokenSequence& ap,
 
 void Preprocessor::Subst(TokenSequence& os,
                          TokenSequence is,
-                         bool leadingWS,
+                         bool leading_ws,
                          const HideSet& hs,
-                         ParamMap& params) {
+                         ParamMap& param_list) {
   TokenSequence ap;
 
   while (!is.Empty()) {
-    if (is.Test('#') && FindActualParam(ap, params, is.Peek2()->str_)) {
+    if (is.Test('#') && FindActualParam(ap, param_list, is.Peek2()->str())) {
       is.Next(); is.Next();
       auto tok = Stringize(ap);
       os.InsertBack(tok);
     } else if (is.Test(Token::DSHARP)
-        && FindActualParam(ap, params, is.Peek2()->str_)) {
+        && FindActualParam(ap, param_list, is.Peek2()->str())) {
       is.Next(); is.Next();
       if (!ap.Empty())
         Glue(os, ap);
@@ -130,22 +130,22 @@ void Preprocessor::Subst(TokenSequence& os,
       is.Next();
       auto tok = is.Next();
       Glue(os, tok);
-    } else if (is.Peek2()->tag_ == Token::DSHARP 
-        && FindActualParam(ap, params, is.Peek()->str_)) {
+    } else if (is.Peek2()->tag() == Token::DSHARP 
+        && FindActualParam(ap, param_list, is.Peek()->str())) {
       is.Next();
 
       if (ap.Empty()) {
         is.Next();
-        if (FindActualParam(ap, params, is.Peek()->str_)) {
+        if (FindActualParam(ap, param_list, is.Peek()->str())) {
           is.Next();
           os.InsertBack(ap);
         }
       } else {
         os.InsertBack(ap);
       }
-    } else if (FindActualParam(ap, params, is.Peek()->str_)) {
+    } else if (FindActualParam(ap, param_list, is.Peek()->str())) {
       auto tok = is.Next();
-      const_cast<Token*>(ap.Peek())->ws_ = tok->ws_;
+      const_cast<Token*>(ap.Peek())->set_ws(tok->ws());
       Expand(os, ap);
     } else {
       os.InsertBack(is.Peek());
@@ -153,13 +153,13 @@ void Preprocessor::Subst(TokenSequence& os,
     }
   }
 
-  os.FinalizeSubst(leadingWS, hs);
+  os.FinalizeSubst(leading_ws, hs);
 }
 
 
 void Preprocessor::Glue(TokenSequence& os, const Token* tok) {
-  TokenList tokList {tok};
-  TokenSequence is(&tokList);
+  TokenList tok_list {tok};
+  TokenSequence is(&tok_list);
   Glue(os, is);
 }
 
@@ -168,9 +168,9 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is) {
   auto lhs = os.Back();
   auto rhs = is.Peek();
 
-  auto str = new std::string(lhs->str_ + rhs->str_);
+  auto str = new std::string(lhs->str() + rhs->str());
   TokenSequence ts;
-  Scanner scanner(str, lhs->loc_);
+  Scanner scanner(str, lhs->loc());
   scanner.Tokenize(ts);
 
   is.Next();
@@ -181,10 +181,10 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is) {
     // How to handle it???
   } else {
     os.PopBack();
-    auto newTok = const_cast<Token*>(ts.Next());
-    newTok->ws_ = lhs->ws_;
-    newTok->hs_ = lhs->hs_;
-    os.InsertBack(newTok);
+    auto new_tok = const_cast<Token*>(ts.Next());
+    new_tok->set_ws(lhs->ws());
+    new_tok->set_hs(const_cast<HideSet*>(lhs->hs()));
+    os.InsertBack(new_tok);
   }
 
   if (!ts.Empty()) {
@@ -204,22 +204,22 @@ const Token* Preprocessor::Stringize(TokenSequence is) {
     auto tok = is.Next();
     // Have preceding white space
     // and is not the first token of the sequence
-    str.append(tok->ws_ && str.size() > 1, ' ');
-    if (tok->tag_ == Token::LITERAL || tok->tag_ == Token::C_CONSTANT) {
-      for (auto c: tok->str_) {
+    str.append(tok->ws() && str.size() > 1, ' ');
+    if (tok->tag() == Token::LITERAL || tok->tag() == Token::C_CONSTANT) {
+      for (auto c: tok->str()) {
         if (c == '"' || c == '\\')
           str.push_back('\\');
         str.push_back(c);
       }
     } else {
-      str += tok->str_;
+      str += tok->str();
     }
   }
   str.push_back('\"');
 
   auto ret = Token::New(*is.Peek());
-  ret->tag_ = Token::LITERAL;
-  ret->str_ = str;
+  ret->set_tag(Token::LITERAL);
+  ret->set_str(str);
   return ret;
 }
 
@@ -227,17 +227,17 @@ const Token* Preprocessor::Stringize(TokenSequence is) {
 void Preprocessor::Finalize(TokenSequence os) {
   while (!os.Empty()) {
     auto tok = os.Next();
-    if (tok->tag_ == Token::INVALID) {
+    if (tok->tag() == Token::INVALID) {
       Error(tok, "stray token in program");
-    } else if (tok->tag_ == Token::IDENTIFIER) {
-      auto tag = Token::KeyWordTag(tok->str_);
+    } else if (tok->tag() == Token::IDENTIFIER) {
+      auto tag = Token::KeyWordTag(tok->str());
       if (Token::IsKeyWord(tag)) {
-        const_cast<Token*>(tok)->tag_ = tag;
+        const_cast<Token*>(tok)->set_tag(tag);
       } else {
-        const_cast<Token*>(tok)->str_ = Scanner(tok).ScanIdentifier();
+        const_cast<Token*>(tok)->set_str(Scanner(tok).ScanIdentifier());
       }
     }
-    if (!tok->loc_.fileName_) {
+    if (!tok->loc().filename) {
       assert(false);
     }
   }
@@ -249,14 +249,14 @@ void Preprocessor::Process(TokenSequence& os) {
   TokenSequence is;
 
   // Add source file
-  IncludeFile(is, &inFileName);
+  IncludeFile(is, &in_filename);
 
   // Becareful about the include order, as include file always puts
   // the file to the header of the token sequence
-  auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false, inFileName);
-  if (!wgtccHeaderFile)
+  auto wgtcc_header_file = SearchFile("wgtcc.h", true, false, in_filename);
+  if (!wgtcc_header_file)
     Error("can't find header files, try reinstall wgtcc");
-  IncludeFile(is, wgtccHeaderFile);
+  IncludeFile(is, wgtcc_header_file);
   Expand(os, is);
   Finalize(os);
 }
@@ -264,18 +264,18 @@ void Preprocessor::Process(TokenSequence& os) {
 
 const Token* Preprocessor::ParseActualParam(TokenSequence& is,
                                             Macro* macro,
-                                            ParamMap& paramMap) {
+                                            ParamMap& param_map) {
   const Token* ret;
-  if (macro->Params().size() == 0 && !macro->Variadic()) {
+  if (macro->param_list().size() == 0 && !macro->variadic()) {
     ret = is.Next();
-    if (ret->tag_ != ')')
+    if (ret->tag() != ')')
       Error(ret, "too many arguments");
     return ret;
   }
 
   //TokenSequence ts(is);
   //TokenSequence ap(is);
-  auto fp = macro->Params().begin();
+  auto fp = macro->param_list().begin();
   TokenSequence ap;
 
   int cnt = 1;
@@ -289,15 +289,15 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
     
     if ((is.Test(',') && cnt == 1) || cnt == 0) {
 
-      if (fp == macro->Params().end()) {
-        if (!macro->Variadic())
+      if (fp == macro->param_list().end()) {
+        if (!macro->variadic())
           Error(is.Peek(), "too many arguments");
         if (cnt == 0)
-          paramMap.insert(std::make_pair("__VA_ARGS__", ap));
+          param_map.insert(std::make_pair("__VA_ARGS__", ap));
         else
           ap.InsertBack(is.Peek());
       } else {
-        paramMap.insert(std::make_pair(*fp, ap));
+        param_map.insert(std::make_pair(*fp, ap));
         ap = TokenSequence();
         ++fp;
       }
@@ -307,8 +307,8 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
     ret = is.Next();
   }
 
-  if (fp != macro->Params().end())
-    Error(is.Peek(), "too few params");
+  if (fp != macro->param_list().end())
+    Error(is.Peek(), "too few param_list");
   return ret;
 }
 
@@ -317,14 +317,14 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is) {
   TokenSequence os;
   while (!is.Empty()) {
     auto tok = is.Next();
-    if (tok->tag_ == Token::IDENTIFIER && tok->str_ == "defined") {
+    if (tok->tag() == Token::IDENTIFIER && tok->str() == "defined") {
       auto hasPar = false;
       if (is.Try('(')) hasPar = true;
       tok = is.Expect(Token::IDENTIFIER);
       auto cons = Token::New(*tok);
       if (hasPar) is.Expect(')');
-      cons->tag_ = Token::I_CONSTANT;
-      cons->str_ = FindMacro(tok->str_) ? "1": "0";
+      cons->set_tag(Token::I_CONSTANT);
+      cons->set_str(FindMacro(tok->str()) ? "1": "0");
       os.InsertBack(cons);
     } else {
       os.InsertBack(tok);
@@ -338,10 +338,10 @@ void Preprocessor::ReplaceIdent(TokenSequence& is) {
   TokenSequence os;
   while (!is.Empty()) {
     auto tok = is.Next();
-    if (tok->tag_ == Token::IDENTIFIER) {
+    if (tok->tag() == Token::IDENTIFIER) {
       auto cons = Token::New(*tok);
-      cons->tag_ = Token::I_CONSTANT;
-      cons->str_ = "0";
+      cons->set_tag(Token::I_CONSTANT);
+      cons->set_str("0");
       os.InsertBack(cons);
     } else {
       os.InsertBack(tok);
@@ -359,11 +359,11 @@ int Preprocessor::GetDirective(TokenSequence& is) {
   if (is.IsBeginOfLine())
     return Token::PP_EMPTY;
 
-  auto tag = is.Peek()->tag_;
+  auto tag = is.Peek()->tag();
   if (tag == Token::IDENTIFIER || Token::IsKeyWord(tag)) {
-    auto str = is.Peek()->str_;
-    auto res = directiveMap.find(str);
-    if (res == directiveMap.end())
+    auto str = is.Peek()->str();
+    auto res = directive_map.find(str);
+    if (res == directive_map.end())
       return Token::PP_NONE;
     return res->second;
   }
@@ -446,22 +446,22 @@ void Preprocessor::ParseLine(TokenSequence ls) {
   int line = 0;
   size_t end = 0;
   try {
-    line = stoi(tok->str_, &end, 10);
+    line = stoi(tok->str(), &end, 10);
   } catch (const std::out_of_range oor) {
     Error(tok, "line number out of range");
   }
-  if (line == 0 || end != tok->str_.size()) {
+  if (line == 0 || end != tok->str().size()) {
     Error(tok, "illegal line number");
   }
   
-  curLine_ = line;
-  lineLine_ = directive->loc_.line_;
+  cur_line_ = line;
+  line_line_ = directive->loc().line;
   if (ts.Empty())
     return;
   tok = ts.Expect(Token::LITERAL);
   
   // Enusure "s-char-sequence"
-  if (tok->str_.front() != '"' || tok->str_.back() != '"') {
+  if (tok->str().front() != '"' || tok->str().back() != '"') {
     Error(tok, "expect s-char-sequence");
   }
 }
@@ -469,7 +469,7 @@ void Preprocessor::ParseLine(TokenSequence ls) {
 
 void Preprocessor::ParseIf(TokenSequence ls) {
   if (!NeedExpand()) {
-    ppCondStack_.push({Token::PP_IF, false, false});
+    pp_cond_stack_.push({Token::PP_IF, false, false});
     return;
   }
 
@@ -487,13 +487,13 @@ void Preprocessor::ParseIf(TokenSequence ls) {
   Parser parser(ts);
   auto expr = parser.ParseExpr();
   int cond = Evaluator<long>().Eval(expr);
-  ppCondStack_.push({Token::PP_IF, NeedExpand(), cond});
+  pp_cond_stack_.push({Token::PP_IF, NeedExpand(), cond});
 }
 
 
 void Preprocessor::ParseIfdef(TokenSequence ls) {
   if (!NeedExpand()) {
-    ppCondStack_.push({Token::PP_IFDEF, false, false});
+    pp_cond_stack_.push({Token::PP_IFDEF, false, false});
     return;
   }
 
@@ -503,47 +503,47 @@ void Preprocessor::ParseIfdef(TokenSequence ls) {
     Error(ls.Peek(), "expect new line");
   }
 
-  int cond = FindMacro(ident->str_) != nullptr;
+  int cond = FindMacro(ident->str()) != nullptr;
 
-  ppCondStack_.push({Token::PP_IFDEF, NeedExpand(), cond});
+  pp_cond_stack_.push({Token::PP_IFDEF, NeedExpand(), cond});
 }
 
 
 void Preprocessor::ParseIfndef(TokenSequence ls) {
   ParseIfdef(ls);
-  auto top = ppCondStack_.top();
-  ppCondStack_.pop();
+  auto top = pp_cond_stack_.top();
+  pp_cond_stack_.pop();
   top.tag_ = Token::PP_IFNDEF;
   top.cond_ = !top.cond_;
   
-  ppCondStack_.push(top);
+  pp_cond_stack_.push(top);
 }
 
 
 void Preprocessor::ParseElif(TokenSequence ls) {
   auto directive = ls.Next(); // Skip the directive
 
-  if (ppCondStack_.empty())
+  if (pp_cond_stack_.empty())
     Error(directive, "unexpected 'elif' directive");
-  auto top = ppCondStack_.top();
+  auto top = pp_cond_stack_.top();
   if (top.tag_ == Token::PP_ELSE)
     Error(directive, "unexpected 'elif' directive");
 
-  while (!ppCondStack_.empty()) {
-    top = ppCondStack_.top();
+  while (!pp_cond_stack_.empty()) {
+    top = pp_cond_stack_.top();
     if (top.tag_ == Token::PP_IF ||
         top.tag_ == Token::PP_IFDEF ||
         top.tag_ == Token::PP_IFNDEF ||
         top.cond_) {
       break;
     }
-    ppCondStack_.pop();
+    pp_cond_stack_.pop();
   }
-  if (ppCondStack_.empty())
+  if (pp_cond_stack_.empty())
     Error(directive, "unexpected 'elif' directive");
   auto enabled = top.enabled_;
   if (!enabled) {
-    ppCondStack_.push({Token::PP_ELIF, false, false});
+    pp_cond_stack_.push({Token::PP_ELIF, false, false});
     return;
   }
 
@@ -561,7 +561,7 @@ void Preprocessor::ParseElif(TokenSequence ls) {
   int cond = Evaluator<long>().Eval(expr);
 
   cond = cond && !top.cond_;
-  ppCondStack_.push({Token::PP_ELIF, true, cond});
+  pp_cond_stack_.push({Token::PP_ELIF, true, cond});
 }
 
 
@@ -570,28 +570,28 @@ void Preprocessor::ParseElse(TokenSequence ls) {
   if (!ls.Empty())
     Error(ls.Peek(), "expect new line");
 
-  if (ppCondStack_.empty())
+  if (pp_cond_stack_.empty())
     Error(directive, "unexpected 'else' directive");
-  auto top = ppCondStack_.top();  
+  auto top = pp_cond_stack_.top();  
   if (top.tag_ == Token::PP_ELSE)
     Error(directive, "unexpected 'else' directive");
   
-  while (!ppCondStack_.empty()) {
-    top = ppCondStack_.top();
+  while (!pp_cond_stack_.empty()) {
+    top = pp_cond_stack_.top();
     if (top.tag_ == Token::PP_IF ||
         top.tag_ == Token::PP_IFDEF ||
         top.tag_ == Token::PP_IFNDEF ||
         top.cond_) {
       break;
     }
-    ppCondStack_.pop();
+    pp_cond_stack_.pop();
   }
-  if (ppCondStack_.empty())
+  if (pp_cond_stack_.empty())
     Error(directive, "unexpected 'else' directive");
 
   auto cond = !top.cond_;
   auto enabled = top.enabled_;
-  ppCondStack_.push({Token::PP_ELSE, enabled, cond});
+  pp_cond_stack_.push({Token::PP_ELSE, enabled, cond});
 }
 
 
@@ -600,9 +600,9 @@ void Preprocessor::ParseEndif(TokenSequence ls) {
   if (!ls.Empty())
     Error(ls.Peek(), "expect new line");
 
-  while ( !ppCondStack_.empty()) {
-    auto top = ppCondStack_.top();
-    ppCondStack_.pop();
+  while ( !pp_cond_stack_.empty()) {
+    auto top = pp_cond_stack_.top();
+    pp_cond_stack_.pop();
 
     if (top.tag_ == Token::PP_IF
         || top.tag_ == Token::PP_IFDEF
@@ -611,14 +611,14 @@ void Preprocessor::ParseEndif(TokenSequence ls) {
     }
   }
 
-  if (ppCondStack_.empty())
+  if (pp_cond_stack_.empty())
     Error(directive, "unexpected 'endif' directive");
 }
 
 
 // Have Read the '#'
 void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
-  bool next = ls.Next()->str_ == "include_next"; // Skip 'include'
+  bool next = ls.Next()->str() == "include_next"; // Skip 'include'
   if (!ls.Test(Token::LITERAL) && !ls.Test('<')) {
     TokenSequence ts;
     Expand(ts, ls, true);
@@ -626,25 +626,25 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
   }
   
   auto tok = ls.Next();
-  if (tok->tag_ == Token::LITERAL) {
+  if (tok->tag() == Token::LITERAL) {
     if (!ls.Empty()) {
       Error(ls.Peek(), "expect new line");
     }
-    std::string fileName;
-    Scanner(tok).ScanLiteral(fileName);
-    auto fullPath = SearchFile(fileName, false, next, *tok->loc_.fileName_);
-    if (fullPath == nullptr)
-      Error(tok, "%s: No such file or directory", fileName.c_str());
+    std::string filename;
+    Scanner(tok).ScanLiteral(filename);
+    auto full_path = SearchFile(filename, false, next, *tok->loc().filename);
+    if (full_path == nullptr)
+      Error(tok, "%s: No such file or directory", filename.c_str());
 
-    IncludeFile(is, fullPath);
-  } else if (tok->tag_ == '<') {
+    IncludeFile(is, full_path);
+  } else if (tok->tag() == '<') {
     auto lhs = tok;
     auto rhs = tok;
     int cnt = 1;
     while (!(rhs = ls.Next())->IsEOF()) {
-      if (rhs->tag_ == '<')
+      if (rhs->tag() == '<')
         ++cnt;
-      else if (rhs->tag_ == '>')
+      else if (rhs->tag() == '>')
         --cnt;
       if (cnt == 0)
         break;
@@ -654,12 +654,12 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
     if (!ls.Empty())
       Error(ls.Peek(), "expect new line");
 
-    const auto& fileName = Scanner::ScanHeadName(lhs, rhs);
-    auto fullPath = SearchFile(fileName, true, next, *tok->loc_.fileName_);
-    if (fullPath == nullptr) {
-      Error(tok, "%s: No such file or directory", fileName.c_str());
+    const auto& filename = Scanner::ScanHeadName(lhs, rhs);
+    auto full_path = SearchFile(filename, true, next, *tok->loc().filename);
+    if (full_path == nullptr) {
+      Error(tok, "%s: No such file or directory", filename.c_str());
     }
-    IncludeFile(is, fullPath);
+    IncludeFile(is, full_path);
   } else {
     Error(tok, "expect filename(string or in '<>')");
   }
@@ -673,7 +673,7 @@ void Preprocessor::ParseUndef(TokenSequence ls) {
   if (!ls.Empty())
     Error(ls.Peek(), "expect new line");
 
-  RemoveMacro(ident->str_);
+  RemoveMacro(ident->str());
 }
 
 
@@ -682,39 +682,39 @@ void Preprocessor::ParseDef(TokenSequence ls) {
   auto ident = ls.Expect(Token::IDENTIFIER);
 
   auto tok = ls.Peek();
-  if (tok->tag_ == '(' && !tok->ws_) {
+  if (tok->tag() == '(' && !tok->ws()) {
     // There is no white space between ident and '('
     // Hence, we are defining function-like macro
 
     // Parse Identifier list
     ls.Next(); // Skip '('
-    ParamList params;
-    auto variadic = ParseIdentList(params, ls);
-    AddMacro(ident->str_, Macro(variadic, params, ls));
+    ParamList param_list;
+    auto variadic = ParseIdentList(param_list, ls);
+    AddMacro(ident->str(), Macro(variadic, param_list, ls));
   } else {
-    AddMacro(ident->str_, Macro(ls));
+    AddMacro(ident->str(), Macro(ls));
   }
 }
 
 
-bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is) {
+bool Preprocessor::ParseIdentList(ParamList& param_list, TokenSequence& is) {
   const Token* tok = is.Peek();
   while (!is.Empty()) {
     tok = is.Next();
-    if (tok->tag_ == ')') {
+    if (tok->tag() == ')') {
       return false;
-    } else if (tok->tag_ == Token::ELLIPSIS) {
+    } else if (tok->tag() == Token::ELLIPSIS) {
       is.Expect(')');
       return true;
-    } else if (tok->tag_ != Token::IDENTIFIER) {
+    } else if (tok->tag() != Token::IDENTIFIER) {
       Error(tok, "expect identifier");
     }
 
-    for (const auto& param: params) {
-      if (param == tok->str_)
+    for (const auto& param: param_list) {
+      if (param == tok->str())
         Error(tok, "duplicated param");
     }
-    params.push_back(tok->str_);
+    param_list.push_back(tok->str());
 
     if (!is.Try(',')) {
       is.Expect(')');
@@ -728,9 +728,9 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is) {
 
 
 void Preprocessor::IncludeFile(TokenSequence& is,
-                               const std::string* fileName) {
-  TokenSequence ts {is.tokList_, is.begin_, is.begin_};
-  Scanner scanner(ReadFile(*fileName), fileName);
+                               const std::string* filename) {
+  TokenSequence ts {is.tok_list_, is.begin_, is.begin_};
+  Scanner scanner(ReadFile(*filename), filename);
   scanner.Tokenize(ts);
   
   // We done including header file
@@ -747,18 +747,18 @@ static std::string GetDir(const std::string& path) {
 
 
 std::string* Preprocessor::SearchFile(const std::string& name,
-                                      const bool libHeader,
+                                      const bool lib_header,
                                       bool next,
-                                      const std::string& curPath) {
-  if (libHeader && !next) {
-    searchPaths_.push_back(GetDir(curPath));
+                                      const std::string& cur_path) {
+  if (lib_header && !next) {
+    path_list_.push_back(GetDir(cur_path));
   } else {
-    searchPaths_.push_front(GetDir(curPath));
+    path_list_.push_front(GetDir(cur_path));
   }
 
   PathList::iterator begin, end;
-  auto iter = searchPaths_.begin();
-  for (; iter != searchPaths_.end(); ++iter) {
+  auto iter = path_list_.begin();
+  for (; iter != path_list_.end(); ++iter) {
     auto dd = open(iter->c_str(), O_RDONLY);
     if (dd == -1) // TODO(wgtdkp): or ensure it before preprocessing
       continue;
@@ -770,17 +770,17 @@ std::string* Preprocessor::SearchFile(const std::string& name,
       //close(fd);
       auto path = *iter + name;
       if (next) {
-        if (path != curPath)
+        if (path != cur_path)
           continue;
         else
           next = false;
       } else {
-        if (path == curPath)
+        if (path == cur_path)
           continue;
-        if (libHeader && !next)
-          searchPaths_.pop_back();
+        if (lib_header && !next)
+          path_list_.pop_back();
         else
-          searchPaths_.pop_front();
+          path_list_.pop_front();
         return new std::string(path);
       }
     } else if (errno == EMFILE) {
@@ -793,11 +793,11 @@ std::string* Preprocessor::SearchFile(const std::string& name,
 
 void Preprocessor::AddMacro(const std::string& name,
                             std::string* text,
-                            bool preDef) {
+                            bool pre_def) {
   TokenSequence ts;
   Scanner scanner(text);
   scanner.Tokenize(ts);
-  Macro macro(ts, preDef);
+  Macro macro(ts, pre_def);
 
   AddMacro(name, macro);
 }
@@ -836,37 +836,37 @@ void Preprocessor::Init() {
 
 void Preprocessor::HandleTheFileMacro(TokenSequence& os, const Token* macro) {
   auto file = Token::New(*macro);
-  file->tag_ = Token::LITERAL;
-  file->str_ = "\"" + *macro->loc_.fileName_ + "\"";
+  file->set_tag(Token::LITERAL);
+  file->set_str("\"" + *macro->loc().filename + "\"");
   os.InsertBack(file);
 }
 
 
 void Preprocessor::HandleTheLineMacro(TokenSequence& os, const Token* macro) {
   auto line = Token::New(*macro);
-  line->tag_ = Token::I_CONSTANT;
-  line->str_ = std::to_string(macro->loc_.line_);
+  line->set_tag(Token::I_CONSTANT);
+  line->set_str(std::to_string(macro->loc().line));
   os.InsertBack(line);
 }
 
 
 void Preprocessor::UpdateFirstTokenLine(TokenSequence ts) {
-  auto loc = ts.Peek()->loc_;
-  loc.line_ = curLine_  + loc.line_ - lineLine_ - 1;
+  auto loc = ts.Peek()->loc();
+  loc.line = cur_line_  + loc.line - line_line_ - 1;
   ts.UpdateHeadLocation(loc);
 }
 
 
-TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line) {
+TokenSequence Macro::pep_seq(const std::string* filename, unsigned line) {
   // Update line
   TokenList tl;
   TokenSequence ret(&tl);
-  ret.Copy(repSeq_);
+  ret.Copy(rep_seq_);
   auto ts = ret;
   while (!ts.Empty()) {
-    auto loc = ts.Peek()->loc_;
-    loc.fileName_ = fileName;
-    loc.line_ = line;
+    auto loc = ts.Peek()->loc();
+    loc.filename = filename;
+    loc.line = line;
     ts.UpdateHeadLocation(loc);
     ts.Next();
   }
@@ -879,5 +879,5 @@ void Preprocessor::AddSearchPath(std::string path) {
     path += "/";
   if (path[0] != '/')
     path = "./" + path;
-  searchPaths_.push_front(path);
+  path_list_.push_front(path);
 }

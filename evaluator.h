@@ -35,11 +35,11 @@ public:
     Error(obj, "expect constant expression");
   }
 
-  virtual void VisitConstant(Constant* cons) {
-    if (cons->Type()->IsFloat()) {
-      val_ = static_cast<T>(cons->FVal());
-    } else if (cons->Type()->IsInteger()) {
-      val_ = static_cast<T>(cons->IVal());
+  virtual void VisitASTConstant(ASTConstant* cons) {
+    if (cons->type()->IsFloat()) {
+      val_ = static_cast<T>(cons->fval());
+    } else if (cons->type()->IsInteger()) {
+      val_ = static_cast<T>(cons->ival());
     } else {
       assert(false);
     }
@@ -96,7 +96,7 @@ public:
     addr_.offset_ = 0;
   }
 
-  virtual void VisitConstant(Constant* cons);
+  virtual void VisitASTConstant(ASTConstant* cons);
   virtual void VisitTempVar(TempVar* tempVar) {
     assert(false);
   }

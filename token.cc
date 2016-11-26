@@ -4,9 +4,9 @@
 #include "parser.h"
 
 
-static MemPoolImp<Token> TokenPool;
+static MemPoolImp<Token> token_pool;
 
-const std::unordered_map<std::string, int> Token::kwTypeMap_ {
+const std::unordered_map<std::string, int> Token::kw_type_map_ {
   { "auto", Token::AUTO },
   { "break", Token::BREAK },
   { "case", Token::CASE },
@@ -54,7 +54,7 @@ const std::unordered_map<std::string, int> Token::kwTypeMap_ {
   { "_Thread_local", Token::THREAD },
 };
 
-const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
+const std::unordered_map<int, const char*> Token::tag_lexeme_map_ {
   { '(', "(" },
   { ')', ")" },
   { '[', "[" },
@@ -159,7 +159,7 @@ const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
 
 
 Token* Token::New(int tag) {
-  return new (TokenPool.Alloc()) Token(tag);
+  return new (token_pool.Alloc()) Token(tag);
 }
 
 
@@ -172,20 +172,20 @@ Token* Token::New(int tag,
                   const SourceLocation& loc,
                   const std::string& str,
                   bool ws) {
-  return new (TokenPool.Alloc()) Token(tag, loc, str, ws);
+  return new (token_pool.Alloc()) Token(tag, loc, str, ws);
 }
 
 bool TokenSequence::Empty() {
-  return Peek()->tag_ == Token::END;
+  return Peek()->tag() == Token::END;
 }
 
 
 TokenSequence TokenSequence::GetLine() {
   auto begin = begin_;
-  while (begin_ != end_ && (*begin_)->tag_ != Token::NEW_LINE)
+  while (begin_ != end_ && (*begin_)->tag() != Token::NEW_LINE)
     ++begin_;
   auto end = begin_;
-  return {tokList_, begin, end};
+  return {tok_list_, begin, end};
 }
 
 
@@ -194,7 +194,7 @@ TokenSequence TokenSequence::GetLine() {
  * Called only after we have saw '#' in the token sequence.
  */ 
 bool TokenSequence::IsBeginOfLine() const {
-  if (begin_ == tokList_->begin())
+  if (begin_ == tok_list_->begin())
     return true;
 
   auto pre = begin_;
@@ -203,26 +203,26 @@ bool TokenSequence::IsBeginOfLine() const {
   // We do not insert a newline at the end of a source file.
   // Thus if two token have different filename, the second is 
   // the begin of a line.
-  return ((*pre)->tag_ == Token::NEW_LINE
-       || (*pre)->loc_.fileName_ != (*begin_)->loc_.fileName_);
+  return ((*pre)->tag() == Token::NEW_LINE
+       || (*pre)->loc().filename != (*begin_)->loc().filename);
 }
 
 const Token* TokenSequence::Peek() {
   static auto eof = Token::New(Token::END);
-  if (begin_ != end_ && (*begin_)->tag_ == Token::NEW_LINE) {
+  if (begin_ != end_ && (*begin_)->tag() == Token::NEW_LINE) {
     ++begin_;
     return Peek();
   } else if (begin_ == end_) {
-    if (end_ != tokList_->begin())
+    if (end_ != tok_list_->begin())
       *eof = *Back();
-    eof->tag_ = Token::END;
+    eof->set_tag(Token::END);
     return eof;
-  } else if (parser_ && (*begin_)->tag_ == Token::IDENTIFIER
-      && (*begin_)->str_ == "__func__") {
-    auto fileName = Token::New(*(*begin_));
-    fileName->tag_ = Token::LITERAL;
-    fileName->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
-    *begin_ = fileName;
+  } else if (parser_ && (*begin_)->tag() == Token::IDENTIFIER
+      && (*begin_)->str() == "__func__") {
+    auto filename = Token::New(*(*begin_));
+    filename->set_tag(Token::LITERAL);
+    filename->str() = "\"" + parser_->CurFunc()->Name() + "\"";
+    *begin_ = filename;
   }
   return *begin_;
 }
@@ -232,27 +232,27 @@ const Token* TokenSequence::Expect(int expect) {
   auto tok = Peek();
   if (!Try(expect)) {
     Error(tok, "'%s' expected, but got '%s'",
-        Token::Lexeme(expect), tok->str_.c_str());
+        Token::Lexeme(expect), tok->str().c_str());
   }
   return tok;
 }
 
 
 void TokenSequence::Print(FILE* fp) const {
-  unsigned lastLine = 0;
+  unsigned last_line = 0;
   auto ts = *this;
   while (!ts.Empty()) {
     auto tok = ts.Next();
-    if (lastLine != tok->loc_.line_) {
+    if (last_line != tok->loc().line) {
       fputs("\n", fp);
-      for (unsigned i = 0; i < tok->loc_.column_; ++i)
+      for (unsigned i = 0; i < tok->loc().column; ++i)
         fputc(' ', fp);
-    } else if (tok->ws_) {
+    } else if (tok->ws()) {
       fputc(' ', fp);
     }
-    fputs(tok->str_.c_str(), fp);
+    fputs(tok->str().c_str(), fp);
     fflush(fp);
-    lastLine = tok->loc_.line_;
+    last_line = tok->loc().line;
   }
   fputs("\n", fp);
 }

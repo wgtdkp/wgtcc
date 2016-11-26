@@ -1,10 +1,10 @@
 #include "translator.h"
 
-TACList TACTranslator::tacList_;
+TACList Translator::tac_list_;
 
 
-void TACTranslator::VisitBinaryOp(BinaryOp* binary) {
-  auto op = binary->op_;
+void Translator::VisitBinaryOp(BinaryOp* binary) {
+  auto op = binary->op();
 
   if (op == '=') {
     return GenAssignOp(binary);
@@ -13,75 +13,182 @@ void TACTranslator::VisitBinaryOp(BinaryOp* binary) {
   } else if (op == Token::LOGICAL_OR) {
     return GenOrOp(binary);
   } else if (op == '.') {
-    return GenMemberRefOp(binary);
+    //return GenMemberRefOp(binary);
   } else if (op == ',') {
-    return GenCommaOp(binary);
-  } else if (binary->lhs_->Type()->ToPointer() &&
+    //return GenCommaOp(binary);
+  } else if (binary->lhs()->type()->ToPointer() &&
              (op == '+' || op == '-')) {
-    return GenPointerArithm(binary);
+    //return GenPointerArithm(binary);
   }
 
-  auto lhs = TACTranslator().Visit(binary->lhs_);
-  auto rhs = TACTranslator().Visit(binary->rhs_);
-  tac::Operator tacop;
+  //auto lhs = Translator().Visit(binary->lhs());
+  //auto rhs = Translator().Visit(binary->rhs());
+  //Operator tacop;
   switch (op) {
 
   }
 }
 
 
-void TACTranslator::GenAssignOp(BinaryOp* assign) {
-  auto lhs = LValGenerator().Visit(assign->lhs_);
-  auto rhs = TACTranslator().Visit(assign->rhs_);
-  operand_ = tac::TAC::New(tac::Operator::ASSIGN, lhs, rhs);
-  Gen(operand_);
+void Translator::GenAssignOp(BinaryOp* assign) {
+  //auto code = LValTranslator().Visit(assign->lhs());
+  //auto lhs = LValGenerator().Visit(assign->lhs());
+  //auto rhs = Translator().Visit(assign->rhs());
+  //operand_ = TAC::New(Operator::ASSIGN, lhs, rhs);
+  //Gen(operand_);
 }
 
-// TODO(wgtdkp): elimit construction of labelEnd
-void TACTranslator::GenAndOp(BinaryOp* andOp) {
-  auto t = tac::Temporary::New(andOp->Type());
-  auto lhs = TACTranslator().Visit(andOp->lhs_);
+// TODO(wgtdkp): elimit construction of label_end
+void Translator::GenAndOp(BinaryOp* and_op) {
+  auto t = Temporary::New(and_op->type());
+  auto lhs = Translator().Visit(and_op->lhs());
   
-  auto labelEnd = tac::TAC::NewLabel();
-  auto assignZero = tac::TAC::New(t, tac::Constant::Zero());
-  auto assignOne = tac::TAC::New(t, tac::Constant::One());
-  Gen(tac::TAC::New(tac::Operator::IF_FALSE, assignZero, lhs));
+  auto label_end = TAC::NewLabel();
+  auto assign_zero = TAC::NewAssign(t, Constant::Zero());
+  auto assign_one = TAC::NewAssign(t, Constant::One());
+  Gen(TAC::NewIfFalse(lhs, assign_zero));
 
-  auto rhs = TACTranslator().Visit(andOp->rhs_);
-  Gen(tac::TAC::New(tac::Operator::IF_FALSE, assignZero, rhs));
-  Gen(assignOne);
-  Gen(tac::TAC::New(tac::Operator::JUMP, LabelEnd));
-  Gen(assignZero);
-  Gen(labelEnd);
+  auto rhs = Translator().Visit(and_op->rhs());
+  Gen(TAC::NewIfFalse(rhs, assign_zero));
+  Gen(assign_one);
+  Gen(TAC::NewJump(label_end));
+  Gen(assign_zero);
+  Gen(label_end);
 }
 
 
-void TACTranslator::GenOrOp(BinaryOp* orOp) {
-  auto t = tac::Temporary::New(orOp->Type());
-  auto lhs = TACTranslator().Visit(orOp->lhs_);
+void Translator::GenOrOp(BinaryOp* or_op) {
+  auto t = Temporary::New(or_op->type());
+  auto lhs = Translator().Visit(or_op->lhs());
   
-  auto labelEnd = tac::TAC::NewLabel();
-  auto assignZero = tac::TAC::New(t, tac::Constant::Zero());
-  auto assignOne = tac::TAC::New(t, tac::Constant::One());
-  Gen(tac::TAC::New(tac::Operator::IF_FALSE, assignOne, lhs));
+  auto label_end = TAC::NewLabel();
+  auto assign_zero = TAC::NewAssign(t, Constant::Zero());
+  auto assign_one = TAC::NewAssign(t, Constant::One());
+  Gen(TAC::NewIfFalse(lhs, assign_one));
 
-  auto rhs = TACTranslator().Visit(orOp->rhs_);
-  Gen(tac::TAC::New(tac::Operator::IF_FALSE, assignOne, rhs));
-  Gen(assignZero);
-  Gen(tac::TAC::New(tac::Operator::JUMP, labelEnd));
-  Gen(assignOne);
-  Gen(labelEnd);
+  auto rhs = Translator().Visit(or_op->rhs());
+  Gen(TAC::NewIfFalse(rhs, assign_one));
+  Gen(assign_zero);
+  Gen(TAC::NewJump(label_end));
+  Gen(assign_one);
+  Gen(label_end);
 }
 
 
-void LValTranslator::VisitBinaryOp(BinaryOp* binaryOp) {
-  assert(binary->op_ == '.');
+void Translator::VisitUnaryOp(UnaryOp* unary) {
+
+}
+
+
+void Translator::VisitConditionalOp(ConditionalOp* cond) {
+
+}
+
+
+void Translator::VisitFuncCall(FuncCall* funcCall) {
+
+}
+
+
+void Translator::VisitObject(Object* obj) {
+
+}
+
+
+void Translator::VisitEnumerator(Enumerator* enumer) {
+
+}
+
+
+void Translator::VisitIdentifier(Identifier* ident) {
+
+}
+
+
+void Translator::VisitASTConstant(ASTConstant* cons) {
+
+}
+
+
+void Translator::VisitTempVar(TempVar* tempVar) {
+
+}
+
+
+void Translator::VisitDeclaration(Declaration* init) {
+
+}
+
+
+void Translator::VisitEmptyStmt(EmptyStmt* emptyStmt) {
+
+}
+
+
+void Translator::VisitIfStmt(IfStmt* ifStmt) {
+
+}
+
+
+void Translator::VisitJumpStmt(GotoStmt* goto_stmt) {
+
+}
+
+
+void Translator::VisitReturnStmt(ReturnStmt* returnStmt) {
+
+}
+
+
+void Translator::VisitLabelStmt(LabelStmt* label_stmt) {
+
+}
+
+
+void Translator::VisitCompoundStmt(CompoundStmt* compoundStmt) {
+
+}
+
+
+void Translator::VisitFuncDef(FuncDef* func_def) {
+
+}
+
+
+void Translator::VisitTranslationUnit(TranslationUnit* unit) {
+
+}
+
+
+// LValue expression: a.b
+void LValTranslator::VisitBinaryOp(BinaryOp* binary) {
+  assert(binary->op() == '.');
+  
+  auto des = Translator().Visit(binary->lhs());
+  const auto& name = binary->rhs()->tok()->str();
+  auto struct_type = binary->lhs()->type()->ToStruct();
+  auto member = struct_type->GetMember(name);
+
+  auto offset = member->offset();
+  code_ = TAC::NewDesSSAssign(des, nullptr, offset);
+}
+
+
+// LValue expression: *a
+void LValTranslator::VisitUnaryOp(UnaryOp* unary) {
+  auto des = Translator().Visit(unary->operand());
+  code_ = TAC::NewDerefAssign(des, nullptr);
+}
+
+
+void LValTranslator::VisitObject(Object* obj) {
+
+}
+
+
+void LValTranslator::VisitIdentifier(Identifier* ident) {
   
 }
-
-void VisitUnaryOp(UnaryOp* unaryOp);
-void VisitObject(Object* obj);
-void VisitIdentifier(Identifier* ident);
 
 
 /*
@@ -110,9 +217,9 @@ CompoundStmt* Parser::ParseForStmt() {
     ts_.Expect(';');
   }
 
-  Expr* condExpr = nullptr;
+  Expr* cond_expr = nullptr;
   if (!ts_.Try(';')) {
-    condExpr = ParseExpr();
+    cond_expr = ParseExpr();
     ts_.Expect(';');
   }
 
@@ -126,9 +233,9 @@ CompoundStmt* Parser::ParseForStmt() {
   auto stepLabel = LabelStmt::New();
   auto endLabel = LabelStmt::New();
   stmts.push_back(condLabel);
-  if (condExpr) {
-    auto gotoEndStmt = JumpStmt::New(endLabel);
-    auto ifStmt = IfStmt::New(condExpr, EmptyStmt::New(), gotoEndStmt);
+  if (cond_expr) {
+    auto gotoEndStmt = GotoStmt::New(endLabel);
+    auto ifStmt = IfStmt::New(cond_expr, EmptyStmt::New(), gotoEndStmt);
     stmts.push_back(ifStmt);
   }
 
@@ -145,10 +252,10 @@ CompoundStmt* Parser::ParseForStmt() {
     stmts.push_back(stepExpr);
   else
     stmts.push_back(EmptyStmt::New());
-  stmts.push_back(JumpStmt::New(condLabel));
+  stmts.push_back(GotoStmt::New(condLabel));
   stmts.push_back(endLabel);
 
-  auto scope = curScope_;
+  auto scope = cur_scope_;
   ExitBlock();
   
   return CompoundStmt::New(stmts, scope);
@@ -172,17 +279,17 @@ CompoundStmt* Parser::ParseWhileStmt() {
   StmtList stmts;
   ts_.Expect('(');
   auto tok = ts_.Peek();
-  auto condExpr = ParseExpr();
+  auto cond_expr = ParseExpr();
   ts_.Expect(')');
 
-  if (!condExpr->Type()->IsScalar()) {
+  if (!cond_expr->type()->IsScalar()) {
     Error(tok, "scalar expression expected");
   }
 
   auto condLabel = LabelStmt::New();
   auto endLabel = LabelStmt::New();
-  auto gotoEndStmt = JumpStmt::New(endLabel);
-  auto ifStmt = IfStmt::New(condExpr, EmptyStmt::New(), gotoEndStmt);
+  auto gotoEndStmt = GotoStmt::New(endLabel);
+  auto ifStmt = IfStmt::New(cond_expr, EmptyStmt::New(), gotoEndStmt);
   stmts.push_back(condLabel);
   stmts.push_back(ifStmt);
   
@@ -192,7 +299,7 @@ CompoundStmt* Parser::ParseWhileStmt() {
   EXIT_LOOP_BODY()
   
   stmts.push_back(bodyStmt);
-  stmts.push_back(JumpStmt::New(condLabel));
+  stmts.push_back(GotoStmt::New(condLabel));
   stmts.push_back(endLabel);
   
   return CompoundStmt::New(stmts);
@@ -223,13 +330,13 @@ CompoundStmt* Parser::ParseDoWhileStmt() {
 
   ts_.Expect(Token::WHILE);
   ts_.Expect('(');
-  auto condExpr = ParseExpr();
+  auto cond_expr = ParseExpr();
   ts_.Expect(')');
   ts_.Expect(';');
 
-  auto gotoBeginStmt = JumpStmt::New(beginLabel);
-  auto gotoEndStmt = JumpStmt::New(endLabel);
-  auto ifStmt = IfStmt::New(condExpr, gotoBeginStmt, gotoEndStmt);
+  auto gotoBeginStmt = GotoStmt::New(beginLabel);
+  auto gotoEndStmt = GotoStmt::New(endLabel);
+  auto ifStmt = IfStmt::New(cond_expr, gotoBeginStmt, gotoEndStmt);
 
   StmtList stmts;
   stmts.push_back(beginLabel);
@@ -259,34 +366,34 @@ CompoundStmt* Parser::ParseSwitchStmt() {
   auto expr = ParseExpr();
   ts_.Expect(')');
 
-  if (!expr->Type()->IsInteger()) {
+  if (!expr->type()->IsInteger()) {
     Error(tok, "switch quantity not an integer");
   }
 
   auto testLabel = LabelStmt::New();
   auto endLabel = LabelStmt::New();
-  auto t = TempVar::New(expr->Type());
+  auto t = TempVar::New(expr->type());
   auto assign = BinaryOp::New(tok, '=', t, expr);
   stmts.push_back(assign);
-  stmts.push_back(JumpStmt::New(testLabel));
+  stmts.push_back(GotoStmt::New(testLabel));
 
   CaseLabelList caseLabels;
   ENTER_SWITCH_BODY(endLabel, caseLabels);
 
   auto bodyStmt = ParseStmt(); // Fill caseLabels and defaultLabel
   stmts.push_back(bodyStmt);
-  stmts.push_back(JumpStmt::New(endLabel));
+  stmts.push_back(GotoStmt::New(endLabel));
   stmts.push_back(testLabel);
 
   for (auto iter = caseLabels.begin();
        iter != caseLabels.end(); ++iter) {
     auto cond = BinaryOp::New(tok, Token::EQ, t, iter->first);
-    auto then = JumpStmt::New(iter->second);
+    auto then = GotoStmt::New(iter->second);
     auto ifStmt = IfStmt::New(cond, then, nullptr);
     stmts.push_back(ifStmt);
   }
   if (defaultLabel_)
-    stmts.push_back(JumpStmt::New(defaultLabel_));
+    stmts.push_back(GotoStmt::New(defaultLabel_));
   EXIT_SWITCH_BODY();
 
   stmts.push_back(endLabel);
