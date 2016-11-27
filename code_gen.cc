@@ -926,7 +926,7 @@ void Generator::VisitIfStmt(IfStmt* if_stmt) {
 }
 
 
-void Generator::VisitJumpStmt(GotoStmt* goto_stmt) {
+void Generator::VisitGotoStmt(GotoStmt* goto_stmt) {
   Emit("jmp", goto_stmt->label_);
 }
 

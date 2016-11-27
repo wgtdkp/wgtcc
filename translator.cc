@@ -1,6 +1,55 @@
 #include "translator.h"
 
-TACList Translator::tac_list_;
+#include <queue>
+#include <set>
+
+TACJumpMap      Translator::jump_map_;
+TACFunctionList Translator::tac_func_list_;
+
+class Comp {
+public:
+  bool operator()(Object* lhs, Object* rhs) {
+    return lhs->align() < rhs->align();
+  }
+};
+
+
+void TACFunction::AllocAutoObjects() {
+  auto offset = offset_;
+  auto scope = func_def_->body()->scope();
+  auto param_list = func_def_->FuncType()->param_list();
+
+  auto paramSet = std::set<Object*>(param_list.begin(), param_list.end());
+  std::priority_queue<Object*, std::vector<Object*>, Comp> heap;
+
+  // Sort the objects by its alignment
+  // Wgtcc alloc high memory for objects with bigger aligment
+  for (auto iter = scope->begin(); iter != scope->end(); ++iter) {
+    auto obj = iter->second->ToObject();
+    if (!obj || obj->IsStatic())
+      continue;
+    // Skip parameters
+    if (paramSet.find(obj) == paramSet.end())
+      heap.push(obj);
+  }
+
+  while (!heap.empty()) {
+    auto obj = heap.top();
+    heap.pop();
+
+    offset -= obj->type()->width();
+    auto align = obj->align();
+    if (obj->type()->ToArray()) {
+      // The alignment of an array is at least the aligment of a pointer
+      // (as it is always cast to a pointer)
+      align = std::min(align, 8);
+    }
+    offset = Type::MakeAlign(offset, align);
+    obj->set_offset(offset);
+  }
+
+  offset_ = offset;
+}
 
 
 void Translator::VisitBinaryOp(BinaryOp* binary) {
@@ -32,7 +81,9 @@ void Translator::VisitBinaryOp(BinaryOp* binary) {
 
 void Translator::TranslateMemberRef(BinaryOp* member_ref) {
   assert(member_ref->op() == '.');
-
+  auto lvalue = LValTranslator().Visit(member_ref);
+  // TODO(wgtdkp): assign to a temporary
+  operand_ = Variable::New(lvalue, member_ref->type());
 }
 
 
@@ -170,33 +221,64 @@ void Translator::VisitIfStmt(IfStmt* ifStmt) {
 }
 
 
-void Translator::VisitJumpStmt(GotoStmt* goto_stmt) {
+void Translator::VisitGotoStmt(GotoStmt* goto_stmt) {
+  // the destination is not resolved
+  auto jump = TAC::NewJump(nullptr);
+  Gen(jump);
 
+  jump_map_[goto_stmt->label()].second.push_back(jump);
 }
 
 
-void Translator::VisitReturnStmt(ReturnStmt* returnStmt) {
-
+void Translator::VisitReturnStmt(ReturnStmt* return_stmt) {
+  auto ret = Visit(return_stmt->expr());
+  Gen(TAC::NewReturn(ret));
 }
 
 
 void Translator::VisitLabelStmt(LabelStmt* label_stmt) {
-
+  auto label = TAC::NewLabel();
+  jump_map_[label_stmt].first = label;
+  
+  Gen(label);
+  Visit(label_stmt->sub_stmt());
 }
 
 
-void Translator::VisitCompoundStmt(CompoundStmt* compoundStmt) {
-
+void Translator::VisitCompoundStmt(CompoundStmt* compound_stmt) {
+  if (compound_stmt->scope()) {
+    cur_tac_func()->AllocAutoObjects();
+  }
+  for (auto stmt: compound_stmt->stmt_list()) {
+    Visit(stmt);
+  }
 }
 
 
+// Prologue and epilogue are job of code generator
 void Translator::VisitFuncDef(FuncDef* func_def) {
+  tac_func_list_.emplace_back(func_def);
+  jump_map_.clear();
 
+  cur_tac_func()->AllocAutoObjects();
+
+  for (auto stmt: func_def->body()->stmt_list()) {
+    Visit(stmt);
+  }
+
+  // Resolve jumps
+  for (auto& kv: jump_map_) {
+    auto label = kv.second.first;
+    for (auto jump: kv.second.second)
+      jump->set_jump_des(label);
+  }
 }
 
 
 void Translator::VisitTranslationUnit(TranslationUnit* unit) {
-
+  for (auto ext_decl: unit->ext_decl_list()) {
+    Visit(ext_decl);
+  }
 }
 
 /*

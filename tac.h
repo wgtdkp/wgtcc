@@ -176,6 +176,9 @@ private:
 };
 
 
+/*
+ * I have been struggling whether to use pure OOP or not.
+ */
 class TAC {
 public:
   // Each operator can be mapped into a machine instruction.
@@ -198,14 +201,8 @@ public:
     AND,      // '&'
     XOR,      // '^'
     
-    // Assignment
-    ASSIGN,   // '='
-    // x[n]: desginate variable n bytes after x
-    DES_SS_ASSIGN,  // '[]=' ; x[n] = y; Des subscripted assignment
-    SRC_SS_ASSIGN,  // '=[]' ; x = y[n]; Src subscripted assignment 
-    DEREF_ASSIGN,   // '*='  ; *x = y;
-
     // Unary
+    ASSIGN,   // '='
     PRE_INC,  // '++' ; t = ++x
     POST_INC, // '++' ; t = x++
     PRE_DEC,  // '--' ; t = --x
@@ -221,33 +218,54 @@ public:
     // Function
     PARAM,    // e.g. param x1
     CALL,     // e.g. call f, n
+    RETURN,   // e.g. return 0
 
     // Jump
     JUMP,         // goto des
     IF,           // if (lhs) goto des
     IF_FALSE,     // if (!lhs) goto des
-    //IF_LESS,    // if (lhs < rhs)  goto des
-    //IF_GREATER, // if (lhs > rhs)  goto des
-    //IF_LE,      // if (lhs <= rhs) goto des
-    //IF_GE,      // if (lhs >= rhs) goto des
-    //IF_EQ,      // if (lhs == rhs) goto des
-    //IF_NE,      // if (lhs != rhs) goto des
+    IF_LESS,    // if (lhs < rhs)  goto des
+    IF_GREATER, // if (lhs > rhs)  goto des
+    IF_LE,      // if (lhs <= rhs) goto des
+    IF_GE,      // if (lhs >= rhs) goto des
+    IF_EQ,      // if (lhs == rhs) goto des
+    IF_NE,      // if (lhs != rhs) goto des
 
     LABEL,  // jump dest
   };
 
 public:
+  ~TAC() {}
   static TAC* NewBinary(Operator op, Operand* des,
                         Operand* lhs, Operand* rhs);
   static TAC* NewUnary(Operator op, Operand* des, Operand* operand);
   static TAC* NewAssign(Operand* des, Operand* src);
   static TAC* NewJump(TAC* des);
   static TAC* NewIf(Operand* cond, TAC* des);
-  static TAC* NewIfFalse(Operand* cond, TAC* des);
+  static TAC* NewIfFalse(Operand* cond, TAC* des);  
   static TAC* NewLabel() {
     return NewBinary(Operator::LABEL, nullptr, nullptr, nullptr);
   }
-  ~TAC() {}
+  static TAC* NewReturn(Operand* ret) {
+    return NewBinary(Operator::RETURN, ret, nullptr, nullptr);
+  }
+
+  void set_jump_des(TAC* des) { jump_des_ = des; }
+
+
+  bool IsLabel() const { return op_ == Operator::LABEL; }
+  bool IsAssign() const { return op_ == Operator::ASSIGN; }  
+  bool IsJump() const { return op_ == Operator::JUMP; }
+  bool IsCondJump() const {
+    return op_ == Operator::IF ||
+           op_ == Operator::IF_FALSE ||
+           op_ == Operator::IF_GREATER ||
+           op_ == Operator::IF_LE ||
+           op_ == Operator::IF_GE ||
+           op_ == Operator::IF_EQ ||
+           op_ == Operator::IF_NE;
+  }
+  Operator op() const { return op_; }
 
 private:
   TAC(Operator op, Operand* des=nullptr,

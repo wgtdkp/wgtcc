@@ -6,9 +6,33 @@
 #include "visitor.h"
 
 #include <list>
+#include <unordered_map>
+#include <utility> 
 #include <vector>
 
-using TACList = std::vector<TAC*>;
+class TACFunction;
+
+using TACList         = std::vector<TAC*>;
+using TACFunctionList = std::vector<TACFunction>;
+using TACJumpMap      = std::unordered_map<const LabelStmt*, std::pair<TAC*, std::vector<TAC*>>>;
+
+class TACFunction {
+public:
+  TACFunction(FuncDef* func_def): func_def_(func_def), offset_(0) {}
+  //TACFunction(const TACFunction& other) = delete;
+  ~TACFunction() {}
+
+  ssize_t offset() const { return offset_; }
+  void set_offset(ssize_t offset) { offset_ = offset; }
+  void AddTAC(TAC* tac) { tac_list_.push_back(tac); }
+  void AllocAutoObjects();
+
+private:
+  FuncDef* func_def_;
+  ssize_t offset_;
+  TACList tac_list_;
+};
+
 
 class Translator: public Visitor {
 public:
@@ -34,15 +58,13 @@ public:
   virtual void VisitDeclaration(Declaration* init);
   virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
   virtual void VisitIfStmt(IfStmt* ifStmt);
-  virtual void VisitJumpStmt(GotoStmt* goto_stmt);
+  virtual void VisitGotoStmt(GotoStmt* goto_stmt);
   virtual void VisitReturnStmt(ReturnStmt* returnStmt);
   virtual void VisitLabelStmt(LabelStmt* label_stmt);
   virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
 
   virtual void VisitFuncDef(FuncDef* func_def);
   virtual void VisitTranslationUnit(TranslationUnit* unit);
-
-  static void Gen(TAC* tac) { tac_list_.push_back(tac); }
 
 protected:
   // Binary
@@ -69,9 +91,17 @@ protected:
   void TranslateDeref(UnaryOp* deref);
   void GenIncDec(Expr* operand, bool postfix, const std::string& inst);
 
+  TACFunction* cur_tac_func() { return &tac_func_list_.back(); }
+
+  static void Gen(TAC* tac) {
+    tac_func_list_.back().AddTAC(tac);
+  }
+
 private:
   Operand* operand_;
-  static TACList tac_list_;
+
+  static TACJumpMap jump_map_;
+  static TACFunctionList tac_func_list_;
 };
 
 

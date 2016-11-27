@@ -116,7 +116,7 @@ public:
   virtual void VisitDeclaration(Declaration* init);
   virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
   virtual void VisitIfStmt(IfStmt* ifStmt);
-  virtual void VisitJumpStmt(GotoStmt* goto_stmt);
+  virtual void VisitGotoStmt(GotoStmt* goto_stmt);
   virtual void VisitReturnStmt(ReturnStmt* returnStmt);
   virtual void VisitLabelStmt(LabelStmt* label_stmt);
   virtual void VisitCompoundStmt(CompoundStmt* compoundStmt);
