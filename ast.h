@@ -190,8 +190,8 @@ public:
   virtual ~ForStmt() {}
   virtual void Accept(Visitor* v);
 
-  CompoundStmt* Decl() { return decl_; }
-  const CompoundStmt* Decl() const { return decl_; }
+  CompoundStmt* decl() { return decl_; }
+  const CompoundStmt* decl() const { return decl_; }
   Expr* init() { return init_; }
   const Expr* init() const { return init_; }
   Expr* cond() { return cond_; }
@@ -711,6 +711,10 @@ protected:
 };
 
 
+/*
+ * An object can be global/static/stack variable and a function
+ * A function is an object because its name refers to memory location
+ */
 class Object : public Identifier {
 public:
   static Object* New(const Token* tok, QualType type,
@@ -725,10 +729,7 @@ public:
   ~Object() {}
   virtual void Accept(Visitor* v);
   virtual Object* ToObject() { return this; }
-  virtual bool IsLVal() {
-    // TODO(wgtdkp): not all object is lval?
-    return true;
-  }
+  virtual bool IsLVal() { return true; }
   bool IsStatic() const {
     return (storage() & S_STATIC) || (linkage() != Linkage::NONE);
   }

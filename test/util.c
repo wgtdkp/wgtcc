@@ -8,6 +8,7 @@ static void test() {
 }
 
 int main() {
-    test();
+    int* p;
+    *p = 3;
     return 0;
 }

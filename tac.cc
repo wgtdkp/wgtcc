@@ -13,9 +13,25 @@ static MemPoolImp<Temporary>  temporary_pool;
 
 Variable* Variable::New(const Object* obj) {
   auto type = obj->type();
-  return new (variable_pool.Alloc()) Variable(type->width(),
-                                              ToTACOperandType(type),
-                                              obj->Name());
+  if (obj->IsStatic()) {
+    // Only static (including global) variable got a name
+    return new (variable_pool.Alloc())
+           Variable(type->width(), ToTACOperandType(type), obj->Name());
+  } else {
+    return new (variable_pool.Alloc())
+           Variable(type->width(), ToTACOperandType(type), obj->offset());
+  }
+}
+
+
+Variable* Variable::New(const Type* type, Operand* base) {
+  return new (variable_pool.Alloc())
+         Variable(type->width(), ToTACOperandType(type), base);
+}
+
+
+Variable* Variable::New(const Variable& other) {
+  return new (variable_pool.Alloc()) Variable(other);
 }
 
 
@@ -65,16 +81,6 @@ TAC* TAC::NewUnary(Operator op, Operand* des, Operand* operand) {
 
 TAC* TAC::NewAssign(Operand* des, Operand* src) {
   return new (tac_pool.Alloc()) TAC(Operator::ASSIGN, des, src, nullptr);
-}
-
-
-TAC* TAC::NewDesSSAssign(Operand* des, Operand* src, ssize_t offset) {
-  return new (tac_pool.Alloc()) TAC(Operator::DES_SS_ASSIGN, des, src, offset);
-}
-
-
-TAC* TAC::NewSrcSSAssign(Operand* des, Operand* src, ssize_t offset) {
-  return new (tac_pool.Alloc()) TAC(Operator::SRC_SS_ASSIGN, des, src, offset); 
 }
 
 

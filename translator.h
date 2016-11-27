@@ -46,6 +46,8 @@ public:
 
 protected:
   // Binary
+  void TranslateMemberRef(BinaryOp* member_ref);
+
   void GenCommaOp(BinaryOp* comma);
   void GenMemberRefOp(BinaryOp* binaryOp);
   void GenAndOp(BinaryOp* and_op);
@@ -63,6 +65,7 @@ protected:
   void GenCompZero(Type* type);
 
   // Unary
+  void TranslateDeref(UnaryOp* deref);
   void GenIncDec(Expr* operand, bool postfix, const std::string& inst);
 
 private:
@@ -80,11 +83,11 @@ private:
  */
 class LValTranslator: public Translator {
 public:
-  LValTranslator(): code_(nullptr) {}
+  LValTranslator(): lvalue_(nullptr) {}
   virtual ~LValTranslator() {}
-  TAC* Visit(ASTNode* node) {
+  Variable* Visit(ASTNode* node) {
     node->Accept(this);
-    return code_;
+    return lvalue_;
   }
   virtual void VisitBinaryOp(BinaryOp* binaryOp);
   virtual void VisitUnaryOp(UnaryOp* unaryOp);
@@ -92,7 +95,7 @@ public:
   virtual void VisitIdentifier(Identifier* ident);
 
 private:
-  TAC* code_;
+  Variable* lvalue_;
 };
 
 #endif

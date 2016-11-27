@@ -581,7 +581,7 @@ void Generator::VisitObject(Object* obj) {
 
 void Generator::GenCastOp(UnaryOp* cast) {
   auto des_type = cast->type();
-  auto src_type = cast->operand_->type();
+  auto src_type = cast->operand()->type();
 
   if (src_type->IsFloat() && des_type->IsFloat()) {
     if (src_type->width() == des_type->width())
@@ -641,34 +641,34 @@ void Generator::VisitUnaryOp(UnaryOp* unary) {
   EmitLoc(unary);
   switch  (unary->op()) {
   case Token::PREFIX_INC:
-    return GenIncDec(unary->operand_, false, "add");
+    return GenIncDec(unary->operand(), false, "add");
   case Token::PREFIX_DEC:
-    return GenIncDec(unary->operand_, false, "sub");
+    return GenIncDec(unary->operand(), false, "sub");
   case Token::POSTFIX_INC:
-    return GenIncDec(unary->operand_, true, "add");
+    return GenIncDec(unary->operand(), true, "add");
   case Token::POSTFIX_DEC:
-    return GenIncDec(unary->operand_, true, "sub");
+    return GenIncDec(unary->operand(), true, "sub");
   case Token::ADDR: {
-    auto addr = LValGenerator().GenExpr(unary->operand_).Repr();
+    auto addr = LValGenerator().GenExpr(unary->operand()).Repr();
     Emit("leaq", addr, "%rax");
   } return;
   case Token::DEREF:
     return GenDerefOp(unary);
   case Token::PLUS:
-    return VisitExpr(unary->operand_);
+    return VisitExpr(unary->operand());
   case Token::MINUS:
     return GenMinusOp(unary);
   case '~':
-    VisitExpr(unary->operand_);
+    VisitExpr(unary->operand());
     return Emit("notq", "%rax");
   case '!':
-    VisitExpr(unary->operand_);
-    GenCompZero(unary->operand_->type());
+    VisitExpr(unary->operand());
+    GenCompZero(unary->operand()->type());
     Emit("sete", "%al");
     Emit("movzbl", "%al", "%eax"); // type of !operator is int
     return;
   case Token::CAST:
-    Visit(unary->operand_);
+    Visit(unary->operand());
     GenCastOp(unary);
     return;
   default: assert(false);
@@ -677,7 +677,7 @@ void Generator::VisitUnaryOp(UnaryOp* unary) {
 
 
 void Generator::GenDerefOp(UnaryOp* deref) {
-  VisitExpr(deref->operand_);
+  VisitExpr(deref->operand());
   if (deref->type()->IsScalar()) {
     ObjectAddr addr {"", "%rax", 0};
     EmitLoad(addr.Repr(), deref->type());
@@ -691,7 +691,7 @@ void Generator::GenMinusOp(UnaryOp* minus) {
   auto width = minus->type()->width();
   auto flt = minus->type()->IsFloat();
 
-  VisitExpr(minus->operand_);
+  VisitExpr(minus->operand());
 
   if (flt) {
     Emit("pxor", "%xmm9", "%xmm9");
@@ -1452,7 +1452,7 @@ void LValGenerator::VisitBinaryOp(BinaryOp* binary) {
 void LValGenerator::VisitUnaryOp(UnaryOp* unary) {
   EmitLoc(unary);
   assert(unary->op() == Token::DEREF);
-  Generator().VisitExpr(unary->operand_);
+  Generator().VisitExpr(unary->operand());
   Emit("movq", "%rax", "%r10");
   addr_ = {"", "%r10", 0};
 }
@@ -1461,8 +1461,8 @@ void LValGenerator::VisitUnaryOp(UnaryOp* unary) {
 void LValGenerator::VisitObject(Object* obj) {
   EmitLoc(obj);
   if (!obj->IsStatic() && obj->anonymous()) {
-    assert(obj->Decl());
-    Generator().Visit(obj->Decl());
+    assert(obj->decl());
+    Generator().Visit(obj->decl());
     obj->set_decl(nullptr);
   }
 

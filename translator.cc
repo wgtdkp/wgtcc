@@ -13,7 +13,7 @@ void Translator::VisitBinaryOp(BinaryOp* binary) {
   } else if (op == Token::LOGICAL_OR) {
     return GenOrOp(binary);
   } else if (op == '.') {
-    //return GenMemberRefOp(binary);
+    return TranslateMemberRef(binary);
   } else if (op == ',') {
     //return GenCommaOp(binary);
   } else if (binary->lhs()->type()->ToPointer() &&
@@ -30,6 +30,12 @@ void Translator::VisitBinaryOp(BinaryOp* binary) {
 }
 
 
+void Translator::TranslateMemberRef(BinaryOp* member_ref) {
+  assert(member_ref->op() == '.');
+
+}
+
+
 void Translator::GenAssignOp(BinaryOp* assign) {
   //auto code = LValTranslator().Visit(assign->lhs());
   //auto lhs = LValGenerator().Visit(assign->lhs());
@@ -37,6 +43,7 @@ void Translator::GenAssignOp(BinaryOp* assign) {
   //operand_ = TAC::New(Operator::ASSIGN, lhs, rhs);
   //Gen(operand_);
 }
+
 
 // TODO(wgtdkp): elimit construction of label_end
 void Translator::GenAndOp(BinaryOp* and_op) {
@@ -76,7 +83,27 @@ void Translator::GenOrOp(BinaryOp* or_op) {
 
 
 void Translator::VisitUnaryOp(UnaryOp* unary) {
+  switch (unary->op()) {
+  case Token::PREFIX_INC:;
+  case Token::PREFIX_DEC:;
+  case Token::POSTFIX_INC:;
+  case Token::POSTFIX_DEC:;
+  case Token::ADDR:; // &a
+  case Token::DEREF:; // *p
+  case Token::PLUS:;
+  case Token::MINUS:;
+  case '~':;
+  case '!':;
+  case Token::CAST:;
+  default: assert(false);
+  }
+}
 
+
+void Translator::TranslateDeref(UnaryOp* deref) {
+  auto base = Translator().Visit(deref->operand());
+  auto type = deref->type();
+  operand_ = Variable::New(type, base);
 }
 
 
@@ -91,7 +118,13 @@ void Translator::VisitFuncCall(FuncCall* funcCall) {
 
 
 void Translator::VisitObject(Object* obj) {
+  if (!obj->IsStatic() && obj->anonymous()) {
+    assert(obj->decl());
+    Visit(obj->decl());
+    obj->set_decl(nullptr);
+  }
 
+  operand_ = Variable::New(obj);
 }
 
 
@@ -159,35 +192,52 @@ void Translator::VisitTranslationUnit(TranslationUnit* unit) {
 
 }
 
+/*
+ * LValue expression translation
+ *  a.b   *p    a
+ */
 
 // LValue expression: a.b
 void LValTranslator::VisitBinaryOp(BinaryOp* binary) {
   assert(binary->op() == '.');
   
-  auto des = Translator().Visit(binary->lhs());
+  auto lhs = LValTranslator().Visit(binary->lhs());
   const auto& name = binary->rhs()->tok()->str();
   auto struct_type = binary->lhs()->type()->ToStruct();
   auto member = struct_type->GetMember(name);
 
-  auto offset = member->offset();
-  code_ = TAC::NewDesSSAssign(des, nullptr, offset);
+  // If lhs got a name, then lvalue_ got a name too,
+  // but the offset will differ
+  lvalue_ = Variable::New(*lhs);
+  lvalue_->set_offset(lvalue_->offset() + member->offset());
 }
 
 
 // LValue expression: *a
 void LValTranslator::VisitUnaryOp(UnaryOp* unary) {
-  auto des = Translator().Visit(unary->operand());
-  code_ = TAC::NewDerefAssign(des, nullptr);
+  assert(unary->op() == Token::DEREF);
+  // Could be variable or temporary
+  auto pointer = Translator().Visit(unary->operand());
+  lvalue_ = Variable::New(unary->type(), pointer);
 }
 
 
 void LValTranslator::VisitObject(Object* obj) {
-
+  if (!obj->IsStatic() && obj->anonymous()) {
+    assert(obj->decl());
+    Translator().Visit(obj->decl());
+    obj->set_decl(nullptr);
+  }
+  lvalue_ = Variable::New(obj);
 }
 
 
+// A function
 void LValTranslator::VisitIdentifier(Identifier* ident) {
-  
+  assert(!ident->ToTypeName());
+  // TODO(wgtdkp): make function an object
+  lvalue_ = Variable::New(ident->type(), nullptr);
+  lvalue_->set_name(ident->Name());
 }
 
 
