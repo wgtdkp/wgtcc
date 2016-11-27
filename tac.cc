@@ -11,22 +11,30 @@ static MemPoolImp<Constant>   constant_pool;
 static MemPoolImp<Temporary>  temporary_pool;
 
 
-Variable* Variable::New(const Object* obj) {
-  auto type = obj->type();
-  if (obj->IsStatic()) {
-    // Only static (including global) variable got a name
-    return new (variable_pool.Alloc())
-           Variable(type->width(), ToTACOperandType(type), obj->Name());
-  } else {
-    return new (variable_pool.Alloc())
-           Variable(type->width(), ToTACOperandType(type), obj->offset());
-  }
+LValue::LValue(const Object& obj) {
+  name = obj.Name();
+  offset = obj.offset();
+  base = nullptr;
+  bitfield_begin = obj.bitfield_begin();
+  bitfield_width = obj.bitfield_width();
 }
 
 
-Variable* Variable::New(const Type* type, Operand* base) {
-  return new (variable_pool.Alloc())
-         Variable(type->width(), ToTACOperandType(type), base);
+Variable* Variable::New(const Object* obj) {
+  return new (variable_pool.Alloc()) 
+         Variable(LValue(*obj), obj->type(), obj->linkage(), GetStorage(obj));
+}
+
+
+Variable* Variable::New(const LValue& lvalue, const Type* type) {
+  return new (variable_pool.Alloc()) Variable(lvalue, type);
+}
+
+
+Variable* Variable::NewDerefed(const Type* type, Operand* base) {
+  auto var = new (variable_pool.Alloc()) Variable(LValue(), type);
+  var->lvalue_.base = base;
+  return var;
 }
 
 

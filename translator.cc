@@ -7,7 +7,7 @@ void Translator::VisitBinaryOp(BinaryOp* binary) {
   auto op = binary->op();
 
   if (op == '=') {
-    return GenAssignOp(binary);
+    return TranslateAssign(binary);
   } else if (op == Token::LOGICAL_AND) {
     return GenAndOp(binary);
   } else if (op == Token::LOGICAL_OR) {
@@ -36,12 +36,19 @@ void Translator::TranslateMemberRef(BinaryOp* member_ref) {
 }
 
 
-void Translator::GenAssignOp(BinaryOp* assign) {
-  //auto code = LValTranslator().Visit(assign->lhs());
-  //auto lhs = LValGenerator().Visit(assign->lhs());
-  //auto rhs = Translator().Visit(assign->rhs());
-  //operand_ = TAC::New(Operator::ASSIGN, lhs, rhs);
-  //Gen(operand_);
+void Translator::TranslateAssign(BinaryOp* assign) {
+  auto lvalue = LValTranslator().Visit(assign->lhs());
+  auto lhs = Variable::New(lvalue, assign->type());
+  switch (assign->op()) {
+  case '=': {
+    auto rhs = Visit(assign->rhs());
+    Gen(TAC::NewAssign(lhs, rhs));
+  } break;
+  case Token::ADD_ASSIGN:;
+  case Token::SUB_ASSIGN:;
+  }
+
+  operand_ = lhs;
 }
 
 
@@ -103,7 +110,7 @@ void Translator::VisitUnaryOp(UnaryOp* unary) {
 void Translator::TranslateDeref(UnaryOp* deref) {
   auto base = Translator().Visit(deref->operand());
   auto type = deref->type();
-  operand_ = Variable::New(type, base);
+  operand_ = Variable::NewDerefed(type, base);
 }
 
 
@@ -201,15 +208,12 @@ void Translator::VisitTranslationUnit(TranslationUnit* unit) {
 void LValTranslator::VisitBinaryOp(BinaryOp* binary) {
   assert(binary->op() == '.');
   
-  auto lhs = LValTranslator().Visit(binary->lhs());
+  lvalue_ = LValTranslator().Visit(binary->lhs());
   const auto& name = binary->rhs()->tok()->str();
   auto struct_type = binary->lhs()->type()->ToStruct();
   auto member = struct_type->GetMember(name);
 
-  // If lhs got a name, then lvalue_ got a name too,
-  // but the offset will differ
-  lvalue_ = Variable::New(*lhs);
-  lvalue_->set_offset(lvalue_->offset() + member->offset());
+  lvalue_.offset += member->offset();
 }
 
 
@@ -217,8 +221,7 @@ void LValTranslator::VisitBinaryOp(BinaryOp* binary) {
 void LValTranslator::VisitUnaryOp(UnaryOp* unary) {
   assert(unary->op() == Token::DEREF);
   // Could be variable or temporary
-  auto pointer = Translator().Visit(unary->operand());
-  lvalue_ = Variable::New(unary->type(), pointer);
+  lvalue_.base = Translator().Visit(unary->operand());
 }
 
 
@@ -228,7 +231,7 @@ void LValTranslator::VisitObject(Object* obj) {
     Translator().Visit(obj->decl());
     obj->set_decl(nullptr);
   }
-  lvalue_ = Variable::New(obj);
+  lvalue_ = LValue(*obj);
 }
 
 
@@ -236,8 +239,7 @@ void LValTranslator::VisitObject(Object* obj) {
 void LValTranslator::VisitIdentifier(Identifier* ident) {
   assert(!ident->ToTypeName());
   // TODO(wgtdkp): make function an object
-  lvalue_ = Variable::New(ident->type(), nullptr);
-  lvalue_->set_name(ident->Name());
+  lvalue_.name = ident->Name();
 }
 
 

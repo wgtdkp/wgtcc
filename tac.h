@@ -1,12 +1,11 @@
 #ifndef _WGTCC_TAC_H_
 #define _WGTCC_TAC_H_
 
+#include "ast.h"
+#include "type.h"
+
 #include <cinttypes>
 #include <string>
-
-class Type;
-class Object;
-class ASTConstant;
 
 /*
  * We donot explicitly generate AST.
@@ -51,6 +50,8 @@ public:
   OperandType type()  const { return type_; }
 
 protected:
+  Operand(const Type* type)
+      : width_(type->width()), type_(ToTACOperandType(type)) {}
   Operand(size_t width, OperandType type): width_(width), type_(type) {}
   Operand(const Operand& other) {
     width_ = other.width_;
@@ -62,52 +63,76 @@ protected:
 };
 
 
+struct LValue {
+  LValue(const Object& obj);
+  LValue() {}
+  ~LValue() {}
+
+  std::string Repr() const {
+    // TODO(wgtdkp): representation
+    return "";
+  }
+
+  // A global or static variable is represented by its name
+  std::string name;
+
+  // The offset to the stack frame register %rbp or the 
+  // variable specified by member name_
+  ssize_t offset {0};
+
+  // It represents the deref form *p,
+  // base_ could only be variable or temporary
+  Operand* base {nullptr};
+  
+  uint8_t bitfield_begin {0};
+  uint8_t bitfield_width {0};
+};
+
+
 class Variable: public Operand {
 public:
+  // Creating a variable in deref form: *p = a;
+  static Variable* NewDerefed(const Type* type, Operand* base);
   static Variable* New(const Object* obj);
-  static Variable* New(const Type* type, Operand* base);
+  static Variable* New(const LValue& lvalue, const Type* type);
+
   // Copy constructor
   static Variable* New(const Variable& other);
 
   virtual ~Variable() {}
-  virtual const std::string Repr() const { return name_; }
-  ssize_t offset() const { return offset_; }
-  void set_offset(ssize_t offset) { offset_ = offset; }
-  const std::string& name() const { return name_; }
-  void set_name(const std::string& name) {name_ = name; }
-  Operand* base() { return base_; }
-  const Operand* base() const { return base_; }
+  virtual const std::string Repr() const { return lvalue_.Repr(); }
+  ssize_t offset() const { return lvalue_.offset; }
+  void set_offset(ssize_t offset) { lvalue_.offset = offset; }
+  const std::string& name() const { return lvalue_.name; }
+  void set_name(const std::string& name) { lvalue_.name = name; }
+  Operand* base() { return lvalue_.base; }
+  const Operand* base() const { return lvalue_.base; }
+  Linkage linkage() const { return linkage_; }
+  Storage storage() const { return storage_; }
 
 private:
-  // Creating a global or static variable
-  Variable(size_t width, OperandType type, const std::string& name)
-      : Operand(width, type), name_(name), offset_(0), base_(nullptr) {}
+  explicit Variable(const LValue& lvalue,
+                    const Type* type,
+                    Linkage linkage=Linkage::NONE,
+                    Storage storage=Storage::AUTO)
+      : Operand(type), lvalue_(lvalue),
+        linkage_(linkage), storage_(storage) {}
 
-  // Creating a stack variable
-  Variable(size_t width, OperandType type, ssize_t offset)
-      : Operand(width, type), name_(""), offset_(offset), base_(nullptr) {}
-  
-  // Creating a derefed variable *p
-  Variable(size_t width, OperandType type, Operand* base)
-      : Operand(width, type), name_(""), offset_(0), base_(base) {}
 
   Variable(const Variable& other)
       : Operand(other.width(), other.type()) {
-    name_   = other.name_;
-    offset_ = other.offset_;
-    base_   = other.base_;
+    lvalue_  = other.lvalue_;
+    linkage_ = other.linkage_;
+    storage_ = other.storage_;
   }
 
-  // A global or static variable is represented by its name
-  std::string name_;
+  static Storage GetStorage(const Object* obj) {
+    return obj->IsStatic() ? Storage::STATIC: Storage::AUTO;
+  }
 
-  // The offset to the stack frame register %rbp or the 
-  // variable specified by member name_
-  ssize_t offset_;
-
-  // It represents the deref form *p,
-  // base_ could only be variable or temporary
-  Operand* base_;  
+  LValue  lvalue_;
+  Linkage linkage_;
+  Storage storage_;
 };
 
 

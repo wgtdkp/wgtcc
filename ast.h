@@ -660,6 +660,14 @@ enum class Linkage {
 };
 
 
+enum class Storage {
+  AUTO,
+  // Not supported yet
+  //REGISTER,
+  STATIC,
+};
+
+
 class Identifier: public Expr {
 public:
   static Identifier* New(const Token* tok, QualType type, Linkage linkage);

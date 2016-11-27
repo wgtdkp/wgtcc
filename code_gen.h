@@ -4,16 +4,15 @@
 #include "ast.h"
 #include "visitor.h"
 
-
 class Parser;
 class Addr;
 class ROData;
 class Evaluator<Addr>;
 struct StaticInitializer;
 
-using TypeList = std::vector<Type*>;
-using LocationList = std::vector<std::string>;
-using RODataList = std::vector<ROData>;
+using TypeList       = std::vector<Type*>;
+using LocationList   = std::vector<std::string>;
+using RODataList     = std::vector<ROData>;
 using StaticInitList = std::vector<StaticInitializer>;
 using StaticDeclList = std::vector<Declaration*>;
 
@@ -33,6 +32,7 @@ struct ParamLocations {
   size_t regCnt_;
   size_t xregCnt_;
 };
+
 
 struct ROData {
   ROData(long ival, int align): ival_(ival), align_(align) {

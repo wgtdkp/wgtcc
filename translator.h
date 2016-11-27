@@ -47,6 +47,7 @@ public:
 protected:
   // Binary
   void TranslateMemberRef(BinaryOp* member_ref);
+  void TranslateAssign(BinaryOp* assign);
 
   void GenCommaOp(BinaryOp* comma);
   void GenMemberRefOp(BinaryOp* binaryOp);
@@ -54,7 +55,7 @@ protected:
   void GenOrOp(BinaryOp* or_op);
   void GenAddOp(BinaryOp* add);
   void GenSubOp(BinaryOp* sub);
-  void GenAssignOp(BinaryOp* assign);
+
   void GenCastOp(UnaryOp* cast);
   void GenDerefOp(UnaryOp* deref);
   void GenMinusOp(UnaryOp* minus);
@@ -83,9 +84,9 @@ private:
  */
 class LValTranslator: public Translator {
 public:
-  LValTranslator(): lvalue_(nullptr) {}
+  LValTranslator() {}
   virtual ~LValTranslator() {}
-  Variable* Visit(ASTNode* node) {
+  LValue Visit(ASTNode* node) {
     node->Accept(this);
     return lvalue_;
   }
@@ -95,7 +96,7 @@ public:
   virtual void VisitIdentifier(Identifier* ident);
 
 private:
-  Variable* lvalue_;
+  LValue lvalue_;
 };
 
 #endif
