@@ -179,7 +179,13 @@ ArithmType* ArithmType::MaxType(ArithmType* lhs,
 }
 
 
+/*
+ * Converting from type specifier to type tag
+ */
 int ArithmType::Spec2Tag(int spec) {
+  if (spec == T_SIGNED) {
+    return T_INT;
+  }
   spec &= ~T_SIGNED;
   if ((spec & T_SHORT) || (spec & T_LONG)
       || (spec & T_LLONG)) {
