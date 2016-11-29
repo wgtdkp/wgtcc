@@ -74,7 +74,9 @@ ArithmType* ArithmType::New(int typeSpec) {
   case T_FLOAT:             return floatType;
   case T_DOUBLE:            return doubleType;
   case T_LONG | T_DOUBLE:   return ldoubleType;
-  default: Error("complex not supported yet");
+  default:
+    assert(tag & T_COMPLEX);
+    Error("complex not supported yet");
   }
   return nullptr; // Make compiler happy
 
@@ -160,7 +162,9 @@ int ArithmType::Rank() const {
   case T_FLOAT: return 6;
   case T_DOUBLE: return 7;
   case T_LONG | T_DOUBLE: return 8;
-  default: Error("complex not supported yet");
+  default:
+    assert(tag_ & T_COMPLEX);
+    Error("complex not supported yet");
   }
   return 0;
 }
