@@ -57,6 +57,30 @@ static int ((t7))();
 static int ((*t8))();
 static int ((*(**t9))(int*(), int(*), int()));
 
+static void test_signed() {
+    struct S {
+        unsigned a;
+        signed b;
+        int c;
+    };
+}
+
+static void test_signed_long() {
+    unsigned long a;
+    long b;
+    signed long c;
+
+    int* p = 1 ? &b: &c;
+}
+
+static void test_signed_llong() {
+    unsigned long long a;
+    long long b;
+    signed long long c;
+
+    int* p = 1 ? &b: &c;
+}
+
 int main() {
     t1();
     t2();
@@ -65,5 +89,8 @@ int main() {
     t5();
     t6();
     decl_array();
+    test_signed();
+    test_signed_long();
+    test_signed_llong();
     return 0;
 }
