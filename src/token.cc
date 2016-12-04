@@ -204,7 +204,7 @@ bool TokenSequence::IsBeginOfLine() const {
   // Thus if two token have different filename, the second is 
   // the begin of a line.
   return ((*pre)->tag_ == Token::NEW_LINE
-       || (*pre)->loc_.fileName_ != (*begin_)->loc_.fileName_);
+       || (*pre)->loc_.filename_ != (*begin_)->loc_.filename_);
 }
 
 const Token* TokenSequence::Peek() {
@@ -219,10 +219,10 @@ const Token* TokenSequence::Peek() {
     return eof;
   } else if (parser_ && (*begin_)->tag_ == Token::IDENTIFIER &&
              (*begin_)->str_ == "__func__") {
-    auto fileName = Token::New(*(*begin_));
-    fileName->tag_ = Token::LITERAL;
-    fileName->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
-    *begin_ = fileName;
+    auto filename = Token::New(*(*begin_));
+    filename->tag_ = Token::LITERAL;
+    filename->str_ = "\"" + parser_->CurFunc()->Name() + "\"";
+    *begin_ = filename;
   }
   return *begin_;
 }

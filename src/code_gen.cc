@@ -9,8 +9,8 @@
 #include <set>
 
 
-extern std::string inFileName;
-extern std::string outFileName;
+extern std::string filename_in;
+extern std::string filename_out;
 extern bool debug;
 
 const std::string* Generator::last_file = nullptr;
@@ -117,8 +117,8 @@ std::string Generator::ConsLabel(Constant* cons) {
     float  valss = valsd;
     // TODO(wgtdkp): Add rodata
     auto width = cons->Type()->Width();
-    long val = (width == 4)? (union {float valss; int val;}){valss}.val:
-                             (union {double valsd; long val;}){valsd}.val;
+    long val = (width == 4)? *reinterpret_cast<int*>(&valss):
+                             *reinterpret_cast<long*>(&valsd);
     const ROData& rodata = ROData(val, width);
     rodatas_.push_back(rodata);
     return rodata.label_;
@@ -1352,7 +1352,7 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit) {
 
 
 void Generator::Gen() {
-  Emit(".file", "\"" + inFileName + "\"");
+  Emit(".file", "\"" + filename_in + "\"");
   VisitTranslationUnit(parser_->Unit());
 }
 
@@ -1368,9 +1368,9 @@ void Generator::EmitLoc(Expr* expr) {
   }
 
   const auto loc = &expr->tok_->loc_;
-  if (loc->fileName_ != last_file) {
-    Emit(".file", std::to_string(++fileno) + " \"" + *loc->fileName_ + "\"");
-    last_file = loc->fileName_;
+  if (loc->filename_ != last_file) {
+    Emit(".file", std::to_string(++fileno) + " \"" + *loc->filename_ + "\"");
+    last_file = loc->filename_;
   }
   Emit(".loc", std::to_string(fileno) + " " +
                std::to_string(loc->line_) + " 0");
@@ -1550,7 +1550,7 @@ StaticInitializer Generator::GetStaticInit(InitList::iterator& iter,
     return {offset, 1, val, ""};
   } else if (init->type_->IsFloat()) {
     auto val = Evaluator<double>().Eval(init->expr_);
-    auto lval = (union {double val; long lval;}){val}.lval;
+    auto lval = *reinterpret_cast<long*>(&val);
     return {init->offset_, width, lval, ""};
   } else if (init->type_->ToPointer()) {
     auto addr = Evaluator<Addr>().Eval(init->expr_);

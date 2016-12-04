@@ -38,5 +38,5 @@ void ConvertToUTF32(std::string& str) {
 
 void AppendUCN(std::string& str, int c) {
   std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> utf8_ucs4_cvt;
-  str += utf8_ucs4_cvt.to_bytes({static_cast<char32_t>(c)});
+  str += utf8_ucs4_cvt.to_bytes(static_cast<char32_t>(c));
 }

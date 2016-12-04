@@ -45,7 +45,7 @@ Token* Scanner::Scan(bool ws) {
   Mark();
 
   if (Test('\n')) {
-    const auto& ret = MakeNewLine();
+    auto ret = MakeNewLine();
     Next();
     return ret;
   }
@@ -371,9 +371,9 @@ Encoding Scanner::ScanEncoding(int c) {
 }
 
 
-std::string* ReadFile(const std::string& fileName) {
-  FILE* f = fopen(fileName.c_str(), "r");
-  if (!f) Error("%s: No such file or directory", fileName.c_str());
+std::string* ReadFile(const std::string& filename) {
+  FILE* f = fopen(filename.c_str(), "r");
+  if (!f) Error("%s: No such file or directory", filename.c_str());
   auto text = new std::string;
   int c;
   while (EOF != (c = fgetc(f)))

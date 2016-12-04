@@ -23,7 +23,7 @@ typedef std::list<const Token*> TokenList;
 
 
 struct SourceLocation {
-  const std::string* fileName_;
+  const std::string* filename_;
   const char* lineBegin_;
   unsigned line_;
   unsigned column_;
@@ -34,7 +34,7 @@ struct SourceLocation {
 };
 
 
-struct Token {
+class Token {
   friend class Scanner;
 public:
   enum {
@@ -241,7 +241,7 @@ public:
   // Line index of the begin
   //unsigned line_ { 1 };
   //unsigned column_ { 1 };		 
-  //const std::string* fileName_ { nullptr };
+  //const std::string* filename_ { nullptr };
   //const char* lineBegin_ { nullptr };
   SourceLocation loc_;
 
@@ -267,7 +267,7 @@ private:
 };
 
 
-struct TokenSequence {
+class TokenSequence {
   friend class Preprocessor;
 
 public:

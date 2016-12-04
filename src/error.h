@@ -2,7 +2,7 @@
 #define _WGTCC_ERROR_H_
 
 
-class SourceLocation;
+struct SourceLocation;
 class Token;
 class Expr;
 

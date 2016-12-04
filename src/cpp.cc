@@ -9,8 +9,8 @@
 #include <unordered_map>
 
 
-extern std::string inFileName;
-extern std::string outFileName;
+extern std::string filename_in;
+extern std::string filename_out;
 
 typedef std::unordered_map<std::string, int> DirectiveMap;
 
@@ -61,7 +61,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
         HandleTheLineMacro(os, tok);
       } else if (macro->ObjLike()) {
         // Make a copy, as subst will change repSeq
-        auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
+        auto repSeq = macro->RepSeq(tok->loc_.filename_, tok->loc_.line_);
 
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
@@ -76,7 +76,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
       } else if (is.Try('(')) {
         ParamMap paramMap;
         auto rpar = ParseActualParam(is, macro, paramMap);
-        auto repSeq = macro->RepSeq(tok->loc_.fileName_, tok->loc_.line_);
+        auto repSeq = macro->RepSeq(tok->loc_.filename_, tok->loc_.line_);
         //const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
@@ -237,7 +237,7 @@ void Preprocessor::Finalize(TokenSequence os) {
         const_cast<Token*>(tok)->str_ = Scanner(tok).ScanIdentifier();
       }
     }
-    if (!tok->loc_.fileName_) {
+    if (!tok->loc_.filename_) {
       assert(false);
     }
   }
@@ -249,11 +249,11 @@ void Preprocessor::Process(TokenSequence& os) {
   TokenSequence is;
 
   // Add source file
-  IncludeFile(is, &inFileName);
+  IncludeFile(is, &filename_in);
 
   // Becareful about the include order, as include file always puts
   // the file to the header of the token sequence
-  auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false, inFileName);
+  auto wgtccHeaderFile = SearchFile("wgtcc.h", true, false, filename_in);
   if (!wgtccHeaderFile)
     Error("can't find header files, try reinstall wgtcc");
   IncludeFile(is, wgtccHeaderFile);
@@ -486,7 +486,7 @@ void Preprocessor::ParseIf(TokenSequence ls) {
 
   Parser parser(ts);
   auto expr = parser.ParseExpr();
-  int cond = Evaluator<long>().Eval(expr);
+  auto cond = static_cast<bool>(Evaluator<long>().Eval(expr));
   ppCondStack_.push({Token::PP_IF, NeedExpand(), cond});
 }
 
@@ -503,8 +503,7 @@ void Preprocessor::ParseIfdef(TokenSequence ls) {
     Error(ls.Peek(), "expect new line");
   }
 
-  int cond = FindMacro(ident->str_) != nullptr;
-
+  auto cond = FindMacro(ident->str_) != nullptr;
   ppCondStack_.push({Token::PP_IFDEF, NeedExpand(), cond});
 }
 
@@ -558,7 +557,7 @@ void Preprocessor::ParseElif(TokenSequence ls) {
 
   Parser parser(ts);
   auto expr = parser.ParseExpr();
-  int cond = Evaluator<long>().Eval(expr);
+  auto cond = static_cast<bool>(Evaluator<long>().Eval(expr));
 
   cond = cond && !top.cond_;
   ppCondStack_.push({Token::PP_ELIF, true, cond});
@@ -630,11 +629,11 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
     if (!ls.Empty()) {
       Error(ls.Peek(), "expect new line");
     }
-    std::string fileName;
-    Scanner(tok).ScanLiteral(fileName);
-    auto fullPath = SearchFile(fileName, false, next, *tok->loc_.fileName_);
+    std::string filename;
+    Scanner(tok).ScanLiteral(filename);
+    auto fullPath = SearchFile(filename, false, next, *tok->loc_.filename_);
     if (fullPath == nullptr)
-      Error(tok, "%s: No such file or directory", fileName.c_str());
+      Error(tok, "%s: No such file or directory", filename.c_str());
 
     IncludeFile(is, fullPath);
   } else if (tok->tag_ == '<') {
@@ -654,10 +653,10 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
     if (!ls.Empty())
       Error(ls.Peek(), "expect new line");
 
-    const auto& fileName = Scanner::ScanHeadName(lhs, rhs);
-    auto fullPath = SearchFile(fileName, true, next, *tok->loc_.fileName_);
+    const auto& filename = Scanner::ScanHeadName(lhs, rhs);
+    auto fullPath = SearchFile(filename, true, next, *tok->loc_.filename_);
     if (fullPath == nullptr) {
-      Error(tok, "%s: No such file or directory", fileName.c_str());
+      Error(tok, "%s: No such file or directory", filename.c_str());
     }
     IncludeFile(is, fullPath);
   } else {
@@ -729,9 +728,9 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is) {
 
 
 void Preprocessor::IncludeFile(TokenSequence& is,
-                               const std::string* fileName) {
+                               const std::string* filename) {
   TokenSequence ts {is.tokList_, is.begin_, is.begin_};
-  Scanner scanner(ReadFile(*fileName), fileName);
+  Scanner scanner(ReadFile(*filename), filename);
   scanner.Tokenize(ts);
   
   // We done including header file
@@ -838,7 +837,7 @@ void Preprocessor::Init() {
 void Preprocessor::HandleTheFileMacro(TokenSequence& os, const Token* macro) {
   auto file = Token::New(*macro);
   file->tag_ = Token::LITERAL;
-  file->str_ = "\"" + *macro->loc_.fileName_ + "\"";
+  file->str_ = "\"" + *macro->loc_.filename_ + "\"";
   os.InsertBack(file);
 }
 
@@ -858,7 +857,7 @@ void Preprocessor::UpdateFirstTokenLine(TokenSequence ts) {
 }
 
 
-TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line) {
+TokenSequence Macro::RepSeq(const std::string* filename, unsigned line) {
   // Update line
   TokenList tl;
   TokenSequence ret(&tl);
@@ -866,7 +865,7 @@ TokenSequence Macro::RepSeq(const std::string* fileName, unsigned line) {
   auto ts = ret;
   while (!ts.Empty()) {
     auto loc = ts.Peek()->loc_;
-    loc.fileName_ = fileName;
+    loc.filename_ = filename;
     loc.line_ = line;
     ts.UpdateHeadLocation(loc);
     ts.Next();

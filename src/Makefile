@@ -1,19 +1,19 @@
 OBJS_DIR = build/
 TARGET = wgtcc
-CC = g++
+CXX = g++
 
 SRCS = main.cc  token.cc ast.cc scope.cc type.cc cpp.cc		\
 	error.cc scanner.cc parser.cc evaluator.cc  code_gen.cc	\
 	encoding.cc
 	
-CFLAGS = -g -std=c++11 -Wall -Wfatal-errors -DDEBUG
+CXXFLAGS = -g -std=c++11 -Wall -Wfatal-errors
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cc=.o))
 
 default: all
 
 install:
 	@sudo mkdir -p /usr/local/wgtcc
-	@sudo cp -r ./include /usr/local/wgtcc
+	@sudo cp -r ../include /usr/local/wgtcc
 	@make all
 	@sudo cp ./build/wgtcc /usr/local/bin/wgtcc
 
@@ -26,16 +26,16 @@ all:
 	@make $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(OBJS_DIR)$@ $^
+	$(CXX) $(CXXFLAGS) -o $(OBJS_DIR)$@ $^
 
 $(OBJS_DIR)%.o: %.cc
-	$(CC) $(CFLAGS) -o $@ -c $<
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
-TESTS := $(filter-out test/util.c, $(wildcard test/*.c))
+TESTS := $(filter-out ../test/util.c, $(wildcard ../test/*.c))
 
 TEST_ASMS = $(SRCS:.c=.s)
 
-test: all
+test: install
 	@for test in $(TESTS); do			\
 		echo "gcc $$test";				\
 		gcc -std=c11 -w $$test;			\

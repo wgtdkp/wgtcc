@@ -6,9 +6,9 @@
 
 
 class Parser;
-class Addr;
-class ROData;
-class Evaluator<Addr>;
+struct Addr;
+struct ROData;
+template<> class Evaluator<Addr>;
 struct StaticInitializer;
 
 typedef std::vector<Type*> TypeList;

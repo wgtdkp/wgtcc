@@ -17,21 +17,23 @@
 
 
 std::string program;
-std::string inFileName;
-std::string outFileName;
+std::string filename_in;
+std::string filename_out;
 bool debug = false;
-static bool onlyPreprocess = false;
-static bool onlyCompile = false;
-static std::string gccInFileName;
-static std::list<std::string> gccArgs;
-static std::vector<std::string> defines;
-static std::list<std::string> includePaths;
+static bool only_preprocess = false;
+static bool only_compile = false;
+static bool specified_out_name = false;
+static std::list<std::string> filenames_in;
+static std::list<std::string> gcc_filenames_in;
+static std::list<std::string> gcc_args;
+static std::list<std::string> defines;
+static std::list<std::string> include_paths;
 
 
 static void Usage() {
   printf("Usage: wgtcc [options] file...\n"
        "Options: \n"
-       "  --help    Display this information\n"
+       "  -h        Display this information\n"
        "  -D        Define object like macro\n"
        "  -I        Add search path\n"
        "  -E        Preprocess only; do not compile, assemble or link\n"
@@ -42,15 +44,15 @@ static void Usage() {
 }
 
 
-static std::string GetExtension(const std::string& fileName) {
-  return fileName.substr(std::max(0UL, fileName.size() - 2));
+static std::string GetExtension(const std::string& filename) {
+  return filename.substr(std::max(0UL, filename.size() - 2));
 }
 
 
-static void ValidateFileName(const std::string& fileName) {
-  auto ext = GetExtension(fileName);
+static void ValidateFileName(const std::string& filename) {
+  auto ext = GetExtension(filename);
   if (ext != ".c" && ext != ".s" && ext != ".o" && ext != ".a")
-    Error("bad file name format:'%s'", fileName.c_str());
+    Error("bad file name format:'%s'", filename.c_str());
 }
 
 
@@ -76,32 +78,32 @@ static std::string GetName(const std::string& path) {
   return path.substr(pos + 1);
 }
 
-
 static int RunWgtcc() {
-  if (inFileName.back() != 'c')
+  if (GetExtension(filename_in) != ".c")
     return 0;
 
-  Preprocessor cpp(&inFileName);
+  Preprocessor cpp(&filename_in);
   for (auto& def: defines)
     DefineMacro(cpp, def);
-  for (auto& path: includePaths)
+  for (auto& path: include_paths)
     cpp.AddSearchPath(path);
 
   FILE* fp = stdout;
-  if (outFileName.size())
-    fp = fopen(outFileName.c_str(), "w");
+  if (specified_out_name) {
+    fp = fopen(filename_out.c_str(), "w");
+  }
   TokenSequence ts;
   cpp.Process(ts);
-  if (onlyPreprocess) {
+  if (only_preprocess) {
     ts.Print(fp);
     return 0;
   }
 
-  if (!onlyCompile || outFileName.size() == 0) {
-    outFileName = GetName(inFileName);
-    outFileName.back() = 's';
+  if (!only_compile || !specified_out_name) {
+    filename_out = GetName(filename_in);
+    filename_out.back() = 's';
   }
-  fp = fopen(outFileName.c_str(), "w");
+  fp = fopen(filename_out.c_str(), "w");
   
   Parser parser(ts);
   parser.Parse();
@@ -114,19 +116,21 @@ static int RunWgtcc() {
 
 static int RunGcc() {
   // Froce C11
-  bool specStd = false;
-  for (auto& arg: gccArgs) {
+  bool spec_std = false;
+  for (auto& arg: gcc_args) {
     if (arg.substr(0, 4) == "-std") {
       arg = "-std=c11";
-      specStd = true;
+      spec_std = true;
     }
   }
-  if (!specStd)
-    gccArgs.push_front("-std=c11");
+  if (!spec_std) {
+    gcc_args.push_front("-std=c11");
+  }
 
   std::string systemArg = "gcc";
-  for (const auto& arg: gccArgs)
+  for (const auto& arg: gcc_args) {
     systemArg += " " + arg;
+  }
   auto ret = system(systemArg.c_str());
   return ret;
 }
@@ -134,14 +138,15 @@ static int RunGcc() {
 
 static void ParseInclude(int argc, char* argv[], int& i) {
   if (argv[i][2]) {
-    includePaths.push_front(&argv[i][2]);
+    include_paths.push_front(&argv[i][2]);
     return;
   }
 
-  if (i == argc - 1)
+  if (i == argc - 1) {
     Error("missing argument to '%s'", argv[i]);
-  includePaths.push_front(argv[++i]);
-  gccArgs.push_back(argv[i]);
+  }
+  include_paths.push_front(argv[++i]);
+  gcc_args.push_back(argv[i]);
 }
 
 
@@ -154,15 +159,15 @@ static void ParseDefine(int argc, char* argv[], int& i) {
   if (i == argc - 1)
     Error("missing argument to '%s'", argv[i]);
   defines.push_back(argv[++i]);
-  gccArgs.push_back(argv[i]);
+  gcc_args.push_back(argv[i]);
 }
 
 
 static void ParseOut(int argc, char* argv[], int& i) {
   if (i == argc - 1)
     Error("missing argument to '%s'", argv[i]);
-  outFileName = argv[++i];
-  gccArgs.push_back(argv[i]);
+  filename_out = argv[++i];
+  gcc_args.push_back(argv[i]);
 }
 
 
@@ -176,25 +181,25 @@ int main(int argc, char* argv[]) {
     Usage();
 
   program = std::string(argv[0]);
-  // Preprocessing
-  //Preprocessor cpp(&inFileName);
-  
   for (auto i = 1; i < argc; ++i) {
     if (argv[i][0] != '-') {
-      inFileName = std::string(argv[i]);
-      ValidateFileName(inFileName);
+      filename_in = std::string(argv[i]);
+      ValidateFileName(filename_in);
+      filenames_in.push_back(filename_in);      
       continue;
     }
 
-    gccArgs.push_back(argv[i]);
-
+    gcc_args.push_back(argv[i]);
     switch (argv[i][1]) {
-    case 'E': onlyPreprocess = true; break;
-    case 'S': onlyCompile = true; break;
+    case 'h': Usage(); break;
+    case 'E': only_preprocess = true; break;
+    case 'S': only_compile = true; break;
     case 'I': ParseInclude(argc, argv, i); break;
     case 'D': ParseDefine(argc, argv, i); break;
-    case 'o': ParseOut(argc, argv, i); break;
-    case 'g': gccArgs.pop_back(); debug = true; break;
+    case 'o':
+      specified_out_name = true; 
+      ParseOut(argc, argv, i); break;
+    case 'g': gcc_args.pop_back(); debug = true; break;
     default:;
     }
   }
@@ -202,40 +207,46 @@ int main(int argc, char* argv[]) {
 #ifdef DEBUG
   RunWgtcc();
 #else
-  bool hasError = false;
-  pid_t pid = fork();
-  if (pid < 0) {
-    Error("fork error");
-  } else if (pid == 0) {
-    return RunWgtcc();
-  } else {
-    int stat;
-    wait(&stat);
-    hasError = hasError || !WIFEXITED(stat);
-  }
+  for (const auto& filename: filenames_in) {
+    filename_in = filename;
+    bool hasError = false;
+    pid_t pid = fork();
+    if (pid < 0) {
+      Error("fork error");
+    } else if (pid == 0) {
+      // Do work in child process
+      return RunWgtcc();
+    } else {
+      int stat;
+      wait(&stat);
+      hasError = hasError || !WIFEXITED(stat);
+    }
 
-  if (hasError)
-    return 0;
+    if (hasError)
+      return 0;
+  }
 #endif
 
-  if (onlyPreprocess || onlyCompile)
+  if (only_preprocess || only_compile) {
+    if (specified_out_name && filenames_in.size() > 1)
+      Error("cannot specifier output filename with multiple input file");
     return 0;
+  }
 
-  if (GetExtension(inFileName) == ".c") {
-    if (outFileName.size() == 0) {
-      outFileName = GetName(inFileName);
-      outFileName.back() = 's';
+  std::list<std::string> filenames_out;
+  for (auto& filename: filenames_in) {
+    if (GetExtension(filename) == ".c") {
+      gcc_args.push_back(GetName(filename));
+      gcc_args.back().back() = 's';
+    } else {
+      gcc_args.clear();
+      for (int i = 1; i < argc; ++i)
+        gcc_args.push_back(argv[i]);
+      break;
     }
-    gccInFileName = outFileName;
-    gccInFileName.back() = 's';
-    gccArgs.push_back(gccInFileName);
-  } else {
-    gccArgs.clear();
-    for (int i = 1; i < argc; ++i)
-      gccArgs.push_back(argv[i]);
   }
   auto ret = RunGcc();
-  auto cmd = "rm -f " + outFileName;
+  auto cmd = "rm -f " + filename_out;
   if (system(cmd.c_str())) {}
   return ret;
 }

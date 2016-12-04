@@ -37,7 +37,7 @@ public:
   bool Variadic() { return variadic_; }
   bool PreDef() { return preDef_; }
   ParamList& Params() { return params_; }
-  TokenSequence RepSeq(const std::string* fileName, unsigned line);
+  TokenSequence RepSeq(const std::string* filename, unsigned line);
 
 private:
   bool funcLike_;
@@ -57,7 +57,7 @@ struct CondDirective {
 
 class Preprocessor {
 public:
-  Preprocessor(const std::string* fileName)
+  Preprocessor(const std::string* filename)
       : curLine_(1), lineLine_(0), curCond_(true) {
     // Add predefined
     Init();
@@ -90,7 +90,7 @@ public:
   void ParseLine(TokenSequence ls);
   void ParseError(TokenSequence ls);
   void ParsePragma(TokenSequence ls);
-  void IncludeFile(TokenSequence& is, const std::string* fileName);
+  void IncludeFile(TokenSequence& is, const std::string* filename);
   bool ParseIdentList(ParamList& params, TokenSequence& is);
   
 

@@ -14,14 +14,14 @@ public:
   explicit Scanner(const Token* tok)
       : Scanner(&tok->str_, tok->loc_) {}
   Scanner(const std::string* text, const SourceLocation& loc)
-      : Scanner(text, loc.fileName_, loc.line_, loc.column_) {}
+      : Scanner(text, loc.filename_, loc.line_, loc.column_) {}
   explicit Scanner(const std::string* text,
-                   const std::string* fileName=nullptr,
+                   const std::string* filename=nullptr,
                    unsigned line=1, unsigned column=1)
       : text_(text), tok_(Token::END) {
     // TODO(wgtdkp): initialization
     p_ = &(*text_)[0];
-    loc_ = {fileName, p_, line, 1};
+    loc_ = {filename, p_, line, 1};
   }
 
   virtual ~Scanner() {}
@@ -76,11 +76,9 @@ private:
   SourceLocation loc_;
   Token tok_;
   const char* p_;
-  const char* tokLineBegin_;
-  unsigned tokColumn_;
 };
 
 
-std::string* ReadFile(const std::string& fileName);
+std::string* ReadFile(const std::string& filename);
 
 #endif

@@ -182,7 +182,7 @@ public:
   virtual ~VoidType() {}
   virtual VoidType* ToVoid() { return this; }
   virtual const VoidType* ToVoid() const { return this; }
-  virtual bool Compatible(QualType other) const { return other->ToVoid(); }
+  virtual bool Compatible(const Type& other) const { return other.ToVoid(); }
   virtual int Width() const {
     // Non-standard GNU extension
     return 1;
@@ -334,6 +334,8 @@ public:
   const ParamList& Params() const { return params_; }
   void SetParams(const ParamList& params) { params_ = params; }
   bool Variadic() const { return variadic_; }
+  bool IsInline() const { return inlineNoReturn_ & F_INLINE; }
+  bool IsNoReturn() const { return inlineNoReturn_ & F_NORETURN; }
 
 protected:
   FuncType(MemPool* pool, QualType derived, int inlineReturn,

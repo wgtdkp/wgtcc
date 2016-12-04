@@ -40,10 +40,10 @@ void Error(const char* format, ...) {
 static void VError(const SourceLocation& loc,
                    const char* format,
                    va_list args) {
-  assert(loc.fileName_);
+  assert(loc.filename_);
   fprintf(stderr,
           "%s:%d:%d: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
-          loc.fileName_->c_str(),
+          loc.filename_->c_str(),
           loc.line_,
           loc.column_);
   vfprintf(stderr, format, args);

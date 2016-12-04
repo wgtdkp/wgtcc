@@ -33,7 +33,7 @@ class Constant;
 
 class Identifier;
 class Object;
-class Initializer;
+struct Initializer;
 class Declaration;
 class Enumerator;
 
