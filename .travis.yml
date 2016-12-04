@@ -10,7 +10,7 @@ script:
   - sudo ln -s /usr/bin/g++-5 /usr/bin/g++
   - gcc --version
   - g++ --version
-  - make && make install && make test
+  - cd src && make && make install && make test
 addons:
   apt:
     sources:
