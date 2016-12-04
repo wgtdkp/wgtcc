@@ -209,7 +209,7 @@ int main(int argc, char* argv[]) {
 #else
   for (const auto& filename: filenames_in) {
     filename_in = filename;
-    bool hasError = false;
+    bool has_error = false;
     pid_t pid = fork();
     if (pid < 0) {
       Error("fork error");
@@ -219,10 +219,10 @@ int main(int argc, char* argv[]) {
     } else {
       int stat;
       wait(&stat);
-      hasError = hasError || !WIFEXITED(stat);
+      has_error = has_error || (WIFEXITED(stat) && WEXITSTATUS(stat) != 0);
     }
 
-    if (hasError)
+    if (has_error)
       return 0;
   }
 #endif

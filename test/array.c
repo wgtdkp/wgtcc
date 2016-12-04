@@ -64,6 +64,14 @@ static void array_of_zero_size() {
     expect(0, sizeof(arr));
 }
 
+// Array type compatible
+static char* arr[] = {"abc", NULL};
+static char* arr[];
+static void array_type_comp() {
+    expect_string("abc", arr[0]);
+    expect(NULL, arr[1]);
+}
+
 int main() {
     t1();
     t2();
@@ -73,5 +81,6 @@ int main() {
     t6();
     t7();
     array_of_zero_size();
+    array_type_comp();
     return 0;
 }

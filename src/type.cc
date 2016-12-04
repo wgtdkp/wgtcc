@@ -280,10 +280,10 @@ bool ArrayType::Compatible(const Type& other) const {
   auto otherArray = other.ToArray();
   if (!otherArray) return false;
   if (!derived_->Compatible(*otherArray->derived_)) return false;
-  // The lengths are both not specified
-  if (!complete_ && !otherArray->complete_) return true;
-  if (complete_ != otherArray->complete_) return false;
-  return len_ == otherArray->len_;
+  // The lengths should equal if both specified
+  if (complete_ && otherArray->complete_)
+    return len_ == otherArray->len_;
+  return true;
 }
 
 
