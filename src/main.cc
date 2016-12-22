@@ -45,7 +45,7 @@ static void Usage() {
 
 
 static std::string GetExtension(const std::string& filename) {
-  return filename.substr(filename.size() >= 2 ? filename.size() - 2 : 0));
+  return filename.substr(filename.size() >= 2 ? filename.size() - 2 : 0);
 }
 
 
