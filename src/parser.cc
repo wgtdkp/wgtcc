@@ -1843,9 +1843,9 @@ void Parser::ParseInitializer(Declaration* decl,
   auto structType = type->ToStruct();
   // A compound literal in initializer is reduced to a initializer directly
   // It means that the compound literal will never be created
-  auto literalType = TryCompoundLiteral();
-  if (literalType && !literalType->Compatible(*type))
-      Error("incompatible type of initializer");
+  //auto literalType = TryCompoundLiteral();
+  //if (literalType && !literalType->Compatible(*type))
+  //    Error("incompatible type of initializer");
   if (arrType) {
     if (forceBrace && !ts_.Test('{') && !ts_.Test(Token::LITERAL)) {
       ts_.Expect('{');

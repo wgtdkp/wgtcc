@@ -312,8 +312,16 @@ static void test_struct_anonymous_complex() {
     expect(3, foo1.h.g);
 }
 
-int main()
-{
+// static test_static_compound_literal_initializer
+struct S {
+    int a;
+    int b;
+};
+
+// Should give an error of non-constant expression
+//struct S s = {1, (struct S){0}.a};
+
+int main() {
     test1();
     test2();
     test_literal();
@@ -334,5 +342,3 @@ int main()
     test_struct_anonymous_complex();
     return 0;
 }
-
-
