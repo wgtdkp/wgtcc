@@ -3,9 +3,10 @@ dist: Trusty
 script:
   - sudo mkdir -p build
   - cd build
-  - sudo apt-get install cmake
-  - cmake ..
-  - make
+  - pwd
+  - ls ../
+  - sudo cmake ..
+  - sudo make
   - sudo make install
 addons:
   apt:
