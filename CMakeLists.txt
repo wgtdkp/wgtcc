@@ -1,0 +1,8 @@
+project(wgtcc)
+cmake_minimum_required(VERSION 2.8)
+add_compile_options(-std=c++11)
+aux_source_directory(./src SRC_LIST)
+set(INSTALL_FILES_DIR include)
+add_executable(${PROJECT_NAME} ${SRC_LIST})
+ install (TARGETS ${PROJECT_NAME} DESTINATION bin)
+ install (DIRECTORY ${INSTALL_FILES_DIR} DESTINATION ./${PROJECT_NAME})

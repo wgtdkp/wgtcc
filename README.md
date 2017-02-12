@@ -6,11 +6,12 @@ a small C11 compiler in C++11
   2. linux 4.4.0
   3. gcc 5.4.0 (or any version supports C++11)  
 
-## INSTALL
+## INSTALL(In linux)
   ```bash
-  $ make all
-  $ make install # root required
-  $ make test
+  $ mkdir -p build
+  $ cd build
+  $ cmake ..
+  $ sudo make install # root required
   ```
   then you can play with the examples:
   ```bash
