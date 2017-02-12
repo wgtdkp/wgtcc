@@ -3,6 +3,7 @@ dist: Trusty
 script:
   - sudo mkdir -p build
   - cd build
+  - sudo apt-get install cmake
   - cmake ..
   - make
   - sudo make install
