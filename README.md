@@ -1,10 +1,10 @@
 # wgtcc [![Build Status](https://travis-ci.org/wgtdkp/wgtcc.svg?branch=master)](https://travis-ci.org/wgtdkp/wgtcc)
-a small C11 compiler in C++11
+A small C11 compiler in C++11.
 
 ## ENVIRONMENT
   1. x86-64
   2. linux 4.4.0
-  3. gcc 5.4.0 (or any version supports C++11)  
+  3. clang 3.8.0 (or any version supports C++11)
 
 ## INSTALL
   ```bash
@@ -12,11 +12,18 @@ a small C11 compiler in C++11
   $ make install # root required
   $ make test
   ```
-  then you can play with the examples:
+Then you can play with the examples:
   ```bash
   $ wgtcc example/heart.c
   $ wgtcc example/chinese.c
   ```
+
+## NOTICE
+As wgtcc doesn't support PIC/PIE, if you are using gcc >= 6.2.0, specified **_-no-pie_** explicitly:
+```bash
+$ wgtcc -no-pie example/heart.c
+$ wgtcc -no-pie example/chinese.c
+```
 
 ## GOAL
 **wgtcc** is aimed to implement the full C11 standard with some exceptions:
