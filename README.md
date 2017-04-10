@@ -19,7 +19,7 @@ Then you can play with the examples:
   ```
 
 ## NOTICE
-As wgtcc doesn't support PIC/PIE, if you are using gcc >= 6.2.0, specified **_-no-pie_** explicitly:
+As wgtcc doesn't support PIC/PIE, if you are using gcc >= 6.2.0, specify **_-no-pie_** explicitly:
 ```bash
 $ wgtcc -no-pie example/heart.c
 $ wgtcc -no-pie example/chinese.c
