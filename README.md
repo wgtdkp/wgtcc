@@ -47,7 +47,8 @@ after finishing parsing and generating code.
 2. [N1548, C11 standard draft](http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1548.pdf)
 3. [64-ia-32-architectures-software-developer-manual-325462](http://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-manual-325462.html)
 3. [8cc](https://github.com/rui314/8cc)
-4. [macro expansion algorithm](https://github.com/wgtdkp/wgtcc/blob/master/doc/cpp.algo.pdf)
+4. [9cc](https://github.com/JianpingZeng/9cc)
+5. [macro expansion algorithm](https://github.com/wgtdkp/wgtcc/blob/master/doc/cpp.algo.pdf)
 
 ## TODO
 1. support GNU extensions(e.g. keyword \_\_attribute__)
