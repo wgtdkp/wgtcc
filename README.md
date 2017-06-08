@@ -33,7 +33,7 @@ $ wgtcc -no-pie example/chinese.c
 3. some non standard GNU extensions are supported, but you should not rely on **wgtcc** of a full supporting
 
 ## FRONT END
-A basic recursive descent parser 
+A basic recursive descent parser
 
 ## BACK END
 **wgtcc** generates code from AST directly. The algorithm is TOSCA(top of stack caching). It is far from generating efficient code, but at least it works and generates code efficently.

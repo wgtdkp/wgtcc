@@ -50,6 +50,9 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
     } else if (!inCond && !NeedExpand()) {
       // Discards the token
       is.Next();
+    } else if (inCond && name == "defined") {
+      is.Next();
+      os.InsertBack(EvalDefOp(is));
     } else if (tok->hs_ && tok->hs_->find(name) != tok->hs_->end()) {
       os.InsertBack(is.Next());
     } else if ((macro = FindMacro(name))) {
@@ -312,7 +315,7 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
   return ret;
 }
 
-
+/*
 void Preprocessor::ReplaceDefOp(TokenSequence& is) {
   TokenSequence os;
   while (!is.Empty()) {
@@ -331,6 +334,17 @@ void Preprocessor::ReplaceDefOp(TokenSequence& is) {
     } 
   }
   is = os;
+}
+*/
+
+const Token* Preprocessor::EvalDefOp(TokenSequence& is) {
+  auto hasPar = is.Try('(');
+  auto macro = is.Expect(Token::IDENTIFIER);
+  auto cons = Token::New(*macro);
+  if (hasPar) is.Expect(')');
+  cons->tag_ = Token::I_CONSTANT;
+  cons->str_ = FindMacro(macro->str_) ? "1": "0";
+  return cons;
 }
 
 
@@ -480,7 +494,7 @@ void Preprocessor::ParseIf(TokenSequence ls) {
   }
 
   TokenSequence ts;
-  ReplaceDefOp(ls);
+  //ReplaceDefOp(ls);
   Expand(ts, ls, true);
   ReplaceIdent(ts);
 
@@ -551,7 +565,7 @@ void Preprocessor::ParseElif(TokenSequence ls) {
   }
 
   TokenSequence ts;
-  ReplaceDefOp(ls);
+  //ReplaceDefOp(ls);
   Expand(ts, ls, true);
   ReplaceIdent(ts);
 
