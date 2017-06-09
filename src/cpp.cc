@@ -500,6 +500,9 @@ void Preprocessor::ParseIf(TokenSequence ls) {
 
   Parser parser(ts);
   auto expr = parser.ParseExpr();
+  if (!parser.ts().Empty()) {
+    Error(parser.ts().Peek(), "unexpected extra expression");
+  }
   bool cond;
   if (expr->Type()->IsFloat()) {
     //std::cout << Evaluator<double>().Eval(expr) << std::endl;
@@ -578,6 +581,9 @@ void Preprocessor::ParseElif(TokenSequence ls) {
 
   Parser parser(ts);
   auto expr = parser.ParseExpr();
+  if (!parser.ts().Empty()) {
+    Error(parser.ts().Peek(), "unexpected extra expression");
+  }
   bool cond;
   if (expr->Type()->IsFloat()) {
     std::cout << Evaluator<double>().Eval(expr) << std::endl;

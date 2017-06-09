@@ -252,10 +252,8 @@ public:
 
 private:
   explicit Token(int tag): tag_(tag) {}
-  Token(int tag,
-        const SourceLocation& loc,
-        const std::string& str,
-        bool ws=false)
+  Token(int tag, const SourceLocation& loc,
+        const std::string& str, bool ws=false)
       : tag_(tag), ws_(ws), loc_(loc), str_(str) {}
 
   Token(const Token& other) {
@@ -341,7 +339,7 @@ public:
     if ((*begin_)->tag_ == Token::NEW_LINE)
       PutBack();
   }
-  const Token* Peek();
+  const Token* Peek() const;
   const Token* Peek2() {
     if (Empty())
       return Peek(); // Return the Token::END
@@ -350,7 +348,7 @@ public:
     PutBack();
     return ret;
   }
-  const Token* Back() {
+  const Token* Back() const {
     auto back = end_;
     return *--back;
   }
@@ -365,7 +363,7 @@ public:
   }
   TokenList::iterator Mark() { return begin_; }
   void ResetTo(TokenList::iterator mark) { begin_ = mark; }
-  bool Empty();
+  bool Empty() const { return Peek()->tag_ == Token::END; }
   void InsertBack(TokenSequence& ts) {
     auto pos = tokList_->insert(end_, ts.begin_, ts.end_);
     if (begin_ == end_) {
@@ -406,7 +404,7 @@ private:
   }
 
   TokenList* tokList_;
-  TokenList::iterator begin_;
+  mutable TokenList::iterator begin_;
   TokenList::iterator end_;
   Parser* parser_ {nullptr};
 };

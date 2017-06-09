@@ -207,6 +207,7 @@ public:
   }
   TranslationUnit* Unit() { return unit_; }
   FuncDef* CurFunc() { return curFunc_; }
+  const TokenSequence& ts() const { return ts_; }
 
 private:
   static bool IsBuiltin(FuncType* type);

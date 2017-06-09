@@ -175,10 +175,6 @@ Token* Token::New(int tag,
   return new (TokenPool.Alloc()) Token(tag, loc, str, ws);
 }
 
-bool TokenSequence::Empty() {
-  return Peek()->tag_ == Token::END;
-}
-
 
 TokenSequence TokenSequence::GetLine() {
   auto begin = begin_;
@@ -207,7 +203,7 @@ bool TokenSequence::IsBeginOfLine() const {
        || (*pre)->loc_.filename_ != (*begin_)->loc_.filename_);
 }
 
-const Token* TokenSequence::Peek() {
+const Token* TokenSequence::Peek() const {
   static auto eof = Token::New(Token::END);
   if (begin_ != end_ && (*begin_)->tag_ == Token::NEW_LINE) {
     ++begin_;
