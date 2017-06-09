@@ -500,7 +500,14 @@ void Preprocessor::ParseIf(TokenSequence ls) {
 
   Parser parser(ts);
   auto expr = parser.ParseExpr();
-  auto cond = static_cast<bool>(Evaluator<long>().Eval(expr));
+  bool cond;
+  if (expr->Type()->IsFloat()) {
+    //std::cout << Evaluator<double>().Eval(expr) << std::endl;
+    cond = static_cast<bool>(Evaluator<double>().Eval(expr));
+  } else {
+    //std::cout << Evaluator<long>().Eval(expr) << std::endl;
+    cond = static_cast<bool>(Evaluator<long>().Eval(expr));
+  }
   ppCondStack_.push({Token::PP_IF, NeedExpand(), cond});
 }
 
@@ -571,8 +578,13 @@ void Preprocessor::ParseElif(TokenSequence ls) {
 
   Parser parser(ts);
   auto expr = parser.ParseExpr();
-  auto cond = static_cast<bool>(Evaluator<long>().Eval(expr));
-
+  bool cond;
+  if (expr->Type()->IsFloat()) {
+    std::cout << Evaluator<double>().Eval(expr) << std::endl;
+    cond = static_cast<bool>(Evaluator<double>().Eval(expr));
+  } else {
+    cond = static_cast<bool>(Evaluator<long>().Eval(expr));
+  }
   cond = cond && !top.cond_;
   ppCondStack_.push({Token::PP_ELIF, true, cond});
 }
@@ -693,7 +705,9 @@ void Preprocessor::ParseUndef(TokenSequence ls) {
 void Preprocessor::ParseDef(TokenSequence ls) {
   ls.Next();
   auto ident = ls.Expect(Token::IDENTIFIER);
-
+  if (ident->str_ == "defined") {
+    Error(ident, "'defined' cannot be used as a macro name");
+  }
   auto tok = ls.Peek();
   if (tok->tag_ == '(' && !tok->ws_) {
     // There is no white space between ident and '('
