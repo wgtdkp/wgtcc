@@ -154,7 +154,7 @@ public:
     // KEYWORD END
      
     IDENTIFIER,
-    CONSTANT,
+    CONSTANT, // 198
     I_CONSTANT,
     C_CONSTANT,
     F_CONSTANT,
@@ -330,14 +330,20 @@ public:
     if (!ret->IsEOF()) {
       ++begin_;
       Peek(); // May skip newline token, but why ?
+    } else {
+      ++exceed_end;
     }
     return ret;
   }
   void PutBack() {
     assert(begin_ != tokList_->begin());
-    --begin_;
-    if ((*begin_)->tag_ == Token::NEW_LINE)
-      PutBack();
+    if (exceed_end > 0) {
+      --exceed_end;
+    } else {
+      --begin_;
+      if ((*begin_)->tag_ == Token::NEW_LINE)
+        PutBack();
+    }
   }
   const Token* Peek() const;
   const Token* Peek2() {
@@ -407,6 +413,7 @@ private:
   mutable TokenList::iterator begin_;
   TokenList::iterator end_;
   Parser* parser_ {nullptr};
+  int exceed_end {0};
 };
 
 #endif
