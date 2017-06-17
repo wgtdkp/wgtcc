@@ -1,5 +1,5 @@
 # wgtcc [![Build Status](https://travis-ci.org/wgtdkp/wgtcc.svg?branch=master)](https://travis-ci.org/wgtdkp/wgtcc)
-A small C11 compiler in C++11.
+A small _C11_ compiler in _C++11_.
 
 ## ENVIRONMENT
   1. x86-64
