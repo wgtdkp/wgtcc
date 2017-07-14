@@ -317,7 +317,7 @@ public:
   // Member ref operator is a lvalue
   virtual bool IsLVal() {
     switch (op_) {
-    case '.':
+    case '.': return !Type()->ToArray() && lhs_->IsLVal();
     case ']': return !Type()->ToArray();
     default: return false;
     }
