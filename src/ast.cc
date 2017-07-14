@@ -395,10 +395,10 @@ void BinaryOp::LogicalOpTypeChecking() {
 
 
 void BinaryOp::AssignOpTypeChecking() {
-  if (!lhs_->IsLVal()) {
-    Error(lhs_, "lvalue expression expected");
-  } else if (lhs_->IsConstQualified()) {
+  if (lhs_->IsConstQualified()) {
     Error(lhs_, "left operand of '=' is const qualified");
+  } else if (!lhs_->IsLVal()) {
+    Error(lhs_, "lvalue expression expected");
   }
 
   if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm()) {
@@ -426,11 +426,7 @@ UnaryOp* UnaryOp::New(int op, Expr* operand, QualType type) {
 
 bool UnaryOp::IsLVal() {
   // Only deref('*') could be lvalue;
-  // So it's only deref will override this func
-  switch (op_) {
-  case Token::DEREF: return !Type()->ToArray();
-  default: return false;
-  }
+  return op_ == Token::DEREF;
 }
 
 
@@ -474,10 +470,10 @@ void UnaryOp::TypeChecking() {
 
 
 void UnaryOp::IncDecOpTypeChecking() {
-  if (!operand_->IsLVal()) {
-    Error(this, "lvalue expression expected");
-  } else if (operand_->IsConstQualified()) {
+  if (operand_->IsConstQualified()) {
     Error(this, "increment/decrement of const qualified expression");
+  } else if (!operand_->IsLVal()) {
+    Error(this, "lvalue expression expected");
   }
 
   if (!operand_->Type()->IsReal() && !operand_->Type()->ToPointer()) {
