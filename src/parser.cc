@@ -1775,7 +1775,10 @@ Declaration* Parser::ParseInitDeclarator(Identifier* ident) {
     if (obj->Linkage() == L_NONE) {
       Error(obj, "storage size of '%s' isn’t known", name.c_str());
     }
-    return nullptr; // Discards the incomplete object declarations
+    // FIXME(wgtdkp):
+    // Discards the incomplete object declarations
+    // It causes linking failure of forward-declared objects with imcomplete type
+    return nullptr;
   }
 
   if (!obj->Decl()) {
