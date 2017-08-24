@@ -31,8 +31,7 @@ static MemPoolImp<FuncDef>          funcDefPool;
  * Accept
  */
 
-void Declaration::Accept(Visitor* v)
-{
+void Declaration::Accept(Visitor* v) {
   v->VisitDeclaration(this);
 }
 
