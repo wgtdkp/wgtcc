@@ -63,7 +63,7 @@ Token* Scanner::Scan(bool ws) {
     if (Try('=')) return MakeToken(Token::SUB_ASSIGN);
     return MakeToken(c);
   case '+':
-    if (Try('+'))	return MakeToken(Token::INC);
+    if (Try('+')) return MakeToken(Token::INC);
     if (Try('=')) return MakeToken(Token::ADD_ASSIGN);
     return MakeToken(c);
   case '<':
