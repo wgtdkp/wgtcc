@@ -77,7 +77,7 @@ Token* Scanner::Scan(bool ws) {
     if (Try('>')) return MakeToken('}');
     if (Try(':')) {
       if (Try('%')) {
-        if (Try(':'))	return MakeToken(Token::DSHARP);
+        if (Try(':')) return MakeToken(Token::DSHARP);
         PutBack();
       }
       return MakeToken('#');
