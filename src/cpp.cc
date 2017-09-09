@@ -276,8 +276,6 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
     return ret;
   }
 
-  //TokenSequence ts(is);
-  //TokenSequence ap(is);
   auto fp = macro->Params().begin();
   TokenSequence ap;
 
@@ -315,27 +313,6 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
   return ret;
 }
 
-/*
-void Preprocessor::ReplaceDefOp(TokenSequence& is) {
-  TokenSequence os;
-  while (!is.Empty()) {
-    auto tok = is.Next();
-    if (tok->tag_ == Token::IDENTIFIER && tok->str_ == "defined") {
-      auto hasPar = false;
-      if (is.Try('(')) hasPar = true;
-      tok = is.Expect(Token::IDENTIFIER);
-      auto cons = Token::New(*tok);
-      if (hasPar) is.Expect(')');
-      cons->tag_ = Token::I_CONSTANT;
-      cons->str_ = FindMacro(tok->str_) ? "1": "0";
-      os.InsertBack(cons);
-    } else {
-      os.InsertBack(tok);
-    } 
-  }
-  is = os;
-}
-*/
 
 const Token* Preprocessor::EvalDefOp(TokenSequence& is) {
   auto hasPar = is.Try('(');
@@ -494,7 +471,6 @@ void Preprocessor::ParseIf(TokenSequence ls) {
   }
 
   TokenSequence ts;
-  //ReplaceDefOp(ls);
   Expand(ts, ls, true);
   ReplaceIdent(ts);
 
@@ -505,10 +481,8 @@ void Preprocessor::ParseIf(TokenSequence ls) {
   }
   bool cond;
   if (expr->Type()->IsFloat()) {
-    //std::cout << Evaluator<double>().Eval(expr) << std::endl;
     cond = static_cast<bool>(Evaluator<double>().Eval(expr));
   } else {
-    //std::cout << Evaluator<long>().Eval(expr) << std::endl;
     cond = static_cast<bool>(Evaluator<long>().Eval(expr));
   }
   ppCondStack_.push({Token::PP_IF, NeedExpand(), cond});
@@ -575,7 +549,6 @@ void Preprocessor::ParseElif(TokenSequence ls) {
   }
 
   TokenSequence ts;
-  //ReplaceDefOp(ls);
   Expand(ts, ls, true);
   ReplaceIdent(ts);
 
