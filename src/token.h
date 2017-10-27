@@ -237,12 +237,6 @@ public:
   
   int tag_;
   bool ws_ { false };
-
-  // Line index of the begin
-  //unsigned line_ { 1 };
-  //unsigned column_ { 1 };		 
-  //const std::string* filename_ { nullptr };
-  //const char* lineBegin_ { nullptr };
   SourceLocation loc_;
 
   // ws_ standards for weither there is preceding white space
