@@ -432,6 +432,9 @@ void StructType::MergeAnony(Object* anony) {
   for (auto& kv: *anonyType->memberMap_) {
     auto& name = kv.first;
     auto member = kv.second->ToObject();
+    if (member == nullptr) {
+      continue;
+    }
     // Every member of anonymous struct/union
     // are offseted by external struct/union
     member->SetOffset(offset + member->Offset());
