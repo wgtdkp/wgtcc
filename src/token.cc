@@ -199,8 +199,8 @@ bool TokenSequence::IsBeginOfLine() const {
   // We do not insert a newline at the end of a source file.
   // Thus if two token have different filename, the second is 
   // the begin of a line.
-  return ((*pre)->tag_ == Token::NEW_LINE
-       || (*pre)->loc_.filename_ != (*begin_)->loc_.filename_);
+  return ((*pre)->tag_ == Token::NEW_LINE ||
+          (*pre)->loc_.filename_ != (*begin_)->loc_.filename_);
 }
 
 const Token* TokenSequence::Peek() const {
