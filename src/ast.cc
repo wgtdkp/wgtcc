@@ -607,7 +607,8 @@ void FuncCall::TypeChecking() {
   auto funcType = designator_->Type()->ToFunc();
   if (!funcType) {
     Error(designator_, "called object is not a function or function pointer");
-  } else if (!funcType->Derived()->Complete()) {
+  } else if (!funcType->Derived()->ToVoid() &&
+             !funcType->Derived()->Complete()) {
     Error(designator_, "invalid use of incomplete return type");
   }
 
