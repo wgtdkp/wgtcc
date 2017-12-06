@@ -103,8 +103,8 @@ void Scope::Print() {
       std::cout << name << "\t[type:\t"
                 << ident->Type()->Str() << "]" << std::endl;
     } else {
-      std::cout << name << "\t[object:\t";
-      std::cout << ident->Type()->Str() << "]" << std::endl;
+      std::cout << name << "\t[object:\t"
+                << ident->Type()->Str() << "]" << std::endl;
     }
   }
   std::cout << std::endl;
