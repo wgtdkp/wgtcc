@@ -103,7 +103,7 @@ public:
     return !(lhs == rhs);
   }
 
-  int Qual() const { return ptr_ & 0x03; }
+  int Qual() const { return ptr_ & 0x07; }
   bool IsConstQualified() const { return ptr_ & Qualifier::CONST; }
   bool IsRestrictQualified() const { return ptr_ & Qualifier::RESTRICT; }
   bool IsVolatileQualified() const { return ptr_ & Qualifier::VOLATILE; }
@@ -204,8 +204,8 @@ public:
   virtual bool Compatible(const Type& other) const {
     // C11 6.2.7 [1]: Two types have compatible type if their types are the same
     // But i would to loose this constraints: integer and pointer are compatible
-    //if (IsInteger() && other.ToPointer())
-    //  return other.Compatible(*this);
+    // if (IsInteger() && other.ToPointer())
+    //   return other.Compatible(*this);
     return this == &other;
   }
 
