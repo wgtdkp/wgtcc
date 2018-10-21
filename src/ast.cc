@@ -815,7 +815,6 @@ LabelStmt* LabelStmt::New() {
 FuncDef* FuncDef::New(Identifier* ident, LabelStmt* retLabel) {
   auto ret = new (funcDefPool.Alloc()) FuncDef(ident, retLabel);
   ret->pool_ = &funcDefPool;
-
   return ret;
 }
 

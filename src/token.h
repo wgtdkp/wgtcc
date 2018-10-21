@@ -228,8 +228,8 @@ public:
   bool IsTypeSpecQual() const { return CONST <= tag_ && tag_ <= ENUM; }
   bool IsDecl() const { return CONST <= tag_ && tag_ <= REGISTER; }
   static const char* Lexeme(int tag) {
-    auto iter = TagLexemeMap_.find(tag);
-    if (iter == TagLexemeMap_.end())
+    auto iter = tagLexemeMap_.find(tag);
+    if (iter == tagLexemeMap_.end())
       return nullptr;
       
     return iter->second;
@@ -255,7 +255,7 @@ private:
   }
 
   static const std::unordered_map<std::string, int> kwTypeMap_;
-  static const std::unordered_map<int, const char*> TagLexemeMap_;
+  static const std::unordered_map<int, const char*> tagLexemeMap_;
 };
 
 
