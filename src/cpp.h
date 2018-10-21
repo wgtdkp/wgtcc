@@ -13,11 +13,11 @@
 class Macro;
 struct CondDirective;
 
-typedef std::map<std::string, Macro> MacroMap; 
-typedef std::list<std::string> ParamList;
-typedef std::map<std::string, TokenSequence> ParamMap;
-typedef std::stack<CondDirective> PPCondStack;
-typedef std::list<std::string> PathList;
+using MacroMap = std::map<std::string, Macro>;
+using ParamList = std::list<std::string>;
+using ParamMap = std::map<std::string, TokenSequence>;
+using PPCondStack = std::stack<CondDirective>;
+using PathList = std::list<std::string>;
 
 
 class Macro {

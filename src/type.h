@@ -318,7 +318,7 @@ protected:
 
 class FuncType : public DerivedType {
 public:
-  typedef std::vector<Object*> ParamList;
+  using ParamList = std::vector<Object*>;
 
 public:
   static FuncType* New(QualType derived,
@@ -354,8 +354,8 @@ private:
 
 class StructType : public Type {
 public:
-  typedef std::list<Object*> MemberList;
-  typedef std::list<Object*>::iterator Iterator;
+  using MemberList = std::list<Object*>;
+  using Iterator = std::list<Object*>::iterator;
   
 public:
   static StructType* New(bool isStruct,
@@ -400,37 +400,5 @@ private:
   int align_;
   int bitFieldAlign_;
 };
-
-/*
-// Not used yet
-class EnumType: public Type {
-public:
-  static EnumTypePtr New(bool complete=false, int quals);
-
-  virtual ~EnumType() {}
-  virtual bool IsInteger() const { return true; }
-
-  virtual ArithmType* ToArithm() {
-    assert(false);
-    return ArithmType::New(T_INT);
-  }
-
-  virtual EnumTypePtr ToEnum() { return this; }
-  virtual bool Compatible(const Type& other) const {
-    // As enum is always casted to INT, there is no chance for this call    
-    assert(false);
-    return (other.ToEnum() || other.IsInteger()) && Type::Compatible(other);    
-  }
-
-  virtual int Width() const {
-    return ArithmType::New(T_INT)->Width();
-  }
-
-  virtual std::string Str() const { return "enum:4"; }
-
-protected:
-  explicit EnumType(MemPool* pool, bool complete): Type(pool, complete) {}
-};
-*/
 
 #endif

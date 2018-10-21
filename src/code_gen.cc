@@ -1029,12 +1029,12 @@ void Generator::GetParamRegOffsets(int& gpOffset,
 
 
 void Generator::GenBuiltin(FuncCall* funcCall) {
-  typedef struct {
+  struct va_list_imp {
     unsigned int gp_offset;
     unsigned int fp_offset;
     void *overflow_arg_area;
     void *reg_save_area;
-  } va_list_imp;
+  };
 
   auto ap = UnaryOp::New(Token::DEREF, funcCall->args_[0]);
   auto addr = LValGenerator().GenExpr(ap);

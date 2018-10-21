@@ -63,7 +63,7 @@ protected:
   MemPool* pool_ {nullptr};
 };
 
-typedef ASTNode ExtDecl;
+using ExtDecl = ASTNode;
 
 
 /*
@@ -175,7 +175,7 @@ private:
 };
 
 
-typedef std::list<Stmt*> StmtList;
+using StmtList = std::list<Stmt*>;
 
 class CompoundStmt : public Stmt {
   template<typename T> friend class Evaluator;
@@ -224,7 +224,7 @@ struct Initializer {
 };
 
 
-typedef std::set<Initializer> InitList;
+using InitList = std::set<Initializer>;
 
 class Declaration: public Stmt {
   template<typename T> friend class Evaluator;
@@ -431,7 +431,7 @@ class FuncCall : public Expr {
   friend class Generator;
 
 public:        
-  typedef std::vector<Expr*> ArgList;
+  using ArgList = std::vector<Expr*>;
 
 public:
   static FuncCall* New(Expr* designator, const ArgList& args);
@@ -694,7 +694,7 @@ class FuncDef : public ExtDecl {
   friend class Generator;
 
 public:
-  typedef std::vector<Object*> ParamList;
+  using ParamList = std::vector<Object*>;
   
 public:
   static FuncDef* New(Identifier* ident, LabelStmt* retLabel);

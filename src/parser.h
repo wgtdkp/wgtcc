@@ -14,14 +14,14 @@
 
 
 class Preprocessor;
-typedef std::pair<const Token*, QualType> TokenTypePair;
+using TokenTypePair = std::pair<const Token*, QualType>;
 
 class Parser {
-  typedef std::vector<Constant*> LiteralList;
-  typedef std::vector<Object*> StaticObjectList;
-  typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
-  typedef std::list<std::pair<const Token*, JumpStmt*>> LabelJumpList;
-  typedef std::map<std::string, LabelStmt*> LabelMap;
+  using LiteralList = std::vector<Constant*>;
+  using StaticObjectList = std::vector<Object*>;
+  using CaseLabelList = std::vector<std::pair<Constant*, LabelStmt*>>;
+  using LabelJumpList = std::list<std::pair<const Token*, JumpStmt*>>;
+  using LabelMap = std::map<std::string, LabelStmt*>;
   friend class Generator;
 
 public:

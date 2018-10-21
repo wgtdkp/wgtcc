@@ -21,8 +21,8 @@ enum ScopeType {
 
 class Scope {
   friend class StructType;
-  typedef std::vector<Identifier*> TagList;
-  typedef std::map<std::string, Identifier*> IdentMap;
+  using TagList = std::vector<Identifier*>;
+  using IdentMap = std::map<std::string, Identifier*>;
 
 public:
   explicit Scope(Scope* parent, enum ScopeType type)

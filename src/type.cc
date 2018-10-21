@@ -112,8 +112,8 @@ PointerType* PointerType::New(QualType derived) {
 
 
 StructType* StructType::New(bool isStruct,
-                              bool hasTag,
-                              Scope* parent) {
+                            bool hasTag,
+                            Scope* parent) {
   return new (structUnionTypePool.Alloc())
          StructType(&structUnionTypePool, isStruct, hasTag, parent);
 }
@@ -171,7 +171,7 @@ int ArithmType::Rank() const {
 
 
 ArithmType* ArithmType::MaxType(ArithmType* lhs,
-                                      ArithmType* rhs) {
+                                ArithmType* rhs) {
   if (lhs->IsInteger())
     lhs = ArithmType::IntegerPromote(lhs);
   if (rhs->IsInteger())

@@ -12,7 +12,7 @@
 extern std::string filename_in;
 extern std::string filename_out;
 
-typedef std::unordered_map<std::string, int> DirectiveMap;
+using DirectiveMap = std::unordered_map<std::string, int>;
 
 static const DirectiveMap directiveMap {
   {"if", Token::PP_IF},

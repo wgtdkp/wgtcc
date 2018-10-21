@@ -18,8 +18,8 @@ class Scanner;
 class Token;
 class TokenSequence;
 
-typedef std::set<std::string> HideSet;
-typedef std::list<const Token*> TokenList;
+using HideSet = std::set<std::string>;
+using TokenList = std::list<const Token*>;
 
 
 struct SourceLocation {
@@ -236,11 +236,12 @@ public:
   }
   
   int tag_;
-  bool ws_ { false };
-  SourceLocation loc_;
 
   // ws_ standards for weither there is preceding white space
   // This is to simplify the '#' operator(stringize) in macro expansion
+  bool ws_ { false };
+  SourceLocation loc_;
+  
   std::string str_;
   HideSet* hs_ { nullptr };
 

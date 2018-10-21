@@ -11,10 +11,10 @@ struct ROData;
 template<> class Evaluator<Addr>;
 struct StaticInitializer;
 
-typedef std::vector<Type*> TypeList;
-typedef std::vector<std::string> LocationList;
-typedef std::vector<ROData> RODataList;
-typedef std::vector<StaticInitializer> StaticInitList;
+using TypeList = std::vector<Type*>;
+using LocationList = std::vector<std::string>;
+using RODataList = std::vector<ROData>;
+using StaticInitList = std::vector<StaticInitializer>;
 
 
 enum class ParamClass {
