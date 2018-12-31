@@ -25,12 +25,12 @@ void Error(const char* format, ...) {
   fprintf(stderr,
           "%s: " ANSI_COLOR_RED "error: " ANSI_COLOR_RESET,
           program.c_str());
-  
+
   va_list args;
   va_start(args, format);
   vfprintf(stderr, format, args);
   va_end(args);
-  
+
   fprintf(stderr, "\n");
 
   exit(-1);
@@ -59,12 +59,12 @@ static void VError(const SourceLocation& loc,
       fputc(*p, stderr);
     }
   }
-  
+
   fprintf(stderr, "\n    ");
   for (unsigned i = 1; i + nspaces < loc.column_; ++i)
     fputc(' ', stderr);
   fprintf(stderr, ANSI_COLOR_GREEN "^\n");
-  exit(-1);	
+  exit(-1);
 }
 
 

@@ -14,7 +14,7 @@ static void digraph() {
     // spelling instead of replacing digraphs with regular tokens.
     // I intentionally leave this bug because that's really a minor
     // bug which doesn't worth the complexity to be handled correctly.
-    
+
     // @wgtcc: wgtcc handles this correectly
 #ifdef __wgtcc__
     expect_string("<:", stringify(<:));
@@ -42,8 +42,8 @@ static void whitespace() {
 }
 
 static void newline() {
-    
- 
+
+
 #
 }
 

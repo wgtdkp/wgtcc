@@ -56,7 +56,7 @@ ArithmType* ArithmType::New(int typeSpec) {
   static auto floatType   = NEW_TYPE(T_FLOAT);
   static auto doubleType  = NEW_TYPE(T_DOUBLE);
   static auto ldoubleType = NEW_TYPE(T_LONG | T_DOUBLE);
-  
+
   auto tag = ArithmType::Spec2Tag(typeSpec);
   switch (tag) {
   case T_BOOL:              return boolType;
@@ -291,7 +291,7 @@ bool FuncType::Compatible(const Type& other) const {
   auto otherFunc = other.ToFunc();
   //the other type is not an function type
   if (!otherFunc) return false;
-  //TODO: do we need to check the type of return value when deciding 
+  //TODO: do we need to check the type of return value when deciding
   //compatibility of two function types ??
   if (!derived_->Compatible(*otherFunc->derived_))
     return false;
@@ -386,13 +386,13 @@ void StructType::Finalize() {
 void StructType::AddMember(Object* member) {
   auto offset = MakeAlign(offset_, member->Align());
   member->SetOffset(offset);
-  
+
   members_.push_back(member);
   memberMap_->Insert(member->Name(), member);
 
   align_ = std::max(align_, member->Align());
   bitFieldAlign_ = std::max(bitFieldAlign_, align_);
-  
+
   if (isStruct_) {
     offset_ = offset + member->Type()->Width();
     width_ = MakeAlign(offset_, align_);

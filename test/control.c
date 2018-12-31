@@ -37,22 +37,22 @@ static void test_for() {
         acc = acc + i;
     }
     expect(10, acc);
-    
+
     acc = 0;
     for (i = 0; i < 5; ++i) {
         acc = acc + i;
     }
     expect(10, acc);
-    
+
     acc = 0;
     for (i = 0; i < 100; ++i) {
         if (i < 5) continue;
         if (i == 9) break;
         acc += i;
     }
-    
+
     expect(5 + 6 + 7 + 8, acc);
-    
+
     for (int x = 3, y = 5, z = 8; x < 100; x++, y++, z+=2)
         expect(z, x + y);
 

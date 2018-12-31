@@ -29,7 +29,7 @@ struct SourceLocation {
   unsigned column_;
 
   const char* Begin() const {
-    return lineBegin_ + column_ - 1; 
+    return lineBegin_ + column_ - 1;
   }
 };
 
@@ -143,16 +143,16 @@ public:
     ELSE,
     FOR,
     GOTO,
-    IF,		
+    IF,
     RETURN,
     SIZEOF,
-    SWITCH,		
+    SWITCH,
     WHILE,
     ALIGNOF, //_Alignof
     GENERIC, //_Generic
     IMAGINARY, //_Imaginary
     // KEYWORD END
-     
+
     IDENTIFIER,
     CONSTANT, // 198
     I_CONSTANT,
@@ -186,7 +186,7 @@ public:
     PP_PRAGMA,
     PP_NONE,
     PP_EMPTY,
-    
+
 
     IGNORE,
     INVALID,
@@ -209,10 +209,10 @@ public:
     return *this;
   }
   virtual ~Token() {}
-  
+
   //Token::NOTOK represents not a kw.
   static int KeyWordTag(const std::string& key) {
-    auto kwIter = kwTypeMap_.find(key); 
+    auto kwIter = kwTypeMap_.find(key);
     if (kwTypeMap_.end() == kwIter)
       return Token::NOTOK;	//not a key word type
     return kwIter->second;
@@ -231,17 +231,17 @@ public:
     auto iter = tagLexemeMap_.find(tag);
     if (iter == tagLexemeMap_.end())
       return nullptr;
-      
+
     return iter->second;
   }
-  
+
   int tag_;
 
   // ws_ standards for weither there is preceding white space
   // This is to simplify the '#' operator(stringize) in macro expansion
   bool ws_ { false };
   SourceLocation loc_;
-  
+
   std::string str_;
   HideSet* hs_ { nullptr };
 

@@ -39,7 +39,7 @@ public:
   TagList AllTagsInCurScope() const;
 
   void Insert(Identifier* ident);
-  void Insert(const std::string& name, Identifier* ident);  
+  void Insert(const std::string& name, Identifier* ident);
   void InsertTag(Identifier* ident);
   void Print();
   bool operator==(const Scope& other) const { return type_ == other.type_; }

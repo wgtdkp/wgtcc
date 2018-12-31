@@ -35,12 +35,12 @@ private:
   enum {
     COUNT = (4 * 1024) / sizeof(T)
   };
-  
+
   union Chunk {
     Chunk* next_;
     char mem_[sizeof(T)];
   };
-  
+
   struct Block {
     Block() {
       for (size_t i = 0; i < COUNT - 1; ++i)
@@ -66,7 +66,7 @@ void* MemPoolImp<T>::Alloc() {
     // 当然std::vector的指数级capacity增长会造成内存浪费。
     blocks_.push_back(block);
   }
-  
+
   auto ret = root_;
   root_ = root_->next_;
 
@@ -77,7 +77,7 @@ void* MemPoolImp<T>::Alloc() {
 
 template <class T>
 void MemPoolImp<T>::Free(void* addr) {
-  if (nullptr == addr) 
+  if (nullptr == addr)
     return;
 
   auto chunk = static_cast<Chunk*>(addr);

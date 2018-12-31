@@ -113,7 +113,7 @@ Token* Scanner::Scan(bool ws) {
       return MakeToken('.');
     }
     return MakeToken(c);
-  case '0' ... '9': return SkipNumber();	
+  case '0' ... '9': return SkipNumber();
   case 'u': case 'U': case 'L': {
     /*auto enc = */ScanEncoding(c);
     if (Try('\'')) return SkipCharacter();
@@ -200,11 +200,11 @@ Token* Scanner::SkipIdentifier() {
 }
 
 
-// Scan PP-Number 
+// Scan PP-Number
 Token* Scanner::SkipNumber() {
   PutBack();
   bool sawHexPrefix = false;
-  int tag = Token::I_CONSTANT;	
+  int tag = Token::I_CONSTANT;
   auto c = Next();
   while (c == '.' || isdigit(c) || isalpha(c) || c == '_' || IsUCN(c)) {
     if (c == 'e' || c =='E' || c == 'p' || c == 'P') {
@@ -289,7 +289,7 @@ int Scanner::ScanEscaped() {
   switch (c) {
   case '\\': case '\'': case '\"': case '\?':
     return c;
-  case 'a': return '\a'; 
+  case 'a': return '\a';
   case 'b': return '\b';
   case 'f': return '\f';
   case 'n': return '\n';
@@ -322,13 +322,13 @@ int Scanner::ScanHexEscaped() {
 
 
 int Scanner::ScanOctEscaped(int c) {
-  int val = XDigit(c); 
+  int val = XDigit(c);
   c = Peek();
   if (!IsOctal(c))
     return val;
   val = (val << 3) + XDigit(c);
   Next();
-  
+
   c = Peek();
   if (!IsOctal(c))
     return val;

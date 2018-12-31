@@ -32,7 +32,7 @@ public:
   // The param 'ts' need not be empty, if so, the tokens
   // are inserted at the *header* of 'ts'.
   // The param 'ws' tells if there is leading white space
-  // before this token, it is only SkipComment() that will 
+  // before this token, it is only SkipComment() that will
   // set this param.
   Token* Scan(bool ws=false);
   void Tokenize(TokenSequence& ts);

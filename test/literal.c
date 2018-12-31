@@ -15,7 +15,7 @@ static void test_char() {
     expect(9, '\t');
     expect(11, '\v');
     expect(27, '\e');
-    
+
     expect(0, '\0');
     expect(7, '\7');
     expect(15, '\17');
@@ -62,7 +62,7 @@ static void test_mbstring() {
     expect(16, sizeof(L"abc"));
     expect(16, sizeof(L"ab" L"c"));
     expect(4, sizeof(U""));
-    
+
     expect(16, sizeof(U"abc"));
     expect(16, sizeof("ab" U"c"));
     expect(16, sizeof(U"ab" U"c"));

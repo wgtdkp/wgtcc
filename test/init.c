@@ -194,7 +194,7 @@ static void test2() {
         char c;
         char d;
     } foo_t;
-    
+
     bar_t b = {1, 2};
     bar_t b2 = b;
     foo_t f = {b, 1, 2};

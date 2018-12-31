@@ -188,7 +188,7 @@ TokenSequence TokenSequence::GetLine() {
 /*
  * If this seq starts from the begin of a line.
  * Called only after we have saw '#' in the token sequence.
- */ 
+ */
 bool TokenSequence::IsBeginOfLine() const {
   if (begin_ == tokList_->begin())
     return true;
@@ -197,7 +197,7 @@ bool TokenSequence::IsBeginOfLine() const {
   --pre;
 
   // We do not insert a newline at the end of a source file.
-  // Thus if two token have different filename, the second is 
+  // Thus if two token have different filename, the second is
   // the begin of a line.
   return ((*pre)->tag_ == Token::NEW_LINE ||
           (*pre)->loc_.filename_ != (*begin_)->loc_.filename_);
