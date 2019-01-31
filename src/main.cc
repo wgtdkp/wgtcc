@@ -221,7 +221,10 @@ int main(int argc, char* argv[]) {
   for (size_t i = 0; i < filenames_in.size(); ++i) {
       int stat; 
       wait(&stat);
-      if (WIFEXITED(stat) && WEXITSTATUS(stat))
+      // child process terminate normaly if :
+      // 1. terminate with `exit()`, that is, WIFEXITED(stat) if true.
+      // 2. the status code is 0, that is, WEXITSTATUS(stat) == 0
+      if (!WIFEXITED(stat) || WEXITSTATUS(stat))
         return 0;
   }
 #endif
