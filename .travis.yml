@@ -10,7 +10,9 @@ script:
   - sudo ln -s /usr/bin/g++-5 /usr/bin/g++
   - gcc --version
   - g++ --version
-  - cd src && make && make install && make test
+  - sudo apt-get install cmake
+  - cmake . -Bbuild
+  - cd build & make & make test
 addons:
   apt:
     sources:
