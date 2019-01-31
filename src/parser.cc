@@ -1938,7 +1938,7 @@ bool Parser::ParseLiteralInitializer(Declaration* decl,
     str += 2;
   }
 
-  for (; width >= 1; width--) {
+  for (; width >= 1; --width) {
     auto p = str;
     auto type = ArithmType::New(T_CHAR);
     auto val = Constant::New(tok, T_CHAR, static_cast<long>(*p));

@@ -1159,7 +1159,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall) {
     }
   }
 
-  for (int i = locs.size() - 1; i >= 0; i--) {
+  for (int i = locs.size() - 1; i >= 0; --i) {
     if (locs[i][1] == 'm')
       continue;
     Visit(funcCall->args_[i]);
