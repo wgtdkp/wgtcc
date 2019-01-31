@@ -218,12 +218,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  int stat; 
-  bool has_error = false;
-  for (int i = 0; i < filenames_in.size(); i++) {
+  for (size_t i = 0; i < filenames_in.size(); ++i) {
+      int stat; 
       wait(&stat);
-      has_error = has_error || (WIFEXITED(stat) && WEXITSTATUS(stat) != 0);
-      if (has_error)
+      if (WIFEXITED(stat) && WEXITSTATUS(stat) != 0)
         return 0;
   }
 #endif
