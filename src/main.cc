@@ -209,21 +209,23 @@ int main(int argc, char* argv[]) {
 #else
   for (const auto& filename: filenames_in) {
     filename_in = filename;
-    bool has_error = false;
     pid_t pid = fork();
     if (pid < 0) {
       Error("fork error");
     } else if (pid == 0) {
       // Do work in child process
       return RunWgtcc();
-    } else {
-      int stat;
-      wait(&stat);
-      has_error = has_error || (WIFEXITED(stat) && WEXITSTATUS(stat) != 0);
     }
+  }
 
-    if (has_error)
-      return 0;
+  for (size_t i = 0; i < filenames_in.size(); ++i) {
+      int stat; 
+      wait(&stat);
+      // child process terminate normaly if :
+      // 1. terminate with `exit()`, that is, WIFEXITED(stat) if true.
+      // 2. the status code is 0, that is, WEXITSTATUS(stat) == 0
+      if (!WIFEXITED(stat) || WEXITSTATUS(stat))
+        return 0;
   }
 #endif
 
