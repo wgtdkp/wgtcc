@@ -33,7 +33,7 @@ static inline void rbtree_node_delete(rbtree_node_t* root) {
   free(root);
 #ifdef DEBUG_MEM
   --rbtree_nalloc;
-#endif 
+#endif
 }
 
 void rbtree_destroy(rbtree_node_t* root) {
@@ -170,7 +170,7 @@ rbtree_node_t* rbtree_delete(rbtree_node_t* root, rbtree_node_t* z) {
   rbtree_node_t* x;
   rbtree_node_t* y = z;
   rbtree_color_t y_original_color = y->color;
-  
+
   if (z->left == rbtree_nil) {
     x = z->right;
     root = rbtree_transplant(root, z, z->right);

@@ -3,7 +3,7 @@
 #include "test.h"
 
 static void test_inc_dec() {
-  
+
   int a = 3, b = 4;
   expect(3, a++);
   expect(4, a);

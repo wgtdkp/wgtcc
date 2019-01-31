@@ -81,7 +81,7 @@ void ConditionalOp::Accept(Visitor* v) {
 }
 
 
-void FuncCall::Accept(Visitor* v) { 
+void FuncCall::Accept(Visitor* v) {
   v->VisitFuncCall(this);
 }
 
@@ -152,7 +152,7 @@ BinaryOp* BinaryOp::New(const Token* tok, Expr* lhs, Expr* rhs) {
 
 BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs) {
   switch (op) {
-  case ',': case '.': case '=': 
+  case ',': case '.': case '=':
   case '*': case '/': case '%':
   case '+': case '-': case '&':
   case '^': case '|': case '<':
@@ -162,7 +162,7 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs) {
   case Token::LE:
   case Token::GE:
   case Token::EQ:
-  case Token::NE: 
+  case Token::NE:
   case Token::LOGICAL_AND:
   case Token::LOGICAL_OR:
     break;
@@ -172,9 +172,9 @@ BinaryOp* BinaryOp::New(const Token* tok, int op, Expr* lhs, Expr* rhs) {
 
   auto ret = new (binaryOpPool.Alloc()) BinaryOp(tok, op, lhs, rhs);
   ret->pool_ = &binaryOpPool;
-  
+
   ret->TypeChecking();
-  return ret;    
+  return ret;
 }
 
 
@@ -190,7 +190,7 @@ ArithmType* BinaryOp::Convert() {
   if (rhsType != type) {
     rhs_ = UnaryOp::New(Token::CAST, rhs_, type);
   }
-  
+
   return type;
 }
 
@@ -254,7 +254,7 @@ void BinaryOp::TypeChecking() {
 
   case '=':
     return AssignOpTypeChecking();
-  
+
   case ',':
     return CommaOpTypeChecking();
   default:
@@ -278,7 +278,7 @@ void BinaryOp::SubScriptingOpTypeChecking() {
   }
 
   // The type of [] operator is the derived type
-  type_ = lhsType->Derived();    
+  type_ = lhsType->Derived();
 }
 
 
@@ -361,7 +361,7 @@ void BinaryOp::RelationalOpTypeChecking() {
       Error(this, "expect real type of operands");
     }
     Convert();
-  } 
+  }
   type_ = ArithmType::New(T_INT);
 }
 
@@ -403,7 +403,7 @@ void BinaryOp::AssignOpTypeChecking() {
   if (!lhs_->Type()->ToArithm() || !rhs_->Type()->ToArithm()) {
     EnsureCompatibleOrVoidPointer(lhs_->Type(), rhs_->Type());
   }
-  
+
   // The other constraints are lefted to cast operator
   rhs_ = Expr::MayCast(rhs_, lhs_->Type());
   type_ = lhs_->Type();
@@ -417,7 +417,7 @@ void BinaryOp::AssignOpTypeChecking() {
 UnaryOp* UnaryOp::New(int op, Expr* operand, QualType type) {
   auto ret = new (unaryOpPool.Alloc()) UnaryOp(op, operand, type);
   ret->pool_ = &unaryOpPool;
-  
+
   ret->TypeChecking();
   return ret;
 }
@@ -431,7 +431,7 @@ bool UnaryOp::IsLVal() {
 
 ArithmType* UnaryOp::Convert() {
   auto arithmType = operand_->Type()->ToArithm();
-  assert(arithmType); 
+  assert(arithmType);
   if (arithmType->IsInteger())
     arithmType = ArithmType::IntegerPromote(arithmType);
   operand_ = Expr::MayCast(operand_, arithmType);
@@ -494,7 +494,7 @@ void UnaryOp::DerefOpTypeChecking() {
   auto pointerType = operand_->Type()->ToPointer();
   if (!pointerType)
     Error(this, "pointer expected for deref operator '*'");
-  type_ = pointerType->Derived();    
+  type_ = pointerType->Derived();
 }
 
 
@@ -519,7 +519,7 @@ void UnaryOp::UnaryArithmOpTypeChecking() {
 
 void UnaryOp::CastOpTypeChecking() {
   auto operandType = Type::MayCast(operand_->Type());
-    
+
   // The type_ has been initiated to dest type
   if (type_->ToVoid()) {
     // The expression becomes a void expression
@@ -562,7 +562,7 @@ ArithmType* ConditionalOp::Convert() {
   if (rhsType != type) {
     exprFalse_ = UnaryOp::New(Token::CAST, exprFalse_, type);
   }
-  
+
   return type;
 }
 
@@ -815,7 +815,6 @@ LabelStmt* LabelStmt::New() {
 FuncDef* FuncDef::New(Identifier* ident, LabelStmt* retLabel) {
   auto ret = new (funcDefPool.Alloc()) FuncDef(ident, retLabel);
   ret->pool_ = &funcDefPool;
-
   return ret;
 }
 

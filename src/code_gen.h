@@ -11,10 +11,10 @@ struct ROData;
 template<> class Evaluator<Addr>;
 struct StaticInitializer;
 
-typedef std::vector<Type*> TypeList;
-typedef std::vector<std::string> LocationList;
-typedef std::vector<ROData> RODataList;
-typedef std::vector<StaticInitializer> StaticInitList;
+using TypeList = std::vector<Type*>;
+using LocationList = std::vector<std::string>;
+using RODataList = std::vector<ROData>;
+using StaticInitList = std::vector<StaticInitializer>;
 
 
 enum class ParamClass {
@@ -66,7 +66,7 @@ struct ObjectAddr {
       : label_(label), base_(base), offset_(offset) {}
 
   std::string Repr() const;
-  
+
   std::string label_;
   std::string base_;
   int offset_;
@@ -79,7 +79,7 @@ struct StaticInitializer {
   int offset_;
   int width_;
   long val_;
-  std::string label_;        
+  std::string label_;
 };
 
 
@@ -122,7 +122,7 @@ public:
   }
 
   void Gen();
-  
+
 protected:
   // Binary
   void GenCommaOp(BinaryOp* comma);
@@ -149,7 +149,7 @@ protected:
                                   InitList::iterator end, int offset);
 
   void GenStaticDecl(Declaration* decl);
-  
+
   void GenSaveArea();
   void GenBuiltin(FuncCall* funcCall);
 
@@ -157,7 +157,7 @@ protected:
       const FuncDef::ParamList& params=FuncDef::ParamList());
 
   void CopyStruct(ObjectAddr desAddr, int width);
-  
+
   std::string ConsLabel(Constant* cons);
 
   ParamLocations GetParamLocations(const TypeList& types, bool retStruct);
@@ -251,7 +251,7 @@ protected:
 class LValGenerator: public Generator {
 public:
   LValGenerator() {}
-  
+
   //Expression
   virtual void VisitBinaryOp(BinaryOp* binaryOp);
   virtual void VisitUnaryOp(UnaryOp* unaryOp);
@@ -263,7 +263,7 @@ public:
   virtual void VisitEnumerator(Enumerator* enumer) { assert(false); }
   virtual void VisitConstant(Constant* cons) { assert(false); }
   virtual void VisitTempVar(TempVar* tempVar);
-  
+
   ObjectAddr GenExpr(Expr* expr) {
     expr->Accept(this);
     return addr_;

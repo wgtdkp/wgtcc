@@ -21,8 +21,8 @@ enum ScopeType {
 
 class Scope {
   friend class StructType;
-  typedef std::vector<Identifier*> TagList;
-  typedef std::map<std::string, Identifier*> IdentMap;
+  using TagList = std::vector<Identifier*>;
+  using IdentMap = std::map<std::string, Identifier*>;
 
 public:
   explicit Scope(Scope* parent, enum ScopeType type)
@@ -39,7 +39,7 @@ public:
   TagList AllTagsInCurScope() const;
 
   void Insert(Identifier* ident);
-  void Insert(const std::string& name, Identifier* ident);  
+  void Insert(const std::string& name, Identifier* ident);
   void InsertTag(Identifier* ident);
   void Print();
   bool operator==(const Scope& other) const { return type_ == other.type_; }

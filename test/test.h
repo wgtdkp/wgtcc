@@ -33,7 +33,7 @@ if ((a) != (b)) {                                   				\
 if (strcmp((a), (b))) {  																		\
 		fprintf(stderr, "error:%s:%s:%d: failed, %s != %s\n",  	\
 				__FILE__, __func__, __LINE__, (a), (b)); 						\
-};    
+};
 
 
 #endif

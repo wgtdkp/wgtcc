@@ -18,7 +18,7 @@ public:
   virtual void VisitBinaryOp(BinaryOp* binary);
   virtual void VisitUnaryOp(UnaryOp* unary);
   virtual void VisitConditionalOp(ConditionalOp* cond);
-  
+
   virtual void VisitFuncCall(FuncCall* funcCall) {
     Error(funcCall, "expect constant expression");
   }
@@ -76,7 +76,7 @@ public:
   virtual void VisitBinaryOp(BinaryOp* binary);
   virtual void VisitUnaryOp(UnaryOp* unary);
   virtual void VisitConditionalOp(ConditionalOp* cond);
-  
+
   virtual void VisitFuncCall(FuncCall* funcCall) {
     Error(funcCall, "expect constant expression");
   }

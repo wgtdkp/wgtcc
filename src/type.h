@@ -103,7 +103,7 @@ public:
     return !(lhs == rhs);
   }
 
-  int Qual() const { return ptr_ & 0x03; }
+  int Qual() const { return ptr_ & 0x07; }
   bool IsConstQualified() const { return ptr_ & Qualifier::CONST; }
   bool IsRestrictQualified() const { return ptr_ & Qualifier::RESTRICT; }
   bool IsVolatileQualified() const { return ptr_ & Qualifier::VOLATILE; }
@@ -128,7 +128,7 @@ public:
   virtual ~Type() {}
 
   // For Debugging
-  virtual std::string Str() const = 0; 
+  virtual std::string Str() const = 0;
   virtual int Width() const = 0;
   virtual int Align() const { return Width(); }
   static int MakeAlign(int offset, int align) {
@@ -138,13 +138,13 @@ public:
       return offset + align - (offset % align);
     else
       return offset - align - (offset % align);
-  } 
+  }
 
   static QualType MayCast(QualType type, bool inProtoScope=false);
   bool Complete() const { return complete_; }
   void SetComplete(bool complete) const { complete_ = complete; }
 
-  bool IsReal() const { return IsInteger() || IsFloat(); };  
+  bool IsReal() const { return IsInteger() || IsFloat(); };
   virtual bool IsScalar() const { return false; }
   virtual bool IsFloat() const { return false; }
   virtual bool IsInteger() const { return false; }
@@ -153,7 +153,7 @@ public:
   virtual bool IsUnsigned() const { return false; }
 
   virtual VoidType*           ToVoid() { return nullptr; }
-  virtual const VoidType*     ToVoid() const { return nullptr; }  
+  virtual const VoidType*     ToVoid() const { return nullptr; }
   virtual ArithmType*         ToArithm() { return nullptr; }
   virtual const ArithmType*   ToArithm() const { return nullptr; }
   virtual ArrayType*          ToArray() { return nullptr; }
@@ -203,9 +203,9 @@ public:
   virtual const ArithmType* ToArithm() const { return this; }
   virtual bool Compatible(const Type& other) const {
     // C11 6.2.7 [1]: Two types have compatible type if their types are the same
-    // But i would to loose this constraints: integer and pointer are compatible
-    //if (IsInteger() && other.ToPointer())
-    //  return other.Compatible(*this);
+    // But I would to loose this constraints: integer and pointer are compatible
+    // if (IsInteger() && other.ToPointer())
+    //   return other.Compatible(*this);
     return this == &other;
   }
 
@@ -243,7 +243,7 @@ private:
 
 class DerivedType : public Type {
 public:
-  QualType Derived() const { return derived_; }  
+  QualType Derived() const { return derived_; }
   void SetDerived(QualType derived) { derived_ = derived; }
   virtual DerivedType* ToDerived() { return this; }
   virtual const DerivedType* ToDerived() const { return this; }
@@ -304,7 +304,7 @@ protected:
     SetComplete(false);
     //SetQual(QualType::CONST);
   }
-  
+
   ArrayType(MemPool* pool, int len, QualType derived)
       : DerivedType(pool, derived),
         lenExpr_(nullptr), len_(len) {
@@ -318,7 +318,7 @@ protected:
 
 class FuncType : public DerivedType {
 public:
-  typedef std::vector<Object*> ParamList;
+  using ParamList = std::vector<Object*>;
 
 public:
   static FuncType* New(QualType derived,
@@ -354,9 +354,9 @@ private:
 
 class StructType : public Type {
 public:
-  typedef std::list<Object*> MemberList;
-  typedef std::list<Object*>::iterator Iterator;
-  
+  using MemberList = std::list<Object*>;
+  using Iterator = std::list<Object*>::iterator;
+
 public:
   static StructType* New(bool isStruct,
                          bool hasTag,
@@ -380,11 +380,11 @@ public:
   bool HasTag() const { return hasTag_; }
   void MergeAnony(Object* anony);
   void Finalize();
-  
+
 protected:
   // default is incomplete
   StructType(MemPool* pool, bool isStruct, bool hasTag, Scope* parent);
-  
+
   StructType(const StructType& other);
 
 private:
@@ -400,37 +400,5 @@ private:
   int align_;
   int bitFieldAlign_;
 };
-
-/*
-// Not used yet
-class EnumType: public Type {
-public:
-  static EnumTypePtr New(bool complete=false, int quals);
-
-  virtual ~EnumType() {}
-  virtual bool IsInteger() const { return true; }
-
-  virtual ArithmType* ToArithm() {
-    assert(false);
-    return ArithmType::New(T_INT);
-  }
-
-  virtual EnumTypePtr ToEnum() { return this; }
-  virtual bool Compatible(const Type& other) const {
-    // As enum is always casted to INT, there is no chance for this call    
-    assert(false);
-    return (other.ToEnum() || other.IsInteger()) && Type::Compatible(other);    
-  }
-
-  virtual int Width() const {
-    return ArithmType::New(T_INT)->Width();
-  }
-
-  virtual std::string Str() const { return "enum:4"; }
-
-protected:
-  explicit EnumType(MemPool* pool, bool complete): Type(pool, complete) {}
-};
-*/
 
 #endif

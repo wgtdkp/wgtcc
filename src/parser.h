@@ -14,18 +14,18 @@
 
 
 class Preprocessor;
-typedef std::pair<const Token*, QualType> TokenTypePair;
+using TokenTypePair = std::pair<const Token*, QualType>;
 
 class Parser {
-  typedef std::vector<Constant*> LiteralList;
-  typedef std::vector<Object*> StaticObjectList;
-  typedef std::vector<std::pair<Constant*, LabelStmt*>> CaseLabelList;
-  typedef std::list<std::pair<const Token*, JumpStmt*>> LabelJumpList;
-  typedef std::map<std::string, LabelStmt*> LabelMap;
+  using LiteralList = std::vector<Constant*>;
+  using StaticObjectList = std::vector<Object*>;
+  using CaseLabelList = std::vector<std::pair<Constant*, LabelStmt*>>;
+  using LabelJumpList = std::list<std::pair<const Token*, JumpStmt*>>;
+  using LabelMap = std::map<std::string, LabelStmt*>;
   friend class Generator;
 
 public:
-  explicit Parser(const TokenSequence& ts) 
+  explicit Parser(const TokenSequence& ts)
     : unit_(TranslationUnit::New()),
       ts_(ts),
       externalSymbols_(new Scope(nullptr, S_BLOCK)),
@@ -52,8 +52,8 @@ public:
   void Parse();
   void ParseTranslationUnit();
   FuncDef* ParseFuncDef(Identifier* ident);
-  
-  
+
+
   // Expressions
   Expr* ParseExpr();
   Expr* ParsePrimaryExpr();
@@ -97,7 +97,7 @@ public:
   Type* ParseStructUnionSpec(bool isStruct);
   StructType* ParseStructUnionDecl(StructType* type);
   void ParseBitField(StructType* structType, const Token* tok, QualType type);
-  Type* ParseEnumSpec();  
+  Type* ParseEnumSpec();
   Type* ParseEnumerator(ArithmType* type);
   int ParseQual();
   QualType ParsePointer(QualType typePointedTo);
@@ -187,7 +187,7 @@ public:
       Error(expr, "expect integer expression");
     }
   }
-  
+
   void EnterBlock(FuncType* funcType=nullptr);
   void ExitBlock() { curScope_ = curScope_->Parent(); }
   void EnterProto() { curScope_ = new Scope(curScope_, S_PROTO); }
@@ -220,19 +220,19 @@ private:
 
   // The root of the AST
   TranslationUnit* unit_;
-  
+
   TokenSequence ts_;
 
   // It is not the real scope,
   // It contains all external symbols(resolved and not resolved)
   Scope* externalSymbols_;
-  
+
   const Token* errTok_;
   Scope* curScope_;
   FuncDef* curFunc_;
   LabelMap curLabels_;
   LabelJumpList unresolvedJumps_;
-  
+
   LabelStmt* breakDest_;
   LabelStmt* continueDest_;
   CaseLabelList* caseLabels_;

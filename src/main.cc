@@ -39,7 +39,7 @@ static void Usage() {
        "  -E        Preprocess only; do not compile, assemble or link\n"
        "  -S        Compile only; do not assemble or link\n"
        "  -o        specify output file\n");
-  
+
   exit(-2);
 }
 
@@ -67,7 +67,7 @@ static void DefineMacro(Preprocessor& cpp, const std::string& def) {
     macro = def.substr(0, pos);
     replace = new std::string(def.substr(pos + 1));
   }
-  cpp.AddMacro(macro, replace); 
+  cpp.AddMacro(macro, replace);
 }
 
 
@@ -80,7 +80,7 @@ static std::string GetName(const std::string& path) {
 
 static int RunWgtcc() {
   if (GetExtension(filename_in) != ".c")
-    return 0;
+    return -3;
 
   Preprocessor cpp(&filename_in);
   for (auto& def: defines)
@@ -104,7 +104,7 @@ static int RunWgtcc() {
     filename_out.back() = 's';
   }
   fp = fopen(filename_out.c_str(), "w");
-  
+
   Parser parser(ts);
   parser.Parse();
   Generator::SetInOut(&parser, fp);
@@ -174,7 +174,7 @@ static void ParseOut(int argc, char* argv[], int& i) {
 /* Use:
  *   wgtcc: compile
  *   gcc: assemble and link
- * Allowing multi file may not be a good idea... 
+ * Allowing multi file may not be a good idea...
  */
 int main(int argc, char* argv[]) {
   if (argc < 2)
@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
     if (argv[i][0] != '-') {
       filename_in = std::string(argv[i]);
       ValidateFileName(filename_in);
-      filenames_in.push_back(filename_in);      
+      filenames_in.push_back(filename_in);
       continue;
     }
 
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
     case 'I': ParseInclude(argc, argv, i); break;
     case 'D': ParseDefine(argc, argv, i); break;
     case 'o':
-      specified_out_name = true; 
+      specified_out_name = true;
       ParseOut(argc, argv, i); break;
     case 'g': gcc_args.pop_back(); debug = true; break;
     default:;

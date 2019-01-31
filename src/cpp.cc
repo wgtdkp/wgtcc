@@ -12,7 +12,7 @@
 extern std::string filename_in;
 extern std::string filename_out;
 
-typedef std::unordered_map<std::string, int> DirectiveMap;
+using DirectiveMap = std::unordered_map<std::string, int>;
 
 static const DirectiveMap directiveMap {
   {"if", Token::PP_IF},
@@ -85,7 +85,7 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
         TokenSequence repSeqSubsted(&tokList);
 
         // (HS ^ HS') U {name}
-        // Use HS' U {name} directly                
+        // Use HS' U {name} directly
         auto hs = rpar->hs_ ? *rpar->hs_: HideSet();
         hs.insert(name);
         Subst(repSeqSubsted, repSeq, tok->ws_, hs, paramMap);
@@ -179,7 +179,7 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is) {
   is.Next();
 
   if (ts.Empty()) {
-    // TODO(wgtdkp): 
+    // TODO(wgtdkp):
     // No new Token generated
     // How to handle it???
   } else {
@@ -287,7 +287,7 @@ const Token* Preprocessor::ParseActualParam(TokenSequence& is,
       ++cnt;
     else if (is.Test(')'))
       --cnt;
-    
+
     if ((is.Test(',') && cnt == 1) || cnt == 0) {
 
       if (fp == macro->Params().end()) {
@@ -367,7 +367,7 @@ void Preprocessor::ParseDirective(TokenSequence& os,
                                   int directive) {
   if (directive == Token::PP_EMPTY)
     return;
-  auto ls = is.GetLine(); 
+  auto ls = is.GetLine();
   switch(directive) {
   case Token::PP_IF:
     ParseIf(ls); break;
@@ -414,7 +414,7 @@ void Preprocessor::ParseDirective(TokenSequence& os,
 
 
 void Preprocessor::ParsePragma(TokenSequence ls) {
-  // TODO(wgtdkp):  
+  // TODO(wgtdkp):
   ls.Next();
 }
 
@@ -444,13 +444,13 @@ void Preprocessor::ParseLine(TokenSequence ls) {
   if (line == 0 || end != tok->str_.size()) {
     Error(tok, "illegal line number");
   }
-  
+
   curLine_ = line;
   lineLine_ = directive->loc_.line_;
   if (ts.Empty())
     return;
   tok = ts.Expect(Token::LITERAL);
-  
+
   // Enusure "s-char-sequence"
   if (tok->str_.front() != '"' || tok->str_.back() != '"') {
     Error(tok, "expect s-char-sequence");
@@ -512,7 +512,7 @@ void Preprocessor::ParseIfndef(TokenSequence ls) {
   ppCondStack_.pop();
   top.tag_ = Token::PP_IFNDEF;
   top.cond_ = !top.cond_;
-  
+
   ppCondStack_.push(top);
 }
 
@@ -576,10 +576,10 @@ void Preprocessor::ParseElse(TokenSequence ls) {
 
   if (ppCondStack_.empty())
     Error(directive, "unexpected 'else' directive");
-  auto top = ppCondStack_.top();  
+  auto top = ppCondStack_.top();
   if (top.tag_ == Token::PP_ELSE)
     Error(directive, "unexpected 'else' directive");
-  
+
   while (!ppCondStack_.empty()) {
     top = ppCondStack_.top();
     if (top.tag_ == Token::PP_IF ||
@@ -628,7 +628,7 @@ void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
     Expand(ts, ls, true);
     ls = ts;
   }
-  
+
   auto tok = ls.Next();
   if (tok->tag_ == Token::LITERAL) {
     if (!ls.Empty()) {
@@ -739,7 +739,7 @@ void Preprocessor::IncludeFile(TokenSequence& is,
   TokenSequence ts {is.tokList_, is.begin_, is.begin_};
   Scanner scanner(ReadFile(*filename), filename);
   scanner.Tokenize(ts);
-  
+
   // We done including header file
   is.begin_ = ts.begin_;
 }
@@ -828,7 +828,7 @@ void Preprocessor::Init() {
   AddSearchPath("/usr/include/linux/");
   AddSearchPath("/usr/include/");
   AddSearchPath("/usr/local/wgtcc/include/");
-  
+
   // The __FILE__ and __LINE__ macro is empty
   // They are handled seperately
   AddMacro("__FILE__", Macro(TokenSequence(), true));

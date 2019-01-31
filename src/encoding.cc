@@ -13,7 +13,7 @@ static void Append16LE(std::string& str, char16_t c) {
 
 
 static void Append32LE(std::string& str, char32_t c) {
-  Append16LE(str, c & USHRT_MAX);  
+  Append16LE(str, c & USHRT_MAX);
   Append16LE(str, (c >> 16) & USHRT_MAX);
 }
 

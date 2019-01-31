@@ -22,7 +22,7 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary) {
   }
 
   switch (binary->op_) {
-  case '+': val_ = L + R; break; 
+  case '+': val_ = L + R; break;
   case '-': val_ = L - R; break;
   case '*': val_ = L * R; break;
   case '/': {
@@ -58,7 +58,7 @@ void Evaluator<T>::VisitBinaryOp(BinaryOp* binary) {
     if (addr.label_.size())
       Error(binary, "expect constant expression");
     val_ = addr.offset_;
-  } 
+  }
   default: assert(false);
   }
 
@@ -127,9 +127,9 @@ void Evaluator<T>::VisitConditionalOp(ConditionalOp* condOp) {
 void Evaluator<Addr>::VisitBinaryOp(BinaryOp* binary) {
 #define LR   Evaluator<long>().Eval(binary->rhs_)
 #define R   Evaluator<Addr>().Eval(binary->rhs_)
-  
+
   auto l = Evaluator<Addr>().Eval(binary->lhs_);
-  
+
   int width = 1;
   auto pointerType = binary->Type()->ToPointer();
   if (pointerType)

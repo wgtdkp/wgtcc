@@ -291,7 +291,7 @@ static void test_offsetof() {
 }
 
 
-#ifdef __8cc__ 
+#ifdef __8cc__
 static void flexible_member() {
     struct { int a, b[]; } x;
     expect(4, sizeof(x));
@@ -388,7 +388,7 @@ void test5()
 {
     typedef struct {
         union {
-            struct { 
+            struct {
                 char b;
                 char c;
             };
@@ -465,7 +465,7 @@ void test9()
         };
         char e;
     } foo_t;
-    
+
     foo_t foo = {1, 2, 5, .d=3, 4};
     expect(3, foo.a);
     // GCC handles correct (foo.b should be 0)
@@ -521,7 +521,7 @@ static void test_bitfield_static_initializer() {
 static void test_bitfield_mix() {
   typedef union {
     char b: 4;
-    char a;    
+    char a;
     char c: 3;
     int d: 6;
   } foo_t;
@@ -565,7 +565,7 @@ int main()
     t12();
     t13();
     t14();
-    
+
     unnamed();
     assign();
     arrow();

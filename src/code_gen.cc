@@ -53,7 +53,7 @@ static ParamClass Classify(Type* paramType, int offset=0) {
       || paramType->ToArray()) {
     return ParamClass::INTEGER;
   }
-  
+
   if (paramType->ToArithm()) {
     auto type = paramType->ToArithm();
     if (type->Tag() == T_FLOAT || type->Tag() == T_DOUBLE)
@@ -61,10 +61,10 @@ static ParamClass Classify(Type* paramType, int offset=0) {
     if (type->Tag() == (T_LONG | T_DOUBLE)) {
       // TODO(wgtdkp):
       return ParamClass::SSE;
-      assert(false); 
+      assert(false);
       return ParamClass::X87;
     }
-    
+
     // TODO(wgtdkp):
     assert(false);
     // It is complex
@@ -74,7 +74,7 @@ static ParamClass Classify(Type* paramType, int offset=0) {
   auto type = paramType->ToStruct();
   assert(type);
   return ParamClass::MEMORY;
-  // TODO(wgtdkp): Support agrregate type 
+  // TODO(wgtdkp): Support agrregate type
   assert(false);
   /*
   auto type = paramType->ToStruct();
@@ -88,11 +88,11 @@ static ParamClass Classify(Type* paramType, int offset=0) {
   for (int i = 0; i < cnt; ++i) {
     auto  types = FieldsIn8Bytes(type, i);
     assert(types.size() > 0);
-    
+
     auto fieldClass = (types.size() == 1)
         ? PC_NO_CLASS: FieldClass(types, 0);
     classes.push_back(fieldClass);
-    
+
   }
 
   bool sawX87 = false;
@@ -153,7 +153,7 @@ static std::string GetInst(const std::string& inst, int width, bool flt) {
     default: assert(false);
     }
     return inst; // Make compiler happy
-  } 
+  }
 }
 
 
@@ -196,7 +196,7 @@ static std::string GetSrc(int width, bool flt) {
 }
 
 
-// The 'reg' always be 8 bytes  
+// The 'reg' always be 8 bytes
 int Generator::Push(const std::string& reg) {
   offset_ -= 8;
   auto mov = reg[1] == 'x' ? "movsd": "movq";
@@ -243,7 +243,7 @@ void Generator::Restore(bool flt) {
 
 
 void Generator::Save(bool flt) {
-  if (flt) {        
+  if (flt) {
     Emit("movsd", "%xmm0", "%xmm9");
   } else {
     Emit("movq", "%rax", "%r11");
@@ -312,9 +312,9 @@ void Generator::VisitBinaryOp(BinaryOp* binary) {
   const char* inst = nullptr;
 
   switch (op) {
-  case '*': return GenMulOp(width, flt, sign); 
+  case '*': return GenMulOp(width, flt, sign);
   case '/': case '%': return GenDivOp(flt, sign, width, op);
-  case '<': 
+  case '<':
     return GenCompOp(width, flt, (flt || !sign) ? "setb": "setl");
   case '>':
     return GenCompOp(width, flt, (flt || !sign) ? "seta": "setg");
@@ -350,7 +350,7 @@ void Generator::GenCommaOp(BinaryOp* comma) {
 
 void Generator::GenMulOp(int width, bool flt, bool sign) {
   auto inst = flt ? "mul": (sign ? "imul": "mul");
-  
+
   if (flt) {
     Emit(GetInst(inst, width, flt), "%xmm9", "%xmm0");
   } else {
@@ -362,7 +362,7 @@ void Generator::GenMulOp(int width, bool flt, bool sign) {
 void Generator::GenCompZero(Type* type) {
   auto width = type->Width();
   auto flt = type->IsFloat();
-  
+
   if (!flt) {
     Emit("cmp", "$0", GetReg(width));
   } else {
@@ -384,7 +384,7 @@ void Generator::GenAndOp(BinaryOp* andOp) {
   GenCompZero(andOp->rhs_->Type());
 
   Emit("je", labelFalse);
-  
+
   Emit("movq", "$1", "%rax");
   auto labelTrue = LabelStmt::New();
   Emit("jmp", labelTrue);
@@ -405,18 +405,18 @@ void Generator::GenOrOp(BinaryOp* orOp) {
   GenCompZero(orOp->rhs_->Type());
 
   Emit("jne", labelTrue);
-  
+
   Emit("xorq", "%rax", "%rax"); // Set %rax to 0
   auto labelFalse = LabelStmt::New();
   Emit("jmp", labelFalse);
   EmitLabel(labelTrue->Repr());
   Emit("movq", "$1", "%rax");
-  EmitLabel(labelFalse->Repr());    
+  EmitLabel(labelFalse->Repr());
 }
 
 
 void Generator::GenMemberRefOp(BinaryOp* ref) {
-  // As the lhs will always be struct/union 
+  // As the lhs will always be struct/union
   auto addr = LValGenerator().GenExpr(ref->lhs_);
   const auto& name = ref->rhs_->Tok()->str_;
   auto structType = ref->lhs_->Type()->ToStruct();
@@ -443,7 +443,7 @@ void Generator::EmitLoadBitField(const std::string& addr, Object* bitField) {
   EmitLoad(addr, type);
   Emit("andq", Object::BitFieldMask(bitField), "%rax");
 
-  auto shiftRight = (type->Tag() & T_UNSIGNED) ? "shrq": "sarq";    
+  auto shiftRight = (type->Tag() & T_UNSIGNED) ? "shrq": "sarq";
   auto left = 64 - bitField->bitFieldBegin_ - bitField->bitFieldWidth_;
   auto right = 64 - bitField->bitFieldWidth_;
   Emit("salq", left, "%rax");
@@ -533,16 +533,16 @@ void Generator::GenDivOp(bool flt, bool sign, int width, int op) {
     Emit(GetInst("div", width, flt), GetSrc(width, flt));
   } else {
     Emit(width == 4 ? "cltd": "cqto");
-    Emit(GetInst("idiv", width, flt), GetSrc(width, flt));      
+    Emit(GetInst("idiv", width, flt), GetSrc(width, flt));
   }
   if (op == '%')
     Emit("movq", "%rdx", "%rax");
 }
 
- 
+
 void Generator::GenPointerArithm(BinaryOp* binary) {
   assert(binary->op_ == '+' || binary->op_ == '-');
-  // For '+', we have swapped lhs_ and rhs_ to ensure that 
+  // For '+', we have swapped lhs_ and rhs_ to ensure that
   // the pointer is at lhs.
   Visit(binary->lhs_);
   Spill(false);
@@ -622,7 +622,7 @@ void Generator::GenCastOp(UnaryOp* cast) {
       inst = sign ? "movswq": "movzwq";
       Emit(inst, GetReg(width), "%rax");
       break;
-    case 4: inst = "movl"; 
+    case 4: inst = "movl";
       if (desType->Width() == 8)
         Emit("cltq");
       break;
@@ -708,7 +708,7 @@ void Generator::GenIncDec(Expr* operand,
                           const std::string& inst) {
   auto width = operand->Type()->Width();
   auto flt = operand->Type()->IsFloat();
-  
+
   auto addr = LValGenerator().GenExpr(operand).Repr();
   EmitLoad(addr, operand->Type());
   if (postfix) Save(flt);
@@ -789,7 +789,7 @@ void Generator::VisitDeclaration(Declaration* decl) {
   auto obj = decl->obj_;
 
   if (!obj->IsStatic()) {
-    // The object has no linkage and has 
+    // The object has no linkage and has
     // no static storage(the object is on stack).
     // If it has no initialization,
     // then it's value is random initialized.
@@ -837,7 +837,7 @@ void Generator::GenStaticDecl(Declaration* decl) {
   // Omit the external without initilizer
   if ((obj->Storage() & S_EXTERN) && !obj->HasInit())
     return;
-  
+
   Emit(".data");
   auto glb = obj->Linkage() == L_EXTERNAL ? ".globl": ".local";
   Emit(glb, label);
@@ -853,7 +853,7 @@ void Generator::GenStaticDecl(Declaration* decl) {
   // Does not decide the size of obj
   Emit(".size", label, std::to_string(width));
   EmitLabel(label);
-  
+
   int offset = 0;
   auto iter = decl->Inits().begin();
   for (; iter != decl->Inits().end();) {
@@ -915,13 +915,13 @@ void Generator::VisitIfStmt(IfStmt* ifStmt) {
   }
 
   VisitStmt(ifStmt->then_);
-  
+
   if (ifStmt->else_) {
     Emit("jmp", endLabel);
     EmitLabel(elseLabel->Repr());
     VisitStmt(ifStmt->else_);
   }
-  
+
   EmitLabel(endLabel->Repr());
 }
 
@@ -1029,17 +1029,17 @@ void Generator::GetParamRegOffsets(int& gpOffset,
 
 
 void Generator::GenBuiltin(FuncCall* funcCall) {
-  typedef struct {
+  struct va_list_imp {
     unsigned int gp_offset;
     unsigned int fp_offset;
     void *overflow_arg_area;
     void *reg_save_area;
-  } va_list_imp;
+  };
 
   auto ap = UnaryOp::New(Token::DEREF, funcCall->args_[0]);
   auto addr = LValGenerator().GenExpr(ap);
   auto type = funcCall->FuncType();
-  
+
   auto offset = offsetof(va_list_imp, reg_save_area);
   addr.offset_ += offset;
   const auto& saveAreaAddr = addr.Repr();
@@ -1063,7 +1063,7 @@ void Generator::GenBuiltin(FuncCall* funcCall) {
   if (type == Parser::vaStartType_) {
     Emit("leaq", "-176(%rbp)", "%rax");
     Emit("movq", "%rax", saveAreaAddr);
-    
+
     int gpOffset, fpOffset, overflowOffset;
     GetParamRegOffsets(gpOffset, fpOffset,
                        overflowOffset, curFunc_->FuncType());
@@ -1135,7 +1135,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall) {
     retStructOffset = offset_;
     retStructOffset -= retType->Width();
     retStructOffset = Type::MakeAlign(retStructOffset, retType->Align());
-    // No!!! you can't suppose that the 
+    // No!!! you can't suppose that the
     // visition of arguments won't change the value of %rdi
     //Emit("leaq %d(#rbp), #rdi", offset);
     offset_ = retStructOffset;
@@ -1145,13 +1145,13 @@ void Generator::VisitFuncCall(FuncCall* funcCall) {
   for (auto arg: funcCall->args_) {
     types.push_back(arg->Type());
   }
-  
+
   const auto& locations = GetParamLocations(types, retType);
   // Align stack frame by 16 bytes
   const auto& locs = locations.locs_;
   auto byMemCnt = locs.size() - locations.regCnt_ - locations.xregCnt_;
 
-  offset_ = Type::MakeAlign(offset_ - byMemCnt * 8, 16) + byMemCnt * 8;  
+  offset_ = Type::MakeAlign(offset_ - byMemCnt * 8, 16) + byMemCnt * 8;
   for (int i = locs.size() - 1; i >=0; --i) {
     if (locs[i][1] == 'm') {
       Visit(funcCall->args_[i]);
@@ -1189,7 +1189,7 @@ void Generator::VisitFuncCall(FuncCall* funcCall) {
   }
 
   // Reset stack frame
-  offset_ = base;    
+  offset_ = base;
 }
 
 
@@ -1374,7 +1374,7 @@ void Generator::EmitLoc(Expr* expr) {
   }
   Emit(".loc", std::to_string(fileno) + " " +
                std::to_string(loc->line_) + " 0");
-  
+
   std::string line;
   for (const char* p = loc->lineBegin_; *p && *p != '\n'; ++p)
     line.push_back(*p);

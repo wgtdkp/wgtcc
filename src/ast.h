@@ -63,7 +63,7 @@ protected:
   MemPool* pool_ {nullptr};
 };
 
-typedef ASTNode ExtDecl;
+using ExtDecl = ASTNode;
 
 
 /*
@@ -113,7 +113,7 @@ private:
     static int tag = 0;
     return ++tag;
   }
-  
+
   int tag_; // 使用整型的tag值，而不直接用字符串
 };
 
@@ -175,7 +175,7 @@ private:
 };
 
 
-typedef std::list<Stmt*> StmtList;
+using StmtList = std::list<Stmt*>;
 
 class CompoundStmt : public Stmt {
   template<typename T> friend class Evaluator;
@@ -209,7 +209,7 @@ struct Initializer {
         offset_(offset),
         bitFieldBegin_(bitFieldBegin),
         bitFieldWidth_(bitFieldWidth),
-        expr_(expr) {}       
+        expr_(expr) {}
 
   bool operator<(const Initializer& rhs) const;
 
@@ -224,7 +224,7 @@ struct Initializer {
 };
 
 
-typedef std::set<Initializer> InitList;
+using InitList = std::set<Initializer>;
 
 class Declaration: public Stmt {
   template<typename T> friend class Evaluator;
@@ -313,7 +313,7 @@ public:
   static BinaryOp* New(const Token* tok, int op, Expr* lhs, Expr* rhs);
   virtual ~BinaryOp() {}
   virtual void Accept(Visitor* v);
-  
+
   // Member ref operator is a lvalue
   virtual bool IsLVal() {
     switch (op_) {
@@ -336,7 +336,7 @@ public:
   void LogicalOpTypeChecking();
   void AssignOpTypeChecking();
   void CommaOpTypeChecking();
-  
+
 protected:
   BinaryOp(const Token* tok, int op, Expr* lhs, Expr* rhs)
       : Expr(tok, nullptr), op_(op) {
@@ -430,8 +430,8 @@ class FuncCall : public Expr {
   friend class AddrEvaluator;
   friend class Generator;
 
-public:        
-  typedef std::vector<Expr*> ArgList;
+public:
+  using ArgList = std::vector<Expr*>;
 
 public:
   static FuncCall* New(Expr* designator, const ArgList& args);
@@ -509,7 +509,7 @@ public:
 
 protected:
   TempVar(QualType type): Expr(nullptr, type), tag_(GenTag()) {}
-  
+
 private:
   static int GenTag() {
     static int tag = 0;
@@ -540,7 +540,7 @@ public:
   virtual bool IsLVal() { return false; }
   virtual Object* ToObject() { return nullptr; }
   virtual Enumerator* ToEnumerator() { return nullptr; }
-  
+
    // An identifer can be:
    //   object, sturct/union/enum tag, typedef name, function, label.
    Identifier* ToTypeName() {
@@ -628,7 +628,7 @@ public:
   void SetOffset(int offset) { offset_ = offset; }
   Declaration* Decl() { return decl_; }
   void SetDecl(Declaration* decl) { decl_ = decl; }
-  
+
   unsigned char BitFieldBegin() const { return bitFieldBegin_; }
   unsigned char BitFieldEnd() const { return bitFieldBegin_ + bitFieldWidth_; }
   unsigned char BitFieldWidth() const { return bitFieldWidth_; }
@@ -667,7 +667,7 @@ protected:
         bitFieldBegin_(bitFieldBegin),
         bitFieldWidth_(bitFieldWidth),
         anonymous_(false) {}
-  
+
 private:
   int storage_;
   int offset_;
@@ -694,12 +694,12 @@ class FuncDef : public ExtDecl {
   friend class Generator;
 
 public:
-  typedef std::vector<Object*> ParamList;
-  
+  using ParamList = std::vector<Object*>;
+
 public:
   static FuncDef* New(Identifier* ident, LabelStmt* retLabel);
   virtual ~FuncDef() {}
-  virtual void Accept(Visitor* v);  
+  virtual void Accept(Visitor* v);
   ::FuncType* FuncType() { return ident_->Type()->ToFunc(); }
   CompoundStmt* Body() { return body_; }
   void SetBody(CompoundStmt* body) { body_ = body; }

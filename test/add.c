@@ -88,7 +88,7 @@ static void test_float() {
 
   expect(3.0f, s1 + s2);
   expect(1.0f, s2 - s1);
-  expect(-1.0f, s1 - s2);  
+  expect(-1.0f, s1 - s2);
 }
 
 static void test_double() {
@@ -98,7 +98,7 @@ static void test_double() {
 
   expect(3.0, s1 + s2);
   expect(1.0, s2 - s1);
-  expect(-1.0, s1 - s2);  
+  expect(-1.0, s1 - s2);
 }
 
 int main() {

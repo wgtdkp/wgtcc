@@ -13,11 +13,11 @@
 class Macro;
 struct CondDirective;
 
-typedef std::map<std::string, Macro> MacroMap; 
-typedef std::list<std::string> ParamList;
-typedef std::map<std::string, TokenSequence> ParamMap;
-typedef std::stack<CondDirective> PPCondStack;
-typedef std::list<std::string> PathList;
+using MacroMap = std::map<std::string, Macro>;
+using ParamList = std::list<std::string>;
+using ParamMap = std::map<std::string, TokenSequence>;
+using PPCondStack = std::stack<CondDirective>;
+using PathList = std::list<std::string>;
 
 
 class Macro {
@@ -30,7 +30,7 @@ public:
         TokenSequence& repSeq, bool preDef=false)
       : funcLike_(true), variadic_(variadic), preDef_(preDef),
         params_(params), repSeq_(repSeq) {}
-  
+
   ~Macro() {}
   bool FuncLike() { return funcLike_; }
   bool ObjLike() { return !FuncLike(); }
@@ -92,7 +92,7 @@ public:
   void ParsePragma(TokenSequence ls);
   void IncludeFile(TokenSequence& is, const std::string* filename);
   bool ParseIdentList(ParamList& params, TokenSequence& is);
-  
+
 
   Macro* FindMacro(const std::string& name) {
     auto res = macroMap_.find(name);
@@ -138,7 +138,7 @@ public:
     auto top = ppCondStack_.top();
     return top.enabled_ && top.cond_;
   }
-  
+
 private:
   void Init();
 
@@ -146,9 +146,9 @@ private:
   unsigned curLine_;
   unsigned lineLine_;
   bool curCond_;
-  
+
   MacroMap macroMap_;
-  PathList searchPaths_;  
+  PathList searchPaths_;
 };
 
 #endif

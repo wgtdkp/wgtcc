@@ -4,7 +4,7 @@
 #include "parser.h"
 
 
-static MemPoolImp<Token> TokenPool;
+static MemPoolImp<Token> tokenPool;
 
 const std::unordered_map<std::string, int> Token::kwTypeMap_ {
   { "auto", Token::AUTO },
@@ -54,7 +54,7 @@ const std::unordered_map<std::string, int> Token::kwTypeMap_ {
   { "_Thread_local", Token::THREAD },
 };
 
-const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
+const std::unordered_map<int, const char*> Token::tagLexemeMap_ {
   { '(', "(" },
   { ')', ")" },
   { '[', "[" },
@@ -159,12 +159,12 @@ const std::unordered_map<int, const char*> Token::TagLexemeMap_ {
 
 
 Token* Token::New(int tag) {
-  return new (TokenPool.Alloc()) Token(tag);
+  return new (tokenPool.Alloc()) Token(tag);
 }
 
 
 Token* Token::New(const Token& other) {
-  return new (TokenPool.Alloc()) Token(other);
+  return new (tokenPool.Alloc()) Token(other);
 }
 
 
@@ -172,7 +172,7 @@ Token* Token::New(int tag,
                   const SourceLocation& loc,
                   const std::string& str,
                   bool ws) {
-  return new (TokenPool.Alloc()) Token(tag, loc, str, ws);
+  return new (tokenPool.Alloc()) Token(tag, loc, str, ws);
 }
 
 
@@ -188,7 +188,7 @@ TokenSequence TokenSequence::GetLine() {
 /*
  * If this seq starts from the begin of a line.
  * Called only after we have saw '#' in the token sequence.
- */ 
+ */
 bool TokenSequence::IsBeginOfLine() const {
   if (begin_ == tokList_->begin())
     return true;
@@ -197,7 +197,7 @@ bool TokenSequence::IsBeginOfLine() const {
   --pre;
 
   // We do not insert a newline at the end of a source file.
-  // Thus if two token have different filename, the second is 
+  // Thus if two token have different filename, the second is
   // the begin of a line.
   return ((*pre)->tag_ == Token::NEW_LINE ||
           (*pre)->loc_.filename_ != (*begin_)->loc_.filename_);
