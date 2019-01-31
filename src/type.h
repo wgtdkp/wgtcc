@@ -259,7 +259,7 @@ protected:
 class PointerType : public DerivedType {
 public:
   static PointerType* New(QualType derived);
-  ~PointerType() {}
+  virtual ~PointerType() {}
   virtual PointerType* ToPointer() { return this; }
   virtual const PointerType* ToPointer() const { return this; }
   virtual bool Compatible(const Type& other) const;
@@ -323,7 +323,7 @@ public:
                        int funcSpec,
                        bool variadic,
                        const ParamList& params);
-  ~FuncType() {}
+  virtual ~FuncType() {}
   virtual FuncType* ToFunc() { return this; }
   virtual const FuncType* ToFunc() const { return this; }
   virtual bool Compatible(const Type& other) const;
@@ -359,7 +359,7 @@ public:
   static StructType* New(bool isStruct,
                          bool hasTag,
                          Scope* parent);
-  ~StructType() {}
+  virtual ~StructType() {}
   virtual StructType* ToStruct() { return this; }
   virtual const StructType* ToStruct() const { return this; }
   virtual bool Compatible(const Type& other) const;
