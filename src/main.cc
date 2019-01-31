@@ -80,7 +80,7 @@ static std::string GetName(const std::string& path) {
 
 static int RunWgtcc() {
   if (GetExtension(filename_in) != ".c")
-    return 0;
+    return -3;
 
   Preprocessor cpp(&filename_in);
   for (auto& def: defines)
