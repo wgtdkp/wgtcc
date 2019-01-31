@@ -8,7 +8,7 @@ aux_source_directory(src SRC_FILES)
 add_executable(${WGTCC_EXECUTALBE_NAME} ${SRC_FILES})
 
 # install path : ${CMAKE_INSTALL_PREFIX}
-# default value is `/usr/loca`
+# default value is `/usr/local`
 install(
     TARGETS ${WGTCC_EXECUTALBE_NAME}
     RUNTIME DESTINATION bin
