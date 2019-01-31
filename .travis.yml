@@ -12,7 +12,8 @@ script:
   - g++ --version
   - sudo apt-get install cmake
   - cmake . -Bbuild
-  - cd build & make & make test
+  - cd build 
+  - make & make test
 addons:
   apt:
     sources:
