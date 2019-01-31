@@ -92,7 +92,7 @@ public:
   void VisitExpr(Expr* expr) { expr->Accept(this); }
   void VisitStmt(Stmt* stmt) { stmt->Accept(this); }
 
-  //Expression
+  // Expression
   virtual void VisitBinaryOp(BinaryOp* binaryOp);
   virtual void VisitUnaryOp(UnaryOp* unaryOp);
   virtual void VisitConditionalOp(ConditionalOp* condOp);
@@ -103,7 +103,7 @@ public:
   virtual void VisitConstant(Constant* cons);
   virtual void VisitTempVar(TempVar* tempVar);
 
-  //statement
+  // Statement
   virtual void VisitDeclaration(Declaration* init);
   virtual void VisitEmptyStmt(EmptyStmt* emptyStmt);
   virtual void VisitIfStmt(IfStmt* ifStmt);
@@ -127,7 +127,6 @@ protected:
   // Binary
   void GenCommaOp(BinaryOp* comma);
   void GenMemberRefOp(BinaryOp* binaryOp);
-  //void GenSubScriptingOp(BinaryOp* binaryOp);
   void GenAndOp(BinaryOp* binaryOp);
   void GenOrOp(BinaryOp* binaryOp);
   void GenAddOp(BinaryOp* binaryOp);
@@ -164,7 +163,6 @@ protected:
   void GetParamRegOffsets(int& gpOffset, int& fpOffset,
       int& overflow, FuncType* funcType);
 
-  //void Emit(const char* format, ...);
   void Emit(const std::string& str) {
     fprintf(outFile_, "\t%s\n", str.c_str());
   }
@@ -252,7 +250,7 @@ class LValGenerator: public Generator {
 public:
   LValGenerator() {}
 
-  //Expression
+  // Expression
   virtual void VisitBinaryOp(BinaryOp* binaryOp);
   virtual void VisitUnaryOp(UnaryOp* unaryOp);
   virtual void VisitObject(Object* obj);

@@ -125,7 +125,7 @@ std::string Generator::ConsLabel(Constant* cons) {
   } else { // Literal
     const ROData& rodata = ROData(cons->SValRepr());
     rodatas_.push_back(rodata);
-    return rodata.label_; // return address
+    return rodata.label_; // Return address
   }
 }
 
@@ -665,7 +665,7 @@ void Generator::VisitUnaryOp(UnaryOp* unary) {
     VisitExpr(unary->operand_);
     GenCompZero(unary->operand_->Type());
     Emit("sete", "%al");
-    Emit("movzbl", "%al", "%eax"); // type of !operator is int
+    Emit("movzbl", "%al", "%eax"); // Type of !operator is int
     return;
   case Token::CAST:
     Visit(unary->operand_);
@@ -996,7 +996,6 @@ void Generator::AllocObjects(Scope* scope, const FuncDef::ParamList& params) {
 
 void Generator::VisitCompoundStmt(CompoundStmt* compStmt) {
   if (compStmt->scope_) {
-    //compStmt
     AllocObjects(compStmt->scope_);
   }
 
@@ -1257,9 +1256,10 @@ void Generator::VisitFuncDef(FuncDef* funcDef) {
     for (size_t i = 0; i < locs.size(); ++i) {
       if (locs[i][1] == 'm') {
         params[i]->SetOffset(byMemOffset);
-        //byMemOffset += 8;
+
         // TODO(wgtdkp): width of incomplete array ?
         // What about the var args, var args offset always increment by 8
+        //byMemOffset += 8;
         byMemOffset += params[i]->Type()->Width();
         byMemOffset = Type::MakeAlign(byMemOffset, 8);
       } else if (locs[i][1] == 'x') {
@@ -1324,7 +1324,7 @@ void Generator::VisitTranslationUnit(TranslationUnit* unit) {
   for (auto extDecl: unit->ExtDecls()) {
     Visit(extDecl);
 
-    // float and string literal
+    // Float and string literal
     if (rodatas_.size())
       Emit(".section", ".rodata");
     for (auto rodata: rodatas_) {
@@ -1536,7 +1536,6 @@ StaticInitializer Generator::GetStaticInit(InitList::iterator& iter,
         width -= (8 - init->bitFieldBegin_);
         if (offset - init->offset_ > 1)
           width -= (offset - init->offset_ - 1) * 8;
-        //width = std::max(8 - begin, width);
         valBegin = init->bitFieldWidth_ - width;
       }
       valWidth = std::min(static_cast<unsigned char>(8 - begin), width);
@@ -1557,6 +1556,6 @@ StaticInitializer Generator::GetStaticInit(InitList::iterator& iter,
     return {init->offset_, width, addr.offset_, addr.label_};
   } else { // Struct initializer
     Error(init->expr_, "initializer element is not constant");
-    return StaticInitializer(); //Make compiler happy
+    return StaticInitializer(); // Make compiler happy
   }
 }

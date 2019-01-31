@@ -289,10 +289,10 @@ bool ArrayType::Compatible(const Type& other) const {
 
 bool FuncType::Compatible(const Type& other) const {
   auto otherFunc = other.ToFunc();
-  //the other type is not an function type
+  // The other type is not an function type
   if (!otherFunc) return false;
-  //TODO: do we need to check the type of return value when deciding
-  //compatibility of two function types ??
+  // TODO(wgtdkp): do we need to check the type of return value when deciding
+  // compatibility of two function types ??
   if (!derived_->Compatible(*otherFunc->derived_))
     return false;
   if (params_.size() != otherFunc->params_.size())
@@ -370,8 +370,7 @@ std::string StructType::Str() const {
 }
 
 
-// Remove useless unnamed bitfield members
-// They are just for parsing
+// Remove useless unnamed bitfield members as they are just for parsing
 void StructType::Finalize() {
   for (auto iter = members_.begin(); iter != members_.end();) {
     if ((*iter)->BitFieldWidth() && (*iter)->Anonymous()) {

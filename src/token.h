@@ -66,7 +66,7 @@ public:
     SHARP = '#',
     NEW_LINE = '\n',
 
-    DSHARP = 128, //'##'
+    DSHARP = 128, // '##'
     PTR,
     INC,
     DEC,
@@ -111,8 +111,8 @@ public:
     DOUBLE,
     SIGNED,
     UNSIGNED,
-    BOOL,		//_Bool
-    COMPLEX,	//_Complex
+    BOOL,		// _Bool
+    COMPLEX,	// _Complex
     STRUCT,
     UNION,
     ENUM,
@@ -121,17 +121,17 @@ public:
     ATTRIBUTE, // GNU extension __attribute__
     // FUNCTION SPECIFIER BEGIN
     INLINE,
-    NORETURN,	//_Noreturn
+    NORETURN,	// _Noreturn
     // FUNCTION SPECIFIER END
 
-    ALIGNAS, //_Alignas
+    ALIGNAS, // _Alignas
     // For syntactic convenience
-    STATIC_ASSERT, //_Static_assert
+    STATIC_ASSERT, // _Static_assert
     // STORAGE CLASS SPECIFIER BEGIN
     TYPEDEF,
     EXTERN,
     STATIC,
-    THREAD,	//_Thread_local
+    THREAD,	// _Thread_local
     AUTO,
     REGISTER,
     // STORAGE CLASS SPECIFIER END
@@ -148,19 +148,19 @@ public:
     SIZEOF,
     SWITCH,
     WHILE,
-    ALIGNOF, //_Alignof
-    GENERIC, //_Generic
-    IMAGINARY, //_Imaginary
+    ALIGNOF, // _Alignof
+    GENERIC, // _Generic
+    IMAGINARY, // _Imaginary
     // KEYWORD END
 
     IDENTIFIER,
-    CONSTANT, // 198
+    CONSTANT,
     I_CONSTANT,
     C_CONSTANT,
     F_CONSTANT,
     LITERAL,
 
-    //For the parser, a identifier is a typedef name or user defined type
+    // For the parser, a identifier is a typedef name or user defined type
     POSTFIX_INC,
     POSTFIX_DEC,
     PREFIX_INC,
@@ -210,11 +210,11 @@ public:
   }
   virtual ~Token() {}
 
-  //Token::NOTOK represents not a kw.
+  // Token::NOTOK represents not a kw.
   static int KeyWordTag(const std::string& key) {
     auto kwIter = kwTypeMap_.find(key);
     if (kwTypeMap_.end() == kwIter)
-      return Token::NOTOK;	//not a key word type
+      return Token::NOTOK;	// Not a key word type
     return kwIter->second;
   }
   static bool IsKeyWord(const std::string& name);
@@ -237,7 +237,7 @@ public:
 
   int tag_;
 
-  // ws_ standards for weither there is preceding white space
+  // 'ws_' standards for weither there is preceding white space
   // This is to simplify the '#' operator(stringize) in macro expansion
   bool ws_ { false };
   SourceLocation loc_;

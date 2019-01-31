@@ -80,7 +80,6 @@ void Preprocessor::Expand(TokenSequence& os, TokenSequence is, bool inCond) {
         ParamMap paramMap;
         auto rpar = ParseActualParam(is, macro, paramMap);
         auto repSeq = macro->RepSeq(tok->loc_.filename_, tok->loc_.line_);
-        //const_cast<Token*>(repSeq.Peek())->ws_ = tok->ws_;
         TokenList tokList;
         TokenSequence repSeqSubsted(&tokList);
 

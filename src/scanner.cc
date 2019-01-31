@@ -417,7 +417,6 @@ void Scanner::PutBack() {
   int c = *--p_;
   if (c == '\n' && p_[-1] == '\\') {
     --loc_.line_;
-    // lineBegin
     --p_;
     return PutBack();
   } else if (c == '\n') {
@@ -443,8 +442,9 @@ Token* Scanner::MakeToken(int tag) {
 }
 
 
-// New line is special
-// It is generated before reading the character '\n'
+/*
+ * New line is special, it is generated before reading the character '\n'
+ */
 Token* Scanner::MakeNewLine() {
   tok_.tag_ = '\n';
   tok_.str_ = std::string(p_, p_ + 1);

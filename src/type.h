@@ -51,7 +51,7 @@ enum {
   T_DOUBLE = 0x4000,
   T_BOOL = 0x8000,
   T_COMPLEX = 0x10000,
-  //T_ATOMIC = 0x20000,
+  // T_ATOMIC = 0x20000,
   T_STRUCT_UNION = 0x40000,
   T_ENUM = 0x80000,
   T_TYPEDEF_NAME = 0x100000,
@@ -302,14 +302,12 @@ protected:
       : DerivedType(pool, derived),
         lenExpr_(lenExpr), len_(0) {
     SetComplete(false);
-    //SetQual(QualType::CONST);
   }
 
   ArrayType(MemPool* pool, int len, QualType derived)
       : DerivedType(pool, derived),
         lenExpr_(nullptr), len_(len) {
     SetComplete(len_ >= 0);
-    //SetQual(QualType::CONST);
   }
   const Expr* lenExpr_;
   int len_;
@@ -382,7 +380,7 @@ public:
   void Finalize();
 
 protected:
-  // default is incomplete
+  // Default is incomplete
   StructType(MemPool* pool, bool isStruct, bool hasTag, Scope* parent);
 
   StructType(const StructType& other);

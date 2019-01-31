@@ -422,7 +422,7 @@ Object* Parser::ParseCompoundLiteral(QualType type) {
 }
 
 
-//return the constructed postfix expression
+// Return the constructed postfix expression
 Expr* Parser::ParsePostfixExprTail(Expr* lhs) {
   while (true) {
     auto tok = ts_.Next();
@@ -558,7 +558,7 @@ UnaryOp* Parser::ParseUnaryOp(const Token* tok, int op) {
 
 QualType Parser::ParseTypeName() {
   auto type = ParseSpecQual();
-  if (ts_.Test('*') || ts_.Test('(') || ts_.Test('[')) //abstract-declarator FIRST set
+  if (ts_.Test('*') || ts_.Test('(') || ts_.Test('[')) // abstract-declarator FIRST set
     return ParseAbstractDeclarator(type);
   return type;
 }
@@ -912,7 +912,7 @@ QualType Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) 
   for (; ;) {
     tok = ts_.Next();
     switch (tok->tag_) {
-    //function specifier
+    // Function specifier
     case Token::INLINE:
       if (!funcSpec)
         Error(tok, ERR_FUNC_SPEC);
@@ -925,7 +925,7 @@ QualType Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) 
       *funcSpec |= F_NORETURN;
       break;
 
-    //alignment specifier
+    // Alignment specifier
     case Token::ALIGNAS: {
       if (!alignSpec)
         Error(tok, "unexpected alignment specifier");
@@ -934,8 +934,8 @@ QualType Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) 
         *alignSpec = align;
       break;
     }
-    //storage specifier
-    //TODO: typedef needs more constraints
+    // Storage specifier
+    // TODO(wgtdkp): typedef needs more constraints
     case Token::TYPEDEF:
       EnsureAndSetStorageSpec(tok, storageSpec, S_TYPEDEF);
       break;
@@ -968,12 +968,12 @@ QualType Parser::ParseDeclSpec(int* storageSpec, int* funcSpec, int* alignSpec) 
       EnsureAndSetStorageSpec(tok, storageSpec, S_REGISTER);
       break;
 
-    //type qualifier
+    // Type qualifier
     case Token::CONST:    qualSpec |= Qualifier::CONST;    break;
     case Token::RESTRICT: qualSpec |= Qualifier::RESTRICT; break;
     case Token::VOLATILE: qualSpec |= Qualifier::VOLATILE; break;
 
-    //type specifier
+    // Type specifier
     case Token::SIGNED:
       if (typeSpec & ~COMP_SIGNED)
         Error(tok, ERR_DECL_SPEC);
@@ -1135,13 +1135,13 @@ Type* Parser::ParseEnumSpec() {
   if (ts_.Try(Token::IDENTIFIER)) {
     tagName = tok->str_;
     if (ts_.Try('{')) {
-      //定义enum类型
+      // 定义enum类型
       auto tagIdent = curScope_->FindTagInCurScope(tok);
       if (!tagIdent) {
         auto type = ArithmType::New(T_INT);
         auto ident = Identifier::New(tok, type, L_NONE);
         curScope_->InsertTag(ident);
-        return ParseEnumerator(type);   //处理反大括号: '}'
+        return ParseEnumerator(type);   // 处理反大括号: '}'
       }
 
       if (!tagIdent->Type()->IsInteger()) // struct/union tag
@@ -1161,7 +1161,7 @@ Type* Parser::ParseEnumSpec() {
 
   ts_.Expect('{');
   auto type = ArithmType::New(T_INT);
-  return ParseEnumerator(type);   //处理反大括号: '}'
+  return ParseEnumerator(type);   // 处理反大括号: '}'
 }
 
 
@@ -1209,15 +1209,15 @@ Type* Parser::ParseStructUnionSpec(bool isStruct) {
   if (ts_.Try(Token::IDENTIFIER)) {
     tagName = tok->str_;
     if (ts_.Try('{')) {
-      //看见大括号，表明现在将定义该struct/union类型
-      //我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
+      // 看见大括号，表明现在将定义该struct/union类型
+      // 我们不用关心上层scope是否定义了此tag，如果定义了，那么就直接覆盖定义
       auto tagIdent = curScope_->FindTagInCurScope(tok);
       if (!tagIdent) {
-        //现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
+        // 现在是在当前scope第一次看到name，所以现在是第一次定义，连前向声明都没有；
         auto type = StructType::New(isStruct, tagName.size(), curScope_);
         auto ident = Identifier::New(tok, type, L_NONE);
         curScope_->InsertTag(ident);
-        return ParseStructUnionDecl(type); //处理反大括号: '}'
+        return ParseStructUnionDecl(type); // 处理反大括号: '}'
       }
 
 
@@ -1227,10 +1227,10 @@ Type* Parser::ParseStructUnionSpec(bool isStruct) {
       // 2.如果声明在定义的内层scope,(也就是先定义，再在内部scope声明)，这时，不完整的声明会覆盖掉完整的定义；
       //   因为编译器总是向上查找符号，不管找到的是完整的还是不完整的，都要；
       if (!tagIdent->Type()->Complete()) {
-        //找到了此tag的前向声明，并更新其符号表，最后设置为complete type
+        // 找到了此tag的前向声明，并更新其符号表，最后设置为complete type
         return ParseStructUnionDecl(tagIdent->Type()->ToStruct());
       } else {
-        //在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
+        // 在当前作用域找到了完整的定义，并且现在正在定义同名的类型，所以报错；
         Error(tok, "redefinition of struct tag '%s'", tagName.c_str());
       }
     } else {
@@ -1242,26 +1242,26 @@ Type* Parser::ParseStructUnionSpec(bool isStruct) {
       //   2.如果我们在符号表里面压根找不到name,那么现在是name的第一次声明，创建不完整的类型并插入符号表；
       auto tagIdent = curScope_->FindTag(tok);
 
-      //如果tag已经定义或声明，那么直接返回此定义或者声明
+      // 如果tag已经定义或声明，那么直接返回此定义或者声明
       if (tagIdent) {
         return tagIdent->Type();
       }
-      //如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
+      // 如果tag尚没有定义或者声明，那么创建此tag的声明(因为没有见到‘{’，所以不会是定义)
       auto type = StructType::New(isStruct, true, curScope_);
 
-      //因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
+      // 因为有tag，所以不是匿名的struct/union， 向当前的scope插入此tag
       auto ident = Identifier::New(tok, type, L_NONE);
       curScope_->InsertTag(ident);
       return type;
     }
   }
-  //没见到identifier，那就必须有struct/union的定义，这叫做匿名struct/union;
+  // 没见到identifier，那就必须有struct/union的定义，这叫做匿名struct/union;
   ts_.Expect('{');
 
-  //现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
-  //所以现在是第一次开始定义一个完整的struct/union类型
+  // 现在，如果是有tag，那它没有前向声明；如果是没有tag，那更加没有前向声明；
+  // 所以现在是第一次开始定义一个完整的struct/union类型
   auto type = StructType::New(isStruct, tagName.size(), curScope_);
-  return ParseStructUnionDecl(type); //处理反大括号: '}'
+  return ParseStructUnionDecl(type); // 处理反大括号: '}'
 }
 
 
@@ -1273,7 +1273,7 @@ StructType* Parser::ParseStructUnionDecl(StructType* type) {
   type->AddMember(member);                    \
 }
 
-  //既然是定义，那输入肯定是不完整类型，不然就是重定义了
+  // 既然是定义，那输入肯定是不完整类型，不然就是重定义了
   assert(type && !type->Complete());
 
   auto scopeBackup = curScope_;
@@ -1339,7 +1339,7 @@ finalize:
   // GNU extension: type attributes
   TryAttributeSpecList();
 
-  //struct/union定义结束，设置其为完整类型
+  // struct/union定义结束，设置其为完整类型
   type->Finalize();
   type->SetComplete(true);
   // TODO(wgtdkp): we need to export tags defined inside struct
@@ -1463,7 +1463,7 @@ TokenTypePair Parser::ParseDeclarator(QualType base) {
   auto pointerType = ParsePointer(base);
 
   if (ts_.Try('(')) {
-    //现在的 pointerType 并不是正确的 base type
+    // 现在的 pointerType 并不是正确的 base type
     auto tokenTypePair = ParseDeclarator(pointerType);
     auto tok = tokenTypePair.first;
     auto type = tokenTypePair.second;
@@ -1472,7 +1472,7 @@ TokenTypePair Parser::ParseDeclarator(QualType base) {
 
     auto newBase = ParseArrayFuncDeclarator(tok, pointerType);
 
-    //修正 base type
+    // 修正 base type
     auto retType = ModifyBase(type, pointerType, newBase);
     return TokenTypePair(tokenTypePair.first, retType);
   } else if (ts_.Peek()->IsIdentifier()) {
@@ -1548,7 +1548,6 @@ Identifier* Parser::ProcessDeclarator(const Token* tok,
     linkage = L_EXTERNAL;
   }
 
-  //curScope_->Print();
   ident = curScope_->FindInCurScope(tok);
   if (ident) { // There is prio declaration in the same scope
     if (!type->Compatible(*ident->Type())) {
@@ -1644,7 +1643,7 @@ QualType Parser::ParseArrayFuncDeclarator(const Token* ident, QualType base) {
           ident->str_.c_str());
     }
     return ArrayType::New(len, base);
-  } else if (ts_.Try('(')) {	//function declaration
+  } else if (ts_.Try('(')) {	// Function declaration
     if (base->ToFunc()) {
       Error(ts_.Peek(),
           "the return value of function cannot be function");
@@ -1669,7 +1668,7 @@ QualType Parser::ParseArrayFuncDeclarator(const Token* ident, QualType base) {
 
 
 /*
- * return: -1, length not specified
+ * Return: -1, length not specified
  */
 int Parser::ParseArrayLength() {
   auto hasStatic = ts_.Try(Token::STATIC);
@@ -1677,7 +1676,7 @@ int Parser::ParseArrayLength() {
   if (0 != qual)
     hasStatic = ts_.Try(Token::STATIC);
 
-  //不支持变长数组
+  // 不支持变长数组
   if (!hasStatic && ts_.Test(']'))
     return -1;
 
@@ -1725,7 +1724,7 @@ Object* Parser::ParseParamDecl() {
     return Object::NewAnony(ts_.Peek(), type, 0, Linkage::L_NONE);
   }
 
-  // align set to non positive, stands for not specified
+  // Align set to non positive, stands for not specified
   auto ident = ProcessDeclarator(tok, type, storageSpec, funcSpec, -1);
   if (!ident->ToObject())
     Error(ident, "expect object in param list");
@@ -1858,7 +1857,6 @@ void Parser::ParseInitializer(Declaration* decl,
     }
     return;
   } else if (structType) {
-    //if (!designated && !ts_.Test('{')) {
     if (!ts_.Test('.') && !ts_.Test('{')) {
       auto mark = ts_.Mark();
       expr = ParseAssignExpr();
@@ -2019,7 +2017,7 @@ StructType::Iterator Parser::ParseStructDesignator(StructType* type,
       auto anonyType = (*iter)->Type()->ToStruct();
       assert(anonyType);
       if (anonyType->GetMember(name)) {
-        return iter; //ParseStructDesignator(anonyType);
+        return iter; // ParseStructDesignator(anonyType);
       }
     } else if ((*iter)->Name() == name) {
       return iter;
@@ -2259,11 +2257,11 @@ CompoundStmt* Parser::ParseForStmt() {
     stmts.push_back(ifStmt);
   }
 
-  //我们需要给break和continue语句提供相应的标号，不然不知往哪里跳
+  // 我们需要给break和continue语句提供相应的标号，不然不知往哪里跳
   Stmt* bodyStmt;
   ENTER_LOOP_BODY(endLabel, stepLabel);
   bodyStmt = ParseStmt();
-  //因为for的嵌套结构，在这里需要回复break和continue的目标标号
+  // 因为for的嵌套结构，在这里需要回复break和continue的目标标号
   EXIT_LOOP_BODY()
 
   stmts.push_back(bodyStmt);
@@ -2440,7 +2438,7 @@ CompoundStmt* Parser::ParseSwitchStmt() {
 CompoundStmt* Parser::ParseCaseStmt() {
   auto tok = ts_.Peek();
 
-  // case ranges: Non-standard GNU extension
+  // Case ranges: Non-standard GNU extension
   long begin, end;
   begin = Evaluator<long>().Eval(ParseAssignExpr());
   if (ts_.Try(Token::ELLIPSIS))
