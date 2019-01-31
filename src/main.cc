@@ -209,21 +209,22 @@ int main(int argc, char* argv[]) {
 #else
   for (const auto& filename: filenames_in) {
     filename_in = filename;
-    bool has_error = false;
     pid_t pid = fork();
     if (pid < 0) {
       Error("fork error");
     } else if (pid == 0) {
       // Do work in child process
       return RunWgtcc();
-    } else {
-      int stat;
+    }
+  }
+
+  int stat; 
+  bool has_error = false;
+  for (int i = 0; i < filenames_in.size(); i++) {
       wait(&stat);
       has_error = has_error || (WIFEXITED(stat) && WEXITSTATUS(stat) != 0);
-    }
-
-    if (has_error)
-      return 0;
+      if (has_error)
+        return 0;
   }
 #endif
 
