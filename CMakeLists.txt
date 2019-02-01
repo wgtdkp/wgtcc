@@ -14,7 +14,7 @@ install(
     RUNTIME DESTINATION bin
 )
 install(
-    DIRECTORY include 
+    DIRECTORY include
     DESTINATION wgtcc
 )
 
@@ -33,14 +33,14 @@ set(WGTCC_HEADER_FILES ${CMAKE_SOURCE_DIR}/include)
 set(TEST_BINARY_DIR ${CMAKE_BINARY_DIR}/tests)
 file(MAKE_DIRECTORY ${TEST_BINARY_DIR})
 add_test(
-    NAME check_wgtcc_executable 
+    NAME check_wgtcc_executable
     COMMAND ${WGTCC_EXECUTABLE} -h
 )
 foreach(TEST_FILE ${TEST_FILES})
     get_filename_component(TEST_FILE_NAME ${TEST_FILE} NAME_WE)
     add_test(
         NAME "COMPILE--${TEST_FILE_NAME}"
-        COMMAND ${WGTCC_EXECUTABLE} -I ${WGTCC_HEADER_FILES} ${CMAKE_SOURCE_DIR}/${TEST_FILE} 
+        COMMAND ${WGTCC_EXECUTABLE} -I ${WGTCC_HEADER_FILES} ${CMAKE_SOURCE_DIR}/${TEST_FILE}
                 -o ${TEST_BINARY_DIR}/${TEST_FILE_NAME}
     )
     add_test(
