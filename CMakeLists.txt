@@ -1,5 +1,5 @@
 project(WGTCC)
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 2.8)
 set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_CXX_FLAGS "-g -std=c++11 -Wall -Wfatal-errors -DDEBUG")
 
