@@ -1,4 +1,4 @@
-# wgtcc [![Build Status](https://travis-ci.org/wgtdkp/wgtcc.svg?branch=master)](https://travis-ci.org/wgtdkp/wgtcc)
+# wgtcc [![Build Status](https://travis-ci.org/wgtdkp/wgtcc.svg?branch=master)](https://travis-ci.org/wgtdkp/wgtcc)  <a href="https://996.icu"><img src="https://img.shields.io/badge/link-996.icu-red.svg"></a>
 A small _C11_ compiler in _C++11_.
 
 ## Environment
