@@ -6,17 +6,12 @@ A small _C11_ compiler in _C++11_.
   2. linux 4.4.0
   3. clang 3.8.0 (or any version supports C++11)
 
-## Build
-  ```bash
-  $ cmake . -Bbuild
-  $ cd build && make && make test
-  ```
-
 ## Install
   ```bash
-  $ make install
+  $ make all
+  $ make install # root required
+  $ make test
   ```
-
 Then you can play with the examples:
   ```bash
   $ wgtcc example/heart.c

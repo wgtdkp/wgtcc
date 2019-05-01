@@ -40,7 +40,7 @@ static void Usage() {
        "  -S        Compile only; do not assemble or link\n"
        "  -o        specify output file\n");
 
-  exit(0);
+  exit(-2);
 }
 
 
