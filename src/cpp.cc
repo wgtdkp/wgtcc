@@ -437,7 +437,7 @@ void Preprocessor::ParseLine(TokenSequence ls) {
   size_t end = 0;
   try {
     line = stoi(tok->str_, &end, 10);
-  } catch (const std::out_of_range oor) {
+  } catch (const std::out_of_range& oor) {
     Error(tok, "line number out of range");
   }
   if (line == 0 || end != tok->str_.size()) {
