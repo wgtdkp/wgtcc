@@ -812,11 +812,9 @@ void Preprocessor::AddMacro(const std::string& name,
 static std::string* Date() {
   time_t t = time(NULL);
   struct tm* tm = localtime(&t);
-  auto buf = new char[14];
-  strftime(buf, 14, "\"%a %M %Y\"", tm);
-  auto ret = new std::string(buf);
-  delete[] buf;
-  return ret;
+  char buf[14];
+  strftime(buf, sizeof buf, "\"%a %M %Y\"", tm);
+  return new std::string(buf);
 }
 
 
