@@ -7,9 +7,9 @@ class Token;
 class Expr;
 
 
-void Error(const char* format, ...);
-void Error(const SourceLocation& loc, const char* format, ...);
-void Error(const Token* tok, const char* format, ...);
-void Error(const Expr* expr, const char* format, ...);
+[[noreturn]] void Error(const char* format, ...);
+[[noreturn]] void Error(const SourceLocation& loc, const char* format, ...);
+[[noreturn]] void Error(const Token* tok, const char* format, ...);
+[[noreturn]] void Error(const Expr* expr, const char* format, ...);
 
 #endif
