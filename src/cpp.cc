@@ -762,7 +762,6 @@ std::string* Preprocessor::SearchFile(const std::string& name,
     searchPaths_.push_front(GetDir(curPath));
   }
 
-  PathList::iterator begin, end;
   auto iter = searchPaths_.begin();
   for (; iter != searchPaths_.end(); ++iter) {
     auto dd = open(iter->c_str(), O_RDONLY);
