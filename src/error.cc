@@ -37,6 +37,7 @@ void Error(const char* format, ...) {
 }
 
 
+[[noreturn]]
 static void VError(const SourceLocation& loc,
                    const char* format,
                    va_list args) {

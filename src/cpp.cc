@@ -729,7 +729,6 @@ bool Preprocessor::ParseIdentList(ParamList& params, TokenSequence& is) {
   }
 
   Error(tok, "unexpected end of line");
-  return false; // Make compiler happy
 }
 
 
