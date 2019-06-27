@@ -248,7 +248,6 @@ int main(int argc, char* argv[]) {
     }
   }
   auto ret = RunGcc();
-  auto cmd = "rm -f " + filename_out;
-  if (system(cmd.c_str())) {}
+  remove(filename_out.c_str());
   return ret;
 }
