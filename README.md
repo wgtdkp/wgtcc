@@ -23,6 +23,13 @@ Then you can play with the examples:
   $ wgtcc example/chinese.c
   ```
 
+## Without Install
+
+    Try this:
+  ```bash
+  $ ./wgtcc -no-pie -I../include ../example/heart.c
+  ```
+
 ## Notice
 As wgtcc doesn't support PIC/PIE, if you are using gcc >= 6.2.0, specify **_-no-pie_** explicitly:
 ```bash
