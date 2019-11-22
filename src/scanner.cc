@@ -259,6 +259,8 @@ Encoding Scanner::ScanCharacter(int& val) {
   auto enc = Test('\'') ? Encoding::NONE: ScanEncoding(Next());
   Next();
   val = 0;
+
+  bool hasChar = false;
   while (!Test('\'')) {
     auto c = Next();
     if (c == '\\')
@@ -267,7 +269,12 @@ Encoding Scanner::ScanCharacter(int& val) {
       val = (val << 8) + c;
     else
       val = c;
+
+    hasChar = true;
   }
+
+  if (!hasChar)
+    Error(loc_, "invalid character ''");
   return enc;
 }
 
