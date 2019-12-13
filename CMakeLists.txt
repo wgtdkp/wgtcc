@@ -6,7 +6,6 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(test)
 
 install(TARGETS wgtcc
     DESTINATION bin)

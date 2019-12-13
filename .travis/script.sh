@@ -4,4 +4,5 @@
 export PATH="/usr/bin:$PATH"
 
 cmake . -Bbuild
-cd build && make && make test
+cd build && make
+cd ../test/ && ./run_tests.sh
