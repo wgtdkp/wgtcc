@@ -5,6 +5,8 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+option(WGTCC_COVERAGE "Enable code coverage" OFF)
+
 add_subdirectory(src)
 
 install(TARGETS wgtcc

@@ -2,5 +2,6 @@ sudo: required
 dist: bionic
 
 before_install: travis_retry .travis/before_install.sh
+after_success: .travis/after_success.sh
 
 script: .travis/script.sh
