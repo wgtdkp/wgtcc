@@ -92,7 +92,8 @@ static int RunWgtcc() {
   if (specified_out_name) {
     fp = fopen(filename_out.c_str(), "w");
   }
-  TokenSequence ts;
+  TokenList tokenList;
+  TokenSequence ts(&tokenList);
   cpp.Process(ts);
   if (only_preprocess) {
     ts.Print(fp);

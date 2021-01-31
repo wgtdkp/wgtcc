@@ -116,7 +116,8 @@ void Preprocessor::Subst(TokenSequence& os,
                          bool leadingWS,
                          const HideSet& hs,
                          ParamMap& params) {
-  TokenSequence ap;
+  TokenList tokenList;
+  TokenSequence ap(&tokenList);
 
   while (!is.Empty()) {
     if (is.Test('#') && FindActualParam(ap, params, is.Peek2()->str_)) {
@@ -171,7 +172,10 @@ void Preprocessor::Glue(TokenSequence& os, TokenSequence is) {
   auto rhs = is.Peek();
 
   auto str = new std::string(lhs->str_ + rhs->str_);
-  TokenSequence ts;
+
+  TokenList tokenList;
+  TokenSequence ts(&tokenList);
+
   Scanner scanner(str, lhs->loc_);
   scanner.Tokenize(ts);
 
@@ -248,7 +252,8 @@ void Preprocessor::Finalize(TokenSequence os) {
 
 // TODO(wgtdkp): add predefined macros
 void Preprocessor::Process(TokenSequence& os) {
-  TokenSequence is;
+  TokenList tokenList;
+  TokenSequence is(&tokenList);
 
   // Add source file
   IncludeFile(is, &filename_in);
@@ -324,8 +329,8 @@ const Token* Preprocessor::EvalDefOp(TokenSequence& is) {
 }
 
 
-void Preprocessor::ReplaceIdent(TokenSequence& is) {
-  TokenSequence os;
+void Preprocessor::ReplaceIdent(TokenSequence& is, TokenSequence& os) {
+
   while (!is.Empty()) {
     auto tok = is.Next();
     if (tok->tag_ == Token::IDENTIFIER) {
@@ -429,7 +434,9 @@ void Preprocessor::ParseError(TokenSequence ls) {
 
 void Preprocessor::ParseLine(TokenSequence ls) {
   auto directive = ls.Next(); // Skip directive 'line'
-  TokenSequence ts;
+  TokenList tokenList;
+  TokenSequence ts(&tokenList);
+
   Expand(ts, ls);
   auto tok = ts.Expect(Token::I_CONSTANT);
 
@@ -469,11 +476,15 @@ void Preprocessor::ParseIf(TokenSequence ls) {
     Error(tok, "expect expression in 'if' directive");
   }
 
-  TokenSequence ts;
+  TokenList tokenList1;
+  TokenSequence ts(&tokenList1);
   Expand(ts, ls, true);
-  ReplaceIdent(ts);
 
-  Parser parser(ts);
+  TokenList tokenList2;
+  TokenSequence os(&tokenList2);
+  ReplaceIdent(ts, os);
+
+  Parser parser(os);
   auto expr = parser.ParseExpr();
   if (!parser.ts().Empty()) {
     Error(parser.ts().Peek(), "unexpected extra expression");
@@ -547,11 +558,16 @@ void Preprocessor::ParseElif(TokenSequence ls) {
     Error(ls.Peek(), "expect expression in 'elif' directive");
   }
 
-  TokenSequence ts;
-  Expand(ts, ls, true);
-  ReplaceIdent(ts);
+  TokenList tokenList1;
+  TokenSequence ts(&tokenList1);
 
-  Parser parser(ts);
+  TokenList tokenList2;
+  TokenSequence os(&tokenList2);
+
+  Expand(ts, ls, true);
+  ReplaceIdent(ts, os);
+
+  Parser parser(os);
   auto expr = parser.ParseExpr();
   if (!parser.ts().Empty()) {
     Error(parser.ts().Peek(), "unexpected extra expression");
@@ -623,7 +639,10 @@ void Preprocessor::ParseEndif(TokenSequence ls) {
 void Preprocessor::ParseInclude(TokenSequence& is, TokenSequence ls) {
   bool next = ls.Next()->str_ == "include_next"; // Skip 'include'
   if (!ls.Test(Token::LITERAL) && !ls.Test('<')) {
-    TokenSequence ts;
+
+    TokenList tokenList;
+    TokenSequence ts(&tokenList);
+
     Expand(ts, ls, true);
     ls = ts;
   }
@@ -798,7 +817,9 @@ std::string* Preprocessor::SearchFile(const std::string& name,
 void Preprocessor::AddMacro(const std::string& name,
                             std::string* text,
                             bool preDef) {
-  TokenSequence ts;
+  TokenList tokenList;
+  TokenSequence ts(&tokenList);
+
   Scanner scanner(text);
   scanner.Tokenize(ts);
   Macro macro(ts, preDef);
@@ -826,6 +847,7 @@ void Preprocessor::Init() {
 
   // The __FILE__ and __LINE__ macro is empty
   // They are handled seperately
+
   AddMacro("__FILE__", Macro(TokenSequence(), true));
   AddMacro("__LINE__", Macro(TokenSequence(), true));
 
